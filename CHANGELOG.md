@@ -6,6 +6,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-15
+
+One change since 1.15.0 (minor 15 → 16).
+
+### Fixed
+1. **Profile photos for reply-only members** (e.g. `@haz`): the photo was only read from a
+   top-level `author` on feed items, so replies that wrap the post (`{"reply": {...}}`,
+   `{"post": {...}}`) or nest the author elsewhere left the profile with no photo, falling back to
+   the site's `banner.jpg`. Feed items are now searched at any depth for the member's own author
+   object (matched by `username`), plus flat `author_*` fields; site share images are skipped
+   wherever they appear, so a real `media.acp.us` photo later in the data still wins. With
+   `--debug`, a profile with no photo logs the first feed item so its shape can be checked.
+
 ## [1.15.0] - 2026-10-15
 
 Three changes since 1.12.0 (minor 12 → 15).

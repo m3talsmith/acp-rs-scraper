@@ -271,7 +271,12 @@ pub fn enrich_profile(p: &mut Profile, v: &Value) {
     if let Some(u) = un.filter(|u| !u.is_empty()) { p.nick = u.trim_start_matches('@').to_string(); }
     if p.bio.is_none() { p.bio = g(&["/bio", "/about", "/profile/bio", "/description"]); }
     if p.avatar_url.is_none() {
-        p.avatar_url = g(&["/profile_photo_url", "/avatar_url", "/avatar", "/author/profile_photo_url", "/user/profile_photo_url", "/image"]);
+        // Skip the site's generic share images so a real photo later wins.
+        p.avatar_url = ["/profile_photo_url", "/avatar_url", "/avatar", "/photo_url", "/profile_image_url",
+            "/author_profile_photo_url", "/author/profile_photo_url", "/user/profile_photo_url",
+            "/profile/profile_photo_url", "/image"]
+            .iter().filter_map(|k| v.pointer(k).and_then(Value::as_str))
+            .find(|s| !s.is_empty() && !is_site_image(s)).map(str::to_string);
     }
     if p.banner_url.is_none() {
         p.banner_url = g(&["/banner_url", "/banner", "/cover_url", "/cover"]);
@@ -290,16 +295,34 @@ pub fn enrich_profile(p: &mut Profile, v: &Value) {
     if p.posts_count.is_none() { p.posts_count = n(&["/posts_count", "/post_count", "/stats/posts"]); }
 }
 
-/// Harvest any author-like objects from a feed items list into `p`.
+/// Harvest the nick's author objects from feed items into `p`. Items may wrap
+/// the post (`{"reply": {...}}`, `{"post": {...}}`) or nest the author anywhere
+/// (e.g. replies on the "Posts and replies" feed), so search each item for any
+/// object whose `username` is the nick, plus flat `author_*` fields.
 pub fn enrich_from_feed(p: &mut Profile, items: &[Value], nick: &str) {
     for it in items {
-        let author = it.get("author").unwrap_or(it);
-        let un = author.get("username").and_then(Value::as_str).unwrap_or("");
-        if un.eq_ignore_ascii_case(nick) || un.is_empty() {
-            enrich_profile(p, author);
+        let mut found = Vec::new();
+        author_objects(it, nick, &mut found);
+        for a in found { enrich_profile(p, a); }
+        if it.get("author_username").and_then(Value::as_str).is_some_and(|u| u.eq_ignore_ascii_case(nick)) {
             enrich_profile(p, it);
-            if p.user_id.is_some() && p.display_name.is_some() { break; }
         }
+        if p.avatar_url.is_some() && p.display_name.is_some() && p.user_id.is_some() { break; }
+    }
+}
+
+/// Collect every JSON object (at any depth) whose `username` equals `nick`.
+pub fn author_objects<'a>(v: &'a Value, nick: &str, out: &mut Vec<&'a Value>) {
+    match v {
+        Value::Object(m) => {
+            if m.get("username").and_then(Value::as_str)
+                .is_some_and(|u| u.trim_start_matches('@').eq_ignore_ascii_case(nick)) {
+                out.push(v);
+            }
+            for x in m.values() { author_objects(x, nick, out); }
+        }
+        Value::Array(a) => for x in a { author_objects(x, nick, out); },
+        _ => {}
     }
 }
 

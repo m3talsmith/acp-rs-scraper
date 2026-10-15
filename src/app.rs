@@ -179,8 +179,14 @@ pub async fn run() -> Result<()> {
                 // "Posts and replies" when the Posts feed had no author data.
                 for url in [profile_url(nick), profile_replies_url(nick)] {
                     if profile.avatar_url.is_some() && profile.display_name.is_some() { break; }
-                    if let Ok(feed) = fetch_feed(&http, &jar, &url, Some(10), None, true).await {
-                        enrich_from_feed(&mut profile, &feed.items, nick);
+                    match fetch_feed(&http, &jar, &url, Some(10), None, true).await {
+                        Ok(feed) => {
+                            enrich_from_feed(&mut profile, &feed.items, nick);
+                            if profile.avatar_url.is_none() && let Some(it) = feed.items.first() {
+                                dbg_log("profile", &format!("@{nick} no photo in {url}; first item: {it}"));
+                            }
+                        }
+                        Err(e) => dbg_log("profile", &format!("@{nick} {url}: {e:#}")),
                     }
                 }
                 enrich_from_html(&mut profile, &html);

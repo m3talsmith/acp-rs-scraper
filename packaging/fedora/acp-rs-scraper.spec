@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        1.15.0
+Version:        1.16.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -45,6 +45,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Thu Oct 15 2026 m3talsmith <m3talsmith@gmail.com> - 1.16.0-1
+- Find profile photos for reply-only members; never use the site banner
+
 * Thu Oct 15 2026 m3talsmith <m3talsmith@gmail.com> - 1.15.0-1
 - Post bodies in every site shape, profile images, compressed-export cleanup
 
