@@ -39,8 +39,14 @@ patterns=(
   '(password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{8,}["'"'"']'
 )
 added=$(git diff --cached -U0 --diff-filter=ACMR -- . ':(exclude).githooks/pre-commit' | grep -E '^\+[^+]' || true)
-for p in "${patterns[@]}"; do
-  if hits=$(printf '%s\n' "$added" | grep -Ein -e "$p"); then
+# Token formats (AKIA..., AIza..., ghp_..., etc.) are case-sensitive by spec, so match
+# them exactly; only the password/secret assignment pattern (the last one) ignores case.
+last=$(( ${#patterns[@]} - 1 ))
+for i in "${!patterns[@]}"; do
+  p=${patterns[$i]}
+  flags=-En
+  [ "$i" -eq "$last" ] && flags=-Ein
+  if hits=$(printf '%s\n' "$added" | grep $flags -e "$p"); then
     red "Possible credential matching: $p"
     printf '%s\n' "$hits" | cut -c1-120 >&2
     fail=1

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["db_known_ids","db_reply_counts","list_nicks_db","load_profiles_mentions","open_db","print_nicks_table","save","save_attachments","save_mentions","save_profile","search_db"],"struct":["NickInfo"]};

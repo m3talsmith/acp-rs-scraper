@@ -1,0 +1,251 @@
+//! The command-line program: dispatches to offline modes (list, search,
+//! export, import, maintenance) or logs in and scrapes.
+
+use crate::prelude::*;
+
+/// `--remove-nick`: preview (rolled-back transaction), confirm, then commit.
+pub fn run_remove_nick(args: &Args, nicks: &[String]) -> Result<()> {
+    let db = home()?.join(DB_REL_PATH);
+    let att = home()?.join(ATTACH_REL_PATH);
+    let preview = remove_nicks(&db, &att, nicks, args.keep_replies, false)?;
+    let who = nicks.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
+    eprintln!("{}", preview.summary(&format!("remove {who} would delete")));
+    if args.keep_replies { eprintln!("--keep-replies: other people's replies in their threads are kept"); }
+    if args.dry_run {
+        for f in &preview.files { eprintln!("  file: {}", f.display()); }
+        eprintln!("dry run: nothing changed");
+        return Ok(());
+    }
+    if preview.is_empty() {
+        eprintln!("nothing to remove");
+        return Ok(());
+    }
+    if !confirm("Proceed?", false, args.yes)? {
+        eprintln!("aborted: nothing changed");
+        return Ok(());
+    }
+    let done = remove_nicks(&db, &att, nicks, args.keep_replies, true)?;
+    eprintln!("{}", done.summary("removed"));
+    Ok(())
+}
+
+/// `--clear-all`: delete the database and attachments dir; prefs and exports stay.
+pub fn run_clear_all(args: &Args) -> Result<()> {
+    let db = home()?.join(DB_REL_PATH);
+    let att = home()?.join(ATTACH_REL_PATH);
+    let targets = clear_all_targets(&db, &att);
+    let (n, bytes) = dir_usage(&att);
+    if targets.is_empty() {
+        eprintln!("nothing to clear ({} and {} do not exist)", db.display(), att.display());
+        return Ok(());
+    }
+    eprintln!("clear-all will delete:");
+    for t in &targets {
+        if t.is_dir() { eprintln!("  {}/ ({n} files, {bytes} bytes)", t.display()); } else { eprintln!("  {}", t.display()); }
+    }
+    eprintln!("kept: {} and {}", home()?.join(PREFS_REL_PATH).display(), home()?.join(EXPORTS_REL_PATH).display());
+    if args.dry_run {
+        eprintln!("dry run: nothing changed");
+        return Ok(());
+    }
+    if !confirm("Delete all scraped data?", true, args.yes)? {
+        eprintln!("aborted: nothing changed");
+        return Ok(());
+    }
+    let gone = clear_all(&db, &att)?;
+    eprintln!("cleared: {} paths removed", gone.len());
+    Ok(())
+}
+
+/// Run the program for the current process arguments.
+pub async fn run() -> Result<()> {
+    use clap::Parser;
+    let args = Args::parse();
+    if let Some(what) = args.generate {
+        return generate(what, &mut io::stdout().lock());
+    }
+    let level = if args.quiet {
+        LogLevel::Quiet
+    } else if args.debug || std::env::var("ACP_DEBUG").is_ok_and(|v| v == "1") {
+        LogLevel::Debug
+    } else if args.verbose {
+        LogLevel::Verbose
+    } else {
+        LogLevel::Normal
+    };
+    set_log_level(level);
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let clean = |n: String| n.replace(['/', '\\'], "_");
+    if let Some(list) = &args.remove_nick {
+        return run_remove_nick(&args, &list.0);
+    }
+    if args.clear_all {
+        return run_clear_all(&args);
+    }
+    if args.list_nicks {
+        let infos = list_nicks_db(&home()?.join(DB_REL_PATH))?;
+        let argv: Vec<String> = std::env::args().collect();
+        let want_json = argv.windows(2).any(|w| w[0] == "--format" && w[1] == "json")
+            || argv.iter().any(|a| a == "--format=json");
+        if want_json {
+            let v: Vec<_> = infos.iter().map(|i| json!({
+                "nick": i.nick, "display_name": i.display_name, "post_count": i.post_count,
+                "latest": i.latest, "profile_scraped": i.profile_scraped, "scraped_at": i.scraped_at,
+            })).collect();
+            println!("{}", serde_json::to_string_pretty(&v)?);
+        } else {
+            print_nicks_table(&infos);
+        }
+        return Ok(());
+    }
+    if let Some(file) = &args.import {
+        let (posts, atts, profiles, hits) = import(file, args.compression(), &home()?.join(ATTACH_REL_PATH), &home()?.join(EXPORTS_REL_PATH))?;
+        let n = save(&posts)?;
+        save_attachments(&home()?.join(DB_REL_PATH), &atts)?;
+        for p in &profiles { save_profile(&home()?.join(DB_REL_PATH), p)?; }
+        save_mentions(&home()?.join(DB_REL_PATH), &hits)?;
+        info!("import: {} posts read, {n} new; {} attachments; {} profiles; {} mentions",
+            posts.len(), atts.len(), profiles.len(), hits.len());
+        return Ok(());
+    }
+    // Offline DB export: --export FILE, or --search (to stdout/--output).
+    if args.export.is_some() || args.search.is_some() {
+        let mut a = args.clone();
+        if let Some(f) = &args.export { a.output = Some(f.clone()); }
+        let q = args.search.as_deref();
+        let nicks = args.nick_list()?;
+        let (posts, atts, n) = search_db(&home()?.join(DB_REL_PATH), q, &nicks)?;
+        info!("db export: {n} matches, {} posts total, {} attachments", posts.len(), atts.len());
+        let name = clean(args.name.clone().unwrap_or_else(|| match q {
+            Some(q) => format!("search-{}-{stamp}", slug(q)),
+            None if !nicks.is_empty() => nicks_name(&nicks, &stamp),
+            None => format!("db-{stamp}"),
+        }));
+        let who = nicks.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
+        let label = match (q, who.is_empty()) {
+            (Some(q), true) => format!("search: {q}"),
+            (Some(q), false) => format!("search: {q} ({who})"),
+            (None, false) => who,
+            (None, true) => "all posts".into(),
+        };
+        let (profiles, hits) = load_profiles_mentions(&home()?.join(DB_REL_PATH), &nicks)?;
+        return export(&a, &name, &label, &posts, &atts, &profiles, &hits, &home()?.join(EXPORTS_REL_PATH));
+    }
+    let jar = Arc::new(Jar::default());
+    let http = client(jar.clone())?;
+    login(&http, &jar).await?;
+    let mut nicks = args.nick_list()?;
+    if nicks.is_empty() {
+        nicks = parse_nicks(&prompt("Nick(s) to scrape (comma-separated): ")?).map_err(|e| anyhow!(e))?.0;
+    }
+    let db = home()?.join(DB_REL_PATH);
+    let att_dir = home()?.join(ATTACH_REL_PATH);
+    let known = db_known_ids(&db)?;
+    let reply_counts = db_reply_counts(&db)?;
+    let known_infos = list_nicks_db(&db)?;
+    info!("== mode: {} (site crawl); profiles always use Latest", args.feed_mode());
+    info!("== targets");
+    for nick in &nicks {
+        if let Some(i) = known_infos.iter().find(|i| i.nick.eq_ignore_ascii_case(nick)) {
+            let dn = i.display_name.as_deref().unwrap_or("-");
+            info!("  @{nick}: known ({dn}, {} posts{})",
+                i.post_count,
+                if i.profile_scraped { ", profile scraped" } else { "" });
+        } else {
+            info!("  @{nick}: new");
+        }
+    }
+    let mut posts: Vec<Post> = Vec::new();
+    let mut profiles: Vec<Profile> = Vec::new();
+    let mut mention_hits: Vec<MentionHit> = Vec::new();
+    let mut targets: Vec<MentionTarget> = Vec::new();
+    let mut seen = HashSet::new();
+    let mut summary = Vec::new();
+    let mut ok_nicks = Vec::new();
+    for nick in &nicks {
+        info!("== scraping @{nick}");
+        match scrape(&http, &jar, nick, &known, &reply_counts, args.full).await {
+            Ok((ps, html, st)) => {
+                info!("  @{nick}: feed {} items ({} from posts and replies), ~{} new, {} skipped known, threads fetched {} / skipped {}",
+                    st.feed_items, st.replies_tab_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);
+                let mut profile = Profile {
+                    nick: nick.clone(),
+                    scraped_at: chrono::Local::now().to_rfc3339(),
+                    ..Default::default()
+                };
+                enrich_from_html(&mut profile, &html);
+                if let Ok(feed) = fetch_feed(&http, &jar, &profile_url(nick), Some(10), None, true).await {
+                    enrich_from_feed(&mut profile, &feed.items, nick);
+                }
+                dbg_log("profile", &format!("@{nick} show-info unused event={PROFILE_SHOW_INFO_EVENT} fields={profile:?}"));
+                if !args.no_attachments {
+                    if let Some(u) = &profile.avatar_url
+                        && let Ok((path, _)) = fetch_one_pub(&http, u, &att_dir).await {
+                            profile.avatar_path = Some(path.to_string_lossy().into());
+                        }
+                    if let Some(u) = &profile.banner_url
+                        && let Ok((path, _)) = fetch_one_pub(&http, u, &att_dir).await {
+                            profile.banner_path = Some(path.to_string_lossy().into());
+                        }
+                }
+                profile.raw_json = serde_json::to_string(&profile).unwrap_or_default();
+                save_profile(&db, &profile)?;
+                targets.push(MentionTarget {
+                    nick: nick.clone(),
+                    user_id: profile.user_id.clone(),
+                    display_name: profile.display_name.clone(),
+                });
+                profiles.push(profile);
+
+                let roots = ps.iter().filter(|p| p.parent_post_id.is_empty()).count();
+                let total = ps.len();
+                let new: Vec<Post> = ps.into_iter().filter(|p| seen.insert(p.post_id.clone())).collect();
+                let inserted = save(&new)?;
+                summary.push(format!(
+                    "@{nick}: {total} items ({roots} root posts, {} replies), {inserted} new DB rows",
+                    total - roots
+                ));
+                posts.extend(new);
+                ok_nicks.push(nick.clone());
+            }
+            Err(e) => {
+                err!("warning: @{nick} failed: {e:#}");
+                summary.push(format!("@{nick}: FAILED ({e})"));
+            }
+        }
+    }
+    if args.want_mentions() && !ok_nicks.is_empty() {
+        info!("== mentions crawl (Latest, limit {})", args.crawl_limit);
+        match crawl_mentions(&http, &jar, &targets, args.crawl_limit, &mut seen, &known, args.full, args.feed_mode()).await {
+            Ok((extra, hits)) => {
+                let inserted = save(&extra)?;
+                save_mentions(&db, &hits)?;
+                info!("mentions: {} posts, {} hits, {inserted} new DB rows", extra.len(), hits.len());
+                posts.extend(extra);
+                mention_hits.extend(hits);
+            }
+            Err(e) => err!("warning: mentions crawl failed: {e:#}"),
+        }
+    }
+    info!("== summary");
+    for l in &summary { info!("  {l}"); }
+    if ok_nicks.is_empty() { bail!("all nicks failed"); }
+    let atts = if args.no_attachments { Vec::new() } else {
+        let for_dl: Vec<Post> = if args.full {
+            posts.clone()
+        } else {
+            // Only download media for posts we didn't already have.
+            posts.iter().filter(|p| !known.contains(&p.post_id)).cloned().collect()
+        };
+        info!("attachments: downloading for {} posts ({} skipped as known)",
+            for_dl.len(), posts.len().saturating_sub(for_dl.len()));
+        let a = download_all(&http, &for_dl, &att_dir).await;
+        save_attachments(&db, &a)?;
+        a
+    };
+    let name = clean(args.name.clone().unwrap_or_else(|| nicks_name(&ok_nicks, &stamp)));
+    let label = ok_nicks.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
+    export(&args, &name, &label, &posts, &atts, &profiles, &mention_hits, &home()?.join(EXPORTS_REL_PATH))?;
+
+    Ok(())
+}

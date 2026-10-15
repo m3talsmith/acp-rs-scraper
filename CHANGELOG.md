@@ -4,12 +4,43 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.12.0] - 2026-10-15
+
+Eight changes since 1.4.0 (minor 4 → 12): a cleanup release, plus the real "Posts and replies" mechanism and one bug fix.
+
+### Changed
+1. **Domain modules**: the crate is now a library (`src/lib.rs`) with a thin binary, split into
+   `cli`, `config`, `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions}`,
+   `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `app`.
+2. **Constants in one place**: `src/config.rs` (paths, site URLs, LiveView events, selectors, export
+   format) grouped by domain; SQL schemas in `src/storage/schema.rs`. The site origin is configurable
+   with `ACP_BASE_URL` (default `https://acp.us`).
+3. **Tests moved out of source files** into per-module `tests.rs` files.
+4. **Doc comments on every module, type, field and function** (`#![warn(missing_docs)]`; rustdoc clean).
+5. **"Posts and replies" uses the verified site mechanism**: the profile Filter dialog
+   (`configure-feed`, `replies=1`) → `/rs/@nick?replies=1`, loaded directly and paged with `page-next`,
+   falling back to submitting the form. Replaces the 1.4.0 runtime tab heuristic. Still merged by
+   `post_id`; `/rs/@nick/top?t=all` documented as the profile Top feed.
+
+### Added
+6. **Gherkin end-to-end suite** (`cucumber`): `tests/features/*.feature` + `tests/e2e.rs`, running the
+   real binary against a mock acp.us (HTTP + LiveView websocket, OTP sign-in) with a temporary HOME:
+   login, paging, threads/replies, attachments, incremental/`--full`, mentions, the replies filter and
+   its fallback, search, export/import round trip, `--remove-nick`, `--clear-all`. Never touches the real site.
+
+### Fixed
+- Pre-commit credential hook matches token formats (AWS `AKIA…`, Google `AIza…`, GitHub, Slack, …)
+  case-sensitively, so generated rustdoc search indexes no longer trip false positives; the
+  password/secret assignment check still ignores case.
+7. **First scrape on a fresh HOME**: saving the profile before any post created the data directory
+   failed with "unable to open database file"; every write now creates `~/.acp/ai/data` first
+   (found by the new end-to-end suite).
 
 ### Documentation
-- README opens with a Red Star banner, then an **Install** section (clone + `scripts/install.sh`)
-  followed by the full `--help` output, so new users can install and start scraping without
-  leaving the front page.
+8. USAGE: "Posts and replies" filter, code layout and tests, `ACP_BASE_URL`; API docs regenerated.
+   README opens with a Red Star banner, then an **Install** section (clone + `scripts/install.sh`)
+   followed by the full `--help` output, so new users can install and start scraping without
+   leaving the front page.
 
 ## [1.4.0] - 2026-10-15
 

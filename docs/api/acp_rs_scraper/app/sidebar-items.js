@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["run","run_clear_all","run_remove_nick"]};

@@ -82,9 +82,12 @@ Import:
 Output:
       --format <FORMAT>
           Export format
+
+          Possible values:
+          - json: JSON document (default)
+          - html: Self-contained HTML page
           
           [default: json]
-          [possible values: json, html]
 
       --output <OUTPUT>
           Output file (with --compress: the archive path). Default: stdout

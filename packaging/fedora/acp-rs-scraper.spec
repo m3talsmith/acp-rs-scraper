@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        1.4.0
+Version:        1.12.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -45,5 +45,8 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Thu Oct 15 2026 m3talsmith <m3talsmith@gmail.com> - 1.12.0-1
+- Cleanup release, Gherkin e2e suite, Posts and replies filter, fresh-HOME DB fix
+
 * Thu Oct 15 2026 m3talsmith <m3talsmith@gmail.com> - 1.4.0-1
 - First package: build from source, man page and shell completions

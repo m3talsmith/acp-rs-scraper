@@ -77,7 +77,7 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 | `--no-attachments` | Don't download media, avatars or banners. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
 
-**"Posts & replies":** every `--nick`/`--nicks` scrape walks both profile tabs. It reads the default **Posts** feed, then the **Posts & replies** tab, which holds the nick's replies in other people's threads, and pages each to the end. Items are merged by `post_id`, so nothing is stored twice; the database's unique `post_id` index enforces this too. Replies are stored with `parent_post_id` set to their thread's root post. Incremental runs stop on each tab once a page is entirely already-known posts; `--full` walks both tabs completely. The per-nick summary shows how many items came only from the replies tab.
+**"Posts and replies":** every `--nick`/`--nicks` scrape reads the profile twice. First it reads the default **Posts** feed (`/rs/@nick`). Then it reads the **Posts and replies** view (`/rs/@nick?replies=1`, the profile Filter dialog's second option), which adds the nick's replies in other people's threads. Both are paged to the end and merged by `post_id`, so nothing is stored twice; the database's unique `post_id` index enforces this too. Replies are stored with `parent_post_id` set to their thread's root post. Incremental runs stop each feed once a page is entirely already-known posts; `--full` walks both completely. If the `?replies=1` URL has no feed, the scraper falls back to submitting the Filter form (`configure-feed`, `replies=1`) on the profile's LiveView. The per-nick summary shows how many items came only from the replies view.
 
 ### Search / Export (offline)
 
@@ -317,7 +317,7 @@ A nick's own posts can also be recorded as mentions of that nick.
   - Profile fields beyond author info, data-props and `og:` tags.
   - Whether media hosts require the login cookies.
 - **Mentions are limited by the crawl:** there is no site-wide search in the site's JavaScript. Only `--crawl-limit` posts of the chosen feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed.
-- **"Posts & replies" tab:** the tab is only rendered for logged-in users and isn't in the public JavaScript. The scraper finds it at runtime from the profile HTML, by its "Posts & replies" label or replies-named attributes, and follows it as a link (`href`/`data-phx-link`) or pushes its `phx-click` event with its `phx-value-*` params. This is covered by mocked tests but not yet verified against the live site. Run `--debug` to see the tab that was found (`[profile] posts & replies tab: ...`); if none is found, the scrape continues with the Posts tab only.
+- **"Posts and replies":** this is the profile Filter dialog (`<dialog id="js-configureFeed">`, form `configure-feed`, radios `replies=0|1`). Checked on the live site: choosing it switches to `/rs/@nick?replies=1`, the URL the scraper loads. The fallback form submission is covered by the mocked end-to-end tests. Profiles also have a Top feed (`/rs/@nick/top?t=all`), which isn't scraped.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
 - **Logins:** each scrape run needs a fresh email code.
@@ -333,6 +333,27 @@ The hook blocks commits that contain:
 It also runs `gitleaks` if installed. Generated API docs under `docs/api/` are scanned like everything else and currently pass cleanly. Never commit your database or preferences. Bypass with `git commit --no-verify` only if you're sure.
 
 Licensed GPL-3.0-or-later (see `LICENSE`).
+
+### Code layout and tests
+
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+
+The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/features/*.feature` and the steps in `tests/e2e.rs`. It runs the real binary against a **mock acp.us** (`tests/support/mock.rs`: HTTP pages, the LiveView websocket, OTP sign-in, threads and media) with a temporary `HOME`. It covers:
+- login (right and wrong code);
+- profile paging, threads and replies, attachments;
+- incremental runs and `--full`;
+- mentions;
+- the "Posts and replies" URL and its form fallback;
+- search, export/import round trip, `--remove-nick` and `--clear-all`.
+
+It never contacts the real site.
+
+```bash
+cargo test                 # unit tests + the Gherkin suite
+cargo test --test e2e      # just the scenarios
+```
+
+The site origin comes from `ACP_BASE_URL` (default `https://acp.us`; websocket URLs follow the scheme). That is how the tests point the binary at the mock; you normally never set it.
 
 ## API docs
 
