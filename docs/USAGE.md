@@ -74,7 +74,7 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 | `--nicks <LIST>` | A comma-separated list, e.g. `@haz,@m3talsmith`. Spaces are trimmed, `@` is optional, and repeats are removed (ignoring case). |
 | `--no-mentions` | Skip the mentions crawl, which is on by default. |
 | `--crawl-limit <N>` | The most site-feed posts to scan when looking for mentions (default 500). |
-| `--no-attachments` | Don't download media, avatars or banners. |
+| `--no-attachments` | Don't download media, avatars or banners. Profile images are otherwise saved to `~/.acp/ai/data/attachments/profiles/<nick>.<ext>` and shown in HTML exports. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
 
 **"Posts and replies":** every `--nick`/`--nicks` scrape reads the profile twice. First it reads the default **Posts** feed (`/rs/@nick`). Then it reads the **Posts and replies** view (`/rs/@nick?replies=1`, the profile Filter dialog's second option), which adds the nick's replies in other people's threads. Both are paged to the end and merged by `post_id`, so nothing is stored twice; the database's unique `post_id` index enforces this too. Replies are stored with `parent_post_id` set to their thread's root post. Incremental runs stop each feed once a page is entirely already-known posts; `--full` walks both completely. If the `?replies=1` URL has no feed, the scraper falls back to submitting the Filter form (`configure-feed`, `replies=1`) on the profile's LiveView. The per-nick summary shows how many items came only from the replies view.
@@ -148,7 +148,7 @@ Whether the file is unpacked depends on the flags, not the file name. If the fil
 | `--compress` | Compress the export. Needs exactly one format flag. |
 | `--tar-gz` | Format: `.tar.gz`. Needs `--compress`. |
 
-An archive contains `<name>/<name>.<ext>` and `<name>/attachments/`. It's written to `--output`, or to `~/.acp/ai/data/exports/<name>.tar.gz` by default. `--tar-gz` is the only format for now.
+An archive contains `<name>/<name>.<ext>` and `<name>/attachments/`. It's written to `--output`, or to `~/.acp/ai/data/exports/<name>.tar.gz` by default. `--tar-gz` is the only format for now. Once the archive is written, the uncompressed `<name>/` folder is removed; if compression fails it is left in place.
 
 ### Debug
 

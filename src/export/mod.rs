@@ -76,6 +76,21 @@ pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attac
             if !dst.exists() { std::fs::copy(&a.local_path, &dst).with_context(|| format!("copy {}", a.local_path.display()))?; }
         }
     }
+    // Profile images go to attachments/profiles/ with export-relative paths.
+    let mut profiles: Vec<Profile> = profiles.to_vec();
+    for pr in &mut profiles {
+        for slot in [&mut pr.avatar_path, &mut pr.banner_path] {
+            let Some(src) = slot.clone().map(PathBuf::from) else { continue };
+            let Some(n) = src.file_name() else { continue };
+            let dst_dir = att_dir.join(PROFILE_IMAGES_DIR);
+            if src.exists() && std::fs::create_dir_all(&dst_dir).is_ok() && std::fs::copy(&src, dst_dir.join(n)).is_ok() {
+                *slot = Some(format!("attachments/{PROFILE_IMAGES_DIR}/{}", n.to_string_lossy()));
+            } else {
+                *slot = None;
+            }
+        }
+    }
+    let profiles = &profiles[..];
     let mut doc = build_json(nick, posts, atts, profiles, hits, &|a| {
         format!("attachments/{}", a.local_path.file_name().unwrap_or_default().to_string_lossy())
     });
@@ -92,7 +107,21 @@ pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attac
         t.append_dir_all(&stem, &dir)?;
         t.into_inner()?.finish()?;
         log_info(format_args!("bundle {}", tp.display()));
+        // The archive is complete: remove the uncompressed export folder.
+        // (Any error above returns early and leaves the folder in place.)
+        remove_export_dir(&dir, &tp)?;
     }
+    Ok(())
+}
+
+/// Delete the uncompressed export folder `dir` after `archive` was written.
+/// Refuses when the archive is missing/empty or would live inside `dir`.
+pub fn remove_export_dir(dir: &Path, archive: &Path) -> Result<()> {
+    let ok = std::fs::metadata(archive).map(|m| m.len() > 0).unwrap_or(false);
+    if !ok { bail!("archive {} missing; keeping {}", archive.display(), dir.display()); }
+    if archive.starts_with(dir) { return Ok(()); }
+    std::fs::remove_dir_all(dir).with_context(|| format!("remove {}", dir.display()))?;
+    verbose!("removed {}", dir.display());
     Ok(())
 }
 

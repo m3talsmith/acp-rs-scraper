@@ -173,16 +173,29 @@ pub async fn run() -> Result<()> {
                     scraped_at: chrono::Local::now().to_rfc3339(),
                     ..Default::default()
                 };
-                enrich_from_html(&mut profile, &html);
-                if let Ok(feed) = fetch_feed(&http, &jar, &profile_url(nick), Some(10), None, true).await {
-                    enrich_from_feed(&mut profile, &feed.items, nick);
+                // The feed's author object carries the real profile photo; read it
+                // before the page's og: tags, which fall back to the site banner.
+                // Reply-only nicks have an empty Posts feed, so also look at
+                // "Posts and replies" when the Posts feed had no author data.
+                for url in [profile_url(nick), profile_replies_url(nick)] {
+                    if profile.avatar_url.is_some() && profile.display_name.is_some() { break; }
+                    if let Ok(feed) = fetch_feed(&http, &jar, &url, Some(10), None, true).await {
+                        enrich_from_feed(&mut profile, &feed.items, nick);
+                    }
                 }
+                enrich_from_html(&mut profile, &html);
+                if profile.avatar_url.as_deref().is_some_and(is_site_image) { profile.avatar_url = None; }
                 dbg_log("profile", &format!("@{nick} show-info unused event={PROFILE_SHOW_INFO_EVENT} fields={profile:?}"));
                 if !args.no_attachments {
-                    if let Some(u) = &profile.avatar_url
-                        && let Ok((path, _)) = fetch_one_pub(&http, u, &att_dir).await {
-                            profile.avatar_path = Some(path.to_string_lossy().into());
+                    if let Some(u) = &profile.avatar_url {
+                        match fetch_avatar(&http, u, &att_dir, nick).await {
+                            Ok(path) => {
+                                info!("  @{nick}: profile image {}", path.display());
+                                profile.avatar_path = Some(path.to_string_lossy().into());
+                            }
+                            Err(e) => err!("warning: @{nick} profile image: {e:#}"),
                         }
+                    }
                     if let Some(u) = &profile.banner_url
                         && let Ok((path, _)) = fetch_one_pub(&http, u, &att_dir).await {
                             profile.banner_path = Some(path.to_string_lossy().into());

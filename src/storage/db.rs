@@ -2,7 +2,8 @@
 
 use crate::prelude::*;
 
-/// All stored `post_id`s (empty when there is no database yet).
+/// Stored `post_id`s that have a body (or attachments); blank rows are left
+/// out so the next scrape re-fetches and repairs them. Empty when there is no database yet.
 pub fn db_known_ids(db: &std::path::Path) -> Result<HashSet<String>> {
     let mut out = HashSet::new();
     if !db.exists() { return Ok(out); }
@@ -11,7 +12,15 @@ pub fn db_known_ids(db: &std::path::Path) -> Result<HashSet<String>> {
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'", [],
         |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
     if !ok { return Ok(out); }
-    let mut st = c.prepare("SELECT post_id FROM posts")?;
+    let has_atts: bool = c.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='attachments'", [],
+        |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
+    let sql = if has_atts {
+        "SELECT post_id FROM posts WHERE content <> '' OR title <> '' OR post_id IN (SELECT post_id FROM attachments)"
+    } else {
+        "SELECT post_id FROM posts WHERE content <> '' OR title <> ''"
+    };
+    let mut st = c.prepare(sql)?;
     for id in st.query_map([], |r| r.get::<_, String>(0))? { out.insert(id?); }
     Ok(out)
 }
@@ -109,7 +118,7 @@ pub fn print_nicks_table(infos: &[NickInfo]) {
     }
 }
 
-/// Insert posts into `~/.acp/ai/data/rs.database` (creating the table); existing `post_id`s are ignored. Returns rows inserted.
+/// Insert posts into `~/.acp/ai/data/rs.database` (creating the table); existing `post_id`s are kept, except blank rows, whose title/content are repaired. Returns rows inserted or repaired.
 pub fn save(posts: &[Post]) -> Result<usize> {
     let path = home()?.join(DB_REL_PATH);
     let mut db = open_db(&path)?;
@@ -120,8 +129,10 @@ pub fn save(posts: &[Post]) -> Result<usize> {
     let mut n = 0;
     {
         let mut st = tx.prepare(
-            "INSERT OR IGNORE INTO posts (post_id,parent_post_id,nick,title,content,posted_at)
-             VALUES (?1,?2,?3,?4,?5,?6)")?;
+            "INSERT INTO posts (post_id,parent_post_id,nick,title,content,posted_at)
+             VALUES (?1,?2,?3,?4,?5,?6)
+             ON CONFLICT(post_id) DO UPDATE SET title=excluded.title, content=excluded.content
+             WHERE posts.content = '' AND posts.title = '' AND (excluded.content <> '' OR excluded.title <> '')")?;
         for p in posts {
             n += st.execute(params![p.post_id, p.parent_post_id, p.nick, p.title, p.content, p.posted_at])?;
         }

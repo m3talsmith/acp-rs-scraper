@@ -185,3 +185,28 @@ pub async fn fetch_one_pub(http: &reqwest::Client, u: &str, dir: &Path) -> Resul
     std::fs::write(&path, &bytes)?;
     Ok((path, mime))
 }
+
+/// Download a nick's profile image to `{attachments}/profiles/{nick}.{ext}`
+/// (replacing any older copy) and return its path.
+pub async fn fetch_avatar(http: &reqwest::Client, u: &str, att_dir: &Path, nick: &str) -> Result<PathBuf> {
+    let dir = att_dir.join(PROFILE_IMAGES_DIR);
+    std::fs::create_dir_all(&dir)?;
+    let tmp = dir.join(format!(".{nick}.download"));
+    std::fs::create_dir_all(&tmp)?;
+    let res = fetch_one_pub(http, u, &tmp).await;
+    let out = match res {
+        Ok((p, _)) => {
+            let ext = p.extension().and_then(|x| x.to_str()).unwrap_or("bin").to_string();
+            for e in std::fs::read_dir(&dir)?.flatten() {
+                let n = e.file_name().to_string_lossy().to_string();
+                if n.rsplit_once('.').is_some_and(|(stem, _)| stem == nick) { let _ = std::fs::remove_file(e.path()); }
+            }
+            let dst = dir.join(format!("{nick}.{ext}"));
+            std::fs::rename(&p, &dst)?;
+            Ok(dst)
+        }
+        Err(e) => Err(e),
+    };
+    let _ = std::fs::remove_dir_all(&tmp);
+    out
+}

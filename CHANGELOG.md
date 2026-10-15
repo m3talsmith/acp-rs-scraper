@@ -6,7 +6,29 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-15
+
+Three changes since 1.12.0 (minor 12 → 15).
+
+### Fixed
+1. **Blank posts**: replies (and some roots) were stored with empty `title`/`content`. Post bodies
+   were only read as a ProseMirror doc in `body` (object or JSON string); a `body` that was HTML or
+   plain text, or missing from the feed item, was silently dropped. Bodies are now read from
+   `body` in any shape (ProseMirror, HTML, plain text, `{html|text|markdown}`), then `body_html`,
+   `body_text`, `body_text_summary`, `text`, `content`, and wrapped `post`/`reply` objects. A post
+   that still has no text and no media is read from its thread page. Blank rows already in the
+   database are no longer treated as "known", so the next scrape re-fetches them and fills in
+   their title/content in place (no duplicates, nothing deleted).
+2. **Profile images**: the profile's photo is downloaded to
+   `~/.acp/ai/data/attachments/profiles/{nick}.{ext}`, recorded as `avatar_path`, copied into
+   exports as `attachments/profiles/…`, and shown in the HTML export's profile header. Author data
+   is also read from the "Posts and replies" feed, so reply-only nicks get theirs. The site's
+   generic `og:image` banner and `og:title` (e.g. "Trending") are no longer mistaken for a
+   profile photo or display name.
+
 ### Changed
+3. **Compressed exports clean up after themselves**: after the `.tar.gz` is written, the
+   uncompressed `<name>/` folder beside it is deleted. If compression fails, the folder is kept.
 - Project URLs (Cargo `repository`/`homepage`, Arch `url`, Fedora `URL`, Debian `Homepage`/`Source`,
   and the clone commands in README, INSTALL and USAGE) now point at the public GitHub mirror,
   https://github.com/m3talsmith/acp-rs-scraper, so anyone can clone and package it.

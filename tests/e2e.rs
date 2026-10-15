@@ -161,6 +161,33 @@ async fn prefs_kept(w: &mut E2e) { assert!(w.home.join(".acp/preferences.toml").
 #[then(expr = "the file {string} exists")]
 async fn file_exists(w: &mut E2e, f: String) { assert!(w.home.join(f.trim_start_matches("$HOME/")).exists()); }
 
+#[then(expr = "the file {string} does not exist")]
+async fn file_missing(w: &mut E2e, f: String) { assert!(!w.home.join(f.trim_start_matches("$HOME/")).exists()); }
+
+#[then(expr = "the file {string} contains {string}")]
+async fn file_contains(w: &mut E2e, f: String, s: String) {
+    let t = std::fs::read_to_string(w.home.join(f.trim_start_matches("$HOME/"))).unwrap();
+    assert!(t.contains(&s), "{f} lacks {s}");
+}
+
+#[then(expr = "post {string} has content {string}")]
+async fn content(w: &mut E2e, id: String, c: String) {
+    let got: String = Connection::open(w.db()).unwrap()
+        .query_row("SELECT content FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
+    assert_eq!(got.trim(), c);
+}
+
+#[given(expr = "post {string} was stored blank")]
+async fn blank(w: &mut E2e, id: String) {
+    Connection::open(w.db()).unwrap().execute("UPDATE posts SET content='', title='' WHERE post_id=?1", [&id]).unwrap();
+}
+
+#[then(expr = "the file {string} shows the profile image {string}")]
+async fn shows_avatar(w: &mut E2e, f: String, src: String) {
+    let t = std::fs::read_to_string(w.home.join(f.trim_start_matches("$HOME/"))).unwrap();
+    assert!(t.contains(&format!("<img class=\"avatar\" src=\"{src}\"")), "{f} has no avatar {src}");
+}
+
 #[tokio::main]
 async fn main() {
     E2e::cucumber().max_concurrent_scenarios(4).fail_on_skipped().run_and_exit("tests/features").await;

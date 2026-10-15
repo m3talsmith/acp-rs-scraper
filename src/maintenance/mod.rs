@@ -144,6 +144,8 @@ pub fn remove_nicks(db: &Path, attach_dir: &Path, nicks: &[String], keep_replies
                 log_error(format_args!("warning: could not delete {}: {e}", f.display()));
             }
         }
+        // Drop the profile-images folder once it is empty.
+        let _ = std::fs::remove_dir(attach_dir.join(PROFILE_IMAGES_DIR));
     } else {
         tx.rollback()?;
     }

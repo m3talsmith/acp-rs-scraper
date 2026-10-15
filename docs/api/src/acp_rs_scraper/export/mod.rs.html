@@ -76,34 +76,63 @@
 <a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">if </span>!dst.exists() { std::fs::copy(<span class="kw-2">&amp;</span>a.local_path, <span class="kw-2">&amp;</span>dst).with_context(|| <span class="macro">format!</span>(<span class="string">"copy {}"</span>, a.local_path.display()))<span class="question-mark">?</span>; }
 <a href=#77 id=77 data-nosnippet>77</a>        }
 <a href=#78 id=78 data-nosnippet>78</a>    }
-<a href=#79 id=79 data-nosnippet>79</a>    <span class="kw">let </span><span class="kw-2">mut </span>doc = build_json(nick, posts, atts, profiles, hits, <span class="kw-2">&amp;</span>|a| {
-<a href=#80 id=80 data-nosnippet>80</a>        <span class="macro">format!</span>(<span class="string">"attachments/{}"</span>, a.local_path.file_name().unwrap_or_default().to_string_lossy())
-<a href=#81 id=81 data-nosnippet>81</a>    });
-<a href=#82 id=82 data-nosnippet>82</a>    doc[<span class="string">"title"</span>] = <span class="macro">json!</span>(name);
-<a href=#83 id=83 data-nosnippet>83</a>    std::fs::write(<span class="kw-2">&amp;</span>file, render(args.format, <span class="kw-2">&amp;</span>doc)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
-<a href=#84 id=84 data-nosnippet>84</a>    log_info(<span class="macro">format_args!</span>(<span class="string">"wrote {}"</span>, file.display()));
-<a href=#85 id=85 data-nosnippet>85</a>
-<a href=#86 id=86 data-nosnippet>86</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>((tp, stem)) = tar_path {
-<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = tp.parent().filter(|p| !p.as_os_str().is_empty()) { std::fs::create_dir_all(parent)<span class="question-mark">?</span>; }
-<a href=#88 id=88 data-nosnippet>88</a>        <span class="comment">// Only tar-gz today; match on args.compression() here when adding formats.
-<a href=#89 id=89 data-nosnippet>89</a>        </span><span class="kw">let </span>f = std::fs::File::create(<span class="kw-2">&amp;</span>tp)<span class="question-mark">?</span>;
-<a href=#90 id=90 data-nosnippet>90</a>        <span class="kw">let </span>gz = flate2::write::GzEncoder::new(f, flate2::Compression::default());
-<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">let </span><span class="kw-2">mut </span>t = tar::Builder::new(gz);
-<a href=#92 id=92 data-nosnippet>92</a>        t.append_dir_all(<span class="kw-2">&amp;</span>stem, <span class="kw-2">&amp;</span>dir)<span class="question-mark">?</span>;
-<a href=#93 id=93 data-nosnippet>93</a>        t.into_inner()<span class="question-mark">?</span>.finish()<span class="question-mark">?</span>;
-<a href=#94 id=94 data-nosnippet>94</a>        log_info(<span class="macro">format_args!</span>(<span class="string">"bundle {}"</span>, tp.display()));
-<a href=#95 id=95 data-nosnippet>95</a>    }
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="prelude-val">Ok</span>(())
-<a href=#97 id=97 data-nosnippet>97</a>}
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a><span class="doccomment">/// Lowercase, dash-separated, length-limited form of `s` for default file names.
-<a href=#100 id=100 data-nosnippet>100</a></span><span class="kw">pub fn </span>slug(s: <span class="kw-2">&amp;</span>str) -&gt; String {
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">let </span><span class="kw-2">mut </span>o = String::new();
-<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">for </span>ch <span class="kw">in </span>s.chars() {
-<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">if </span>ch.is_ascii_alphanumeric() { o.push(ch.to_ascii_lowercase()); }
-<a href=#104 id=104 data-nosnippet>104</a>        <span class="kw">else if </span>!o.ends_with(<span class="string">'-'</span>) { o.push(<span class="string">'-'</span>); }
-<a href=#105 id=105 data-nosnippet>105</a>    }
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">let </span>o = o.trim_matches(<span class="string">'-'</span>).chars().take(<span class="number">40</span>).collect::&lt;String&gt;();
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">if </span>o.is_empty() { <span class="string">"query"</span>.into() } <span class="kw">else </span>{ o }
-<a href=#108 id=108 data-nosnippet>108</a>}
+<a href=#79 id=79 data-nosnippet>79</a>    <span class="comment">// Profile images go to attachments/profiles/ with export-relative paths.
+<a href=#80 id=80 data-nosnippet>80</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>profiles: Vec&lt;Profile&gt; = profiles.to_vec();
+<a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">for </span>pr <span class="kw">in </span><span class="kw-2">&amp;mut </span>profiles {
+<a href=#82 id=82 data-nosnippet>82</a>        <span class="kw">for </span>slot <span class="kw">in </span>[<span class="kw-2">&amp;mut </span>pr.avatar_path, <span class="kw-2">&amp;mut </span>pr.banner_path] {
+<a href=#83 id=83 data-nosnippet>83</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(src) = slot.clone().map(PathBuf::from) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#84 id=84 data-nosnippet>84</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(n) = src.file_name() <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#85 id=85 data-nosnippet>85</a>            <span class="kw">let </span>dst_dir = att_dir.join(PROFILE_IMAGES_DIR);
+<a href=#86 id=86 data-nosnippet>86</a>            <span class="kw">if </span>src.exists() &amp;&amp; std::fs::create_dir_all(<span class="kw-2">&amp;</span>dst_dir).is_ok() &amp;&amp; std::fs::copy(<span class="kw-2">&amp;</span>src, dst_dir.join(n)).is_ok() {
+<a href=#87 id=87 data-nosnippet>87</a>                <span class="kw-2">*</span>slot = <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"attachments/{PROFILE_IMAGES_DIR}/{}"</span>, n.to_string_lossy()));
+<a href=#88 id=88 data-nosnippet>88</a>            } <span class="kw">else </span>{
+<a href=#89 id=89 data-nosnippet>89</a>                <span class="kw-2">*</span>slot = <span class="prelude-val">None</span>;
+<a href=#90 id=90 data-nosnippet>90</a>            }
+<a href=#91 id=91 data-nosnippet>91</a>        }
+<a href=#92 id=92 data-nosnippet>92</a>    }
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span>profiles = <span class="kw-2">&amp;</span>profiles[..];
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">let </span><span class="kw-2">mut </span>doc = build_json(nick, posts, atts, profiles, hits, <span class="kw-2">&amp;</span>|a| {
+<a href=#95 id=95 data-nosnippet>95</a>        <span class="macro">format!</span>(<span class="string">"attachments/{}"</span>, a.local_path.file_name().unwrap_or_default().to_string_lossy())
+<a href=#96 id=96 data-nosnippet>96</a>    });
+<a href=#97 id=97 data-nosnippet>97</a>    doc[<span class="string">"title"</span>] = <span class="macro">json!</span>(name);
+<a href=#98 id=98 data-nosnippet>98</a>    std::fs::write(<span class="kw-2">&amp;</span>file, render(args.format, <span class="kw-2">&amp;</span>doc)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+<a href=#99 id=99 data-nosnippet>99</a>    log_info(<span class="macro">format_args!</span>(<span class="string">"wrote {}"</span>, file.display()));
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>((tp, stem)) = tar_path {
+<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = tp.parent().filter(|p| !p.as_os_str().is_empty()) { std::fs::create_dir_all(parent)<span class="question-mark">?</span>; }
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="comment">// Only tar-gz today; match on args.compression() here when adding formats.
+<a href=#104 id=104 data-nosnippet>104</a>        </span><span class="kw">let </span>f = std::fs::File::create(<span class="kw-2">&amp;</span>tp)<span class="question-mark">?</span>;
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>gz = flate2::write::GzEncoder::new(f, flate2::Compression::default());
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">let </span><span class="kw-2">mut </span>t = tar::Builder::new(gz);
+<a href=#107 id=107 data-nosnippet>107</a>        t.append_dir_all(<span class="kw-2">&amp;</span>stem, <span class="kw-2">&amp;</span>dir)<span class="question-mark">?</span>;
+<a href=#108 id=108 data-nosnippet>108</a>        t.into_inner()<span class="question-mark">?</span>.finish()<span class="question-mark">?</span>;
+<a href=#109 id=109 data-nosnippet>109</a>        log_info(<span class="macro">format_args!</span>(<span class="string">"bundle {}"</span>, tp.display()));
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="comment">// The archive is complete: remove the uncompressed export folder.
+<a href=#111 id=111 data-nosnippet>111</a>        // (Any error above returns early and leaves the folder in place.)
+<a href=#112 id=112 data-nosnippet>112</a>        </span>remove_export_dir(<span class="kw-2">&amp;</span>dir, <span class="kw-2">&amp;</span>tp)<span class="question-mark">?</span>;
+<a href=#113 id=113 data-nosnippet>113</a>    }
+<a href=#114 id=114 data-nosnippet>114</a>    <span class="prelude-val">Ok</span>(())
+<a href=#115 id=115 data-nosnippet>115</a>}
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a><span class="doccomment">/// Delete the uncompressed export folder `dir` after `archive` was written.
+<a href=#118 id=118 data-nosnippet>118</a>/// Refuses when the archive is missing/empty or would live inside `dir`.
+<a href=#119 id=119 data-nosnippet>119</a></span><span class="kw">pub fn </span>remove_export_dir(dir: <span class="kw-2">&amp;</span>Path, archive: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">let </span>ok = std::fs::metadata(archive).map(|m| m.len() &gt; <span class="number">0</span>).unwrap_or(<span class="bool-val">false</span>);
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="kw">if </span>!ok { <span class="macro">bail!</span>(<span class="string">"archive {} missing; keeping {}"</span>, archive.display(), dir.display()); }
+<a href=#122 id=122 data-nosnippet>122</a>    <span class="kw">if </span>archive.starts_with(dir) { <span class="kw">return </span><span class="prelude-val">Ok</span>(()); }
+<a href=#123 id=123 data-nosnippet>123</a>    std::fs::remove_dir_all(dir).with_context(|| <span class="macro">format!</span>(<span class="string">"remove {}"</span>, dir.display()))<span class="question-mark">?</span>;
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="macro">verbose!</span>(<span class="string">"removed {}"</span>, dir.display());
+<a href=#125 id=125 data-nosnippet>125</a>    <span class="prelude-val">Ok</span>(())
+<a href=#126 id=126 data-nosnippet>126</a>}
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a><span class="doccomment">/// Lowercase, dash-separated, length-limited form of `s` for default file names.
+<a href=#129 id=129 data-nosnippet>129</a></span><span class="kw">pub fn </span>slug(s: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#130 id=130 data-nosnippet>130</a>    <span class="kw">let </span><span class="kw-2">mut </span>o = String::new();
+<a href=#131 id=131 data-nosnippet>131</a>    <span class="kw">for </span>ch <span class="kw">in </span>s.chars() {
+<a href=#132 id=132 data-nosnippet>132</a>        <span class="kw">if </span>ch.is_ascii_alphanumeric() { o.push(ch.to_ascii_lowercase()); }
+<a href=#133 id=133 data-nosnippet>133</a>        <span class="kw">else if </span>!o.ends_with(<span class="string">'-'</span>) { o.push(<span class="string">'-'</span>); }
+<a href=#134 id=134 data-nosnippet>134</a>    }
+<a href=#135 id=135 data-nosnippet>135</a>    <span class="kw">let </span>o = o.trim_matches(<span class="string">'-'</span>).chars().take(<span class="number">40</span>).collect::&lt;String&gt;();
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="kw">if </span>o.is_empty() { <span class="string">"query"</span>.into() } <span class="kw">else </span>{ o }
+<a href=#137 id=137 data-nosnippet>137</a>}
 </code></pre></div></section></main></body></html>

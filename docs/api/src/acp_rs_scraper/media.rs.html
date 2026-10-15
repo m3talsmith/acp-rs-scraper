@@ -185,4 +185,29 @@
 <a href=#185 id=185 data-nosnippet>185</a>    std::fs::write(<span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>bytes)<span class="question-mark">?</span>;
 <a href=#186 id=186 data-nosnippet>186</a>    <span class="prelude-val">Ok</span>((path, mime))
 <a href=#187 id=187 data-nosnippet>187</a>}
+<a href=#188 id=188 data-nosnippet>188</a>
+<a href=#189 id=189 data-nosnippet>189</a><span class="doccomment">/// Download a nick's profile image to `{attachments}/profiles/{nick}.{ext}`
+<a href=#190 id=190 data-nosnippet>190</a>/// (replacing any older copy) and return its path.
+<a href=#191 id=191 data-nosnippet>191</a></span><span class="kw">pub async fn </span>fetch_avatar(http: <span class="kw-2">&amp;</span>reqwest::Client, u: <span class="kw-2">&amp;</span>str, att_dir: <span class="kw-2">&amp;</span>Path, nick: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;PathBuf&gt; {
+<a href=#192 id=192 data-nosnippet>192</a>    <span class="kw">let </span>dir = att_dir.join(PROFILE_IMAGES_DIR);
+<a href=#193 id=193 data-nosnippet>193</a>    std::fs::create_dir_all(<span class="kw-2">&amp;</span>dir)<span class="question-mark">?</span>;
+<a href=#194 id=194 data-nosnippet>194</a>    <span class="kw">let </span>tmp = dir.join(<span class="macro">format!</span>(<span class="string">".{nick}.download"</span>));
+<a href=#195 id=195 data-nosnippet>195</a>    std::fs::create_dir_all(<span class="kw-2">&amp;</span>tmp)<span class="question-mark">?</span>;
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">let </span>res = fetch_one_pub(http, u, <span class="kw-2">&amp;</span>tmp).<span class="kw">await</span>;
+<a href=#197 id=197 data-nosnippet>197</a>    <span class="kw">let </span>out = <span class="kw">match </span>res {
+<a href=#198 id=198 data-nosnippet>198</a>        <span class="prelude-val">Ok</span>((p, <span class="kw">_</span>)) =&gt; {
+<a href=#199 id=199 data-nosnippet>199</a>            <span class="kw">let </span>ext = p.extension().and_then(|x| x.to_str()).unwrap_or(<span class="string">"bin"</span>).to_string();
+<a href=#200 id=200 data-nosnippet>200</a>            <span class="kw">for </span>e <span class="kw">in </span>std::fs::read_dir(<span class="kw-2">&amp;</span>dir)<span class="question-mark">?</span>.flatten() {
+<a href=#201 id=201 data-nosnippet>201</a>                <span class="kw">let </span>n = e.file_name().to_string_lossy().to_string();
+<a href=#202 id=202 data-nosnippet>202</a>                <span class="kw">if </span>n.rsplit_once(<span class="string">'.'</span>).is_some_and(|(stem, <span class="kw">_</span>)| stem == nick) { <span class="kw">let _ </span>= std::fs::remove_file(e.path()); }
+<a href=#203 id=203 data-nosnippet>203</a>            }
+<a href=#204 id=204 data-nosnippet>204</a>            <span class="kw">let </span>dst = dir.join(<span class="macro">format!</span>(<span class="string">"{nick}.{ext}"</span>));
+<a href=#205 id=205 data-nosnippet>205</a>            std::fs::rename(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>dst)<span class="question-mark">?</span>;
+<a href=#206 id=206 data-nosnippet>206</a>            <span class="prelude-val">Ok</span>(dst)
+<a href=#207 id=207 data-nosnippet>207</a>        }
+<a href=#208 id=208 data-nosnippet>208</a>        <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
+<a href=#209 id=209 data-nosnippet>209</a>    };
+<a href=#210 id=210 data-nosnippet>210</a>    <span class="kw">let _ </span>= std::fs::remove_dir_all(<span class="kw-2">&amp;</span>tmp);
+<a href=#211 id=211 data-nosnippet>211</a>    out
+<a href=#212 id=212 data-nosnippet>212</a>}
 </code></pre></div></section></main></body></html>

@@ -51,27 +51,78 @@ pub fn s(v: &Value, k: &str) -> String {
     v.get(k).and_then(Value::as_str).unwrap_or_default().to_string()
 }
 
+/// Strip HTML tags (block tags become newlines) and decode common entities.
+pub fn html_to_text(s: &str) -> String {
+    let mut out = String::new();
+    let mut rest = s;
+    while let Some(i) = rest.find('<') {
+        out.push_str(&rest[..i]);
+        let Some(j) = rest[i..].find('>') else { out.push_str(&rest[i..]); rest = ""; break };
+        let tag = rest[i + 1..i + j].trim_start_matches('/').to_ascii_lowercase();
+        let name = tag.split(|c: char| !c.is_ascii_alphanumeric()).next().unwrap_or("");
+        if matches!(name, "br" | "p" | "div" | "li" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "pre") && !out.ends_with('\n') {
+            out.push('\n');
+        }
+        rest = &rest[i + j + 1..];
+    }
+    out.push_str(rest);
+    out.replace("&nbsp;", " ").replace("&quot;", "\"").replace("&#39;", "'")
+        .replace("&lt;", "<").replace("&gt;", ">").replace("&amp;", "&")
+}
+
+/// Plain text of a post body in any of the shapes the site sends: a
+/// ProseMirror doc (object or JSON string), a plain-text / Markdown / HTML
+/// string, or an object with `html` / `text` / `markdown`. Falls back to the
+/// `body_text_summary`, `body_text`, `body_html`, `text` and string `content` fields.
+pub fn body_text(v: &Value) -> String {
+    fn from_body(b: &Value) -> String {
+        match b {
+            Value::String(raw) => {
+                let raw_t = raw.trim();
+                if raw_t.starts_with('{') && let Ok(j) = serde_json::from_str::<Value>(raw_t) {
+                    return from_body(&j);
+                }
+                if raw_t.contains('<') && raw_t.contains('>') { html_to_text(raw_t) } else { raw_t.to_string() }
+            }
+            Value::Object(m) => {
+                let mut out = String::new();
+                prosemirror_text(b, &mut out);
+                if out.trim().is_empty() {
+                    for k in ["text", "markdown", "plain", "html", "doc", "content"] {
+                        if let Some(x) = m.get(k) {
+                            let t = if x.is_array() { let mut o = String::new(); prosemirror_text(b, &mut o); o } else { from_body(x) };
+                            if !t.trim().is_empty() { return t; }
+                        }
+                    }
+                }
+                out
+            }
+            Value::Array(a) => { let mut out = String::new(); for x in a { prosemirror_text(x, &mut out); } out }
+            _ => String::new(),
+        }
+    }
+    for k in ["body", "body_html", "body_text", "body_text_summary", "text", "content", "html"] {
+        if let Some(b) = v.get(k) {
+            let t = from_body(b).trim().to_string();
+            if !t.is_empty() { return t; }
+        }
+    }
+    String::new()
+}
+
 /// Convert site post JSON to a [`Post`] with the given parent (`""` for roots), flattening the body to text.
 pub fn to_post(v: &Value, parent: &str, fallback_nick: &str) -> Post {
-    let mut content = String::new();
-    if let Some(b) = v.get("body") {
-        let b = match b.as_str() {
-            Some(raw) => serde_json::from_str(raw).unwrap_or(Value::Null),
-            None => b.clone(),
-        };
-        prosemirror_text(&b, &mut content);
-    }
-    let mut content = content.trim().to_string();
-    if content.is_empty() {
-        content = s(v, "body_text_summary");
-    }
+    // Some feeds wrap the post (e.g. `{"post": {...}}` / `{"reply": {...}}`).
+    let inner = ["post", "reply"].iter().find_map(|k| v.get(*k).filter(|x| x.is_object()));
+    let mut content = body_text(v);
+    if content.is_empty() && let Some(i) = inner { content = body_text(i); }
     let nick = v.pointer("/author/username").and_then(Value::as_str)
         .map(str::to_string).unwrap_or_else(|| fallback_nick.to_string());
     Post {
         post_id: s(v, "id"),
         parent_post_id: parent.to_string(),
         nick,
-        title: s(v, "title"),
+        title: { let t = s(v, "title"); if t.is_empty() { inner.map(|i| s(i, "title")).unwrap_or_default() } else { t } },
         content,
         posted_at: s(v, "inserted_at"),
         media: { let mut m = Vec::new(); collect_media(v, &mut m); m },
@@ -94,6 +145,8 @@ pub struct ScrapeStats {
     pub threads_skipped: usize,
     /// Items only found via the profile's "Posts and replies" filter.
     pub replies_tab_items: usize,
+    /// Posts whose body had to be read from their thread page.
+    pub bodies_from_thread: usize,
 }
 
 /// Scrape a nick: the Posts feed and the "Posts and replies" filter (merged by id), then replies in every thread the nick started that changed since the last run. Returns the posts, the profile HTML and counts.
@@ -140,6 +193,26 @@ pub async fn scrape(
             out.push(to_post(it, &thread, nick));
         }
     }
+    // Fill posts whose feed item had no readable body from their thread page,
+    // where the full reply is always rendered (one fetch per thread).
+    let mut thread_cache: HashMap<String, Vec<Value>> = HashMap::new();
+    for p in out.iter_mut().filter(|p| p.content.is_empty() && p.media.is_empty()) {
+        let tid = if p.parent_post_id.is_empty() { p.post_id.clone() } else { p.parent_post_id.clone() };
+        if !thread_cache.contains_key(&tid) {
+            let got = match fetch_thread(http, jar, &tid).await {
+                Ok((th, mut r)) => { if let Some(root) = th.get("root") { r.push(root.clone()); } r }
+                Err(e) => { verbose!("thread {tid}: {e:#}"); Vec::new() }
+            };
+            thread_cache.insert(tid.clone(), got);
+        }
+        if let Some(full) = thread_cache[&tid].iter().find(|x| s(x, "id") == p.post_id) {
+            let fp = to_post(full, &p.parent_post_id, nick);
+            p.content = fp.content;
+            if p.title.is_empty() { p.title = fp.title; }
+            if p.media.is_empty() { p.media = fp.media; }
+        }
+        stats.bodies_from_thread += 1;
+    }
     for (tid, feed_rc) in roots {
         let db_rc = reply_counts.get(&tid).copied().unwrap_or(0);
         let need = full || !known.contains(&tid) || feed_rc > db_rc;
@@ -168,3 +241,6 @@ pub async fn scrape(
     }
     Ok((out, feed.html, stats))
 }
+
+#[cfg(test)]
+mod tests;

@@ -322,10 +322,10 @@
 <a href=#322 id=322 data-nosnippet>322</a>        {
 <a href=#323 id=323 data-nosnippet>323</a>            <span class="kw">let </span>t = html_unescape(<span class="kw-2">&amp;</span>t[<span class="number">1</span>]);
 <a href=#324 id=324 data-nosnippet>324</a>            <span class="comment">// "Display Name (@nick)" or similar.
-<a href=#325 id=325 data-nosnippet>325</a>            </span><span class="kw">if let </span><span class="prelude-val">Some</span>((dn, <span class="kw">_</span>)) = t.split_once(<span class="string">"(@"</span>) {
-<a href=#326 id=326 data-nosnippet>326</a>                p.display_name = <span class="prelude-val">Some</span>(dn.trim().to_string());
-<a href=#327 id=327 data-nosnippet>327</a>            } <span class="kw">else if </span>!t.is_empty() {
-<a href=#328 id=328 data-nosnippet>328</a>                p.display_name = <span class="prelude-val">Some</span>(t);
+<a href=#325 id=325 data-nosnippet>325</a>            // Only a profile-specific title ("Name (@nick)"); the site-wide
+<a href=#326 id=326 data-nosnippet>326</a>            // og:title (e.g. "Trending") is not a display name.
+<a href=#327 id=327 data-nosnippet>327</a>            </span><span class="kw">if let </span><span class="prelude-val">Some</span>((dn, <span class="kw">_</span>)) = t.split_once(<span class="string">"(@"</span>) {
+<a href=#328 id=328 data-nosnippet>328</a>                p.display_name = <span class="prelude-val">Some</span>(dn.trim().to_string());
 <a href=#329 id=329 data-nosnippet>329</a>            }
 <a href=#330 id=330 data-nosnippet>330</a>        }
 <a href=#331 id=331 data-nosnippet>331</a>    <span class="kw">if </span>p.bio.is_none()
@@ -338,15 +338,25 @@
 <a href=#338 id=338 data-nosnippet>338</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(t) = regex::Regex::new(<span class="string">r#"property="og:image"\s+content="([^"]+)""#</span>)
 <a href=#339 id=339 data-nosnippet>339</a>            .unwrap().captures(html).or_else(|| regex::Regex::new(<span class="string">r#"content="([^"]+)"\s+property="og:image""#</span>).unwrap().captures(html))
 <a href=#340 id=340 data-nosnippet>340</a>        {
-<a href=#341 id=341 data-nosnippet>341</a>            p.avatar_url = <span class="prelude-val">Some</span>(html_unescape(<span class="kw-2">&amp;</span>t[<span class="number">1</span>]));
-<a href=#342 id=342 data-nosnippet>342</a>        }
-<a href=#343 id=343 data-nosnippet>343</a>}
-<a href=#344 id=344 data-nosnippet>344</a>
-<a href=#345 id=345 data-nosnippet>345</a><span class="doccomment">/// Undo the HTML entity escaping used in `data-props` attributes.
-<a href=#346 id=346 data-nosnippet>346</a></span><span class="kw">pub fn </span>html_unescape(s: <span class="kw-2">&amp;</span>str) -&gt; String {
-<a href=#347 id=347 data-nosnippet>347</a>    s.replace(<span class="string">"&amp;quot;"</span>, <span class="string">"\""</span>).replace(<span class="string">"&amp;amp;"</span>, <span class="string">"&amp;"</span>).replace(<span class="string">"&amp;lt;"</span>, <span class="string">"&lt;"</span>).replace(<span class="string">"&amp;gt;"</span>, <span class="string">"&gt;"</span>).replace(<span class="string">"&amp;#39;"</span>, <span class="string">"'"</span>)
-<a href=#348 id=348 data-nosnippet>348</a>}
-<a href=#349 id=349 data-nosnippet>349</a>
-<a href=#350 id=350 data-nosnippet>350</a><span class="attr">#[cfg(test)]
-<a href=#351 id=351 data-nosnippet>351</a></span><span class="kw">mod </span>tests;
+<a href=#341 id=341 data-nosnippet>341</a>            <span class="kw">let </span>u = html_unescape(<span class="kw-2">&amp;</span>t[<span class="number">1</span>]);
+<a href=#342 id=342 data-nosnippet>342</a>            <span class="kw">if </span>!is_site_image(<span class="kw-2">&amp;</span>u) { p.avatar_url = <span class="prelude-val">Some</span>(u); }
+<a href=#343 id=343 data-nosnippet>343</a>        }
+<a href=#344 id=344 data-nosnippet>344</a>}
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a><span class="doccomment">/// True for the site's generic share images (e.g. `/banner.jpg`), which
+<a href=#347 id=347 data-nosnippet>347</a>/// `og:image` falls back to on pages without a profile photo.
+<a href=#348 id=348 data-nosnippet>348</a></span><span class="kw">pub fn </span>is_site_image(u: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#349 id=349 data-nosnippet>349</a>    <span class="kw">let </span>path = u.split([<span class="string">'?'</span>, <span class="string">'#'</span>]).next().unwrap_or(u);
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="kw">let </span>file = path.rsplit(<span class="string">'/'</span>).next().unwrap_or(<span class="string">""</span>);
+<a href=#351 id=351 data-nosnippet>351</a>    <span class="kw">let </span>origin_root = path.trim_start_matches(<span class="string">"https://"</span>).trim_start_matches(<span class="string">"http://"</span>).matches(<span class="string">'/'</span>).count() &lt;= <span class="number">1</span>;
+<a href=#352 id=352 data-nosnippet>352</a>    origin_root &amp;&amp; (file.starts_with(<span class="string">"banner."</span>) || file.starts_with(<span class="string">"og"</span>) || file.starts_with(<span class="string">"logo"</span>) || file.starts_with(<span class="string">"icon"</span>))
+<a href=#353 id=353 data-nosnippet>353</a>}
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a><span class="doccomment">/// Undo the HTML entity escaping used in `data-props` attributes.
+<a href=#356 id=356 data-nosnippet>356</a></span><span class="kw">pub fn </span>html_unescape(s: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#357 id=357 data-nosnippet>357</a>    s.replace(<span class="string">"&amp;quot;"</span>, <span class="string">"\""</span>).replace(<span class="string">"&amp;amp;"</span>, <span class="string">"&amp;"</span>).replace(<span class="string">"&amp;lt;"</span>, <span class="string">"&lt;"</span>).replace(<span class="string">"&amp;gt;"</span>, <span class="string">"&gt;"</span>).replace(<span class="string">"&amp;#39;"</span>, <span class="string">"'"</span>)
+<a href=#358 id=358 data-nosnippet>358</a>}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a><span class="attr">#[cfg(test)]
+<a href=#361 id=361 data-nosnippet>361</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

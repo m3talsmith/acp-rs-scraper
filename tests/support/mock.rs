@@ -81,6 +81,11 @@ fn posts(base: &str) -> Vec<Value> {
         root("C1", "carol", 7, "unrelated", 0),
         reply("R1", "A1", "bob", 8, "bob replies to alice"),
         reply("AR1", "B1", "alice", 9, "alice replies to bob"),
+        // dave only replies, in shapes seen on the live site: an HTML-string
+        // body, and a feed item with no body at all (only the thread has it).
+        { let mut r = reply("DR1", "C1", "dave", 10, ""); r["body"] = json!("<p>dave &amp; the <b>html</b> body</p>"); r }
+        ,
+        { let mut r = reply("DR2", "C1", "dave", 11, "dave full reply from the thread"); r["feed_body_missing"] = json!(true); r },
     ]
 }
 
@@ -93,6 +98,9 @@ fn feed(base: &str, who: Option<&str>, replies: bool) -> Vec<Value> {
             None => root,
         }
     }).collect();
+    for p in &mut v {
+        if p["feed_body_missing"] == true { p["body"] = Value::Null; }
+    }
     v.sort_by(|a, b| b["inserted_at"].as_str().cmp(&a["inserted_at"].as_str()));
     v
 }

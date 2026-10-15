@@ -322,10 +322,10 @@ pub fn enrich_from_html(p: &mut Profile, html: &str) {
         {
             let t = html_unescape(&t[1]);
             // "Display Name (@nick)" or similar.
+            // Only a profile-specific title ("Name (@nick)"); the site-wide
+            // og:title (e.g. "Trending") is not a display name.
             if let Some((dn, _)) = t.split_once("(@") {
                 p.display_name = Some(dn.trim().to_string());
-            } else if !t.is_empty() {
-                p.display_name = Some(t);
             }
         }
     if p.bio.is_none()
@@ -338,8 +338,18 @@ pub fn enrich_from_html(p: &mut Profile, html: &str) {
         && let Some(t) = regex::Regex::new(r#"property="og:image"\s+content="([^"]+)""#)
             .unwrap().captures(html).or_else(|| regex::Regex::new(r#"content="([^"]+)"\s+property="og:image""#).unwrap().captures(html))
         {
-            p.avatar_url = Some(html_unescape(&t[1]));
+            let u = html_unescape(&t[1]);
+            if !is_site_image(&u) { p.avatar_url = Some(u); }
         }
+}
+
+/// True for the site's generic share images (e.g. `/banner.jpg`), which
+/// `og:image` falls back to on pages without a profile photo.
+pub fn is_site_image(u: &str) -> bool {
+    let path = u.split(['?', '#']).next().unwrap_or(u);
+    let file = path.rsplit('/').next().unwrap_or("");
+    let origin_root = path.trim_start_matches("https://").trim_start_matches("http://").matches('/').count() <= 1;
+    origin_root && (file.starts_with("banner.") || file.starts_with("og") || file.starts_with("logo") || file.starts_with("icon"))
 }
 
 /// Undo the HTML entity escaping used in `data-props` attributes.

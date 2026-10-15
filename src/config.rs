@@ -125,5 +125,8 @@ pub const EXPORT_FORMAT: &str = "acp-rs-export";
 /// Export document version written by this build (imports accept 1 and 2).
 pub const EXPORT_FORMAT_VERSION: u32 = 2;
 
+/// Folder (under attachments) for downloaded profile images: `profiles/{nick}.{ext}`.
+pub const PROFILE_IMAGES_DIR: &str = "profiles";
+
 /// Id of the machine-readable JSON copy embedded in HTML exports.
 pub const HTML_DATA_ID: &str = "acp-data";

@@ -1,3 +1,11 @@
+acp-rs-scraper (1.15.0) unstable; urgency=medium
+
+  * Store post bodies sent as HTML/plain strings; read missing bodies from the thread; repair blank rows.
+  * Download profile images to attachments/profiles/ and show them in HTML exports.
+  * Remove the uncompressed folder after a compressed export.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 15 Oct 2026 16:30:00 -0400
+
 acp-rs-scraper (1.12.0) unstable; urgency=medium
 
   * Cleanup: domain modules, shared config, external tests, Gherkin e2e suite.

@@ -2,290 +2,301 @@
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <a href=#4 id=4 data-nosnippet>4</a>
-<a href=#5 id=5 data-nosnippet>5</a><span class="doccomment">/// All stored `post_id`s (empty when there is no database yet).
-<a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">pub fn </span>db_known_ids(db: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="prelude-ty">Result</span>&lt;HashSet&lt;String&gt;&gt; {
-<a href=#7 id=7 data-nosnippet>7</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = HashSet::new();
-<a href=#8 id=8 data-nosnippet>8</a>    <span class="kw">if </span>!db.exists() { <span class="kw">return </span><span class="prelude-val">Ok</span>(out); }
-<a href=#9 id=9 data-nosnippet>9</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
-<a href=#10 id=10 data-nosnippet>10</a>    <span class="kw">let </span>ok: bool = c.query_row(
-<a href=#11 id=11 data-nosnippet>11</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'"</span>, [],
-<a href=#12 id=12 data-nosnippet>12</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
-<a href=#13 id=13 data-nosnippet>13</a>    <span class="kw">if </span>!ok { <span class="kw">return </span><span class="prelude-val">Ok</span>(out); }
-<a href=#14 id=14 data-nosnippet>14</a>    <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT post_id FROM posts"</span>)<span class="question-mark">?</span>;
-<a href=#15 id=15 data-nosnippet>15</a>    <span class="kw">for </span>id <span class="kw">in </span>st.query_map([], |r| r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>))<span class="question-mark">? </span>{ out.insert(id<span class="question-mark">?</span>); }
-<a href=#16 id=16 data-nosnippet>16</a>    <span class="prelude-val">Ok</span>(out)
-<a href=#17 id=17 data-nosnippet>17</a>}
-<a href=#18 id=18 data-nosnippet>18</a>
-<a href=#19 id=19 data-nosnippet>19</a><span class="doccomment">/// Stored reply count per thread root, used to skip unchanged threads.
-<a href=#20 id=20 data-nosnippet>20</a></span><span class="kw">pub fn </span>db_reply_counts(db: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, usize&gt;&gt; {
-<a href=#21 id=21 data-nosnippet>21</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = HashMap::new();
-<a href=#22 id=22 data-nosnippet>22</a>    <span class="kw">if </span>!db.exists() { <span class="kw">return </span><span class="prelude-val">Ok</span>(out); }
-<a href=#23 id=23 data-nosnippet>23</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
-<a href=#24 id=24 data-nosnippet>24</a>    <span class="kw">let </span>ok: bool = c.query_row(
-<a href=#25 id=25 data-nosnippet>25</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'"</span>, [],
-<a href=#26 id=26 data-nosnippet>26</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
-<a href=#27 id=27 data-nosnippet>27</a>    <span class="kw">if </span>!ok { <span class="kw">return </span><span class="prelude-val">Ok</span>(out); }
-<a href=#28 id=28 data-nosnippet>28</a>    <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(
-<a href=#29 id=29 data-nosnippet>29</a>        <span class="string">"SELECT parent_post_id, COUNT(*) FROM posts WHERE parent_post_id != '' GROUP BY parent_post_id"</span>)<span class="question-mark">?</span>;
-<a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| <span class="prelude-val">Ok</span>((r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">1</span>)<span class="question-mark">? </span><span class="kw">as </span>usize)))<span class="question-mark">? </span>{
-<a href=#31 id=31 data-nosnippet>31</a>        <span class="kw">let </span>(k, v) = row<span class="question-mark">?</span>;
-<a href=#32 id=32 data-nosnippet>32</a>        out.insert(k, v);
-<a href=#33 id=33 data-nosnippet>33</a>    }
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="prelude-val">Ok</span>(out)
-<a href=#35 id=35 data-nosnippet>35</a>}
-<a href=#36 id=36 data-nosnippet>36</a>
-<a href=#37 id=37 data-nosnippet>37</a><span class="attr">#[derive(Debug)]
-<a href=#38 id=38 data-nosnippet>38</a></span><span class="doccomment">/// A `--list-nicks` row.
-<a href=#39 id=39 data-nosnippet>39</a></span><span class="kw">pub struct </span>NickInfo {
-<a href=#40 id=40 data-nosnippet>40</a>    <span class="doccomment">/// Nick (username, without `@`).
-<a href=#41 id=41 data-nosnippet>41</a>    </span><span class="kw">pub </span>nick: String,
-<a href=#42 id=42 data-nosnippet>42</a>    <span class="doccomment">/// Display name.
-<a href=#43 id=43 data-nosnippet>43</a>    </span><span class="kw">pub </span>display_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#44 id=44 data-nosnippet>44</a>    <span class="doccomment">/// Stored posts by the nick.
-<a href=#45 id=45 data-nosnippet>45</a>    </span><span class="kw">pub </span>post_count: i64,
-<a href=#46 id=46 data-nosnippet>46</a>    <span class="doccomment">/// Newest stored post date.
-<a href=#47 id=47 data-nosnippet>47</a>    </span><span class="kw">pub </span>latest: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#48 id=48 data-nosnippet>48</a>    <span class="doccomment">/// Whether a profile row exists.
-<a href=#49 id=49 data-nosnippet>49</a>    </span><span class="kw">pub </span>profile_scraped: bool,
-<a href=#50 id=50 data-nosnippet>50</a>    <span class="doccomment">/// When it was scraped (RFC 3339).
-<a href=#51 id=51 data-nosnippet>51</a>    </span><span class="kw">pub </span>scraped_at: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#52 id=52 data-nosnippet>52</a>}
-<a href=#53 id=53 data-nosnippet>53</a>
-<a href=#54 id=54 data-nosnippet>54</a><span class="doccomment">/// Every nick with posts or a profile, with counts and dates (for `--list-nicks`).
-<a href=#55 id=55 data-nosnippet>55</a></span><span class="kw">pub fn </span>list_nicks_db(db: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;NickInfo&gt;&gt; {
-<a href=#56 id=56 data-nosnippet>56</a>    <span class="kw">let </span><span class="kw-2">mut </span>map: HashMap&lt;String, NickInfo&gt; = HashMap::new();
-<a href=#57 id=57 data-nosnippet>57</a>    <span class="kw">if </span>!db.exists() { <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()); }
-<a href=#58 id=58 data-nosnippet>58</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
-<a href=#59 id=59 data-nosnippet>59</a>    <span class="kw">let </span>has_posts: bool = c.query_row(
-<a href=#60 id=60 data-nosnippet>60</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'"</span>, [],
-<a href=#61 id=61 data-nosnippet>61</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
-<a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">if </span>has_posts {
-<a href=#63 id=63 data-nosnippet>63</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(
-<a href=#64 id=64 data-nosnippet>64</a>            <span class="string">"SELECT nick, COUNT(*), MAX(posted_at) FROM posts GROUP BY lower(nick)"</span>)<span class="question-mark">?</span>;
-<a href=#65 id=65 data-nosnippet>65</a>        <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| <span class="prelude-val">Ok</span>((r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">1</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;String&gt;&gt;(<span class="number">2</span>)<span class="question-mark">?</span>)))<span class="question-mark">? </span>{
-<a href=#66 id=66 data-nosnippet>66</a>            <span class="kw">let </span>(nick, cnt, latest) = row<span class="question-mark">?</span>;
-<a href=#67 id=67 data-nosnippet>67</a>            <span class="kw">let </span>key = nick.to_lowercase();
-<a href=#68 id=68 data-nosnippet>68</a>            map.insert(key, NickInfo {
-<a href=#69 id=69 data-nosnippet>69</a>                nick, display_name: <span class="prelude-val">None</span>, post_count: cnt, latest,
-<a href=#70 id=70 data-nosnippet>70</a>                profile_scraped: <span class="bool-val">false</span>, scraped_at: <span class="prelude-val">None</span>,
-<a href=#71 id=71 data-nosnippet>71</a>            });
-<a href=#72 id=72 data-nosnippet>72</a>        }
-<a href=#73 id=73 data-nosnippet>73</a>    }
-<a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">let </span>has_p: bool = c.query_row(
-<a href=#75 id=75 data-nosnippet>75</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='profiles'"</span>, [],
-<a href=#76 id=76 data-nosnippet>76</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
-<a href=#77 id=77 data-nosnippet>77</a>    <span class="kw">if </span>has_p {
-<a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT nick, display_name, scraped_at FROM profiles"</span>)<span class="question-mark">?</span>;
-<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| <span class="prelude-val">Ok</span>((r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;String&gt;&gt;(<span class="number">1</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;String&gt;&gt;(<span class="number">2</span>)<span class="question-mark">?</span>)))<span class="question-mark">? </span>{
-<a href=#80 id=80 data-nosnippet>80</a>            <span class="kw">let </span>(nick, dn, sa) = row<span class="question-mark">?</span>;
-<a href=#81 id=81 data-nosnippet>81</a>            <span class="kw">let </span>key = nick.to_lowercase();
-<a href=#82 id=82 data-nosnippet>82</a>            <span class="kw">let </span>e = map.entry(key).or_insert_with(|| NickInfo {
-<a href=#83 id=83 data-nosnippet>83</a>                nick: nick.clone(), display_name: <span class="prelude-val">None</span>, post_count: <span class="number">0</span>, latest: <span class="prelude-val">None</span>,
-<a href=#84 id=84 data-nosnippet>84</a>                profile_scraped: <span class="bool-val">false</span>, scraped_at: <span class="prelude-val">None</span>,
-<a href=#85 id=85 data-nosnippet>85</a>            });
-<a href=#86 id=86 data-nosnippet>86</a>            e.nick = nick;
-<a href=#87 id=87 data-nosnippet>87</a>            e.display_name = dn.or(e.display_name.clone());
-<a href=#88 id=88 data-nosnippet>88</a>            e.profile_scraped = <span class="bool-val">true</span>;
-<a href=#89 id=89 data-nosnippet>89</a>            e.scraped_at = sa;
-<a href=#90 id=90 data-nosnippet>90</a>        }
-<a href=#91 id=91 data-nosnippet>91</a>    }
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="kw">let </span><span class="kw-2">mut </span>v: Vec&lt;<span class="kw">_</span>&gt; = map.into_values().collect();
-<a href=#93 id=93 data-nosnippet>93</a>    v.sort_by_key(|a| a.nick.to_lowercase());
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="prelude-val">Ok</span>(v)
-<a href=#95 id=95 data-nosnippet>95</a>}
-<a href=#96 id=96 data-nosnippet>96</a>
-<a href=#97 id=97 data-nosnippet>97</a><span class="doccomment">/// Print `--list-nicks` as an aligned table on stdout.
-<a href=#98 id=98 data-nosnippet>98</a></span><span class="kw">pub fn </span>print_nicks_table(infos: <span class="kw-2">&amp;</span>[NickInfo]) {
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="macro">println!</span>(<span class="string">"{:&lt;20} {:&lt;24} {:&gt;6}  {:&lt;20} {:&lt;8} SCRAPED_AT"</span>,
-<a href=#100 id=100 data-nosnippet>100</a>        <span class="string">"NICK"</span>, <span class="string">"DISPLAY"</span>, <span class="string">"POSTS"</span>, <span class="string">"LATEST"</span>, <span class="string">"PROFILE"</span>);
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">for </span>i <span class="kw">in </span>infos {
-<a href=#102 id=102 data-nosnippet>102</a>        <span class="macro">println!</span>(<span class="string">"{:&lt;20} {:&lt;24} {:&gt;6}  {:&lt;20} {:&lt;8} {}"</span>,
-<a href=#103 id=103 data-nosnippet>103</a>            <span class="macro">format!</span>(<span class="string">"@{}"</span>, i.nick),
-<a href=#104 id=104 data-nosnippet>104</a>            i.display_name.as_deref().unwrap_or(<span class="string">"-"</span>).chars().take(<span class="number">24</span>).collect::&lt;String&gt;(),
-<a href=#105 id=105 data-nosnippet>105</a>            i.post_count,
-<a href=#106 id=106 data-nosnippet>106</a>            i.latest.as_deref().unwrap_or(<span class="string">"-"</span>).chars().take(<span class="number">20</span>).collect::&lt;String&gt;(),
-<a href=#107 id=107 data-nosnippet>107</a>            <span class="kw">if </span>i.profile_scraped { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>},
-<a href=#108 id=108 data-nosnippet>108</a>            i.scraped_at.as_deref().unwrap_or(<span class="string">"-"</span>));
-<a href=#109 id=109 data-nosnippet>109</a>    }
-<a href=#110 id=110 data-nosnippet>110</a>}
-<a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a><span class="doccomment">/// Insert posts into `~/.acp/ai/data/rs.database` (creating the table); existing `post_id`s are ignored. Returns rows inserted.
-<a href=#113 id=113 data-nosnippet>113</a></span><span class="kw">pub fn </span>save(posts: <span class="kw-2">&amp;</span>[Post]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">let </span>path = home()<span class="question-mark">?</span>.join(DB_REL_PATH);
-<a href=#115 id=115 data-nosnippet>115</a>    <span class="kw">let </span><span class="kw-2">mut </span>db = open_db(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
-<a href=#116 id=116 data-nosnippet>116</a>    db.execute_batch(
-<a href=#117 id=117 data-nosnippet>117</a>        POSTS_SCHEMA,
-<a href=#118 id=118 data-nosnippet>118</a>    )<span class="question-mark">?</span>;
-<a href=#119 id=119 data-nosnippet>119</a>    <span class="kw">let </span>tx = db.transaction()<span class="question-mark">?</span>;
-<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">0</span>;
-<a href=#121 id=121 data-nosnippet>121</a>    {
-<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = tx.prepare(
-<a href=#123 id=123 data-nosnippet>123</a>            <span class="string">"INSERT OR IGNORE INTO posts (post_id,parent_post_id,nick,title,content,posted_at)
-<a href=#124 id=124 data-nosnippet>124</a>             VALUES (?1,?2,?3,?4,?5,?6)"</span>)<span class="question-mark">?</span>;
-<a href=#125 id=125 data-nosnippet>125</a>        <span class="kw">for </span>p <span class="kw">in </span>posts {
-<a href=#126 id=126 data-nosnippet>126</a>            n += st.execute(<span class="macro">params!</span>[p.post_id, p.parent_post_id, p.nick, p.title, p.content, p.posted_at])<span class="question-mark">?</span>;
-<a href=#127 id=127 data-nosnippet>127</a>        }
-<a href=#128 id=128 data-nosnippet>128</a>    }
-<a href=#129 id=129 data-nosnippet>129</a>    tx.commit()<span class="question-mark">?</span>;
-<a href=#130 id=130 data-nosnippet>130</a>    <span class="macro">info!</span>(<span class="string">"DB: {}"</span>, path.display());
-<a href=#131 id=131 data-nosnippet>131</a>    <span class="prelude-val">Ok</span>(n)
-<a href=#132 id=132 data-nosnippet>132</a>}
-<a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a><span class="doccomment">/// Insert or update a nick's profile row.
-<a href=#135 id=135 data-nosnippet>135</a></span><span class="kw">pub fn </span>save_profile(db: <span class="kw-2">&amp;</span>std::path::Path, p: <span class="kw-2">&amp;</span>Profile) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#136 id=136 data-nosnippet>136</a>    <span class="kw">let </span>c = open_db(db)<span class="question-mark">?</span>;
-<a href=#137 id=137 data-nosnippet>137</a>    c.execute_batch(
-<a href=#138 id=138 data-nosnippet>138</a>        PROFILES_SCHEMA)<span class="question-mark">?</span>;
-<a href=#139 id=139 data-nosnippet>139</a>    c.execute(
-<a href=#140 id=140 data-nosnippet>140</a>        <span class="string">"INSERT INTO profiles (nick,user_id,display_name,bio,avatar_url,avatar_path,banner_url,banner_path,
-<a href=#141 id=141 data-nosnippet>141</a>            location,role,joined_at,followers,following,posts_count,raw_json,scraped_at)
-<a href=#142 id=142 data-nosnippet>142</a>         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)
-<a href=#143 id=143 data-nosnippet>143</a>         ON CONFLICT(nick) DO UPDATE SET
-<a href=#144 id=144 data-nosnippet>144</a>            user_id=excluded.user_id, display_name=excluded.display_name, bio=excluded.bio,
-<a href=#145 id=145 data-nosnippet>145</a>            avatar_url=excluded.avatar_url, avatar_path=excluded.avatar_path,
-<a href=#146 id=146 data-nosnippet>146</a>            banner_url=excluded.banner_url, banner_path=excluded.banner_path,
-<a href=#147 id=147 data-nosnippet>147</a>            location=excluded.location, role=excluded.role, joined_at=excluded.joined_at,
-<a href=#148 id=148 data-nosnippet>148</a>            followers=excluded.followers, following=excluded.following, posts_count=excluded.posts_count,
-<a href=#149 id=149 data-nosnippet>149</a>            raw_json=excluded.raw_json, scraped_at=excluded.scraped_at"</span>,
-<a href=#150 id=150 data-nosnippet>150</a>        <span class="macro">rusqlite::params!</span>[
-<a href=#151 id=151 data-nosnippet>151</a>            p.nick, p.user_id, p.display_name, p.bio, p.avatar_url, p.avatar_path,
-<a href=#152 id=152 data-nosnippet>152</a>            p.banner_url, p.banner_path, p.location, p.role, p.joined_at,
-<a href=#153 id=153 data-nosnippet>153</a>            p.followers, p.following, p.posts_count, p.raw_json, p.scraped_at
-<a href=#154 id=154 data-nosnippet>154</a>        ],
-<a href=#155 id=155 data-nosnippet>155</a>    )<span class="question-mark">?</span>;
-<a href=#156 id=156 data-nosnippet>156</a>    <span class="prelude-val">Ok</span>(())
-<a href=#157 id=157 data-nosnippet>157</a>}
-<a href=#158 id=158 data-nosnippet>158</a>
-<a href=#159 id=159 data-nosnippet>159</a><span class="doccomment">/// Insert mention hits (duplicates ignored).
-<a href=#160 id=160 data-nosnippet>160</a></span><span class="kw">pub fn </span>save_mentions(db: <span class="kw-2">&amp;</span>std::path::Path, hits: <span class="kw-2">&amp;</span>[MentionHit]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#161 id=161 data-nosnippet>161</a>    <span class="kw">let </span><span class="kw-2">mut </span>c = open_db(db)<span class="question-mark">?</span>;
-<a href=#162 id=162 data-nosnippet>162</a>    c.execute_batch(
-<a href=#163 id=163 data-nosnippet>163</a>        MENTIONS_SCHEMA)<span class="question-mark">?</span>;
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="kw">let </span>tx = c.transaction()<span class="question-mark">?</span>;
-<a href=#165 id=165 data-nosnippet>165</a>    {
-<a href=#166 id=166 data-nosnippet>166</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = tx.prepare(
-<a href=#167 id=167 data-nosnippet>167</a>            <span class="string">"INSERT OR IGNORE INTO mentions (post_id, mentioned_nick, match_type) VALUES (?1,?2,?3)"</span>)<span class="question-mark">?</span>;
-<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">for </span>h <span class="kw">in </span>hits {
-<a href=#169 id=169 data-nosnippet>169</a>            st.execute(<span class="macro">rusqlite::params!</span>[h.post_id, h.mentioned_nick, h.match_type.as_str()])<span class="question-mark">?</span>;
-<a href=#170 id=170 data-nosnippet>170</a>        }
-<a href=#171 id=171 data-nosnippet>171</a>    }
-<a href=#172 id=172 data-nosnippet>172</a>    tx.commit()<span class="question-mark">?</span>;
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="prelude-val">Ok</span>(())
-<a href=#174 id=174 data-nosnippet>174</a>}
-<a href=#175 id=175 data-nosnippet>175</a>
-<a href=#176 id=176 data-nosnippet>176</a><span class="doccomment">/// Load profiles and mentions, optionally only for `nicks`.
-<a href=#177 id=177 data-nosnippet>177</a></span><span class="kw">pub fn </span>load_profiles_mentions(db: <span class="kw-2">&amp;</span>std::path::Path, nicks: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Profile&gt;, Vec&lt;MentionHit&gt;)&gt; {
-<a href=#178 id=178 data-nosnippet>178</a>    <span class="kw">if </span>!db.exists() { <span class="kw">return </span><span class="prelude-val">Ok</span>((Vec::new(), Vec::new())); }
-<a href=#179 id=179 data-nosnippet>179</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
-<a href=#180 id=180 data-nosnippet>180</a>    <span class="kw">let </span><span class="kw-2">mut </span>profiles = Vec::new();
-<a href=#181 id=181 data-nosnippet>181</a>    <span class="kw">let </span>has_p: bool = c.query_row(
-<a href=#182 id=182 data-nosnippet>182</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='profiles'"</span>, [], |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>))
-<a href=#183 id=183 data-nosnippet>183</a>        .unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
-<a href=#184 id=184 data-nosnippet>184</a>    <span class="kw">if </span>has_p {
-<a href=#185 id=185 data-nosnippet>185</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT nick,user_id,display_name,bio,avatar_url,avatar_path,banner_url,banner_path,location,role,joined_at,followers,following,posts_count,raw_json,scraped_at FROM profiles"</span>)<span class="question-mark">?</span>;
-<a href=#186 id=186 data-nosnippet>186</a>        <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| <span class="prelude-val">Ok</span>(Profile {
-<a href=#187 id=187 data-nosnippet>187</a>            nick: r.get(<span class="number">0</span>)<span class="question-mark">?</span>, user_id: r.get(<span class="number">1</span>)<span class="question-mark">?</span>, display_name: r.get(<span class="number">2</span>)<span class="question-mark">?</span>, bio: r.get(<span class="number">3</span>)<span class="question-mark">?</span>,
-<a href=#188 id=188 data-nosnippet>188</a>            avatar_url: r.get(<span class="number">4</span>)<span class="question-mark">?</span>, avatar_path: r.get(<span class="number">5</span>)<span class="question-mark">?</span>, banner_url: r.get(<span class="number">6</span>)<span class="question-mark">?</span>, banner_path: r.get(<span class="number">7</span>)<span class="question-mark">?</span>,
-<a href=#189 id=189 data-nosnippet>189</a>            location: r.get(<span class="number">8</span>)<span class="question-mark">?</span>, role: r.get(<span class="number">9</span>)<span class="question-mark">?</span>, joined_at: r.get(<span class="number">10</span>)<span class="question-mark">?</span>, followers: r.get(<span class="number">11</span>)<span class="question-mark">?</span>,
-<a href=#190 id=190 data-nosnippet>190</a>            following: r.get(<span class="number">12</span>)<span class="question-mark">?</span>, posts_count: r.get(<span class="number">13</span>)<span class="question-mark">?</span>, raw_json: r.get(<span class="number">14</span>)<span class="question-mark">?</span>, scraped_at: r.get(<span class="number">15</span>)<span class="question-mark">?</span>,
-<a href=#191 id=191 data-nosnippet>191</a>        }))<span class="question-mark">? </span>{
-<a href=#192 id=192 data-nosnippet>192</a>            <span class="kw">let </span>p = row<span class="question-mark">?</span>;
-<a href=#193 id=193 data-nosnippet>193</a>            <span class="kw">if </span>nicks.is_empty() || nicks.iter().any(|n| n.eq_ignore_ascii_case(<span class="kw-2">&amp;</span>p.nick)) {
-<a href=#194 id=194 data-nosnippet>194</a>                profiles.push(p);
-<a href=#195 id=195 data-nosnippet>195</a>            }
-<a href=#196 id=196 data-nosnippet>196</a>        }
-<a href=#197 id=197 data-nosnippet>197</a>    }
-<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">let </span><span class="kw-2">mut </span>hits = Vec::new();
-<a href=#199 id=199 data-nosnippet>199</a>    <span class="kw">let </span>has_m: bool = c.query_row(
-<a href=#200 id=200 data-nosnippet>200</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='mentions'"</span>, [], |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>))
-<a href=#201 id=201 data-nosnippet>201</a>        .unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
-<a href=#202 id=202 data-nosnippet>202</a>    <span class="kw">if </span>has_m {
-<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT post_id, mentioned_nick, match_type FROM mentions"</span>)<span class="question-mark">?</span>;
-<a href=#204 id=204 data-nosnippet>204</a>        <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| {
-<a href=#205 id=205 data-nosnippet>205</a>            <span class="kw">let </span>mt: String = r.get(<span class="number">2</span>)<span class="question-mark">?</span>;
-<a href=#206 id=206 data-nosnippet>206</a>            <span class="prelude-val">Ok</span>((r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">1</span>)<span class="question-mark">?</span>, mt))
-<a href=#207 id=207 data-nosnippet>207</a>        })<span class="question-mark">? </span>{
-<a href=#208 id=208 data-nosnippet>208</a>            <span class="kw">let </span>(post_id, mentioned_nick, mt) = row<span class="question-mark">?</span>;
-<a href=#209 id=209 data-nosnippet>209</a>            <span class="kw">if </span>!nicks.is_empty() &amp;&amp; !nicks.iter().any(|n| n.eq_ignore_ascii_case(<span class="kw-2">&amp;</span>mentioned_nick)) { <span class="kw">continue</span>; }
-<a href=#210 id=210 data-nosnippet>210</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(match_type) = MatchType::parse(<span class="kw-2">&amp;</span>mt) {
-<a href=#211 id=211 data-nosnippet>211</a>                hits.push(MentionHit { post_id, mentioned_nick, match_type });
-<a href=#212 id=212 data-nosnippet>212</a>            }
-<a href=#213 id=213 data-nosnippet>213</a>        }
-<a href=#214 id=214 data-nosnippet>214</a>    }
-<a href=#215 id=215 data-nosnippet>215</a>    <span class="prelude-val">Ok</span>((profiles, hits))
-<a href=#216 id=216 data-nosnippet>216</a>}
-<a href=#217 id=217 data-nosnippet>217</a>
-<a href=#218 id=218 data-nosnippet>218</a><span class="doccomment">/// Insert or update attachment rows.
-<a href=#219 id=219 data-nosnippet>219</a></span><span class="kw">pub fn </span>save_attachments(db: <span class="kw-2">&amp;</span>Path, atts: <span class="kw-2">&amp;</span>[Attachment]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#220 id=220 data-nosnippet>220</a>    <span class="kw">let </span><span class="kw-2">mut </span>c = open_db(db)<span class="question-mark">?</span>;
-<a href=#221 id=221 data-nosnippet>221</a>    c.execute_batch(
-<a href=#222 id=222 data-nosnippet>222</a>        ATTACHMENTS_SCHEMA,
-<a href=#223 id=223 data-nosnippet>223</a>    )<span class="question-mark">?</span>;
-<a href=#224 id=224 data-nosnippet>224</a>    <span class="kw">let </span>tx = c.transaction()<span class="question-mark">?</span>;
-<a href=#225 id=225 data-nosnippet>225</a>    {
-<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = tx.prepare(
-<a href=#227 id=227 data-nosnippet>227</a>            <span class="string">"INSERT INTO attachments (post_id,url,local_path,mime_type) VALUES (?1,?2,?3,?4)
-<a href=#228 id=228 data-nosnippet>228</a>             ON CONFLICT(post_id,url) DO UPDATE SET local_path=excluded.local_path, mime_type=excluded.mime_type"</span>)<span class="question-mark">?</span>;
-<a href=#229 id=229 data-nosnippet>229</a>        <span class="kw">for </span>a <span class="kw">in </span>atts {
-<a href=#230 id=230 data-nosnippet>230</a>            st.execute(<span class="macro">params!</span>[a.post_id, a.url, a.local_path.to_string_lossy(), a.mime_type])<span class="question-mark">?</span>;
-<a href=#231 id=231 data-nosnippet>231</a>        }
-<a href=#232 id=232 data-nosnippet>232</a>    }
-<a href=#233 id=233 data-nosnippet>233</a>    tx.commit()<span class="question-mark">?</span>;
-<a href=#234 id=234 data-nosnippet>234</a>    <span class="prelude-val">Ok</span>(())
-<a href=#235 id=235 data-nosnippet>235</a>}
-<a href=#236 id=236 data-nosnippet>236</a>
-<a href=#237 id=237 data-nosnippet>237</a><span class="doccomment">/// Load posts matching `query` (case-insensitive LIKE on title + content),
-<a href=#238 id=238 data-nosnippet>238</a>/// optionally restricted to `nick`, plus context: each match's parent and
-<a href=#239 id=239 data-nosnippet>239</a>/// its direct children. Attachments come from the attachments table.
-<a href=#240 id=240 data-nosnippet>240</a></span><span class="kw">pub fn </span>search_db(db: <span class="kw-2">&amp;</span>Path, query: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;, nicks: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Post&gt;, Vec&lt;Attachment&gt;, usize)&gt; {
-<a href=#241 id=241 data-nosnippet>241</a>    <span class="kw">let </span>c = Connection::open(db).with_context(|| <span class="macro">format!</span>(<span class="string">"open {}"</span>, db.display()))<span class="question-mark">?</span>;
-<a href=#242 id=242 data-nosnippet>242</a>    <span class="kw">let </span>like = query.map(|q| <span class="macro">format!</span>(<span class="string">"%{}%"</span>, q.replace(<span class="string">'\\'</span>, <span class="string">"\\\\"</span>).replace(<span class="string">'%'</span>, <span class="string">"\\%"</span>).replace(<span class="string">'_'</span>, <span class="string">"\\_"</span>)));
-<a href=#243 id=243 data-nosnippet>243</a>    <span class="kw">let </span>cols = <span class="string">"post_id,parent_post_id,nick,title,content,posted_at"</span>;
-<a href=#244 id=244 data-nosnippet>244</a>    <span class="kw">let </span>row = |r: <span class="kw-2">&amp;</span>rusqlite::Row| -&gt; rusqlite::Result&lt;Post&gt; {
-<a href=#245 id=245 data-nosnippet>245</a>        <span class="prelude-val">Ok</span>(Post { post_id: r.get(<span class="number">0</span>)<span class="question-mark">?</span>, parent_post_id: r.get(<span class="number">1</span>)<span class="question-mark">?</span>, nick: r.get(<span class="number">2</span>)<span class="question-mark">?</span>, title: r.get(<span class="number">3</span>)<span class="question-mark">?</span>,
-<a href=#246 id=246 data-nosnippet>246</a>                  content: r.get(<span class="number">4</span>)<span class="question-mark">?</span>, posted_at: r.get(<span class="number">5</span>)<span class="question-mark">?</span>, media: Vec::new() })
-<a href=#247 id=247 data-nosnippet>247</a>    };
-<a href=#248 id=248 data-nosnippet>248</a>    <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-<a href=#249 id=249 data-nosnippet>249</a>        <span class="string">"SELECT {cols} FROM posts WHERE (?1 IS NULL OR title LIKE ?1 ESCAPE '\\' OR content LIKE ?1 ESCAPE '\\')
-<a href=#250 id=250 data-nosnippet>250</a>         ORDER BY posted_at"</span>))<span class="question-mark">?</span>;
-<a href=#251 id=251 data-nosnippet>251</a>    <span class="kw">let </span>want: HashSet&lt;String&gt; = nicks.iter().map(|n| n.to_lowercase()).collect();
-<a href=#252 id=252 data-nosnippet>252</a>    <span class="kw">let </span>matches: Vec&lt;Post&gt; = st.query_map(<span class="macro">params!</span>[like], row)<span class="question-mark">?
-<a href=#253 id=253 data-nosnippet>253</a>        </span>.filter(|p| p.as_ref().map_or(<span class="bool-val">true</span>, |p| want.is_empty() || want.contains(<span class="kw-2">&amp;</span>p.nick.to_lowercase())))
-<a href=#254 id=254 data-nosnippet>254</a>        .collect::&lt;rusqlite::Result&lt;<span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-<a href=#255 id=255 data-nosnippet>255</a>    <span class="kw">let </span>n = matches.len();
-<a href=#256 id=256 data-nosnippet>256</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen: HashSet&lt;String&gt; = matches.iter().map(|p| p.post_id.clone()).collect();
-<a href=#257 id=257 data-nosnippet>257</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = matches;
-<a href=#258 id=258 data-nosnippet>258</a>    <span class="kw">let </span><span class="kw-2">mut </span>by_id = c.prepare(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"SELECT {cols} FROM posts WHERE post_id = ?1"</span>))<span class="question-mark">?</span>;
-<a href=#259 id=259 data-nosnippet>259</a>    <span class="kw">let </span><span class="kw-2">mut </span>kids = c.prepare(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"SELECT {cols} FROM posts WHERE parent_post_id = ?1 ORDER BY posted_at"</span>))<span class="question-mark">?</span>;
-<a href=#260 id=260 data-nosnippet>260</a>    <span class="comment">// Context (parent + children) only for text searches; a full/nick dump has it already.
-<a href=#261 id=261 data-nosnippet>261</a>    </span><span class="kw">let </span>base: Vec&lt;(String, String)&gt; = <span class="kw">if </span>query.is_none() { Vec::new() } <span class="kw">else </span>{ out.iter().map(|p| (p.post_id.clone(), p.parent_post_id.clone())).collect() };
-<a href=#262 id=262 data-nosnippet>262</a>    <span class="kw">for </span>(id, parent) <span class="kw">in </span>base {
-<a href=#263 id=263 data-nosnippet>263</a>        <span class="kw">if </span>!parent.is_empty() {
-<a href=#264 id=264 data-nosnippet>264</a>            <span class="kw">for </span>p <span class="kw">in </span>by_id.query_map(<span class="macro">params!</span>[parent], row)<span class="question-mark">? </span>{ <span class="kw">let </span>p = p<span class="question-mark">?</span>; <span class="kw">if </span>seen.insert(p.post_id.clone()) { out.push(p); } }
-<a href=#265 id=265 data-nosnippet>265</a>        }
-<a href=#266 id=266 data-nosnippet>266</a>        <span class="kw">for </span>p <span class="kw">in </span>kids.query_map(<span class="macro">params!</span>[id], row)<span class="question-mark">? </span>{ <span class="kw">let </span>p = p<span class="question-mark">?</span>; <span class="kw">if </span>seen.insert(p.post_id.clone()) { out.push(p); } }
-<a href=#267 id=267 data-nosnippet>267</a>    }
-<a href=#268 id=268 data-nosnippet>268</a>    <span class="kw">let </span><span class="kw-2">mut </span>atts = Vec::new();
-<a href=#269 id=269 data-nosnippet>269</a>    <span class="kw">let </span>has_att: bool = c.query_row(<span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='attachments'"</span>, [], |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>))<span class="question-mark">? </span>&gt; <span class="number">0</span>;
-<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">if </span>has_att {
-<a href=#271 id=271 data-nosnippet>271</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT post_id,url,local_path,mime_type FROM attachments WHERE post_id = ?1"</span>)<span class="question-mark">?</span>;
-<a href=#272 id=272 data-nosnippet>272</a>        <span class="kw">for </span>p <span class="kw">in </span><span class="kw-2">&amp;</span>out {
-<a href=#273 id=273 data-nosnippet>273</a>            <span class="kw">for </span>a <span class="kw">in </span>st.query_map(<span class="macro">params!</span>[p.post_id], |r| <span class="prelude-val">Ok</span>(Attachment {
-<a href=#274 id=274 data-nosnippet>274</a>                post_id: r.get(<span class="number">0</span>)<span class="question-mark">?</span>, url: r.get(<span class="number">1</span>)<span class="question-mark">?</span>, kind: <span class="string">"file"</span>.into(),
-<a href=#275 id=275 data-nosnippet>275</a>                local_path: PathBuf::from(r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">2</span>)<span class="question-mark">?</span>), mime_type: r.get(<span class="number">3</span>)<span class="question-mark">?</span>,
-<a href=#276 id=276 data-nosnippet>276</a>            }))<span class="question-mark">? </span>{
-<a href=#277 id=277 data-nosnippet>277</a>                <span class="kw">let </span>a = a<span class="question-mark">?</span>;
-<a href=#278 id=278 data-nosnippet>278</a>                <span class="kw">if </span>a.local_path.exists() { atts.push(a); } <span class="kw">else </span>{ log_error(<span class="macro">format_args!</span>(<span class="string">"warning: missing attachment file {}"</span>, a.local_path.display())); }
-<a href=#279 id=279 data-nosnippet>279</a>            }
-<a href=#280 id=280 data-nosnippet>280</a>        }
-<a href=#281 id=281 data-nosnippet>281</a>    }
-<a href=#282 id=282 data-nosnippet>282</a>    <span class="prelude-val">Ok</span>((out, atts, n))
-<a href=#283 id=283 data-nosnippet>283</a>}
-<a href=#284 id=284 data-nosnippet>284</a>
-<a href=#285 id=285 data-nosnippet>285</a><span class="doccomment">/// Open (creating) the database at `db`, creating its directory first so the
-<a href=#286 id=286 data-nosnippet>286</a>/// very first write on a fresh `$HOME` works whichever table is written first.
-<a href=#287 id=287 data-nosnippet>287</a></span><span class="kw">pub fn </span>open_db(db: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Connection&gt; {
-<a href=#288 id=288 data-nosnippet>288</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = db.parent() { std::fs::create_dir_all(dir)<span class="question-mark">?</span>; }
-<a href=#289 id=289 data-nosnippet>289</a>    <span class="prelude-val">Ok</span>(Connection::open(db)<span class="question-mark">?</span>)
-<a href=#290 id=290 data-nosnippet>290</a>}
+<a href=#5 id=5 data-nosnippet>5</a><span class="doccomment">/// Stored `post_id`s that have a body (or attachments); blank rows are left
+<a href=#6 id=6 data-nosnippet>6</a>/// out so the next scrape re-fetches and repairs them. Empty when there is no database yet.
+<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">pub fn </span>db_known_ids(db: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="prelude-ty">Result</span>&lt;HashSet&lt;String&gt;&gt; {
+<a href=#8 id=8 data-nosnippet>8</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = HashSet::new();
+<a href=#9 id=9 data-nosnippet>9</a>    <span class="kw">if </span>!db.exists() { <span class="kw">return </span><span class="prelude-val">Ok</span>(out); }
+<a href=#10 id=10 data-nosnippet>10</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
+<a href=#11 id=11 data-nosnippet>11</a>    <span class="kw">let </span>ok: bool = c.query_row(
+<a href=#12 id=12 data-nosnippet>12</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'"</span>, [],
+<a href=#13 id=13 data-nosnippet>13</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
+<a href=#14 id=14 data-nosnippet>14</a>    <span class="kw">if </span>!ok { <span class="kw">return </span><span class="prelude-val">Ok</span>(out); }
+<a href=#15 id=15 data-nosnippet>15</a>    <span class="kw">let </span>has_atts: bool = c.query_row(
+<a href=#16 id=16 data-nosnippet>16</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='attachments'"</span>, [],
+<a href=#17 id=17 data-nosnippet>17</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
+<a href=#18 id=18 data-nosnippet>18</a>    <span class="kw">let </span>sql = <span class="kw">if </span>has_atts {
+<a href=#19 id=19 data-nosnippet>19</a>        <span class="string">"SELECT post_id FROM posts WHERE content &lt;&gt; '' OR title &lt;&gt; '' OR post_id IN (SELECT post_id FROM attachments)"
+<a href=#20 id=20 data-nosnippet>20</a>    </span>} <span class="kw">else </span>{
+<a href=#21 id=21 data-nosnippet>21</a>        <span class="string">"SELECT post_id FROM posts WHERE content &lt;&gt; '' OR title &lt;&gt; ''"
+<a href=#22 id=22 data-nosnippet>22</a>    </span>};
+<a href=#23 id=23 data-nosnippet>23</a>    <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(sql)<span class="question-mark">?</span>;
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="kw">for </span>id <span class="kw">in </span>st.query_map([], |r| r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>))<span class="question-mark">? </span>{ out.insert(id<span class="question-mark">?</span>); }
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="prelude-val">Ok</span>(out)
+<a href=#26 id=26 data-nosnippet>26</a>}
+<a href=#27 id=27 data-nosnippet>27</a>
+<a href=#28 id=28 data-nosnippet>28</a><span class="doccomment">/// Stored reply count per thread root, used to skip unchanged threads.
+<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">pub fn </span>db_reply_counts(db: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, usize&gt;&gt; {
+<a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = HashMap::new();
+<a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">if </span>!db.exists() { <span class="kw">return </span><span class="prelude-val">Ok</span>(out); }
+<a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
+<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>ok: bool = c.query_row(
+<a href=#34 id=34 data-nosnippet>34</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'"</span>, [],
+<a href=#35 id=35 data-nosnippet>35</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
+<a href=#36 id=36 data-nosnippet>36</a>    <span class="kw">if </span>!ok { <span class="kw">return </span><span class="prelude-val">Ok</span>(out); }
+<a href=#37 id=37 data-nosnippet>37</a>    <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(
+<a href=#38 id=38 data-nosnippet>38</a>        <span class="string">"SELECT parent_post_id, COUNT(*) FROM posts WHERE parent_post_id != '' GROUP BY parent_post_id"</span>)<span class="question-mark">?</span>;
+<a href=#39 id=39 data-nosnippet>39</a>    <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| <span class="prelude-val">Ok</span>((r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">1</span>)<span class="question-mark">? </span><span class="kw">as </span>usize)))<span class="question-mark">? </span>{
+<a href=#40 id=40 data-nosnippet>40</a>        <span class="kw">let </span>(k, v) = row<span class="question-mark">?</span>;
+<a href=#41 id=41 data-nosnippet>41</a>        out.insert(k, v);
+<a href=#42 id=42 data-nosnippet>42</a>    }
+<a href=#43 id=43 data-nosnippet>43</a>    <span class="prelude-val">Ok</span>(out)
+<a href=#44 id=44 data-nosnippet>44</a>}
+<a href=#45 id=45 data-nosnippet>45</a>
+<a href=#46 id=46 data-nosnippet>46</a><span class="attr">#[derive(Debug)]
+<a href=#47 id=47 data-nosnippet>47</a></span><span class="doccomment">/// A `--list-nicks` row.
+<a href=#48 id=48 data-nosnippet>48</a></span><span class="kw">pub struct </span>NickInfo {
+<a href=#49 id=49 data-nosnippet>49</a>    <span class="doccomment">/// Nick (username, without `@`).
+<a href=#50 id=50 data-nosnippet>50</a>    </span><span class="kw">pub </span>nick: String,
+<a href=#51 id=51 data-nosnippet>51</a>    <span class="doccomment">/// Display name.
+<a href=#52 id=52 data-nosnippet>52</a>    </span><span class="kw">pub </span>display_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#53 id=53 data-nosnippet>53</a>    <span class="doccomment">/// Stored posts by the nick.
+<a href=#54 id=54 data-nosnippet>54</a>    </span><span class="kw">pub </span>post_count: i64,
+<a href=#55 id=55 data-nosnippet>55</a>    <span class="doccomment">/// Newest stored post date.
+<a href=#56 id=56 data-nosnippet>56</a>    </span><span class="kw">pub </span>latest: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#57 id=57 data-nosnippet>57</a>    <span class="doccomment">/// Whether a profile row exists.
+<a href=#58 id=58 data-nosnippet>58</a>    </span><span class="kw">pub </span>profile_scraped: bool,
+<a href=#59 id=59 data-nosnippet>59</a>    <span class="doccomment">/// When it was scraped (RFC 3339).
+<a href=#60 id=60 data-nosnippet>60</a>    </span><span class="kw">pub </span>scraped_at: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#61 id=61 data-nosnippet>61</a>}
+<a href=#62 id=62 data-nosnippet>62</a>
+<a href=#63 id=63 data-nosnippet>63</a><span class="doccomment">/// Every nick with posts or a profile, with counts and dates (for `--list-nicks`).
+<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">pub fn </span>list_nicks_db(db: <span class="kw-2">&amp;</span>std::path::Path) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;NickInfo&gt;&gt; {
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="kw">let </span><span class="kw-2">mut </span>map: HashMap&lt;String, NickInfo&gt; = HashMap::new();
+<a href=#66 id=66 data-nosnippet>66</a>    <span class="kw">if </span>!db.exists() { <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()); }
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
+<a href=#68 id=68 data-nosnippet>68</a>    <span class="kw">let </span>has_posts: bool = c.query_row(
+<a href=#69 id=69 data-nosnippet>69</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'"</span>, [],
+<a href=#70 id=70 data-nosnippet>70</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
+<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">if </span>has_posts {
+<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(
+<a href=#73 id=73 data-nosnippet>73</a>            <span class="string">"SELECT nick, COUNT(*), MAX(posted_at) FROM posts GROUP BY lower(nick)"</span>)<span class="question-mark">?</span>;
+<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| <span class="prelude-val">Ok</span>((r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">1</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;String&gt;&gt;(<span class="number">2</span>)<span class="question-mark">?</span>)))<span class="question-mark">? </span>{
+<a href=#75 id=75 data-nosnippet>75</a>            <span class="kw">let </span>(nick, cnt, latest) = row<span class="question-mark">?</span>;
+<a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">let </span>key = nick.to_lowercase();
+<a href=#77 id=77 data-nosnippet>77</a>            map.insert(key, NickInfo {
+<a href=#78 id=78 data-nosnippet>78</a>                nick, display_name: <span class="prelude-val">None</span>, post_count: cnt, latest,
+<a href=#79 id=79 data-nosnippet>79</a>                profile_scraped: <span class="bool-val">false</span>, scraped_at: <span class="prelude-val">None</span>,
+<a href=#80 id=80 data-nosnippet>80</a>            });
+<a href=#81 id=81 data-nosnippet>81</a>        }
+<a href=#82 id=82 data-nosnippet>82</a>    }
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">let </span>has_p: bool = c.query_row(
+<a href=#84 id=84 data-nosnippet>84</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='profiles'"</span>, [],
+<a href=#85 id=85 data-nosnippet>85</a>        |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>)).unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
+<a href=#86 id=86 data-nosnippet>86</a>    <span class="kw">if </span>has_p {
+<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT nick, display_name, scraped_at FROM profiles"</span>)<span class="question-mark">?</span>;
+<a href=#88 id=88 data-nosnippet>88</a>        <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| <span class="prelude-val">Ok</span>((r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;String&gt;&gt;(<span class="number">1</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, <span class="prelude-ty">Option</span>&lt;String&gt;&gt;(<span class="number">2</span>)<span class="question-mark">?</span>)))<span class="question-mark">? </span>{
+<a href=#89 id=89 data-nosnippet>89</a>            <span class="kw">let </span>(nick, dn, sa) = row<span class="question-mark">?</span>;
+<a href=#90 id=90 data-nosnippet>90</a>            <span class="kw">let </span>key = nick.to_lowercase();
+<a href=#91 id=91 data-nosnippet>91</a>            <span class="kw">let </span>e = map.entry(key).or_insert_with(|| NickInfo {
+<a href=#92 id=92 data-nosnippet>92</a>                nick: nick.clone(), display_name: <span class="prelude-val">None</span>, post_count: <span class="number">0</span>, latest: <span class="prelude-val">None</span>,
+<a href=#93 id=93 data-nosnippet>93</a>                profile_scraped: <span class="bool-val">false</span>, scraped_at: <span class="prelude-val">None</span>,
+<a href=#94 id=94 data-nosnippet>94</a>            });
+<a href=#95 id=95 data-nosnippet>95</a>            e.nick = nick;
+<a href=#96 id=96 data-nosnippet>96</a>            e.display_name = dn.or(e.display_name.clone());
+<a href=#97 id=97 data-nosnippet>97</a>            e.profile_scraped = <span class="bool-val">true</span>;
+<a href=#98 id=98 data-nosnippet>98</a>            e.scraped_at = sa;
+<a href=#99 id=99 data-nosnippet>99</a>        }
+<a href=#100 id=100 data-nosnippet>100</a>    }
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">let </span><span class="kw-2">mut </span>v: Vec&lt;<span class="kw">_</span>&gt; = map.into_values().collect();
+<a href=#102 id=102 data-nosnippet>102</a>    v.sort_by_key(|a| a.nick.to_lowercase());
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="prelude-val">Ok</span>(v)
+<a href=#104 id=104 data-nosnippet>104</a>}
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a><span class="doccomment">/// Print `--list-nicks` as an aligned table on stdout.
+<a href=#107 id=107 data-nosnippet>107</a></span><span class="kw">pub fn </span>print_nicks_table(infos: <span class="kw-2">&amp;</span>[NickInfo]) {
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="macro">println!</span>(<span class="string">"{:&lt;20} {:&lt;24} {:&gt;6}  {:&lt;20} {:&lt;8} SCRAPED_AT"</span>,
+<a href=#109 id=109 data-nosnippet>109</a>        <span class="string">"NICK"</span>, <span class="string">"DISPLAY"</span>, <span class="string">"POSTS"</span>, <span class="string">"LATEST"</span>, <span class="string">"PROFILE"</span>);
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">for </span>i <span class="kw">in </span>infos {
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="macro">println!</span>(<span class="string">"{:&lt;20} {:&lt;24} {:&gt;6}  {:&lt;20} {:&lt;8} {}"</span>,
+<a href=#112 id=112 data-nosnippet>112</a>            <span class="macro">format!</span>(<span class="string">"@{}"</span>, i.nick),
+<a href=#113 id=113 data-nosnippet>113</a>            i.display_name.as_deref().unwrap_or(<span class="string">"-"</span>).chars().take(<span class="number">24</span>).collect::&lt;String&gt;(),
+<a href=#114 id=114 data-nosnippet>114</a>            i.post_count,
+<a href=#115 id=115 data-nosnippet>115</a>            i.latest.as_deref().unwrap_or(<span class="string">"-"</span>).chars().take(<span class="number">20</span>).collect::&lt;String&gt;(),
+<a href=#116 id=116 data-nosnippet>116</a>            <span class="kw">if </span>i.profile_scraped { <span class="string">"yes" </span>} <span class="kw">else </span>{ <span class="string">"no" </span>},
+<a href=#117 id=117 data-nosnippet>117</a>            i.scraped_at.as_deref().unwrap_or(<span class="string">"-"</span>));
+<a href=#118 id=118 data-nosnippet>118</a>    }
+<a href=#119 id=119 data-nosnippet>119</a>}
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a><span class="doccomment">/// Insert posts into `~/.acp/ai/data/rs.database` (creating the table); existing `post_id`s are kept, except blank rows, whose title/content are repaired. Returns rows inserted or repaired.
+<a href=#122 id=122 data-nosnippet>122</a></span><span class="kw">pub fn </span>save(posts: <span class="kw-2">&amp;</span>[Post]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+<a href=#123 id=123 data-nosnippet>123</a>    <span class="kw">let </span>path = home()<span class="question-mark">?</span>.join(DB_REL_PATH);
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="kw">let </span><span class="kw-2">mut </span>db = open_db(<span class="kw-2">&amp;</span>path)<span class="question-mark">?</span>;
+<a href=#125 id=125 data-nosnippet>125</a>    db.execute_batch(
+<a href=#126 id=126 data-nosnippet>126</a>        POSTS_SCHEMA,
+<a href=#127 id=127 data-nosnippet>127</a>    )<span class="question-mark">?</span>;
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="kw">let </span>tx = db.transaction()<span class="question-mark">?</span>;
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">0</span>;
+<a href=#130 id=130 data-nosnippet>130</a>    {
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = tx.prepare(
+<a href=#132 id=132 data-nosnippet>132</a>            <span class="string">"INSERT INTO posts (post_id,parent_post_id,nick,title,content,posted_at)
+<a href=#133 id=133 data-nosnippet>133</a>             VALUES (?1,?2,?3,?4,?5,?6)
+<a href=#134 id=134 data-nosnippet>134</a>             ON CONFLICT(post_id) DO UPDATE SET title=excluded.title, content=excluded.content
+<a href=#135 id=135 data-nosnippet>135</a>             WHERE posts.content = '' AND posts.title = '' AND (excluded.content &lt;&gt; '' OR excluded.title &lt;&gt; '')"</span>)<span class="question-mark">?</span>;
+<a href=#136 id=136 data-nosnippet>136</a>        <span class="kw">for </span>p <span class="kw">in </span>posts {
+<a href=#137 id=137 data-nosnippet>137</a>            n += st.execute(<span class="macro">params!</span>[p.post_id, p.parent_post_id, p.nick, p.title, p.content, p.posted_at])<span class="question-mark">?</span>;
+<a href=#138 id=138 data-nosnippet>138</a>        }
+<a href=#139 id=139 data-nosnippet>139</a>    }
+<a href=#140 id=140 data-nosnippet>140</a>    tx.commit()<span class="question-mark">?</span>;
+<a href=#141 id=141 data-nosnippet>141</a>    <span class="macro">info!</span>(<span class="string">"DB: {}"</span>, path.display());
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="prelude-val">Ok</span>(n)
+<a href=#143 id=143 data-nosnippet>143</a>}
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a><span class="doccomment">/// Insert or update a nick's profile row.
+<a href=#146 id=146 data-nosnippet>146</a></span><span class="kw">pub fn </span>save_profile(db: <span class="kw-2">&amp;</span>std::path::Path, p: <span class="kw-2">&amp;</span>Profile) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">let </span>c = open_db(db)<span class="question-mark">?</span>;
+<a href=#148 id=148 data-nosnippet>148</a>    c.execute_batch(
+<a href=#149 id=149 data-nosnippet>149</a>        PROFILES_SCHEMA)<span class="question-mark">?</span>;
+<a href=#150 id=150 data-nosnippet>150</a>    c.execute(
+<a href=#151 id=151 data-nosnippet>151</a>        <span class="string">"INSERT INTO profiles (nick,user_id,display_name,bio,avatar_url,avatar_path,banner_url,banner_path,
+<a href=#152 id=152 data-nosnippet>152</a>            location,role,joined_at,followers,following,posts_count,raw_json,scraped_at)
+<a href=#153 id=153 data-nosnippet>153</a>         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)
+<a href=#154 id=154 data-nosnippet>154</a>         ON CONFLICT(nick) DO UPDATE SET
+<a href=#155 id=155 data-nosnippet>155</a>            user_id=excluded.user_id, display_name=excluded.display_name, bio=excluded.bio,
+<a href=#156 id=156 data-nosnippet>156</a>            avatar_url=excluded.avatar_url, avatar_path=excluded.avatar_path,
+<a href=#157 id=157 data-nosnippet>157</a>            banner_url=excluded.banner_url, banner_path=excluded.banner_path,
+<a href=#158 id=158 data-nosnippet>158</a>            location=excluded.location, role=excluded.role, joined_at=excluded.joined_at,
+<a href=#159 id=159 data-nosnippet>159</a>            followers=excluded.followers, following=excluded.following, posts_count=excluded.posts_count,
+<a href=#160 id=160 data-nosnippet>160</a>            raw_json=excluded.raw_json, scraped_at=excluded.scraped_at"</span>,
+<a href=#161 id=161 data-nosnippet>161</a>        <span class="macro">rusqlite::params!</span>[
+<a href=#162 id=162 data-nosnippet>162</a>            p.nick, p.user_id, p.display_name, p.bio, p.avatar_url, p.avatar_path,
+<a href=#163 id=163 data-nosnippet>163</a>            p.banner_url, p.banner_path, p.location, p.role, p.joined_at,
+<a href=#164 id=164 data-nosnippet>164</a>            p.followers, p.following, p.posts_count, p.raw_json, p.scraped_at
+<a href=#165 id=165 data-nosnippet>165</a>        ],
+<a href=#166 id=166 data-nosnippet>166</a>    )<span class="question-mark">?</span>;
+<a href=#167 id=167 data-nosnippet>167</a>    <span class="prelude-val">Ok</span>(())
+<a href=#168 id=168 data-nosnippet>168</a>}
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a><span class="doccomment">/// Insert mention hits (duplicates ignored).
+<a href=#171 id=171 data-nosnippet>171</a></span><span class="kw">pub fn </span>save_mentions(db: <span class="kw-2">&amp;</span>std::path::Path, hits: <span class="kw-2">&amp;</span>[MentionHit]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="kw">let </span><span class="kw-2">mut </span>c = open_db(db)<span class="question-mark">?</span>;
+<a href=#173 id=173 data-nosnippet>173</a>    c.execute_batch(
+<a href=#174 id=174 data-nosnippet>174</a>        MENTIONS_SCHEMA)<span class="question-mark">?</span>;
+<a href=#175 id=175 data-nosnippet>175</a>    <span class="kw">let </span>tx = c.transaction()<span class="question-mark">?</span>;
+<a href=#176 id=176 data-nosnippet>176</a>    {
+<a href=#177 id=177 data-nosnippet>177</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = tx.prepare(
+<a href=#178 id=178 data-nosnippet>178</a>            <span class="string">"INSERT OR IGNORE INTO mentions (post_id, mentioned_nick, match_type) VALUES (?1,?2,?3)"</span>)<span class="question-mark">?</span>;
+<a href=#179 id=179 data-nosnippet>179</a>        <span class="kw">for </span>h <span class="kw">in </span>hits {
+<a href=#180 id=180 data-nosnippet>180</a>            st.execute(<span class="macro">rusqlite::params!</span>[h.post_id, h.mentioned_nick, h.match_type.as_str()])<span class="question-mark">?</span>;
+<a href=#181 id=181 data-nosnippet>181</a>        }
+<a href=#182 id=182 data-nosnippet>182</a>    }
+<a href=#183 id=183 data-nosnippet>183</a>    tx.commit()<span class="question-mark">?</span>;
+<a href=#184 id=184 data-nosnippet>184</a>    <span class="prelude-val">Ok</span>(())
+<a href=#185 id=185 data-nosnippet>185</a>}
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a><span class="doccomment">/// Load profiles and mentions, optionally only for `nicks`.
+<a href=#188 id=188 data-nosnippet>188</a></span><span class="kw">pub fn </span>load_profiles_mentions(db: <span class="kw-2">&amp;</span>std::path::Path, nicks: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Profile&gt;, Vec&lt;MentionHit&gt;)&gt; {
+<a href=#189 id=189 data-nosnippet>189</a>    <span class="kw">if </span>!db.exists() { <span class="kw">return </span><span class="prelude-val">Ok</span>((Vec::new(), Vec::new())); }
+<a href=#190 id=190 data-nosnippet>190</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
+<a href=#191 id=191 data-nosnippet>191</a>    <span class="kw">let </span><span class="kw-2">mut </span>profiles = Vec::new();
+<a href=#192 id=192 data-nosnippet>192</a>    <span class="kw">let </span>has_p: bool = c.query_row(
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='profiles'"</span>, [], |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>))
+<a href=#194 id=194 data-nosnippet>194</a>        .unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
+<a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">if </span>has_p {
+<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT nick,user_id,display_name,bio,avatar_url,avatar_path,banner_url,banner_path,location,role,joined_at,followers,following,posts_count,raw_json,scraped_at FROM profiles"</span>)<span class="question-mark">?</span>;
+<a href=#197 id=197 data-nosnippet>197</a>        <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| <span class="prelude-val">Ok</span>(Profile {
+<a href=#198 id=198 data-nosnippet>198</a>            nick: r.get(<span class="number">0</span>)<span class="question-mark">?</span>, user_id: r.get(<span class="number">1</span>)<span class="question-mark">?</span>, display_name: r.get(<span class="number">2</span>)<span class="question-mark">?</span>, bio: r.get(<span class="number">3</span>)<span class="question-mark">?</span>,
+<a href=#199 id=199 data-nosnippet>199</a>            avatar_url: r.get(<span class="number">4</span>)<span class="question-mark">?</span>, avatar_path: r.get(<span class="number">5</span>)<span class="question-mark">?</span>, banner_url: r.get(<span class="number">6</span>)<span class="question-mark">?</span>, banner_path: r.get(<span class="number">7</span>)<span class="question-mark">?</span>,
+<a href=#200 id=200 data-nosnippet>200</a>            location: r.get(<span class="number">8</span>)<span class="question-mark">?</span>, role: r.get(<span class="number">9</span>)<span class="question-mark">?</span>, joined_at: r.get(<span class="number">10</span>)<span class="question-mark">?</span>, followers: r.get(<span class="number">11</span>)<span class="question-mark">?</span>,
+<a href=#201 id=201 data-nosnippet>201</a>            following: r.get(<span class="number">12</span>)<span class="question-mark">?</span>, posts_count: r.get(<span class="number">13</span>)<span class="question-mark">?</span>, raw_json: r.get(<span class="number">14</span>)<span class="question-mark">?</span>, scraped_at: r.get(<span class="number">15</span>)<span class="question-mark">?</span>,
+<a href=#202 id=202 data-nosnippet>202</a>        }))<span class="question-mark">? </span>{
+<a href=#203 id=203 data-nosnippet>203</a>            <span class="kw">let </span>p = row<span class="question-mark">?</span>;
+<a href=#204 id=204 data-nosnippet>204</a>            <span class="kw">if </span>nicks.is_empty() || nicks.iter().any(|n| n.eq_ignore_ascii_case(<span class="kw-2">&amp;</span>p.nick)) {
+<a href=#205 id=205 data-nosnippet>205</a>                profiles.push(p);
+<a href=#206 id=206 data-nosnippet>206</a>            }
+<a href=#207 id=207 data-nosnippet>207</a>        }
+<a href=#208 id=208 data-nosnippet>208</a>    }
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="kw">let </span><span class="kw-2">mut </span>hits = Vec::new();
+<a href=#210 id=210 data-nosnippet>210</a>    <span class="kw">let </span>has_m: bool = c.query_row(
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='mentions'"</span>, [], |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>))
+<a href=#212 id=212 data-nosnippet>212</a>        .unwrap_or(<span class="number">0</span>) &gt; <span class="number">0</span>;
+<a href=#213 id=213 data-nosnippet>213</a>    <span class="kw">if </span>has_m {
+<a href=#214 id=214 data-nosnippet>214</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT post_id, mentioned_nick, match_type FROM mentions"</span>)<span class="question-mark">?</span>;
+<a href=#215 id=215 data-nosnippet>215</a>        <span class="kw">for </span>row <span class="kw">in </span>st.query_map([], |r| {
+<a href=#216 id=216 data-nosnippet>216</a>            <span class="kw">let </span>mt: String = r.get(<span class="number">2</span>)<span class="question-mark">?</span>;
+<a href=#217 id=217 data-nosnippet>217</a>            <span class="prelude-val">Ok</span>((r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">0</span>)<span class="question-mark">?</span>, r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">1</span>)<span class="question-mark">?</span>, mt))
+<a href=#218 id=218 data-nosnippet>218</a>        })<span class="question-mark">? </span>{
+<a href=#219 id=219 data-nosnippet>219</a>            <span class="kw">let </span>(post_id, mentioned_nick, mt) = row<span class="question-mark">?</span>;
+<a href=#220 id=220 data-nosnippet>220</a>            <span class="kw">if </span>!nicks.is_empty() &amp;&amp; !nicks.iter().any(|n| n.eq_ignore_ascii_case(<span class="kw-2">&amp;</span>mentioned_nick)) { <span class="kw">continue</span>; }
+<a href=#221 id=221 data-nosnippet>221</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(match_type) = MatchType::parse(<span class="kw-2">&amp;</span>mt) {
+<a href=#222 id=222 data-nosnippet>222</a>                hits.push(MentionHit { post_id, mentioned_nick, match_type });
+<a href=#223 id=223 data-nosnippet>223</a>            }
+<a href=#224 id=224 data-nosnippet>224</a>        }
+<a href=#225 id=225 data-nosnippet>225</a>    }
+<a href=#226 id=226 data-nosnippet>226</a>    <span class="prelude-val">Ok</span>((profiles, hits))
+<a href=#227 id=227 data-nosnippet>227</a>}
+<a href=#228 id=228 data-nosnippet>228</a>
+<a href=#229 id=229 data-nosnippet>229</a><span class="doccomment">/// Insert or update attachment rows.
+<a href=#230 id=230 data-nosnippet>230</a></span><span class="kw">pub fn </span>save_attachments(db: <span class="kw-2">&amp;</span>Path, atts: <span class="kw-2">&amp;</span>[Attachment]) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">let </span><span class="kw-2">mut </span>c = open_db(db)<span class="question-mark">?</span>;
+<a href=#232 id=232 data-nosnippet>232</a>    c.execute_batch(
+<a href=#233 id=233 data-nosnippet>233</a>        ATTACHMENTS_SCHEMA,
+<a href=#234 id=234 data-nosnippet>234</a>    )<span class="question-mark">?</span>;
+<a href=#235 id=235 data-nosnippet>235</a>    <span class="kw">let </span>tx = c.transaction()<span class="question-mark">?</span>;
+<a href=#236 id=236 data-nosnippet>236</a>    {
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = tx.prepare(
+<a href=#238 id=238 data-nosnippet>238</a>            <span class="string">"INSERT INTO attachments (post_id,url,local_path,mime_type) VALUES (?1,?2,?3,?4)
+<a href=#239 id=239 data-nosnippet>239</a>             ON CONFLICT(post_id,url) DO UPDATE SET local_path=excluded.local_path, mime_type=excluded.mime_type"</span>)<span class="question-mark">?</span>;
+<a href=#240 id=240 data-nosnippet>240</a>        <span class="kw">for </span>a <span class="kw">in </span>atts {
+<a href=#241 id=241 data-nosnippet>241</a>            st.execute(<span class="macro">params!</span>[a.post_id, a.url, a.local_path.to_string_lossy(), a.mime_type])<span class="question-mark">?</span>;
+<a href=#242 id=242 data-nosnippet>242</a>        }
+<a href=#243 id=243 data-nosnippet>243</a>    }
+<a href=#244 id=244 data-nosnippet>244</a>    tx.commit()<span class="question-mark">?</span>;
+<a href=#245 id=245 data-nosnippet>245</a>    <span class="prelude-val">Ok</span>(())
+<a href=#246 id=246 data-nosnippet>246</a>}
+<a href=#247 id=247 data-nosnippet>247</a>
+<a href=#248 id=248 data-nosnippet>248</a><span class="doccomment">/// Load posts matching `query` (case-insensitive LIKE on title + content),
+<a href=#249 id=249 data-nosnippet>249</a>/// optionally restricted to `nick`, plus context: each match's parent and
+<a href=#250 id=250 data-nosnippet>250</a>/// its direct children. Attachments come from the attachments table.
+<a href=#251 id=251 data-nosnippet>251</a></span><span class="kw">pub fn </span>search_db(db: <span class="kw-2">&amp;</span>Path, query: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;, nicks: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Result</span>&lt;(Vec&lt;Post&gt;, Vec&lt;Attachment&gt;, usize)&gt; {
+<a href=#252 id=252 data-nosnippet>252</a>    <span class="kw">let </span>c = Connection::open(db).with_context(|| <span class="macro">format!</span>(<span class="string">"open {}"</span>, db.display()))<span class="question-mark">?</span>;
+<a href=#253 id=253 data-nosnippet>253</a>    <span class="kw">let </span>like = query.map(|q| <span class="macro">format!</span>(<span class="string">"%{}%"</span>, q.replace(<span class="string">'\\'</span>, <span class="string">"\\\\"</span>).replace(<span class="string">'%'</span>, <span class="string">"\\%"</span>).replace(<span class="string">'_'</span>, <span class="string">"\\_"</span>)));
+<a href=#254 id=254 data-nosnippet>254</a>    <span class="kw">let </span>cols = <span class="string">"post_id,parent_post_id,nick,title,content,posted_at"</span>;
+<a href=#255 id=255 data-nosnippet>255</a>    <span class="kw">let </span>row = |r: <span class="kw-2">&amp;</span>rusqlite::Row| -&gt; rusqlite::Result&lt;Post&gt; {
+<a href=#256 id=256 data-nosnippet>256</a>        <span class="prelude-val">Ok</span>(Post { post_id: r.get(<span class="number">0</span>)<span class="question-mark">?</span>, parent_post_id: r.get(<span class="number">1</span>)<span class="question-mark">?</span>, nick: r.get(<span class="number">2</span>)<span class="question-mark">?</span>, title: r.get(<span class="number">3</span>)<span class="question-mark">?</span>,
+<a href=#257 id=257 data-nosnippet>257</a>                  content: r.get(<span class="number">4</span>)<span class="question-mark">?</span>, posted_at: r.get(<span class="number">5</span>)<span class="question-mark">?</span>, media: Vec::new() })
+<a href=#258 id=258 data-nosnippet>258</a>    };
+<a href=#259 id=259 data-nosnippet>259</a>    <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="string">"SELECT {cols} FROM posts WHERE (?1 IS NULL OR title LIKE ?1 ESCAPE '\\' OR content LIKE ?1 ESCAPE '\\')
+<a href=#261 id=261 data-nosnippet>261</a>         ORDER BY posted_at"</span>))<span class="question-mark">?</span>;
+<a href=#262 id=262 data-nosnippet>262</a>    <span class="kw">let </span>want: HashSet&lt;String&gt; = nicks.iter().map(|n| n.to_lowercase()).collect();
+<a href=#263 id=263 data-nosnippet>263</a>    <span class="kw">let </span>matches: Vec&lt;Post&gt; = st.query_map(<span class="macro">params!</span>[like], row)<span class="question-mark">?
+<a href=#264 id=264 data-nosnippet>264</a>        </span>.filter(|p| p.as_ref().map_or(<span class="bool-val">true</span>, |p| want.is_empty() || want.contains(<span class="kw-2">&amp;</span>p.nick.to_lowercase())))
+<a href=#265 id=265 data-nosnippet>265</a>        .collect::&lt;rusqlite::Result&lt;<span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#266 id=266 data-nosnippet>266</a>    <span class="kw">let </span>n = matches.len();
+<a href=#267 id=267 data-nosnippet>267</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen: HashSet&lt;String&gt; = matches.iter().map(|p| p.post_id.clone()).collect();
+<a href=#268 id=268 data-nosnippet>268</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = matches;
+<a href=#269 id=269 data-nosnippet>269</a>    <span class="kw">let </span><span class="kw-2">mut </span>by_id = c.prepare(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"SELECT {cols} FROM posts WHERE post_id = ?1"</span>))<span class="question-mark">?</span>;
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">let </span><span class="kw-2">mut </span>kids = c.prepare(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"SELECT {cols} FROM posts WHERE parent_post_id = ?1 ORDER BY posted_at"</span>))<span class="question-mark">?</span>;
+<a href=#271 id=271 data-nosnippet>271</a>    <span class="comment">// Context (parent + children) only for text searches; a full/nick dump has it already.
+<a href=#272 id=272 data-nosnippet>272</a>    </span><span class="kw">let </span>base: Vec&lt;(String, String)&gt; = <span class="kw">if </span>query.is_none() { Vec::new() } <span class="kw">else </span>{ out.iter().map(|p| (p.post_id.clone(), p.parent_post_id.clone())).collect() };
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="kw">for </span>(id, parent) <span class="kw">in </span>base {
+<a href=#274 id=274 data-nosnippet>274</a>        <span class="kw">if </span>!parent.is_empty() {
+<a href=#275 id=275 data-nosnippet>275</a>            <span class="kw">for </span>p <span class="kw">in </span>by_id.query_map(<span class="macro">params!</span>[parent], row)<span class="question-mark">? </span>{ <span class="kw">let </span>p = p<span class="question-mark">?</span>; <span class="kw">if </span>seen.insert(p.post_id.clone()) { out.push(p); } }
+<a href=#276 id=276 data-nosnippet>276</a>        }
+<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">for </span>p <span class="kw">in </span>kids.query_map(<span class="macro">params!</span>[id], row)<span class="question-mark">? </span>{ <span class="kw">let </span>p = p<span class="question-mark">?</span>; <span class="kw">if </span>seen.insert(p.post_id.clone()) { out.push(p); } }
+<a href=#278 id=278 data-nosnippet>278</a>    }
+<a href=#279 id=279 data-nosnippet>279</a>    <span class="kw">let </span><span class="kw-2">mut </span>atts = Vec::new();
+<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">let </span>has_att: bool = c.query_row(<span class="string">"SELECT count(*) FROM sqlite_master WHERE type='table' AND name='attachments'"</span>, [], |r| r.get::&lt;<span class="kw">_</span>, i64&gt;(<span class="number">0</span>))<span class="question-mark">? </span>&gt; <span class="number">0</span>;
+<a href=#281 id=281 data-nosnippet>281</a>    <span class="kw">if </span>has_att {
+<a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = c.prepare(<span class="string">"SELECT post_id,url,local_path,mime_type FROM attachments WHERE post_id = ?1"</span>)<span class="question-mark">?</span>;
+<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">for </span>p <span class="kw">in </span><span class="kw-2">&amp;</span>out {
+<a href=#284 id=284 data-nosnippet>284</a>            <span class="kw">for </span>a <span class="kw">in </span>st.query_map(<span class="macro">params!</span>[p.post_id], |r| <span class="prelude-val">Ok</span>(Attachment {
+<a href=#285 id=285 data-nosnippet>285</a>                post_id: r.get(<span class="number">0</span>)<span class="question-mark">?</span>, url: r.get(<span class="number">1</span>)<span class="question-mark">?</span>, kind: <span class="string">"file"</span>.into(),
+<a href=#286 id=286 data-nosnippet>286</a>                local_path: PathBuf::from(r.get::&lt;<span class="kw">_</span>, String&gt;(<span class="number">2</span>)<span class="question-mark">?</span>), mime_type: r.get(<span class="number">3</span>)<span class="question-mark">?</span>,
+<a href=#287 id=287 data-nosnippet>287</a>            }))<span class="question-mark">? </span>{
+<a href=#288 id=288 data-nosnippet>288</a>                <span class="kw">let </span>a = a<span class="question-mark">?</span>;
+<a href=#289 id=289 data-nosnippet>289</a>                <span class="kw">if </span>a.local_path.exists() { atts.push(a); } <span class="kw">else </span>{ log_error(<span class="macro">format_args!</span>(<span class="string">"warning: missing attachment file {}"</span>, a.local_path.display())); }
+<a href=#290 id=290 data-nosnippet>290</a>            }
+<a href=#291 id=291 data-nosnippet>291</a>        }
+<a href=#292 id=292 data-nosnippet>292</a>    }
+<a href=#293 id=293 data-nosnippet>293</a>    <span class="prelude-val">Ok</span>((out, atts, n))
+<a href=#294 id=294 data-nosnippet>294</a>}
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a><span class="doccomment">/// Open (creating) the database at `db`, creating its directory first so the
+<a href=#297 id=297 data-nosnippet>297</a>/// very first write on a fresh `$HOME` works whichever table is written first.
+<a href=#298 id=298 data-nosnippet>298</a></span><span class="kw">pub fn </span>open_db(db: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Connection&gt; {
+<a href=#299 id=299 data-nosnippet>299</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = db.parent() { std::fs::create_dir_all(dir)<span class="question-mark">?</span>; }
+<a href=#300 id=300 data-nosnippet>300</a>    <span class="prelude-val">Ok</span>(Connection::open(db)<span class="question-mark">?</span>)
+<a href=#301 id=301 data-nosnippet>301</a>}
 </code></pre></div></section></main></body></html>

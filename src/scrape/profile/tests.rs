@@ -14,3 +14,11 @@ fn reply_from_replies_feed_gets_thread_parent() {
         "author": {"username": "alice"}, "body": {}}), "t9", "alice");
     assert_eq!((p.post_id.as_str(), p.parent_post_id.as_str()), ("r1", "t9"));
 }
+
+#[test]
+fn site_share_images_are_not_avatars() {
+    assert!(is_site_image("https://acp.us/banner.jpg"));
+    assert!(is_site_image("https://acp.us/banner.jpg?v=2"));
+    assert!(!is_site_image("https://media.acp.us/uploads/avatar-abc.avif"));
+    assert!(!is_site_image("https://acp.us/media/avatar-dave.png"));
+}

@@ -85,7 +85,7 @@ The PKGBUILD builds the tree it lives in (`packaging/arch/../..`), runs `cargo t
 
 ```bash
 scripts/package.sh deb                       # dpkg-buildpackage on a clean copy → dist/
-sudo apt install ./dist/acp-rs-scraper_1.12.0_*.deb
+sudo apt install ./dist/acp-rs-scraper_1.15.0_*.deb
 sudo apt remove acp-rs-scraper
 ```
 
@@ -95,11 +95,11 @@ sudo apt remove acp-rs-scraper
 
 ```bash
 scripts/package.sh rpm        # tarball of the tree + rpmbuild -ba → dist/*.rpm and *.src.rpm
-sudo dnf install ./dist/acp-rs-scraper-1.12.0-1.*.x86_64.rpm
+sudo dnf install ./dist/acp-rs-scraper-1.15.0-1.*.x86_64.rpm
 sudo dnf remove acp-rs-scraper
 ```
 
-You can also rebuild the SRPM anywhere with `rpmbuild --rebuild dist/acp-rs-scraper-1.12.0-1.*.src.rpm`.
+You can also rebuild the SRPM anywhere with `rpmbuild --rebuild dist/acp-rs-scraper-1.15.0-1.*.src.rpm`.
 
 ## User install without a package (`--user`)
 
