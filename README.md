@@ -6,6 +6,142 @@
 
 Rust 2024 CLI. It logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
 
+## Install
+
+Every install builds from source. You need Rust 1.88 or newer; the installer offers rustup if it's missing or too old.
+
+```sh
+git clone git@github.com:m3talsmith/acp-rs-scraper.git
+cd acp-rs-scraper
+scripts/install.sh          # native package for Arch, Debian, Fedora and their derivatives (asks before sudo)
+scripts/install.sh --user   # or install into ~/.local without root
+```
+
+Uninstall with `scripts/uninstall.sh` (add `--no-purge` to keep `~/.acp`). See [docs/INSTALL.md](docs/INSTALL.md) for details.
+
+## Usage
+
+```text
+$ acp-rs-scraper --help
+Log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
+
+Usage: acp-rs-scraper [OPTIONS]
+
+Options:
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+
+Mode:
+      --latest
+          Site feed: Latest tab (/rs/latest). Default — even though the site opens on Trending
+
+      --trending
+          Site feed: Trending tab (/rs). Opt-in; incremental early-stop disabled (not chronological)
+
+Scraping:
+      --nick <NICK>
+          Single nick (alias for --nicks). Prompted if neither is given
+
+      --nicks <LIST>
+          Comma-separated nicks, e.g. "@haz,@m3talsmith" (@ optional, trimmed, deduped)
+
+      --no-mentions
+          Skip the mentions crawl
+
+      --crawl-limit <CRAWL_LIMIT>
+          Max site-feed posts to scan when hunting mentions (default 500)
+          
+          [default: 500]
+
+      --no-attachments
+          Skip downloading media attachments
+
+      --full
+          Force a full re-crawl (ignore already-known post_ids when paging / refetching threads)
+
+Search / Export:
+      --list-nicks
+          Offline: list known nicks from the DB (posts + profiles)
+
+      --search <SEARCH>
+          Search the local DB (title + content); exports matches + parent/children
+
+      --export <FILE>
+          Offline: dump the local DB (all / --nick(s) / --search) to FILE. Replaces --output for DB dumps
+
+      --name <NAME>
+          Export name: basename, archive name, folder inside archive, HTML title
+
+Import:
+      --import <FILE>
+          Offline: import a previous export into the DB. Add --compress --tar-gz for archives
+
+Output:
+      --format <FORMAT>
+          Export format
+          
+          [default: json]
+          [possible values: json, html]
+
+      --output <OUTPUT>
+          Output file (with --compress: the archive path). Default: stdout
+
+Compression:
+      --compress
+          Compress the export; requires a format flag (e.g. --tar-gz)
+
+      --tar-gz
+          Compression format: gzip-compressed tar (.tar.gz). Requires --compress
+
+Maintenance:
+      --remove-nick <LIST>
+          Offline: delete these nicks (comma-separated, @ optional) — their posts, replies in their threads, attachments, mentions and profiles
+
+      --keep-replies
+          With --remove-nick: keep other people's replies in the removed nicks' threads (they become orphans)
+
+      --clear-all
+          Offline: delete the whole database and the attachments directory (preferences.toml and exports are kept)
+
+      --dry-run
+          With --remove-nick / --clear-all: show what would be removed and change nothing
+
+  -y, --yes
+          With --remove-nick / --clear-all: skip the confirmation prompt (required when stdin is not a terminal)
+
+Debug:
+  -q, --quiet
+          Suppress progress/summary on stderr (prompts and errors still show)
+
+  -v, --verbose
+          Extra progress detail (per-page / per-thread / skipped items)
+
+      --debug
+          Raw LiveView wire log (implies --verbose). Also ACP_DEBUG=1
+
+Examples:
+  acp-rs-scraper --nicks @haz,@m3talsmith --format html --compress --tar-gz
+  acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
+  acp-rs-scraper --search "general strike" --format json
+  acp-rs-scraper --export all.json
+  acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
+  acp-rs-scraper --import strike.tar.gz --compress --tar-gz
+  acp-rs-scraper --import all.json
+  ACP_DEBUG=1 acp-rs-scraper --nick alice --debug
+  acp-rs-scraper --list-nicks
+  acp-rs-scraper --list-nicks --format json
+  acp-rs-scraper --nick alice --full
+  acp-rs-scraper --nick alice -q
+  acp-rs-scraper --nick alice -v
+  acp-rs-scraper --nicks @haz --latest
+  acp-rs-scraper --nicks @haz --trending --crawl-limit 200
+```
+
+## Running from a checkout
+
     cargo run --release
 
 Flow: reads `email` from `~/.acp/preferences.toml` (prompts and creates it if missing) -> LiveView `send-login-email` -> prompts for the code -> LiveView `submit-code` -> HTTP POST of the `phx-trigger-action` form to `/auth/user/otp/sign_in` -> checks that `/rs` no longer redirects to `/auth` -> prompts for a nick -> scrapes -> writes `~/.acp/ai/data/rs.database` (set by `DB_REL_PATH`).
