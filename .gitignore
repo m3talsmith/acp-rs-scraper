@@ -20,3 +20,4 @@ cookies*.txt
 exports/
 attachments/
 docs/api/.lock
+dist/

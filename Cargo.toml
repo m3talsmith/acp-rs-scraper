@@ -1,7 +1,8 @@
 [package]
 name = "acp-rs-scraper"
-version = "1.0.0"
+version = "1.4.0"
 edition = "2024"
+rust-version = "1.88"
 license = "GPL-3.0-or-later"
 authors = ["m3talsmith <m3talsmith@gmail.com>"]
 description = "ACP Scraper"
@@ -28,3 +29,5 @@ clap = { version = "4", features = ["derive"] }
 tar = "0.4"
 flate2 = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
+clap_complete = "4.6.11"
+clap_mangen = "0.3.3"

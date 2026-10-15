@@ -1,6 +1,6 @@
 # acp-rs-scraper
 
-> **Full usage guide:** [docs/USAGE.md](docs/USAGE.md) · API docs: [docs/index.html](docs/index.html)
+> **Full usage guide:** [docs/USAGE.md](docs/USAGE.md) · Install/uninstall: [docs/INSTALL.md](docs/INSTALL.md) · API docs: [docs/index.html](docs/index.html)
 
 Rust 2024 CLI. It logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
 

@@ -1,0 +1,44 @@
+# Maintainer: m3talsmith <m3talsmith@gmail.com>
+# Builds from the source tree this PKGBUILD lives in (packaging/arch/../..).
+# Install: cd packaging/arch && makepkg -si      Uninstall: sudo pacman -R acp-rs-scraper
+# (scripts/install.sh does this for you, scripts/uninstall.sh also purges ~/.acp.)
+pkgname=acp-rs-scraper
+pkgver=1.4.0
+pkgrel=1
+pkgdesc="Scrape Red Star (acp.us/rs) posts into SQLite and export them"
+arch=('x86_64' 'aarch64')
+url="https://forgejo.acp.us/m3talsmith/acp-rs-scraper"
+license=('GPL-3.0-or-later')
+depends=('gcc-libs' 'glibc')
+makedepends=('cargo')   # Rust >= 1.88; provided by both 'rust' and 'rustup'
+options=('!lto' '!debug')
+source=()
+# Release tarball instead of the local tree:
+# source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+# and set _src="$srcdir/$pkgname" below.
+
+_src() { cd "$startdir/../.."; }
+
+prepare() {
+  _src
+  export RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-stable}
+  cargo fetch --locked --target "$(rustc -vV | sed -n 's/host: //p')"
+}
+
+build() {
+  _src
+  export RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-stable}
+  export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-target}
+  cargo build --frozen --release
+}
+
+check() {
+  _src
+  export RUSTUP_TOOLCHAIN=${RUSTUP_TOOLCHAIN:-stable}
+  cargo test --frozen --release
+}
+
+package() {
+  _src
+  scripts/stage.sh "$pkgdir" "${CARGO_TARGET_DIR:-target}/release/$pkgname" /usr
+}

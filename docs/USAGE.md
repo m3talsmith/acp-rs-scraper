@@ -1,6 +1,6 @@
 # acp-rs-scraper: usage guide
 
-`acp-rs-scraper` logs in to the Red Star forum (https://acp.us/rs) as Firefox and scrapes one or more nicks' posts, the replies in their threads, the posts that mention them, and their profiles into a local SQLite database. It downloads attachments and exports to JSON or HTML, optionally compressed. Search, export, import and `--list-nicks` run offline.
+`acp-rs-scraper` logs in to the Red Star forum (https://acp.us/rs) as Firefox and scrapes one or more nicks' posts, the replies in their threads, the posts that mention them, and their profiles into a local SQLite database. It downloads attachments and exports to JSON or HTML, optionally compressed. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` run offline.
 
 - [Install and build](#install-and-build)
 - [First run and login](#first-run-and-login)
@@ -16,7 +16,9 @@
 
 ## Install and build
 
-You need Rust 1.85 or newer, since the crate uses edition 2024 (install with [rustup](https://rustup.rs)). SQLite is compiled in (rusqlite `bundled`) and TLS uses rustls, so there are no system libraries to install.
+For distro packages (Arch, Debian, Fedora and derivatives), `scripts/install.sh` and uninstalling, see [INSTALL.md](INSTALL.md). Building by hand:
+
+You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus let-chains in the `scraper` dependency) (install with [rustup](https://rustup.rs)). SQLite is compiled in (rusqlite `bundled`) and TLS uses rustls, so there are no system libraries to install.
 
     git clone https://forgejo.acp.us/m3talsmith/acp-rs-scraper
     cd acp-rs-scraper
@@ -38,7 +40,7 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 5. The tool submits the code, completes the sign-in form the site sends back, and checks that `/rs` no longer redirects to `/auth`.
 6. If you gave no `--nick`/`--nicks`, it asks for a nick; a comma-separated list is accepted.
 
-The session lasts for one run only (an in-memory cookie jar), so each scrape logs in again. Search, export, import and `--list-nicks` never log in.
+The session lasts for one run only (an in-memory cookie jar), so each scrape logs in again. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
 
 ## Where data lives
 
@@ -75,6 +77,8 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 | `--no-attachments` | Don't download media, avatars or banners. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
 
+**"Posts & replies":** every `--nick`/`--nicks` scrape walks both profile tabs. It reads the default **Posts** feed, then the **Posts & replies** tab, which holds the nick's replies in other people's threads, and pages each to the end. Items are merged by `post_id`, so nothing is stored twice; the database's unique `post_id` index enforces this too. Replies are stored with `parent_post_id` set to their thread's root post. Incremental runs stop on each tab once a page is entirely already-known posts; `--full` walks both tabs completely. The per-nick summary shows how many items came only from the replies tab.
+
 ### Search / Export (offline)
 
 | Flag | Meaning |
@@ -87,6 +91,36 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 `--nick`/`--nicks` also filter `--search` and `--export` (posts by any listed nick).
 
 Default names: `<nick>-<YYYYmmdd-HHMMSS>`, `nick1+nick2-<ts>` for several nicks (`multi-<ts>` for more than 4 nicks or more than 40 characters), `search-<slug>-<ts>` for a search, and `db-<ts>` for a full dump.
+
+### Maintenance (offline)
+
+| Flag | Meaning |
+|---|---|
+| `--remove-nick <LIST>` | Delete nicks from the database. Comma-separated, `@` optional, same parsing as `--nicks`; matching ignores case. |
+| `--keep-replies` | With `--remove-nick`: keep other people's replies in the removed nicks' threads. |
+| `--clear-all` | Delete the database file and the attachments directory. |
+| `--dry-run` | Show what would be removed; change nothing. |
+| `-y`, `--yes` | Skip the confirmation prompt. |
+
+These can't be combined with each other's opposite (`--remove-nick` vs `--clear-all`) or with any scraping, search, export, import or output flag.
+
+**What `--remove-nick` deletes**, all in one SQLite transaction:
+- every post authored by the nicks;
+- **other people's replies in those nicks' threads** (replies whose `parent_post_id` is one of the removed root posts), because they only exist as children of the thread. Pass `--keep-replies` to keep them; they then remain in the database as orphans. The nick's own replies in other people's threads are always removed, and the rest of those threads stays;
+- `attachments` rows of every removed post;
+- `mentions` rows where the nick is `mentioned_nick`, plus mention rows that pointed at a removed post;
+- the nick's `profiles` row.
+
+After the commit, attachment, avatar and banner files are deleted from disk **only if no remaining `attachments` row or profile still references them**, and only if they are inside `~/.acp/ai/data/attachments/`. Nicks with nothing stored are listed as "not in database". A summary of what was removed is printed.
+
+**What `--clear-all` deletes:** `~/.acp/ai/data/rs.database` (and any `-wal`/`-shm`/`-journal` sidecar files) and the whole `~/.acp/ai/data/attachments/` directory. **It does not touch `~/.acp/preferences.toml` or `~/.acp/ai/data/exports/`**; your saved email and previous exports stay.
+
+**Confirmation:**
+- `--remove-nick` prints the counts first, then asks `Proceed? [y/N]`.
+- `--clear-all` lists the paths and sizes, then requires typing `yes`.
+- Prompts go to stderr. `--yes` skips them.
+- If stdin is not a terminal (a pipe, cron, CI), the command refuses to run unless `--yes` is given.
+- `--dry-run` prints the same preview (and, for `--remove-nick`, the files it would delete) and exits without changing anything.
 
 ### Import (offline)
 
@@ -164,6 +198,12 @@ acp-rs-scraper --export backup.tar.gz --compress --tar-gz
 acp-rs-scraper --import backup.tar.gz --compress --tar-gz
 acp-rs-scraper --import all.json
 acp-rs-scraper --import alice.html
+
+# Maintenance
+acp-rs-scraper --remove-nick @spam,@bot --dry-run
+acp-rs-scraper --remove-nick alice                  # prompts with counts
+acp-rs-scraper --remove-nick alice --keep-replies -y
+acp-rs-scraper --clear-all                          # type 'yes'; prefs and exports are kept
 
 # Logging levels
 acp-rs-scraper --nick alice -q
@@ -277,6 +317,7 @@ A nick's own posts can also be recorded as mentions of that nick.
   - Profile fields beyond author info, data-props and `og:` tags.
   - Whether media hosts require the login cookies.
 - **Mentions are limited by the crawl:** there is no site-wide search in the site's JavaScript. Only `--crawl-limit` posts of the chosen feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed.
+- **"Posts & replies" tab:** the tab is only rendered for logged-in users and isn't in the public JavaScript. The scraper finds it at runtime from the profile HTML, by its "Posts & replies" label or replies-named attributes, and follows it as a link (`href`/`data-phx-link`) or pushes its `phx-click` event with its `phx-value-*` params. This is covered by mocked tests but not yet verified against the live site. Run `--debug` to see the tab that was found (`[profile] posts & replies tab: ...`); if none is found, the scrape continues with the Posts tab only.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
 - **Logins:** each scrape run needs a fresh email code.

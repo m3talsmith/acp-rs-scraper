@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["clear_all","clear_all_targets","confirm","dir_usage","remove_nicks","table_exists"],"struct":["RemoveReport"]};

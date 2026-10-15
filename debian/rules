@@ -1,0 +1,27 @@
+#!/usr/bin/make -f
+# Builds from source with cargo. Rustup users whose distro cargo is missing or
+# too old: dpkg-buildpackage -b -d (skips the Build-Depends check).
+export DH_VERBOSE = 1
+export CARGO_TARGET_DIR = $(CURDIR)/target
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	cargo fetch --locked
+
+override_dh_auto_build:
+	cargo build --release --frozen
+
+override_dh_auto_test:
+ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
+	cargo test --release --frozen
+endif
+
+override_dh_auto_install:
+	scripts/stage.sh $(CURDIR)/debian/acp-rs-scraper target/release/acp-rs-scraper /usr
+
+override_dh_auto_clean:
+	rm -rf target
+
+override_dh_dwz:

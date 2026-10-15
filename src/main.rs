@@ -641,7 +641,7 @@ async fn fetch_feed(
     let feed = props(&html, FEED_PROPS_SEL).with_context(|| format!("no forum/Feed data-props on {url}"))?;
     let mut items: Vec<Value> = feed["posts"].as_array().cloned().unwrap_or_default();
     let mut at_end = feed["at_end"].as_bool().unwrap_or(true);
-    let mut cursor = feed["next_cursor"].as_str().map(str::to_string);
+    let cursor = feed["next_cursor"].as_str().map(str::to_string);
     let hit_limit = |n: usize| limit.is_some_and(|l| n >= l);
     let mut stopped_incremental = false;
     let mut pages: u32 = 1;
@@ -657,39 +657,173 @@ async fn fetch_feed(
     if !at_end && cursor.is_some() && !hit_limit(items.len()) && !stopped_incremental {
         let page = parse_lv(&final_url, &html)?;
         let mut lv = Lv::connect(&page, jar).await?;
-        let mut ids: HashSet<String> = items.iter().map(|x| s(x, "id")).collect();
-        let mut stale = 0;
-        for _ in 0..MAX_PAGES {
-            let Some(c) = cursor.clone() else { break };
-            let r = lv.push("event", json!({"type": "hook", "event": FEED_NEXT_EVENT, "value": {"cursor": c}})).await?;
-            if r["status"] != "ok" { err!("warning: page-next failed: {r}"); break; }
-            let body = reply_body(&r);
-            let body = if body["posts"].is_array() { body.clone() }
-                else { props(&lv.html(), FEED_PROPS_SEL).unwrap_or(Value::Null) };
-            let ps = body["posts"].as_array().cloned().unwrap_or_default();
-            pages += 1;
-            if allow_incremental
-                && let Some(k) = known
-                && page_all_known(&ps, k) {
-                    info!("feed: page {pages} all known — stopping (use --full to re-crawl)");
-                    stopped_incremental = true;
-                    break;
-                }
-            let new: Vec<Value> = ps.into_iter().filter(|x| ids.insert(s(x, "id"))).collect();
-            verbose!("feed: +{} new posts", new.len());
-            items.extend(new.iter().cloned());
-            at_end = body["at_end"].as_bool().unwrap_or(new.is_empty());
-            cursor = body["next_cursor"].as_str().map(str::to_string).or(cursor);
-            if new.is_empty() { stale += 1; } else { stale = 0; }
-            if hit_limit(items.len()) { info!("feed: reached limit {}", limit.unwrap_or(0)); break; }
-            if at_end || stale >= 2 || (new.is_empty() && cursor.as_deref() == Some(c.as_str())) { break; }
-        }
-        if !at_end && !hit_limit(items.len()) && !stopped_incremental {
-            err!("warning: feed paging stopped before at_end (run with --debug)");
-        }
+        let (stop, extra) = page_rest(&mut lv, &mut items, cursor, limit, known, allow_incremental).await?;
+        stopped_incremental = stop;
+        pages += extra;
     }
     if let Some(l) = limit { items.truncate(l); }
     Ok(FeedPage { items, html, stopped_incremental, pages })
+}
+
+/// Page a feed that is open on `lv` to its end with `page-next {cursor}`,
+/// appending new (id-deduped) posts to `items`. Returns
+/// `(stopped_incremental, extra_pages)`. Shared by profile, site and
+/// "Posts & replies" feeds so incremental/limit rules are identical.
+async fn page_rest(
+    lv: &mut Lv, items: &mut Vec<Value>, mut cursor: Option<String>, limit: Option<usize>,
+    known: Option<&HashSet<String>>, allow_incremental: bool,
+) -> Result<(bool, u32)> {
+    let hit_limit = |n: usize| limit.is_some_and(|l| n >= l);
+    let mut ids: HashSet<String> = items.iter().map(|x| s(x, "id")).collect();
+    let mut stale = 0;
+    let mut pages = 0;
+    let mut at_end = false;
+    let mut stopped_incremental = false;
+    for _ in 0..MAX_PAGES {
+        let Some(c) = cursor.clone() else { at_end = true; break };
+        let r = lv.push("event", json!({"type": "hook", "event": FEED_NEXT_EVENT, "value": {"cursor": c}})).await?;
+        if r["status"] != "ok" { err!("warning: page-next failed: {r}"); break; }
+        let body = reply_body(&r);
+        let body = if body["posts"].is_array() { body.clone() }
+            else { props(&lv.html(), FEED_PROPS_SEL).unwrap_or(Value::Null) };
+        let ps = body["posts"].as_array().cloned().unwrap_or_default();
+        pages += 1;
+        if allow_incremental
+            && let Some(k) = known
+            && page_all_known(&ps, k) {
+                info!("feed: page {} all known — stopping (use --full to re-crawl)", pages + 1);
+                stopped_incremental = true;
+                break;
+            }
+        let new: Vec<Value> = ps.into_iter().filter(|x| ids.insert(s(x, "id"))).collect();
+        verbose!("feed: +{} new posts", new.len());
+        items.extend(new.iter().cloned());
+        at_end = body["at_end"].as_bool().unwrap_or(new.is_empty());
+        cursor = body["next_cursor"].as_str().map(str::to_string).or(cursor);
+        if new.is_empty() { stale += 1; } else { stale = 0; }
+        if hit_limit(items.len()) { info!("feed: reached limit {}", limit.unwrap_or(0)); break; }
+        if at_end || stale >= 2 || (new.is_empty() && cursor.as_deref() == Some(c.as_str())) { break; }
+    }
+    if !at_end && !hit_limit(items.len()) && !stopped_incremental {
+        err!("warning: feed paging stopped before at_end (run with --debug)");
+    }
+    Ok((stopped_incremental, pages))
+}
+
+/// How the profile's "Posts & replies" tab switches the feed, as found in the
+/// rendered profile HTML (the tab is server-rendered and only visible when
+/// logged in, so it is discovered at runtime rather than hard-coded).
+#[derive(Debug, Clone, PartialEq)]
+enum RepliesTab {
+    /// A `live_patch`/`navigate`/plain link: load this URL as its own feed.
+    Link(String),
+    /// A `phx-click` event pushed on the profile LiveView, with its
+    /// `phx-value-*` params (or JS `push` value) and optional `phx-target` cid.
+    Event { event: String, value: serde_json::Map<String, Value>, cid: Option<u64> },
+}
+
+/// True for a tab label like "Posts & replies" / "Posts and replies".
+fn is_replies_label(text: &str) -> bool {
+    let t = text.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    let t = t.replace("&amp;", "&");
+    t.contains("replies") && t.contains("posts") && (t.contains('&') || t.contains(" and "))
+}
+
+/// Find the "Posts & replies" tab on a profile page. Matches by visible label,
+/// falling back to attributes that name a replies tab (`phx-value-tab=replies`,
+/// `href` ending in `/replies` or containing `tab=replies`).
+fn find_replies_tab(html: &str, page_url: &str) -> Option<RepliesTab> {
+    let doc = Html::parse_document(html);
+    let sel = Selector::parse("a, button, [phx-click], [role=tab]").ok()?;
+    let attr_says_replies = |e: &scraper::node::Element| {
+        e.attrs().any(|(k, v)| {
+            let v = v.to_lowercase();
+            (k.starts_with("phx-value-") && v.contains("repl"))
+                || (k == "href" && (v.ends_with("/replies") || v.contains("tab=replies") || v.contains("with_replies")))
+        })
+    };
+    let el = doc.select(&sel)
+        .filter(|e| { let v = e.value(); v.attr("href").is_some() || v.attr("phx-click").is_some() })
+        .find(|e| is_replies_label(&e.text().collect::<String>()))
+        .or_else(|| doc.select(&sel).find(|e| attr_says_replies(e.value())))?;
+    let v = el.value();
+    let abs = |h: &str| Url::parse(page_url).ok().and_then(|b| b.join(h).ok()).map(|u| u.to_string());
+    let cid = v.attr("phx-target").and_then(|t| t.parse::<u64>().ok());
+    if let Some(click) = v.attr("phx-click") {
+        let click = click.trim();
+        if click.starts_with('[') {
+            // Phoenix.LiveView.JS command list, e.g. [["push",{"event":"tab","value":{...}}]]
+            let cmds: Value = serde_json::from_str(click).ok()?;
+            for c in cmds.as_array()? {
+                let (op, args) = (c[0].as_str().unwrap_or(""), &c[1]);
+                match op {
+                    "push" => {
+                        let value = args["value"].as_object().cloned().unwrap_or_default();
+                        let cid = args["target"].as_u64().or(cid);
+                        return Some(RepliesTab::Event { event: args["event"].as_str()?.to_string(), value, cid });
+                    }
+                    "patch" | "navigate" => return abs(args["href"].as_str()?).map(RepliesTab::Link),
+                    _ => {}
+                }
+            }
+        } else if !click.is_empty() {
+            let value = v.attrs()
+                .filter_map(|(k, val)| k.strip_prefix("phx-value-").map(|k| (k.to_string(), json!(val))))
+                .collect();
+            return Some(RepliesTab::Event { event: click.to_string(), value, cid });
+        }
+    }
+    v.attr("href").filter(|h| !h.is_empty() && *h != "#").and_then(abs).map(RepliesTab::Link)
+}
+
+/// Fetch the profile's "Posts & replies" feed (paged to the end), using the
+/// tab found by [`find_replies_tab`]. `None` when the profile has no such tab.
+async fn fetch_replies_feed(
+    http: &reqwest::Client, jar: &Jar, profile_url: &str, profile_html: &str,
+    known: Option<&HashSet<String>>,
+) -> Result<Option<Vec<Value>>> {
+    let Some(tab) = find_replies_tab(profile_html, profile_url) else {
+        verbose!("profile: no 'Posts & replies' tab found");
+        return Ok(None);
+    };
+    dbg_log("profile", &format!("posts & replies tab: {tab:?}"));
+    match tab {
+        RepliesTab::Link(url) => {
+            verbose!("profile: 'Posts & replies' tab -> {url}");
+            Ok(Some(fetch_feed(http, jar, &url, None, known, true).await?.items))
+        }
+        RepliesTab::Event { event, value, cid } => {
+            verbose!("profile: 'Posts & replies' tab -> phx-click {event} {value:?}");
+            let page = parse_lv(profile_url, profile_html)?;
+            let mut lv = Lv::connect(&page, jar).await?;
+            let mut ev = json!({"type": "click", "event": event, "value": Value::Object(value)});
+            if let Some(c) = cid { ev["cid"] = json!(c); }
+            let r = lv.push("event", ev).await?;
+            if r["status"] != "ok" { bail!("posts & replies tab event failed: {r}"); }
+            let body = reply_body(&r);
+            let feed = if body["posts"].is_array() { body.clone() }
+                else { props(&lv.html(), FEED_PROPS_SEL).context("no forum/Feed props after tab switch")? };
+            let mut items: Vec<Value> = feed["posts"].as_array().cloned().unwrap_or_default();
+            info!("feed posts & replies: {} posts from initial page", items.len());
+            let at_end = feed["at_end"].as_bool().unwrap_or(true);
+            let cursor = feed["next_cursor"].as_str().map(str::to_string);
+            if known.is_some_and(|k| page_all_known(&items, k)) {
+                info!("feed: initial page all known — stopping (use --full to re-crawl)");
+            } else if !at_end && cursor.is_some() {
+                page_rest(&mut lv, &mut items, cursor, None, known, true).await?;
+            }
+            Ok(Some(items))
+        }
+    }
+}
+
+/// Append `extra` feed items whose `id` isn't already in `items`.
+/// Returns how many were added.
+fn merge_feed_items(items: &mut Vec<Value>, extra: Vec<Value>) -> usize {
+    let mut ids: HashSet<String> = items.iter().map(|x| s(x, "id")).collect();
+    let before = items.len();
+    items.extend(extra.into_iter().filter(|x| { let id = s(x, "id"); !id.is_empty() && ids.insert(id) }));
+    items.len() - before
 }
 
 /// Thread page props plus all replies (paged via the InfiniteScroll hook).
@@ -740,6 +874,8 @@ struct ScrapeStats {
     skipped_known: usize,
     threads_fetched: usize,
     threads_skipped: usize,
+    /// Items only found via the profile's "Posts & replies" tab.
+    replies_tab_items: usize,
 }
 
 async fn scrape(
@@ -749,11 +885,22 @@ async fn scrape(
     let nick = nick.trim_start_matches('@');
     let known_opt = if full { None } else { Some(known) };
     // Profile feed is always Latest (/rs/@nick); Trending does not apply to profiles.
-    let feed = fetch_feed(http, jar, &PROFILE_URL.replace("{nick}", nick), None, known_opt, true).await?;
+    let profile_url = PROFILE_URL.replace("{nick}", nick);
+    let mut feed = fetch_feed(http, jar, &profile_url, None, known_opt, true).await?;
+    // Also walk the "Posts & replies" tab (the nick's replies in other threads).
+    let mut replies_tab_added = 0;
+    match fetch_replies_feed(http, jar, &profile_url, &feed.html, known_opt).await {
+        Ok(Some(extra)) => {
+            replies_tab_added = merge_feed_items(&mut feed.items, extra);
+            info!("@{nick}: posts & replies tab added {replies_tab_added} items");
+        }
+        Ok(None) => {}
+        Err(e) => err!("warning: posts & replies tab: {e:#}"),
+    }
     let mut seen = HashSet::new();
     let mut out = Vec::new();
     let mut roots: Vec<(String, usize)> = Vec::new(); // (id, replies_count from feed)
-    let mut stats = ScrapeStats { feed_items: feed.items.len(), ..Default::default() };
+    let mut stats = ScrapeStats { feed_items: feed.items.len(), replies_tab_items: replies_tab_added, ..Default::default() };
     for it in &feed.items {
         let id = s(it, "id");
         if id.is_empty() || !seen.insert(id.clone()) { continue; }
@@ -1090,6 +1237,7 @@ async fn crawl_mentions(
 
 
 mod export;
+mod maint;
 mod mentions;
 
 #[derive(clap::Parser, Clone)]
@@ -1122,6 +1270,7 @@ acp-rs-scraper --nicks @haz --trending --crawl-limit 200
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
+#[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 struct Args {
     /// Site feed: Latest tab (/rs/latest). Default — even though the site opens on Trending.
     #[arg(long, group = "mode", help_heading = "Mode")]
@@ -1183,6 +1332,27 @@ struct Args {
     #[arg(long, group = "compress_format", requires = "compress", help_heading = "Compression")]
     tar_gz: bool,
 
+    /// Offline: delete these nicks (comma-separated, @ optional) — their posts, replies in their threads, attachments, mentions and profiles.
+    #[arg(long, value_parser = parse_nicks, value_name = "LIST", help_heading = "Maintenance",
+          conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
+    remove_nick: Option<NickList>,
+    /// With --remove-nick: keep other people's replies in the removed nicks' threads (they become orphans).
+    #[arg(long, requires = "remove_nick", conflicts_with = "clear_all", help_heading = "Maintenance")]
+    keep_replies: bool,
+    /// Offline: delete the whole database and the attachments directory (preferences.toml and exports are kept).
+    #[arg(long, help_heading = "Maintenance", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
+    clear_all: bool,
+    /// With --remove-nick / --clear-all: show what would be removed and change nothing.
+    #[arg(long, requires = "maint", help_heading = "Maintenance")]
+    dry_run: bool,
+    /// With --remove-nick / --clear-all: skip the confirmation prompt (required when stdin is not a terminal).
+    #[arg(short = 'y', long, requires = "maint", help_heading = "Maintenance")]
+    yes: bool,
+
+    /// Packaging helper: print a man page or shell completion script to stdout.
+    #[arg(long, value_enum, value_name = "WHAT", hide = true, exclusive = true)]
+    generate: Option<Generate>,
+
     /// Suppress progress/summary on stderr (prompts and errors still show).
     #[arg(short = 'q', long, help_heading = "Debug", conflicts_with_all = ["verbose", "debug"])]
     quiet: bool,
@@ -1192,6 +1362,24 @@ struct Args {
     /// Raw LiveView wire log (implies --verbose). Also ACP_DEBUG=1.
     #[arg(long, help_heading = "Debug", conflicts_with = "quiet")]
     debug: bool,
+}
+
+/// Targets for the hidden `--generate` packaging flag.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+enum Generate { Man, Bash, Zsh, Fish }
+
+/// Write the man page or a completion script for [`Args`] to `out`.
+fn generate(what: Generate, out: &mut dyn Write) -> Result<()> {
+    use clap::CommandFactory;
+    let mut cmd = Args::command();
+    let name = cmd.get_name().to_string();
+    match what {
+        Generate::Man => clap_mangen::Man::new(cmd).render(out)?,
+        Generate::Bash => clap_complete::generate(clap_complete::Shell::Bash, &mut cmd, name, out),
+        Generate::Zsh => clap_complete::generate(clap_complete::Shell::Zsh, &mut cmd, name, out),
+        Generate::Fish => clap_complete::generate(clap_complete::Shell::Fish, &mut cmd, name, out),
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1260,10 +1448,67 @@ impl Args {
     }
 }
 
+/// `--remove-nick`: preview (rolled-back transaction), confirm, then commit.
+fn run_remove_nick(args: &Args, nicks: &[String]) -> Result<()> {
+    let db = home()?.join(DB_REL_PATH);
+    let att = home()?.join(ATTACH_REL_PATH);
+    let preview = maint::remove_nicks(&db, &att, nicks, args.keep_replies, false)?;
+    let who = nicks.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
+    eprintln!("{}", preview.summary(&format!("remove {who} would delete")));
+    if args.keep_replies { eprintln!("--keep-replies: other people's replies in their threads are kept"); }
+    if args.dry_run {
+        for f in &preview.files { eprintln!("  file: {}", f.display()); }
+        eprintln!("dry run: nothing changed");
+        return Ok(());
+    }
+    if preview.is_empty() {
+        eprintln!("nothing to remove");
+        return Ok(());
+    }
+    if !maint::confirm("Proceed?", false, args.yes)? {
+        eprintln!("aborted: nothing changed");
+        return Ok(());
+    }
+    let done = maint::remove_nicks(&db, &att, nicks, args.keep_replies, true)?;
+    eprintln!("{}", done.summary("removed"));
+    Ok(())
+}
+
+/// `--clear-all`: delete the database and attachments dir; prefs and exports stay.
+fn run_clear_all(args: &Args) -> Result<()> {
+    let db = home()?.join(DB_REL_PATH);
+    let att = home()?.join(ATTACH_REL_PATH);
+    let targets = maint::clear_all_targets(&db, &att);
+    let (n, bytes) = maint::dir_usage(&att);
+    if targets.is_empty() {
+        eprintln!("nothing to clear ({} and {} do not exist)", db.display(), att.display());
+        return Ok(());
+    }
+    eprintln!("clear-all will delete:");
+    for t in &targets {
+        if t.is_dir() { eprintln!("  {}/ ({n} files, {bytes} bytes)", t.display()); } else { eprintln!("  {}", t.display()); }
+    }
+    eprintln!("kept: {} and {}", home()?.join(PREFS_REL_PATH).display(), home()?.join(EXPORTS_REL_PATH).display());
+    if args.dry_run {
+        eprintln!("dry run: nothing changed");
+        return Ok(());
+    }
+    if !maint::confirm("Delete all scraped data?", true, args.yes)? {
+        eprintln!("aborted: nothing changed");
+        return Ok(());
+    }
+    let gone = maint::clear_all(&db, &att)?;
+    eprintln!("cleared: {} paths removed", gone.len());
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     use clap::Parser;
     let args = Args::parse();
+    if let Some(what) = args.generate {
+        return generate(what, &mut io::stdout().lock());
+    }
     let level = if args.quiet {
         LogLevel::Quiet
     } else if args.debug || std::env::var("ACP_DEBUG").is_ok_and(|v| v == "1") {
@@ -1276,6 +1521,12 @@ async fn main() -> Result<()> {
     set_log_level(level);
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let clean = |n: String| n.replace(['/', '\\'], "_");
+    if let Some(list) = &args.remove_nick {
+        return run_remove_nick(&args, &list.0);
+    }
+    if args.clear_all {
+        return run_clear_all(&args);
+    }
     if args.list_nicks {
         let infos = list_nicks_db(&home()?.join(DB_REL_PATH))?;
         let argv: Vec<String> = std::env::args().collect();
@@ -1360,8 +1611,8 @@ async fn main() -> Result<()> {
         info!("== scraping @{nick}");
         match scrape(&http, &jar, nick, &known, &reply_counts, args.full).await {
             Ok((ps, html, st)) => {
-                info!("  @{nick}: feed {} items, ~{} new, {} skipped known, threads fetched {} / skipped {}",
-                    st.feed_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);
+                info!("  @{nick}: feed {} items ({} from posts & replies), ~{} new, {} skipped known, threads fetched {} / skipped {}",
+                    st.feed_items, st.replies_tab_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);
                 let mut profile = mentions::Profile {
                     nick: nick.clone(),
                     scraped_at: chrono::Local::now().to_rfc3339(),
@@ -1499,6 +1750,97 @@ mod tests {
         assert!(Args::try_parse_from(["x", "--quiet", "--debug"]).is_err());
         assert!(Args::try_parse_from(["x", "-v", "--debug"]).is_ok());
         assert!(Args::try_parse_from(["x", "-q"]).is_ok());
+    }
+
+    const PROFILE: &str = "https://acp.us/rs/@alice";
+
+    #[test]
+    fn replies_tab_live_patch_link() {
+        let h = r#"<nav><a href="/rs/@alice" data-phx-link="patch">Posts</a>
+            <a href="/rs/@alice/replies" data-phx-link="patch" data-phx-link-state="push">Posts &amp; replies</a></nav>"#;
+        assert_eq!(find_replies_tab(h, PROFILE), Some(RepliesTab::Link("https://acp.us/rs/@alice/replies".into())));
+    }
+
+    #[test]
+    fn replies_tab_query_param_link() {
+        let h = r#"<a href="?tab=replies">Posts and Replies</a>"#;
+        assert_eq!(find_replies_tab(h, PROFILE), Some(RepliesTab::Link("https://acp.us/rs/@alice?tab=replies".into())));
+    }
+
+    #[test]
+    fn replies_tab_plain_phx_click() {
+        let h = r#"<button phx-click="Posts">Posts</button>
+            <button phx-click="switch-tab" phx-value-tab="posts_and_replies" phx-target="3"><span>Posts</span> &amp; <span>replies</span></button>"#;
+        let mut v = serde_json::Map::new();
+        v.insert("tab".into(), json!("posts_and_replies"));
+        assert_eq!(find_replies_tab(h, PROFILE), Some(RepliesTab::Event { event: "switch-tab".into(), value: v, cid: Some(3) }));
+    }
+
+    #[test]
+    fn replies_tab_js_push_and_patch() {
+        let push = r#"<button phx-click="[[&quot;push&quot;,{&quot;event&quot;:&quot;set-filter&quot;,&quot;value&quot;:{&quot;filter&quot;:&quot;replies&quot;}}]]">Posts &amp; replies</button>"#;
+        match find_replies_tab(push, PROFILE) {
+            Some(RepliesTab::Event { event, value, cid }) => {
+                assert_eq!(event, "set-filter");
+                assert_eq!(value["filter"], "replies");
+                assert_eq!(cid, None);
+            }
+            other => panic!("{other:?}"),
+        }
+        let patch = r#"<a phx-click="[[&quot;patch&quot;,{&quot;href&quot;:&quot;/rs/@alice/with_replies&quot;}]]">Posts &amp; replies</a>"#;
+        assert_eq!(find_replies_tab(patch, PROFILE), Some(RepliesTab::Link("https://acp.us/rs/@alice/with_replies".into())));
+    }
+
+    #[test]
+    fn replies_tab_absent_or_only_posts() {
+        assert_eq!(find_replies_tab(r#"<a href="/rs/@alice">Posts</a><a href="/rs/@alice/top">Top</a>"#, PROFILE), None);
+        assert_eq!(find_replies_tab("<p>Posts &amp; replies</p>", PROFILE), None); // no link/click
+    }
+
+    #[test]
+    fn merge_dedupes_by_id() {
+        let mut items = vec![json!({"id": "a"}), json!({"id": "b"})];
+        let n = merge_feed_items(&mut items, vec![json!({"id": "b"}), json!({"id": "c", "thread_id": "x"}), json!({"id": ""}), json!({"id": "c"})]);
+        assert_eq!(n, 1);
+        let ids: Vec<_> = items.iter().map(|x| s(x, "id")).collect();
+        assert_eq!(ids, ["a", "b", "c"]);
+    }
+
+    #[test]
+    fn reply_from_replies_tab_gets_thread_parent() {
+        let p = to_post(&json!({"id": "r1", "thread_id": "t9", "inserted_at": "2026-10-15T00:00:00Z",
+            "author": {"username": "alice"}, "body": {}}), "t9", "alice");
+        assert_eq!((p.post_id.as_str(), p.parent_post_id.as_str()), ("r1", "t9"));
+    }
+
+    #[test]
+    fn generators_render() {
+        for g in [Generate::Man, Generate::Bash, Generate::Zsh, Generate::Fish] {
+            let mut v = Vec::new();
+            generate(g, &mut v).unwrap();
+            let t = String::from_utf8(v).unwrap().replace("\\-", "-");
+            assert!(t.contains("remove-nick"), "{g:?}");
+        }
+    }
+
+    #[test]
+    fn maintenance_flags() {
+        let a = Args::try_parse_from(["x", "--remove-nick", "@a, b,@A", "--dry-run", "-y", "--keep-replies"]).unwrap();
+        assert_eq!(a.remove_nick.unwrap().0, vec!["a", "b"]);
+        assert!(a.dry_run && a.yes && a.keep_replies);
+        assert!(Args::try_parse_from(["x", "--clear-all", "--yes"]).unwrap().clear_all);
+        for bad in [
+            &["x", "--remove-nick", "a", "--clear-all"][..],
+            &["x", "--remove-nick", "a", "--nick", "b"],
+            &["x", "--remove-nick", "a", "--export", "f.json"],
+            &["x", "--clear-all", "--import", "f.json"],
+            &["x", "--clear-all", "--search", "q"],
+            &["x", "--clear-all", "--keep-replies"],
+            &["x", "--dry-run"],
+            &["x", "--yes"],
+        ] {
+            assert!(Args::try_parse_from(bad).is_err(), "{bad:?} should be rejected");
+        }
     }
 
     #[test]

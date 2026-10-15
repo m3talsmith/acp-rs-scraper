@@ -1,0 +1,6 @@
+acp-rs-scraper (1.4.0) unstable; urgency=medium
+
+  * First package: build from source, man page and shell completions.
+  * Maintenance flags (--remove-nick, --clear-all) and the profile "Posts & replies" tab.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 15 Oct 2026 04:50:00 -0400

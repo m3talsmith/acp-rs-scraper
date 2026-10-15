@@ -1,0 +1,16 @@
+Source: acp-rs-scraper
+Section: utils
+Priority: optional
+Maintainer: m3talsmith <m3talsmith@gmail.com>
+Build-Depends: debhelper-compat (= 13), cargo (>= 1.88), rustc (>= 1.88), gcc, pkg-config
+Standards-Version: 4.7.0
+Homepage: https://forgejo.acp.us/m3talsmith/acp-rs-scraper
+Rules-Requires-Root: no
+
+Package: acp-rs-scraper
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Scrape Red Star (acp.us/rs) posts into SQLite and export them
+ Logs in to https://acp.us/rs, scrapes posts, mentions and profiles for one or
+ more nicks into a local SQLite database, downloads attachments, and exports
+ JSON/HTML. Search, export, import and maintenance work offline.
