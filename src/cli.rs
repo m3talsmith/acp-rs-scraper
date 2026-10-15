@@ -29,6 +29,7 @@ pub fn prompt(msg: &str) -> Result<String> {
   acp-rs-scraper --list-nicks
   acp-rs-scraper --list-nicks --format json
   acp-rs-scraper --nick alice --full
+  acp-rs-scraper --nick alice --said-by
   \
 acp-rs-scraper --nick alice -q
   \
@@ -62,6 +63,9 @@ pub struct Args {
     #[arg(long = "no-mentions", action = clap::ArgAction::SetFalse, help_heading = "Scraping",
           help = "Skip the mentions crawl")]
     pub mentions: bool,
+    /// Only what the nick said: their own posts and replies (Posts + "Posts and replies" feeds). Skips other people's replies in the nick's threads and the mentions crawl; a thread page is read only to recover a blank body of the nick's own post.
+    #[arg(long, help_heading = "Scraping")]
+    pub said_by: bool,
     /// Max site-feed posts to scan when hunting mentions (default 500).
     #[arg(long, default_value_t = DEFAULT_CRAWL_LIMIT, help_heading = "Scraping")]
     pub crawl_limit: usize,
@@ -87,7 +91,7 @@ pub struct Args {
 
     /// Offline: import a previous export into the DB. Add --compress --tar-gz for archives.
     #[arg(long, value_name = "FILE", help_heading = "Import",
-          conflicts_with_all = ["export", "search", "nick", "nicks", "output", "format", "name", "no_attachments", "mentions", "crawl_limit", "full", "list_nicks"])]
+          conflicts_with_all = ["export", "search", "nick", "nicks", "output", "format", "name", "no_attachments", "mentions", "crawl_limit", "full", "list_nicks", "said_by"])]
     pub import: Option<PathBuf>,
 
     /// Export format.
@@ -106,13 +110,13 @@ pub struct Args {
 
     /// Offline: delete these nicks (comma-separated, @ optional) — their posts, replies in their threads, attachments, mentions and profiles.
     #[arg(long, value_parser = parse_nicks, value_name = "LIST", help_heading = "Maintenance",
-          conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
+          conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
     pub remove_nick: Option<NickList>,
     /// With --remove-nick: keep other people's replies in the removed nicks' threads (they become orphans).
     #[arg(long, requires = "remove_nick", conflicts_with = "clear_all", help_heading = "Maintenance")]
     pub keep_replies: bool,
     /// Offline: delete the whole database and the attachments directory (preferences.toml and exports are kept).
-    #[arg(long, help_heading = "Maintenance", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
+    #[arg(long, help_heading = "Maintenance", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
     pub clear_all: bool,
     /// With --remove-nick / --clear-all: show what would be removed and change nothing.
     #[arg(long, requires = "maint", help_heading = "Maintenance")]
@@ -232,7 +236,7 @@ impl Args {
         if self.tar_gz { Some(Compress::TarGz) } else { None }
     }
     /// Whether the mentions crawl should run (`--no-mentions` turns it off).
-    pub fn want_mentions(&self) -> bool { self.mentions }
+    pub fn want_mentions(&self) -> bool { self.mentions && !self.said_by }
     /// Default is Latest (our default), even though the site lands on Trending.
     pub fn feed_mode(&self) -> FeedMode {
         if self.trending { FeedMode::Trending } else { FeedMode::Latest }

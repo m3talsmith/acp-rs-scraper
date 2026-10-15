@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["body_text","html_to_text","prosemirror_text","s","scrape","to_post"],"mod":["feed","mentions","profile","thread"],"struct":["Post","ScrapeStats"]};
+window.SIDEBAR_ITEMS = {"fn":["body_text","html_to_text","prosemirror_text","s","said_by_nick","scrape","to_post"],"mod":["feed","mentions","profile","thread"],"struct":["Post","ScrapeStats"]};

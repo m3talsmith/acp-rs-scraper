@@ -22,7 +22,6 @@ Uninstall with `scripts/uninstall.sh` (add `--no-purge` to keep `~/.acp`). See [
 ## Usage
 
 ```text
-$ acp-rs-scraper --help
 Log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
 
 Usage: acp-rs-scraper [OPTIONS]
@@ -50,6 +49,9 @@ Scraping:
 
       --no-mentions
           Skip the mentions crawl
+
+      --said-by
+          Only what the nick said: their own posts and replies (Posts + "Posts and replies" feeds). Skips other people's replies in the nick's threads and the mentions crawl; a thread page is read only to recover a blank body of the nick's own post
 
       --crawl-limit <CRAWL_LIMIT>
           Max site-feed posts to scan when hunting mentions (default 500)
@@ -137,6 +139,7 @@ Examples:
   acp-rs-scraper --list-nicks
   acp-rs-scraper --list-nicks --format json
   acp-rs-scraper --nick alice --full
+  acp-rs-scraper --nick alice --said-by
   acp-rs-scraper --nick alice -q
   acp-rs-scraper --nick alice -v
   acp-rs-scraper --nicks @haz --latest

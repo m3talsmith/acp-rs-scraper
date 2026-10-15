@@ -144,128 +144,129 @@
 <a href=#144 id=144 data-nosnippet>144</a>    <span class="kw">let </span>reply_counts = db_reply_counts(<span class="kw-2">&amp;</span>db)<span class="question-mark">?</span>;
 <a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">let </span>known_infos = list_nicks_db(<span class="kw-2">&amp;</span>db)<span class="question-mark">?</span>;
 <a href=#146 id=146 data-nosnippet>146</a>    <span class="macro">info!</span>(<span class="string">"== mode: {} (site crawl); profiles always use Latest"</span>, args.feed_mode());
-<a href=#147 id=147 data-nosnippet>147</a>    <span class="macro">info!</span>(<span class="string">"== targets"</span>);
-<a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">for </span>nick <span class="kw">in </span><span class="kw-2">&amp;</span>nicks {
-<a href=#149 id=149 data-nosnippet>149</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(i) = known_infos.iter().find(|i| i.nick.eq_ignore_ascii_case(nick)) {
-<a href=#150 id=150 data-nosnippet>150</a>            <span class="kw">let </span>dn = i.display_name.as_deref().unwrap_or(<span class="string">"-"</span>);
-<a href=#151 id=151 data-nosnippet>151</a>            <span class="macro">info!</span>(<span class="string">"  @{nick}: known ({dn}, {} posts{})"</span>,
-<a href=#152 id=152 data-nosnippet>152</a>                i.post_count,
-<a href=#153 id=153 data-nosnippet>153</a>                <span class="kw">if </span>i.profile_scraped { <span class="string">", profile scraped" </span>} <span class="kw">else </span>{ <span class="string">"" </span>});
-<a href=#154 id=154 data-nosnippet>154</a>        } <span class="kw">else </span>{
-<a href=#155 id=155 data-nosnippet>155</a>            <span class="macro">info!</span>(<span class="string">"  @{nick}: new"</span>);
-<a href=#156 id=156 data-nosnippet>156</a>        }
-<a href=#157 id=157 data-nosnippet>157</a>    }
-<a href=#158 id=158 data-nosnippet>158</a>    <span class="kw">let </span><span class="kw-2">mut </span>posts: Vec&lt;Post&gt; = Vec::new();
-<a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">let </span><span class="kw-2">mut </span>profiles: Vec&lt;Profile&gt; = Vec::new();
-<a href=#160 id=160 data-nosnippet>160</a>    <span class="kw">let </span><span class="kw-2">mut </span>mention_hits: Vec&lt;MentionHit&gt; = Vec::new();
-<a href=#161 id=161 data-nosnippet>161</a>    <span class="kw">let </span><span class="kw-2">mut </span>targets: Vec&lt;MentionTarget&gt; = Vec::new();
-<a href=#162 id=162 data-nosnippet>162</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen = HashSet::new();
-<a href=#163 id=163 data-nosnippet>163</a>    <span class="kw">let </span><span class="kw-2">mut </span>summary = Vec::new();
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="kw">let </span><span class="kw-2">mut </span>ok_nicks = Vec::new();
-<a href=#165 id=165 data-nosnippet>165</a>    <span class="kw">for </span>nick <span class="kw">in </span><span class="kw-2">&amp;</span>nicks {
-<a href=#166 id=166 data-nosnippet>166</a>        <span class="macro">info!</span>(<span class="string">"== scraping @{nick}"</span>);
-<a href=#167 id=167 data-nosnippet>167</a>        <span class="kw">match </span>scrape(<span class="kw-2">&amp;</span>http, <span class="kw-2">&amp;</span>jar, nick, <span class="kw-2">&amp;</span>known, <span class="kw-2">&amp;</span>reply_counts, args.full).<span class="kw">await </span>{
-<a href=#168 id=168 data-nosnippet>168</a>            <span class="prelude-val">Ok</span>((ps, html, st)) =&gt; {
-<a href=#169 id=169 data-nosnippet>169</a>                <span class="macro">info!</span>(<span class="string">"  @{nick}: feed {} items ({} from posts and replies), ~{} new, {} skipped known, threads fetched {} / skipped {}"</span>,
-<a href=#170 id=170 data-nosnippet>170</a>                    st.feed_items, st.replies_tab_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);
-<a href=#171 id=171 data-nosnippet>171</a>                <span class="kw">let </span><span class="kw-2">mut </span>profile = Profile {
-<a href=#172 id=172 data-nosnippet>172</a>                    nick: nick.clone(),
-<a href=#173 id=173 data-nosnippet>173</a>                    scraped_at: chrono::Local::now().to_rfc3339(),
-<a href=#174 id=174 data-nosnippet>174</a>                    ..Default::default()
-<a href=#175 id=175 data-nosnippet>175</a>                };
-<a href=#176 id=176 data-nosnippet>176</a>                <span class="comment">// The feed's author object carries the real profile photo; read it
-<a href=#177 id=177 data-nosnippet>177</a>                // before the page's og: tags, which fall back to the site banner.
-<a href=#178 id=178 data-nosnippet>178</a>                // Reply-only nicks have an empty Posts feed, so also look at
-<a href=#179 id=179 data-nosnippet>179</a>                // "Posts and replies" when the Posts feed had no author data.
-<a href=#180 id=180 data-nosnippet>180</a>                </span><span class="kw">for </span>url <span class="kw">in </span>[profile_url(nick), profile_replies_url(nick)] {
-<a href=#181 id=181 data-nosnippet>181</a>                    <span class="kw">if </span>profile.avatar_url.is_some() &amp;&amp; profile.display_name.is_some() { <span class="kw">break</span>; }
-<a href=#182 id=182 data-nosnippet>182</a>                    <span class="kw">match </span>fetch_feed(<span class="kw-2">&amp;</span>http, <span class="kw-2">&amp;</span>jar, <span class="kw-2">&amp;</span>url, <span class="prelude-val">Some</span>(<span class="number">10</span>), <span class="prelude-val">None</span>, <span class="bool-val">true</span>).<span class="kw">await </span>{
-<a href=#183 id=183 data-nosnippet>183</a>                        <span class="prelude-val">Ok</span>(feed) =&gt; {
-<a href=#184 id=184 data-nosnippet>184</a>                            enrich_from_feed(<span class="kw-2">&amp;mut </span>profile, <span class="kw-2">&amp;</span>feed.items, nick);
-<a href=#185 id=185 data-nosnippet>185</a>                            <span class="kw">if </span>profile.avatar_url.is_none() &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(it) = feed.items.first() {
-<a href=#186 id=186 data-nosnippet>186</a>                                dbg_log(<span class="string">"profile"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"@{nick} no photo in {url}; first item: {it}"</span>));
-<a href=#187 id=187 data-nosnippet>187</a>                            }
-<a href=#188 id=188 data-nosnippet>188</a>                        }
-<a href=#189 id=189 data-nosnippet>189</a>                        <span class="prelude-val">Err</span>(e) =&gt; dbg_log(<span class="string">"profile"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"@{nick} {url}: {e:#}"</span>)),
-<a href=#190 id=190 data-nosnippet>190</a>                    }
-<a href=#191 id=191 data-nosnippet>191</a>                }
-<a href=#192 id=192 data-nosnippet>192</a>                enrich_from_html(<span class="kw-2">&amp;mut </span>profile, <span class="kw-2">&amp;</span>html);
-<a href=#193 id=193 data-nosnippet>193</a>                <span class="kw">if </span>profile.avatar_url.as_deref().is_some_and(is_site_image) { profile.avatar_url = <span class="prelude-val">None</span>; }
-<a href=#194 id=194 data-nosnippet>194</a>                dbg_log(<span class="string">"profile"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"@{nick} show-info unused event={PROFILE_SHOW_INFO_EVENT} fields={profile:?}"</span>));
-<a href=#195 id=195 data-nosnippet>195</a>                <span class="kw">if </span>!args.no_attachments {
-<a href=#196 id=196 data-nosnippet>196</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = <span class="kw-2">&amp;</span>profile.avatar_url {
-<a href=#197 id=197 data-nosnippet>197</a>                        <span class="kw">match </span>fetch_avatar(<span class="kw-2">&amp;</span>http, u, <span class="kw-2">&amp;</span>att_dir, nick).<span class="kw">await </span>{
-<a href=#198 id=198 data-nosnippet>198</a>                            <span class="prelude-val">Ok</span>(path) =&gt; {
-<a href=#199 id=199 data-nosnippet>199</a>                                <span class="macro">info!</span>(<span class="string">"  @{nick}: profile image {}"</span>, path.display());
-<a href=#200 id=200 data-nosnippet>200</a>                                profile.avatar_path = <span class="prelude-val">Some</span>(path.to_string_lossy().into());
-<a href=#201 id=201 data-nosnippet>201</a>                            }
-<a href=#202 id=202 data-nosnippet>202</a>                            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">err!</span>(<span class="string">"warning: @{nick} profile image: {e:#}"</span>),
-<a href=#203 id=203 data-nosnippet>203</a>                        }
-<a href=#204 id=204 data-nosnippet>204</a>                    }
-<a href=#205 id=205 data-nosnippet>205</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = <span class="kw-2">&amp;</span>profile.banner_url
-<a href=#206 id=206 data-nosnippet>206</a>                        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Ok</span>((path, <span class="kw">_</span>)) = fetch_one_pub(<span class="kw-2">&amp;</span>http, u, <span class="kw-2">&amp;</span>att_dir).<span class="kw">await </span>{
-<a href=#207 id=207 data-nosnippet>207</a>                            profile.banner_path = <span class="prelude-val">Some</span>(path.to_string_lossy().into());
-<a href=#208 id=208 data-nosnippet>208</a>                        }
-<a href=#209 id=209 data-nosnippet>209</a>                }
-<a href=#210 id=210 data-nosnippet>210</a>                profile.raw_json = serde_json::to_string(<span class="kw-2">&amp;</span>profile).unwrap_or_default();
-<a href=#211 id=211 data-nosnippet>211</a>                save_profile(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>profile)<span class="question-mark">?</span>;
-<a href=#212 id=212 data-nosnippet>212</a>                targets.push(MentionTarget {
-<a href=#213 id=213 data-nosnippet>213</a>                    nick: nick.clone(),
-<a href=#214 id=214 data-nosnippet>214</a>                    user_id: profile.user_id.clone(),
-<a href=#215 id=215 data-nosnippet>215</a>                    display_name: profile.display_name.clone(),
-<a href=#216 id=216 data-nosnippet>216</a>                });
-<a href=#217 id=217 data-nosnippet>217</a>                profiles.push(profile);
-<a href=#218 id=218 data-nosnippet>218</a>
-<a href=#219 id=219 data-nosnippet>219</a>                <span class="kw">let </span>roots = ps.iter().filter(|p| p.parent_post_id.is_empty()).count();
-<a href=#220 id=220 data-nosnippet>220</a>                <span class="kw">let </span>total = ps.len();
-<a href=#221 id=221 data-nosnippet>221</a>                <span class="kw">let </span>new: Vec&lt;Post&gt; = ps.into_iter().filter(|p| seen.insert(p.post_id.clone())).collect();
-<a href=#222 id=222 data-nosnippet>222</a>                <span class="kw">let </span>inserted = save(<span class="kw-2">&amp;</span>new)<span class="question-mark">?</span>;
-<a href=#223 id=223 data-nosnippet>223</a>                summary.push(<span class="macro">format!</span>(
-<a href=#224 id=224 data-nosnippet>224</a>                    <span class="string">"@{nick}: {total} items ({roots} root posts, {} replies), {inserted} new DB rows"</span>,
-<a href=#225 id=225 data-nosnippet>225</a>                    total - roots
-<a href=#226 id=226 data-nosnippet>226</a>                ));
-<a href=#227 id=227 data-nosnippet>227</a>                posts.extend(new);
-<a href=#228 id=228 data-nosnippet>228</a>                ok_nicks.push(nick.clone());
-<a href=#229 id=229 data-nosnippet>229</a>            }
-<a href=#230 id=230 data-nosnippet>230</a>            <span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#231 id=231 data-nosnippet>231</a>                <span class="macro">err!</span>(<span class="string">"warning: @{nick} failed: {e:#}"</span>);
-<a href=#232 id=232 data-nosnippet>232</a>                summary.push(<span class="macro">format!</span>(<span class="string">"@{nick}: FAILED ({e})"</span>));
-<a href=#233 id=233 data-nosnippet>233</a>            }
-<a href=#234 id=234 data-nosnippet>234</a>        }
-<a href=#235 id=235 data-nosnippet>235</a>    }
-<a href=#236 id=236 data-nosnippet>236</a>    <span class="kw">if </span>args.want_mentions() &amp;&amp; !ok_nicks.is_empty() {
-<a href=#237 id=237 data-nosnippet>237</a>        <span class="macro">info!</span>(<span class="string">"== mentions crawl (Latest, limit {})"</span>, args.crawl_limit);
-<a href=#238 id=238 data-nosnippet>238</a>        <span class="kw">match </span>crawl_mentions(<span class="kw-2">&amp;</span>http, <span class="kw-2">&amp;</span>jar, <span class="kw-2">&amp;</span>targets, args.crawl_limit, <span class="kw-2">&amp;mut </span>seen, <span class="kw-2">&amp;</span>known, args.full, args.feed_mode()).<span class="kw">await </span>{
-<a href=#239 id=239 data-nosnippet>239</a>            <span class="prelude-val">Ok</span>((extra, hits)) =&gt; {
-<a href=#240 id=240 data-nosnippet>240</a>                <span class="kw">let </span>inserted = save(<span class="kw-2">&amp;</span>extra)<span class="question-mark">?</span>;
-<a href=#241 id=241 data-nosnippet>241</a>                save_mentions(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>hits)<span class="question-mark">?</span>;
-<a href=#242 id=242 data-nosnippet>242</a>                <span class="macro">info!</span>(<span class="string">"mentions: {} posts, {} hits, {inserted} new DB rows"</span>, extra.len(), hits.len());
-<a href=#243 id=243 data-nosnippet>243</a>                posts.extend(extra);
-<a href=#244 id=244 data-nosnippet>244</a>                mention_hits.extend(hits);
-<a href=#245 id=245 data-nosnippet>245</a>            }
-<a href=#246 id=246 data-nosnippet>246</a>            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">err!</span>(<span class="string">"warning: mentions crawl failed: {e:#}"</span>),
-<a href=#247 id=247 data-nosnippet>247</a>        }
-<a href=#248 id=248 data-nosnippet>248</a>    }
-<a href=#249 id=249 data-nosnippet>249</a>    <span class="macro">info!</span>(<span class="string">"== summary"</span>);
-<a href=#250 id=250 data-nosnippet>250</a>    <span class="kw">for </span>l <span class="kw">in </span><span class="kw-2">&amp;</span>summary { <span class="macro">info!</span>(<span class="string">"  {l}"</span>); }
-<a href=#251 id=251 data-nosnippet>251</a>    <span class="kw">if </span>ok_nicks.is_empty() { <span class="macro">bail!</span>(<span class="string">"all nicks failed"</span>); }
-<a href=#252 id=252 data-nosnippet>252</a>    <span class="kw">let </span>atts = <span class="kw">if </span>args.no_attachments { Vec::new() } <span class="kw">else </span>{
-<a href=#253 id=253 data-nosnippet>253</a>        <span class="kw">let </span>for_dl: Vec&lt;Post&gt; = <span class="kw">if </span>args.full {
-<a href=#254 id=254 data-nosnippet>254</a>            posts.clone()
-<a href=#255 id=255 data-nosnippet>255</a>        } <span class="kw">else </span>{
-<a href=#256 id=256 data-nosnippet>256</a>            <span class="comment">// Only download media for posts we didn't already have.
-<a href=#257 id=257 data-nosnippet>257</a>            </span>posts.iter().filter(|p| !known.contains(<span class="kw-2">&amp;</span>p.post_id)).cloned().collect()
-<a href=#258 id=258 data-nosnippet>258</a>        };
-<a href=#259 id=259 data-nosnippet>259</a>        <span class="macro">info!</span>(<span class="string">"attachments: downloading for {} posts ({} skipped as known)"</span>,
-<a href=#260 id=260 data-nosnippet>260</a>            for_dl.len(), posts.len().saturating_sub(for_dl.len()));
-<a href=#261 id=261 data-nosnippet>261</a>        <span class="kw">let </span>a = download_all(<span class="kw-2">&amp;</span>http, <span class="kw-2">&amp;</span>for_dl, <span class="kw-2">&amp;</span>att_dir).<span class="kw">await</span>;
-<a href=#262 id=262 data-nosnippet>262</a>        save_attachments(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
-<a href=#263 id=263 data-nosnippet>263</a>        a
-<a href=#264 id=264 data-nosnippet>264</a>    };
-<a href=#265 id=265 data-nosnippet>265</a>    <span class="kw">let </span>name = clean(args.name.clone().unwrap_or_else(|| nicks_name(<span class="kw-2">&amp;</span>ok_nicks, <span class="kw-2">&amp;</span>stamp)));
-<a href=#266 id=266 data-nosnippet>266</a>    <span class="kw">let </span>label = ok_nicks.iter().map(|n| <span class="macro">format!</span>(<span class="string">"@{n}"</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">", "</span>);
-<a href=#267 id=267 data-nosnippet>267</a>    export(<span class="kw-2">&amp;</span>args, <span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>label, <span class="kw-2">&amp;</span>posts, <span class="kw-2">&amp;</span>atts, <span class="kw-2">&amp;</span>profiles, <span class="kw-2">&amp;</span>mention_hits, <span class="kw-2">&amp;</span>home()<span class="question-mark">?</span>.join(EXPORTS_REL_PATH))<span class="question-mark">?</span>;
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>    <span class="prelude-val">Ok</span>(())
-<a href=#270 id=270 data-nosnippet>270</a>}
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">if </span>args.said_by { <span class="macro">info!</span>(<span class="string">"== --said-by: only the nicks' own posts and replies; no thread crawl, no mentions"</span>); }
+<a href=#148 id=148 data-nosnippet>148</a>    <span class="macro">info!</span>(<span class="string">"== targets"</span>);
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">for </span>nick <span class="kw">in </span><span class="kw-2">&amp;</span>nicks {
+<a href=#150 id=150 data-nosnippet>150</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(i) = known_infos.iter().find(|i| i.nick.eq_ignore_ascii_case(nick)) {
+<a href=#151 id=151 data-nosnippet>151</a>            <span class="kw">let </span>dn = i.display_name.as_deref().unwrap_or(<span class="string">"-"</span>);
+<a href=#152 id=152 data-nosnippet>152</a>            <span class="macro">info!</span>(<span class="string">"  @{nick}: known ({dn}, {} posts{})"</span>,
+<a href=#153 id=153 data-nosnippet>153</a>                i.post_count,
+<a href=#154 id=154 data-nosnippet>154</a>                <span class="kw">if </span>i.profile_scraped { <span class="string">", profile scraped" </span>} <span class="kw">else </span>{ <span class="string">"" </span>});
+<a href=#155 id=155 data-nosnippet>155</a>        } <span class="kw">else </span>{
+<a href=#156 id=156 data-nosnippet>156</a>            <span class="macro">info!</span>(<span class="string">"  @{nick}: new"</span>);
+<a href=#157 id=157 data-nosnippet>157</a>        }
+<a href=#158 id=158 data-nosnippet>158</a>    }
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">let </span><span class="kw-2">mut </span>posts: Vec&lt;Post&gt; = Vec::new();
+<a href=#160 id=160 data-nosnippet>160</a>    <span class="kw">let </span><span class="kw-2">mut </span>profiles: Vec&lt;Profile&gt; = Vec::new();
+<a href=#161 id=161 data-nosnippet>161</a>    <span class="kw">let </span><span class="kw-2">mut </span>mention_hits: Vec&lt;MentionHit&gt; = Vec::new();
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="kw">let </span><span class="kw-2">mut </span>targets: Vec&lt;MentionTarget&gt; = Vec::new();
+<a href=#163 id=163 data-nosnippet>163</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen = HashSet::new();
+<a href=#164 id=164 data-nosnippet>164</a>    <span class="kw">let </span><span class="kw-2">mut </span>summary = Vec::new();
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="kw">let </span><span class="kw-2">mut </span>ok_nicks = Vec::new();
+<a href=#166 id=166 data-nosnippet>166</a>    <span class="kw">for </span>nick <span class="kw">in </span><span class="kw-2">&amp;</span>nicks {
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="macro">info!</span>(<span class="string">"== scraping @{nick}"</span>);
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">match </span>scrape(<span class="kw-2">&amp;</span>http, <span class="kw-2">&amp;</span>jar, nick, <span class="kw-2">&amp;</span>known, <span class="kw-2">&amp;</span>reply_counts, args.full, args.said_by).<span class="kw">await </span>{
+<a href=#169 id=169 data-nosnippet>169</a>            <span class="prelude-val">Ok</span>((ps, html, st)) =&gt; {
+<a href=#170 id=170 data-nosnippet>170</a>                <span class="macro">info!</span>(<span class="string">"  @{nick}: feed {} items ({} from posts and replies), ~{} new, {} skipped known, threads fetched {} / skipped {}"</span>,
+<a href=#171 id=171 data-nosnippet>171</a>                    st.feed_items, st.replies_tab_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);
+<a href=#172 id=172 data-nosnippet>172</a>                <span class="kw">let </span><span class="kw-2">mut </span>profile = Profile {
+<a href=#173 id=173 data-nosnippet>173</a>                    nick: nick.clone(),
+<a href=#174 id=174 data-nosnippet>174</a>                    scraped_at: chrono::Local::now().to_rfc3339(),
+<a href=#175 id=175 data-nosnippet>175</a>                    ..Default::default()
+<a href=#176 id=176 data-nosnippet>176</a>                };
+<a href=#177 id=177 data-nosnippet>177</a>                <span class="comment">// The feed's author object carries the real profile photo; read it
+<a href=#178 id=178 data-nosnippet>178</a>                // before the page's og: tags, which fall back to the site banner.
+<a href=#179 id=179 data-nosnippet>179</a>                // Reply-only nicks have an empty Posts feed, so also look at
+<a href=#180 id=180 data-nosnippet>180</a>                // "Posts and replies" when the Posts feed had no author data.
+<a href=#181 id=181 data-nosnippet>181</a>                </span><span class="kw">for </span>url <span class="kw">in </span>[profile_url(nick), profile_replies_url(nick)] {
+<a href=#182 id=182 data-nosnippet>182</a>                    <span class="kw">if </span>profile.avatar_url.is_some() &amp;&amp; profile.display_name.is_some() { <span class="kw">break</span>; }
+<a href=#183 id=183 data-nosnippet>183</a>                    <span class="kw">match </span>fetch_feed(<span class="kw-2">&amp;</span>http, <span class="kw-2">&amp;</span>jar, <span class="kw-2">&amp;</span>url, <span class="prelude-val">Some</span>(<span class="number">10</span>), <span class="prelude-val">None</span>, <span class="bool-val">true</span>).<span class="kw">await </span>{
+<a href=#184 id=184 data-nosnippet>184</a>                        <span class="prelude-val">Ok</span>(feed) =&gt; {
+<a href=#185 id=185 data-nosnippet>185</a>                            enrich_from_feed(<span class="kw-2">&amp;mut </span>profile, <span class="kw-2">&amp;</span>feed.items, nick);
+<a href=#186 id=186 data-nosnippet>186</a>                            <span class="kw">if </span>profile.avatar_url.is_none() &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(it) = feed.items.first() {
+<a href=#187 id=187 data-nosnippet>187</a>                                dbg_log(<span class="string">"profile"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"@{nick} no photo in {url}; first item: {it}"</span>));
+<a href=#188 id=188 data-nosnippet>188</a>                            }
+<a href=#189 id=189 data-nosnippet>189</a>                        }
+<a href=#190 id=190 data-nosnippet>190</a>                        <span class="prelude-val">Err</span>(e) =&gt; dbg_log(<span class="string">"profile"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"@{nick} {url}: {e:#}"</span>)),
+<a href=#191 id=191 data-nosnippet>191</a>                    }
+<a href=#192 id=192 data-nosnippet>192</a>                }
+<a href=#193 id=193 data-nosnippet>193</a>                enrich_from_html(<span class="kw-2">&amp;mut </span>profile, <span class="kw-2">&amp;</span>html);
+<a href=#194 id=194 data-nosnippet>194</a>                <span class="kw">if </span>profile.avatar_url.as_deref().is_some_and(is_site_image) { profile.avatar_url = <span class="prelude-val">None</span>; }
+<a href=#195 id=195 data-nosnippet>195</a>                dbg_log(<span class="string">"profile"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"@{nick} show-info unused event={PROFILE_SHOW_INFO_EVENT} fields={profile:?}"</span>));
+<a href=#196 id=196 data-nosnippet>196</a>                <span class="kw">if </span>!args.no_attachments {
+<a href=#197 id=197 data-nosnippet>197</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = <span class="kw-2">&amp;</span>profile.avatar_url {
+<a href=#198 id=198 data-nosnippet>198</a>                        <span class="kw">match </span>fetch_avatar(<span class="kw-2">&amp;</span>http, u, <span class="kw-2">&amp;</span>att_dir, nick).<span class="kw">await </span>{
+<a href=#199 id=199 data-nosnippet>199</a>                            <span class="prelude-val">Ok</span>(path) =&gt; {
+<a href=#200 id=200 data-nosnippet>200</a>                                <span class="macro">info!</span>(<span class="string">"  @{nick}: profile image {}"</span>, path.display());
+<a href=#201 id=201 data-nosnippet>201</a>                                profile.avatar_path = <span class="prelude-val">Some</span>(path.to_string_lossy().into());
+<a href=#202 id=202 data-nosnippet>202</a>                            }
+<a href=#203 id=203 data-nosnippet>203</a>                            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">err!</span>(<span class="string">"warning: @{nick} profile image: {e:#}"</span>),
+<a href=#204 id=204 data-nosnippet>204</a>                        }
+<a href=#205 id=205 data-nosnippet>205</a>                    }
+<a href=#206 id=206 data-nosnippet>206</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = <span class="kw-2">&amp;</span>profile.banner_url
+<a href=#207 id=207 data-nosnippet>207</a>                        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Ok</span>((path, <span class="kw">_</span>)) = fetch_one_pub(<span class="kw-2">&amp;</span>http, u, <span class="kw-2">&amp;</span>att_dir).<span class="kw">await </span>{
+<a href=#208 id=208 data-nosnippet>208</a>                            profile.banner_path = <span class="prelude-val">Some</span>(path.to_string_lossy().into());
+<a href=#209 id=209 data-nosnippet>209</a>                        }
+<a href=#210 id=210 data-nosnippet>210</a>                }
+<a href=#211 id=211 data-nosnippet>211</a>                profile.raw_json = serde_json::to_string(<span class="kw-2">&amp;</span>profile).unwrap_or_default();
+<a href=#212 id=212 data-nosnippet>212</a>                save_profile(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>profile)<span class="question-mark">?</span>;
+<a href=#213 id=213 data-nosnippet>213</a>                targets.push(MentionTarget {
+<a href=#214 id=214 data-nosnippet>214</a>                    nick: nick.clone(),
+<a href=#215 id=215 data-nosnippet>215</a>                    user_id: profile.user_id.clone(),
+<a href=#216 id=216 data-nosnippet>216</a>                    display_name: profile.display_name.clone(),
+<a href=#217 id=217 data-nosnippet>217</a>                });
+<a href=#218 id=218 data-nosnippet>218</a>                profiles.push(profile);
+<a href=#219 id=219 data-nosnippet>219</a>
+<a href=#220 id=220 data-nosnippet>220</a>                <span class="kw">let </span>roots = ps.iter().filter(|p| p.parent_post_id.is_empty()).count();
+<a href=#221 id=221 data-nosnippet>221</a>                <span class="kw">let </span>total = ps.len();
+<a href=#222 id=222 data-nosnippet>222</a>                <span class="kw">let </span>new: Vec&lt;Post&gt; = ps.into_iter().filter(|p| seen.insert(p.post_id.clone())).collect();
+<a href=#223 id=223 data-nosnippet>223</a>                <span class="kw">let </span>inserted = save(<span class="kw-2">&amp;</span>new)<span class="question-mark">?</span>;
+<a href=#224 id=224 data-nosnippet>224</a>                summary.push(<span class="macro">format!</span>(
+<a href=#225 id=225 data-nosnippet>225</a>                    <span class="string">"@{nick}: {total} items ({roots} root posts, {} replies), {inserted} new DB rows"</span>,
+<a href=#226 id=226 data-nosnippet>226</a>                    total - roots
+<a href=#227 id=227 data-nosnippet>227</a>                ));
+<a href=#228 id=228 data-nosnippet>228</a>                posts.extend(new);
+<a href=#229 id=229 data-nosnippet>229</a>                ok_nicks.push(nick.clone());
+<a href=#230 id=230 data-nosnippet>230</a>            }
+<a href=#231 id=231 data-nosnippet>231</a>            <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#232 id=232 data-nosnippet>232</a>                <span class="macro">err!</span>(<span class="string">"warning: @{nick} failed: {e:#}"</span>);
+<a href=#233 id=233 data-nosnippet>233</a>                summary.push(<span class="macro">format!</span>(<span class="string">"@{nick}: FAILED ({e})"</span>));
+<a href=#234 id=234 data-nosnippet>234</a>            }
+<a href=#235 id=235 data-nosnippet>235</a>        }
+<a href=#236 id=236 data-nosnippet>236</a>    }
+<a href=#237 id=237 data-nosnippet>237</a>    <span class="kw">if </span>args.want_mentions() &amp;&amp; !ok_nicks.is_empty() {
+<a href=#238 id=238 data-nosnippet>238</a>        <span class="macro">info!</span>(<span class="string">"== mentions crawl (Latest, limit {})"</span>, args.crawl_limit);
+<a href=#239 id=239 data-nosnippet>239</a>        <span class="kw">match </span>crawl_mentions(<span class="kw-2">&amp;</span>http, <span class="kw-2">&amp;</span>jar, <span class="kw-2">&amp;</span>targets, args.crawl_limit, <span class="kw-2">&amp;mut </span>seen, <span class="kw-2">&amp;</span>known, args.full, args.feed_mode()).<span class="kw">await </span>{
+<a href=#240 id=240 data-nosnippet>240</a>            <span class="prelude-val">Ok</span>((extra, hits)) =&gt; {
+<a href=#241 id=241 data-nosnippet>241</a>                <span class="kw">let </span>inserted = save(<span class="kw-2">&amp;</span>extra)<span class="question-mark">?</span>;
+<a href=#242 id=242 data-nosnippet>242</a>                save_mentions(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>hits)<span class="question-mark">?</span>;
+<a href=#243 id=243 data-nosnippet>243</a>                <span class="macro">info!</span>(<span class="string">"mentions: {} posts, {} hits, {inserted} new DB rows"</span>, extra.len(), hits.len());
+<a href=#244 id=244 data-nosnippet>244</a>                posts.extend(extra);
+<a href=#245 id=245 data-nosnippet>245</a>                mention_hits.extend(hits);
+<a href=#246 id=246 data-nosnippet>246</a>            }
+<a href=#247 id=247 data-nosnippet>247</a>            <span class="prelude-val">Err</span>(e) =&gt; <span class="macro">err!</span>(<span class="string">"warning: mentions crawl failed: {e:#}"</span>),
+<a href=#248 id=248 data-nosnippet>248</a>        }
+<a href=#249 id=249 data-nosnippet>249</a>    }
+<a href=#250 id=250 data-nosnippet>250</a>    <span class="macro">info!</span>(<span class="string">"== summary"</span>);
+<a href=#251 id=251 data-nosnippet>251</a>    <span class="kw">for </span>l <span class="kw">in </span><span class="kw-2">&amp;</span>summary { <span class="macro">info!</span>(<span class="string">"  {l}"</span>); }
+<a href=#252 id=252 data-nosnippet>252</a>    <span class="kw">if </span>ok_nicks.is_empty() { <span class="macro">bail!</span>(<span class="string">"all nicks failed"</span>); }
+<a href=#253 id=253 data-nosnippet>253</a>    <span class="kw">let </span>atts = <span class="kw">if </span>args.no_attachments { Vec::new() } <span class="kw">else </span>{
+<a href=#254 id=254 data-nosnippet>254</a>        <span class="kw">let </span>for_dl: Vec&lt;Post&gt; = <span class="kw">if </span>args.full {
+<a href=#255 id=255 data-nosnippet>255</a>            posts.clone()
+<a href=#256 id=256 data-nosnippet>256</a>        } <span class="kw">else </span>{
+<a href=#257 id=257 data-nosnippet>257</a>            <span class="comment">// Only download media for posts we didn't already have.
+<a href=#258 id=258 data-nosnippet>258</a>            </span>posts.iter().filter(|p| !known.contains(<span class="kw-2">&amp;</span>p.post_id)).cloned().collect()
+<a href=#259 id=259 data-nosnippet>259</a>        };
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="macro">info!</span>(<span class="string">"attachments: downloading for {} posts ({} skipped as known)"</span>,
+<a href=#261 id=261 data-nosnippet>261</a>            for_dl.len(), posts.len().saturating_sub(for_dl.len()));
+<a href=#262 id=262 data-nosnippet>262</a>        <span class="kw">let </span>a = download_all(<span class="kw-2">&amp;</span>http, <span class="kw-2">&amp;</span>for_dl, <span class="kw-2">&amp;</span>att_dir).<span class="kw">await</span>;
+<a href=#263 id=263 data-nosnippet>263</a>        save_attachments(<span class="kw-2">&amp;</span>db, <span class="kw-2">&amp;</span>a)<span class="question-mark">?</span>;
+<a href=#264 id=264 data-nosnippet>264</a>        a
+<a href=#265 id=265 data-nosnippet>265</a>    };
+<a href=#266 id=266 data-nosnippet>266</a>    <span class="kw">let </span>name = clean(args.name.clone().unwrap_or_else(|| nicks_name(<span class="kw-2">&amp;</span>ok_nicks, <span class="kw-2">&amp;</span>stamp)));
+<a href=#267 id=267 data-nosnippet>267</a>    <span class="kw">let </span>label = ok_nicks.iter().map(|n| <span class="macro">format!</span>(<span class="string">"@{n}"</span>)).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">", "</span>);
+<a href=#268 id=268 data-nosnippet>268</a>    export(<span class="kw-2">&amp;</span>args, <span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>label, <span class="kw-2">&amp;</span>posts, <span class="kw-2">&amp;</span>atts, <span class="kw-2">&amp;</span>profiles, <span class="kw-2">&amp;</span>mention_hits, <span class="kw-2">&amp;</span>home()<span class="question-mark">?</span>.join(EXPORTS_REL_PATH))<span class="question-mark">?</span>;
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="prelude-val">Ok</span>(())
+<a href=#271 id=271 data-nosnippet>271</a>}
 </code></pre></div></section></main></body></html>

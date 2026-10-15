@@ -6,6 +6,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.17.0] - 2026-10-15
+
+One change since 1.16.0 (minor 16 → 17).
+
+### Added
+1. **`--said-by`**: limit a scrape to what the nick said — their own posts and their own replies
+   from the profile's Posts and "Posts and replies" feeds. Other members' replies in the nick's
+   threads are not crawled and the mentions crawl is skipped; a thread page is read only to
+   recover a blank body of the nick's own item. Default scraping is unchanged.
+
 ## [1.16.0] - 2026-10-15
 
 One change since 1.15.0 (minor 15 → 16).

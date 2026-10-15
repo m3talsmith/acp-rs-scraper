@@ -145,6 +145,8 @@ pub struct ScrapeStats {
     pub threads_skipped: usize,
     /// Items only found via the profile's "Posts and replies" filter.
     pub replies_tab_items: usize,
+    /// Feed items dropped by `--said-by` because another member wrote them.
+    pub skipped_other: usize,
     /// Posts whose body had to be read from their thread page.
     pub bodies_from_thread: usize,
 }
@@ -152,7 +154,7 @@ pub struct ScrapeStats {
 /// Scrape a nick: the Posts feed and the "Posts and replies" filter (merged by id), then replies in every thread the nick started that changed since the last run. Returns the posts, the profile HTML and counts.
 pub async fn scrape(
     http: &reqwest::Client, jar: &Jar, nick: &str,
-    known: &HashSet<String>, reply_counts: &HashMap<String, usize>, full: bool,
+    known: &HashSet<String>, reply_counts: &HashMap<String, usize>, full: bool, said_by: bool,
 ) -> Result<(Vec<Post>, String, ScrapeStats)> {
     let nick = nick.trim_start_matches('@');
     let known_opt = if full { None } else { Some(known) };
@@ -175,6 +177,7 @@ pub async fn scrape(
     for it in &feed.items {
         let id = s(it, "id");
         if id.is_empty() || !seen.insert(id.clone()) { continue; }
+        if said_by && !said_by_nick(it, nick) { stats.skipped_other += 1; continue; }
         let thread = s(it, "thread_id");
         let is_root = thread.is_empty() || thread == id;
         let already = known.contains(&id);
@@ -213,6 +216,10 @@ pub async fn scrape(
         }
         stats.bodies_from_thread += 1;
     }
+    if said_by {
+        stats.threads_skipped += roots.len();
+        roots.clear();
+    }
     for (tid, feed_rc) in roots {
         let db_rc = reply_counts.get(&tid).copied().unwrap_or(0);
         let need = full || !known.contains(&tid) || feed_rc > db_rc;
@@ -240,6 +247,20 @@ pub async fn scrape(
         verbose!("thread {tid}: {n} new replies (feed says {feed_rc}, db had {db_rc})");
     }
     Ok((out, feed.html, stats))
+}
+
+/// Whether a feed item was written by `nick` (`--said-by`). Items with no
+/// author data are kept: profile feeds only list the nick's own items.
+pub fn said_by_nick(v: &Value, nick: &str) -> bool {
+    let m = |u: &str| u.trim_start_matches('@').eq_ignore_ascii_case(nick);
+    let inner = ["reply", "post"].iter().find_map(|k| v.get(*k).filter(|x| x.is_object())).unwrap_or(v);
+    for item in [inner, v] {
+        if let Some(u) = item.pointer("/author/username").and_then(Value::as_str) { return m(u); }
+        for k in ["author_username", "username", "nick"] {
+            if let Some(u) = item.get(k).and_then(Value::as_str) && !u.is_empty() { return m(u); }
+        }
+    }
+    true
 }
 
 #[cfg(test)]

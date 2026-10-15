@@ -28,3 +28,13 @@ fn fallback_fields_and_wrapped_posts() {
 fn empty_body_stays_empty() {
     assert_eq!(body_text(&json!({"id": "r1", "body": null})), "");
 }
+
+#[test]
+fn said_by_matches_own_items_only() {
+    use serde_json::json;
+    assert!(said_by_nick(&json!({"author": {"username": "@Haz"}}), "haz"));
+    assert!(!said_by_nick(&json!({"author": {"username": "bob"}}), "haz"));
+    assert!(said_by_nick(&json!({"reply": {"author_username": "haz"}}), "haz"));
+    assert!(!said_by_nick(&json!({"post": {"author": {"username": "bob"}}}), "haz"));
+    assert!(said_by_nick(&json!({"id": "1"}), "haz"));
+}

@@ -37,3 +37,10 @@ Feature: Scraping a nick
     Then it succeeds
     And "B1" is recorded as mentioning "alice"
     And the database has 8 posts
+
+  Scenario: --said-by keeps only the nick's own posts and replies
+    When I run "--nick alice --said-by --no-attachments"
+    Then it succeeds
+    And the site served 0 thread pages
+    And post "AR1" has parent "B1"
+    And stderr contains "--said-by"

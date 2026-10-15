@@ -73,6 +73,7 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 | `--nick <NICK>` | One nick; the `@` is optional. Can't be used with `--nicks`. |
 | `--nicks <LIST>` | A comma-separated list, e.g. `@haz,@m3talsmith`. Spaces are trimmed, `@` is optional, and repeats are removed (ignoring case). |
 | `--no-mentions` | Skip the mentions crawl, which is on by default. |
+| `--said-by` | Only what the nick said: their own posts and their own replies, from the Posts and "Posts and replies" feeds. Other people's replies in the nick's threads aren't fetched and the mentions crawl is skipped (implies `--no-mentions`). A thread page is read only when one of the nick's own items has a blank body in the feed. |
 | `--crawl-limit <N>` | The most site-feed posts to scan when looking for mentions (default 500). |
 | `--no-attachments` | Don't download media, avatars or banners. Profile images are otherwise saved to `~/.acp/ai/data/attachments/profiles/<nick>.<ext>` and shown in HTML exports. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
@@ -173,6 +174,9 @@ acp-rs-scraper --nicks @haz,@m3talsmith --format html --compress --tar-gz --name
 # Skip mentions; or scan fewer feed posts for them
 acp-rs-scraper --nick alice --no-mentions
 acp-rs-scraper --nick alice --crawl-limit 200
+
+# Only the nick's own posts and replies (no thread crawl, no mentions)
+acp-rs-scraper --nick alice --said-by
 
 # Latest (default) vs Trending for the site-wide mentions crawl
 acp-rs-scraper --nicks @haz --latest
