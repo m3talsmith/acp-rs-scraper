@@ -6,9 +6,9 @@ rust-version = "1.88"
 license = "GPL-3.0-or-later"
 authors = ["m3talsmith <m3talsmith@gmail.com>"]
 description = "ACP Scraper"
-repository = "https://forgejo.acp.us/m3talsmith/acp-rs-scraper"
-homepage = "https://forgejo.acp.us/m3talsmith/acp-rs-scraper"
-# documentation = "https://forgejo.acp.us/m3talsmith/acp-rs-scraper/docs"
+repository = "https://github.com/m3talsmith/acp-rs-scraper"
+homepage = "https://github.com/m3talsmith/acp-rs-scraper"
+# documentation = "https://github.com/m3talsmith/acp-rs-scraper/docs"
 keywords = ["acp", "rs", "redstar"]
 categories = ["command-line-utilities", "web-programming"]
 

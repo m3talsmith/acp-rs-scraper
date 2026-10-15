@@ -16,7 +16,7 @@ Every install method **builds from source** on your machine (`cargo build --rele
 ## Quick install
 
 ```bash
-git clone https://forgejo.acp.us/m3talsmith/acp-rs-scraper
+git clone https://github.com/m3talsmith/acp-rs-scraper
 cd acp-rs-scraper
 scripts/install.sh          # native package for your distro (asks before using sudo)
 scripts/install.sh --user   # or: into ~/.local, no root needed

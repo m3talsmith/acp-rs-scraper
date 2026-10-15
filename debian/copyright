@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: acp-rs-scraper
-Source: https://forgejo.acp.us/m3talsmith/acp-rs-scraper
+Source: https://github.com/m3talsmith/acp-rs-scraper
 
 Files: *
 Copyright: 2026 m3talsmith <m3talsmith@gmail.com>

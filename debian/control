@@ -4,7 +4,7 @@ Priority: optional
 Maintainer: m3talsmith <m3talsmith@gmail.com>
 Build-Depends: debhelper-compat (= 13), cargo (>= 1.88), rustc (>= 1.88), gcc, pkg-config
 Standards-Version: 4.7.0
-Homepage: https://forgejo.acp.us/m3talsmith/acp-rs-scraper
+Homepage: https://github.com/m3talsmith/acp-rs-scraper
 Rules-Requires-Root: no
 
 Package: acp-rs-scraper

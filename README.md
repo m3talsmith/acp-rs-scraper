@@ -11,7 +11,7 @@ Rust 2024 CLI. It logs in to https://acp.us/rs (Red Star forum) as Firefox, scra
 Every install builds from source. You need Rust 1.88 or newer; the installer offers rustup if it's missing or too old.
 
 ```sh
-git clone git@github.com:m3talsmith/acp-rs-scraper.git
+git clone https://github.com/m3talsmith/acp-rs-scraper.git
 cd acp-rs-scraper
 scripts/install.sh          # native package for Arch, Debian, Fedora and their derivatives (asks before sudo)
 scripts/install.sh --user   # or install into ~/.local without root

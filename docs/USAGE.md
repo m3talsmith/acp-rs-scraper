@@ -20,7 +20,7 @@ For distro packages (Arch, Debian, Fedora and derivatives), `scripts/install.sh`
 
 You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus let-chains in the `scraper` dependency) (install with [rustup](https://rustup.rs)). SQLite is compiled in (rusqlite `bundled`) and TLS uses rustls, so there are no system libraries to install.
 
-    git clone https://forgejo.acp.us/m3talsmith/acp-rs-scraper
+    git clone https://github.com/m3talsmith/acp-rs-scraper
     cd acp-rs-scraper
     cargo build --release
     ./target/release/acp-rs-scraper --help

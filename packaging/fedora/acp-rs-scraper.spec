@@ -11,7 +11,7 @@ Version:        1.12.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
-URL:            https://forgejo.acp.us/m3talsmith/acp-rs-scraper
+URL:            https://github.com/m3talsmith/acp-rs-scraper
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  cargo >= 1.88

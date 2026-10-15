@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- Project URLs (Cargo `repository`/`homepage`, Arch `url`, Fedora `URL`, Debian `Homepage`/`Source`,
+  and the clone commands in README, INSTALL and USAGE) now point at the public GitHub mirror,
+  https://github.com/m3talsmith/acp-rs-scraper, so anyone can clone and package it.
+
 ## [1.12.0] - 2026-10-15
 
 Eight changes since 1.4.0 (minor 4 → 12): a cleanup release, plus the real "Posts and replies" mechanism and one bug fix.
