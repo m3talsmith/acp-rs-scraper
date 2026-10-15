@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Blocks commits that contain credentials or secret files.
+# Bypass (only if you are sure): git commit --no-verify
+set -euo pipefail
+
+fail=0
+red() { printf '\033[31m%s\033[0m\n' "$*" >&2; }
+
+# 1. Run gitleaks if it's installed.
+if command -v gitleaks >/dev/null 2>&1; then
+  if ! gitleaks protect --staged --redact -v >&2; then
+    red "gitleaks found secrets in staged changes."
+    fail=1
+  fi
+fi
+
+# 2. Block secret-looking files by name.
+blocked_files='(^|/)(\.env(\..*)?|preferences\.toml|.*\.pem|.*\.key|.*\.p12|.*\.pfx|id_(rsa|dsa|ecdsa|ed25519)|.*\.database|.*\.sqlite3?|.*\.db|cookies?(\.txt|\.json)?|credentials(\.json)?|\.netrc|\.npmrc|\.pypirc)$'
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in *.example|*.sample|*.template) continue ;; esac
+  if printf '%s\n' "$f" | grep -Eiq "$blocked_files"; then
+    red "Blocked file: $f"
+    fail=1
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR)
+
+# 3. Scan added lines for credential patterns.
+patterns=(
+  '-----BEGIN ([A-Z]+ )?PRIVATE KEY-----'
+  'AKIA[0-9A-Z]{16}'
+  'gh[pousr]_[A-Za-z0-9]{36,}'
+  'github_pat_[A-Za-z0-9_]{50,}'
+  'xox[abprs]-[A-Za-z0-9-]{10,}'
+  'sk-[A-Za-z0-9_-]{20,}'
+  'AIza[0-9A-Za-z_-]{35}'
+  'eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
+  '_acp_key=[A-Za-z0-9%._-]{20,}'
+  '(password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{8,}["'"'"']'
+)
+added=$(git diff --cached -U0 --diff-filter=ACMR -- . ':(exclude).githooks/pre-commit' | grep -E '^\+[^+]' || true)
+for p in "${patterns[@]}"; do
+  if hits=$(printf '%s\n' "$added" | grep -Ein -e "$p"); then
+    red "Possible credential matching: $p"
+    printf '%s\n' "$hits" | cut -c1-120 >&2
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  red "Commit blocked: remove the secrets above (or git commit --no-verify if they are false positives)."
+  exit 1
+fi
