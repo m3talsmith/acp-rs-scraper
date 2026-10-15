@@ -1,3 +1,5 @@
+![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
+
 # acp-rs-scraper
 
 > **Full usage guide:** [docs/USAGE.md](docs/USAGE.md) · Install/uninstall: [docs/INSTALL.md](docs/INSTALL.md) · API docs: [docs/index.html](docs/index.html)
