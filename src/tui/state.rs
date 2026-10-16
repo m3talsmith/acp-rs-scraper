@@ -83,6 +83,8 @@ pub struct BodyView {
     pub filter: Option<SearchFilter>,
     /// The bookmarks view.
     pub bookmarks: bool,
+    /// Frames closed with prev / Esc, nearest last: `next` reopens them.
+    pub forward: Vec<DetailFrame>,
 }
 
 /// Which animation runs.
@@ -231,6 +233,10 @@ pub enum Hit {
     DetailPane,
     /// The nav bar's `[View: …]` switch.
     ViewMode,
+    /// The nav bar's `◂ prev`.
+    StackPrev,
+    /// The nav bar's `next ▸`.
+    StackNext,
     /// The Grid modal's Close button.
     CloseDetail,
     /// Inside the modal.
@@ -520,8 +526,13 @@ impl App {
     pub fn preview_cursor(&mut self) {
         if self.view_mode == ViewMode::Pane { let i = self.view().cursor; self.open_post(i); self.anim = None; }
     }
-    /// Close every open detail (the Grid modal's Close).
-    pub fn close_details(&mut self) { self.view_mut().stack.clear(); self.anim = None; }
+    /// Close every open detail (the Grid modal's Close); next reopens them one by one.
+    pub fn close_details(&mut self) { self.pop_to_list(); }
+    fn pop_to_list(&mut self) {
+        let v = self.view_mut();
+        while let Some(f) = v.stack.pop() { v.forward.push(f); }
+        self.anim = None;
+    }
 
     // ------------------------------------------------------------ body views
     /// The view on screen (search results replace the nick posts in place).
@@ -597,6 +608,7 @@ impl App {
         let v = self.view_mut();
         v.cursor = i;
         v.stack = vec![f];
+        v.forward.clear();
         self.focus = Focus::Body;
         self.anim = Some(Anim { kind: AnimKind::Open, start: Instant::now() });
     }
@@ -614,27 +626,46 @@ impl App {
             self.push_status(format!("{} is not in the database (scrape its thread to read it)", link.id));
             return;
         };
-        if depth >= MAX_DETAIL_DEPTH {
-            self.push_status(format!("at most {MAX_DETAIL_DEPTH} nested posts: press Esc to close one first"));
-            if let Some(f) = self.top_mut() { f.notice = Some(format!("nesting limit ({MAX_DETAIL_DEPTH}) reached")); }
+        let max = if self.view_mode == ViewMode::Nested { MAX_DETAIL_DEPTH } else { MAX_FLAT_DEPTH };
+        if depth >= max {
+            self.push_status(format!("at most {max} open posts here: press Esc to close one first"));
+            let what = if max == MAX_DETAIL_DEPTH { "nesting" } else { "depth" };
+            if let Some(f) = self.top_mut() { f.notice = Some(format!("{what} limit ({max}) reached")); }
             return;
         }
         let f = self.frame_for(target);
-        self.view_mut().stack.push(f);
+        let v = self.view_mut();
+        v.stack.push(f);
+        v.forward.clear();
         self.anim = Some(Anim { kind: AnimKind::Push, start: Instant::now() });
     }
     /// Close the top frame; returns whether one was open.
     pub fn pop_detail(&mut self) -> bool {
         let v = self.view_mut();
-        let r = v.stack.pop().is_some();
+        let r = match v.stack.pop() { Some(f) => { v.forward.push(f); true } None => false };
         self.anim = None;
         r
     }
-    /// Keep frames `0..=depth` (click on a collapsed header).
+    /// Keep frames `0..=depth` (click on a collapsed header); the closed ones can be reopened with next.
     pub fn pop_to(&mut self, depth: usize) {
-        self.view_mut().stack.truncate(depth + 1);
+        let v = self.view_mut();
+        while v.stack.len() > depth + 1 { if let Some(f) = v.stack.pop() { v.forward.push(f); } }
         self.anim = None;
     }
+    /// Previous post of the detail stack (like Esc: closes the top one, remembering it).
+    pub fn stack_prev(&mut self) -> bool { self.pop_detail() }
+    /// Next post of the detail stack: reopen the last one closed with prev.
+    pub fn stack_next(&mut self) -> bool {
+        let v = self.view_mut();
+        let Some(f) = v.forward.pop() else { return false };
+        if v.stack.is_empty() && let Some(i) = v.posts.iter().position(|p| p.post_id == f.post.post_id) { v.cursor = i; }
+        v.stack.push(f);
+        self.focus = Focus::Body;
+        self.anim = None;
+        true
+    }
+    /// Position in the stack history: (open frames, open + reopenable).
+    pub fn stack_pos(&self) -> (usize, usize) { let v = self.view(); (v.stack.len(), v.stack.len() + v.forward.len()) }
     /// Move the top frame's link cursor.
     pub fn move_link(&mut self, d: i32) {
         if let Some(f) = self.top_mut() && !f.links.is_empty() {
@@ -721,6 +752,8 @@ impl App {
             Action::Logout => { self.close_menu(); self.effects.push(Effect::Logout); }
             Action::Help => { self.close_menu(); self.modal = Some(Modal::Help(HelpModal::new())); }
             Action::ToggleLog => { self.show_log = !self.show_log; }
+            Action::StackPrev => { if !self.stack_prev() { self.push_status("no previous post: this is the list"); } }
+            Action::StackNext => { if !self.stack_next() { self.push_status("no next post: open one, or go back with prev first"); } }
             Action::CycleView => { self.close_menu(); let m = self.view_mode.cycle(1); self.set_view_mode(m); }
             Action::SetView(m) => { self.close_menu(); self.set_view_mode(m); }
             Action::ShowBookmarks => { self.close_menu(); self.open_bookmarks(); }
@@ -897,6 +930,8 @@ impl App {
             ("Search… (Shift-S)".into(), PaletteCmd::Action(Action::OpenSearchModal)),
             ("Clear search (Ctrl-S)".into(), PaletteCmd::Action(Action::ClearSearch)),
             ("Toggle log panel (l)".into(), PaletteCmd::Action(Action::ToggleLog)),
+            ("Previous post in the stack (,)".into(), PaletteCmd::Action(Action::StackPrev)),
+            ("Next post in the stack (.)".into(), PaletteCmd::Action(Action::StackNext)),
             ("Next view mode (v)".into(), PaletteCmd::Action(Action::CycleView)),
             ("Show bookmarks (B)".into(), PaletteCmd::Action(Action::ShowBookmarks)),
             ("Bookmark current post (b)".into(), PaletteCmd::Action(Action::ToggleBookmark)),

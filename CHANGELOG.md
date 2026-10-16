@@ -6,6 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-10-16
+
+### Added
+- TUI **previous / next** through the detail stack: `◂ prev` and `next ▸` on the Body's navigation
+  bar with an `n/m` position, `,` / `.`, `Alt-←` / `Alt-→`, the palette, and View › Previous post /
+  Next post. Prev steps back down to the list; next reopens what you closed (also after `Esc`, a
+  header click or the Grid's Close). Opening a different post or link starts a new trail.
+
+### Changed
+- The flat view modes (Stack, Pane, carousels, Grid) allow up to 256 open posts; Nested keeps its
+  limit of 8.
+
 ## [2.3.0] - 2026-10-16
 
 ### Added

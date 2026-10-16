@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.3.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.4.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -245,6 +245,10 @@ headless scrape is now `--scrape`.
   out the Login modal opens (email, then the one-time code or the login link from the email) and
   the scan starts as soon as you're in. Session › Log in / Log out do the same by hand; logging out
   deletes `~/.acp/session.json` and returns to the Login modal.
+- **Previous / next.** Once a post is open, the nav bar shows **◂ prev** and **next ▸** with your
+  position (`2/3`). Prev (`,` or `Alt-←`) steps back through the posts you opened, down to the
+  list; next (`.` or `Alt-→`) reopens them in order. `Esc`, a header click and the Grid's Close
+  also keep them for next; opening a different post or link starts a new trail.
 - **View modes.** The `[View: …]` switch at the right of the Body's navigation bar (click it, press
   `v` / `V`, or use the View menu) changes how posts are laid out:
   - **Nested** (default): cards; a detail slides in and linked posts nest inside it.

@@ -41,6 +41,8 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         KeyCode::Char('s') | KeyCode::Char('S') if ctrl => { app.act(Action::ClearSearch); return; }
         KeyCode::Char('r') if ctrl => { app.act(Action::RefreshNicks); return; }
         KeyCode::Char('a') if ctrl && app.focus == Focus::Nicks => { app.select_all(); return; }
+        KeyCode::Left if alt => { app.act(Action::StackPrev); return; }
+        KeyCode::Right if alt => { app.act(Action::StackNext); return; }
         KeyCode::Char(c) if alt => {
             if let Some(i) = app.menu.menu.items.iter().position(|it| it.hint == c.to_ascii_lowercase()) { app.open_menu(i); }
             return;
@@ -75,6 +77,8 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('<') => { app.search_back(); }
         KeyCode::Char('b') => app.act(Action::ToggleBookmark),
         KeyCode::Char('v') => app.act(Action::CycleView),
+        KeyCode::Char(',') => app.act(Action::StackPrev),
+        KeyCode::Char('.') => app.act(Action::StackNext),
         KeyCode::Char('V') => { let m = app.view_mode.cycle(-1); app.set_view_mode(m); }
         _ => return false,
     }
@@ -234,6 +238,8 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::Post(i)) => app.open_post(i),
         Some(Hit::Bookmarks) => app.open_bookmarks(),
         Some(Hit::ViewMode) => app.act(Action::CycleView),
+        Some(Hit::StackPrev) => { app.focus = Focus::Body; app.act(Action::StackPrev); }
+        Some(Hit::StackNext) => { app.focus = Focus::Body; app.act(Action::StackNext); }
         Some(Hit::CloseDetail) => app.close_details(),
         Some(Hit::Star(i)) => { if let Some(id) = app.view().posts.get(i).map(|p| p.post_id.clone()) { app.focus = Focus::Body; app.toggle_mark(&id); } }
         Some(Hit::StarTop) => { if let Some(id) = app.top().map(|f| f.post.post_id.clone()) { app.toggle_mark(&id); } }

@@ -178,6 +178,8 @@ pub const TUI_FRAME_MS: u64 = 16;
 pub const TUI_TICK_MS: u64 = 250;
 /// Status lines kept from scans and log output.
 pub const TUI_STATUS_KEEP: usize = 500;
+/// Most posts open at once in the flat view modes (Stack, Pane, Carousel, Grid).
+pub const MAX_FLAT_DEPTH: usize = 256;
 /// Default minutes between automatic TUI syncs (Sync › Interval).
 pub const TUI_SYNC_DEFAULT_MINUTES: u64 = 15;
 /// Smallest terminal the layout supports.
@@ -196,6 +198,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
+    (", .  /  Alt-← Alt-→", "Previous / next post of the detail stack (◂ prev / next ▸ on the nav bar)"),
     ("v / V", "Next / previous view mode: Nested, Stack, Stack + pane, Carousel ∞, Carousel, Grid"),
     ("← →  (Carousel, Grid)", "Previous / next post; ↑ ↓ move a row in the Grid"),
     ("B", "Show bookmarks (the ★ Bookmarks row on the nick bar)"),

@@ -49,6 +49,10 @@ pub enum CommandId {
 pub enum Action {
     /// Next view mode (`v`).
     CycleView,
+    /// Previous post of the detail stack.
+    StackPrev,
+    /// Next post of the detail stack.
+    StackNext,
     /// Switch to this view mode.
     SetView(crate::tui::state::ViewMode),
     /// Start Scanning (or Cancel while a job runs).
@@ -237,6 +241,8 @@ impl Menu {
                 opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
                 opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
                 opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
+                opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
+                opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
             ]},
             MenuCommand { id: Debug, label: "Debug", hint: 'd', action: None, opts: vec![
                 opt("verbose", "Verbose", "-v", false, check(args.verbose)),

@@ -11,6 +11,7 @@ mod render;
 mod state;
 mod sync;
 mod views;
+mod history;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

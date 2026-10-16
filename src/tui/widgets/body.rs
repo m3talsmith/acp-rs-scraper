@@ -25,13 +25,24 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     let nav = Rect { height: 1, ..inner };
     let content = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
     let in_search = app.search.is_some();
-    if in_search { app.hits.push((Rect { width: 8.min(nav.width), ..nav }, Hit::Back)); }
-    let v = app.view();
+    let (pos, total) = app.stack_pos();
     let mut spans = Vec::new();
-    if in_search {
-        spans.push(Span::styled(" < Back ", t.selected()));
+    let mut x = nav.x;
+    let mut button = |spans: &mut Vec<Span<'static>>, hits: &mut Vec<(Rect, Hit)>, label: &'static str, st: Style, hit: Option<Hit>| {
+        let w = unicode_width::UnicodeWidthStr::width(label) as u16;
+        if let Some(h) = hit { hits.push((Rect { x, width: w.min((nav.x + nav.width).saturating_sub(x)), ..nav }, h)); }
+        spans.push(Span::styled(label, st));
         spans.push(Span::raw(" "));
+        x += w + 1;
+    };
+    if in_search { button(&mut spans, &mut app.hits, " < Back ", t.selected(), Some(Hit::Back)); }
+    if total > 0 {
+        let on = |b: bool| if b { t.selected() } else { t.muted() };
+        button(&mut spans, &mut app.hits, " ◂ prev ", on(pos > 0), Some(Hit::StackPrev));
+        button(&mut spans, &mut app.hits, " next ▸ ", on(pos < total), Some(Hit::StackNext));
     }
+    let v = app.view();
+    if total > 0 { spans.push(Span::styled(format!("{pos}/{total}  "), t.muted())); }
     let title = if v.title.is_empty() { "Select a nick on the left".to_string() } else { v.title.clone() };
     spans.push(Span::styled(title, Style::default().add_modifier(Modifier::BOLD)));
     spans.push(Span::styled(format!("  {} posts", v.posts.len()), t.muted()));
