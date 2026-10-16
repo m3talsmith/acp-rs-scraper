@@ -3,6 +3,8 @@
 //! With `--enable-logging` (or `--debug`, `--log`, `--error-log`) every message the macros emit
 //! is also appended, timestamped, to a log file: progress, verbose detail and debug wire frames
 //! go to the success log, errors and warnings to the error log. Stderr still follows `-q`/`-v`.
+//! Debug wire frames are passed through [`redact_secrets`] so CSRF tokens and signed sessions
+//! never land in stderr or the success log.
 
 
 /// Set when the log level is Debug (fast check for wire logging).
@@ -64,11 +66,59 @@ macro_rules! verbose { ($($t:tt)*) => { $crate::logging::log_verbose(format_args
 
 macro_rules! err { ($($t:tt)*) => { $crate::logging::log_error(format_args!($($t)*)) }; }
 
-/// `--debug` only: print a wire message, cut at 2000 characters.
+/// Placeholder shown in place of a redacted secret value.
+const REDACTED: &str = "[REDACTED]";
+
+/// JSON object keys whose string values must never appear in debug output.
+const SECRET_JSON_KEY_RE: &str = concat!(
+    r#"(?i)"("#,
+    r"_csrf_token|csrf_token|csrf-token|session|static|cookie|",
+    r"authorization|user_token|access_token|refresh_token",
+    r#")"\s*:\s*"(?:\\.|[^"\\])*""#,
+);
+
+/// Mask auth tokens in a debug / wire payload before it hits stderr or the success log.
+///
+/// Replaces JSON string values for known secret keys (`_csrf_token`, `session`, `static`,
+/// cookies, bearer-style tokens), `_csrf_token=` query params, Phoenix signed blobs
+/// (`SFMyNTY....`), and long hidden-input `value="..."` attributes that carry CSRF tokens in
+/// LiveView HTML diffs. Event names, topics, URLs, and post structure stay visible.
+pub fn redact_secrets(s: &str) -> String {
+    use std::sync::LazyLock;
+    static JSON_KEYS: LazyLock<regex::Regex> =
+        LazyLock::new(|| regex::Regex::new(SECRET_JSON_KEY_RE).expect("secret json key re"));
+    static CSRF_QUERY: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r#"_csrf_token=[^&\s"\\]+"#).expect("csrf query re")
+    });
+    static PHOENIX_SIGNED: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"SFMyNTY\.[A-Za-z0-9+/=_.-]+").expect("phoenix signed re")
+    });
+    // LiveView diffs often split `<input name="_csrf_token" ... value="TOKEN">` across JSON
+    // strings; catch long token-shaped value="..." / value=\"..." attributes.
+    static HTML_VALUE: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r#"((?:^|[\s])value=)(\\?")([A-Za-z0-9_-]{32,})(\\?")"#)
+            .expect("html value re")
+    });
+
+    let mut out = JSON_KEYS
+        .replace_all(s, |caps: &regex::Captures| format!(r#""{}":"{REDACTED}""#, &caps[1]))
+        .into_owned();
+    out = CSRF_QUERY.replace_all(&out, format!("_csrf_token={REDACTED}")).into_owned();
+    out = PHOENIX_SIGNED.replace_all(&out, format!("SFMyNTY.{REDACTED}")).into_owned();
+    out = HTML_VALUE
+        .replace_all(&out, |caps: &regex::Captures| {
+            format!("{}{}{}{}", &caps[1], &caps[2], REDACTED, &caps[4])
+        })
+        .into_owned();
+    out
+}
+
+/// `--debug` only: print a wire message (secrets redacted), cut at 2000 characters.
 pub fn dbg_log(dir: &str, msg: &str) {
     if log_level() >= LogLevel::Debug {
-        let cut: String = msg.chars().take(2000).collect();
-        let more = if cut.len() < msg.len() { format!(" ...[{} bytes]", msg.len()) } else { String::new() };
+        let safe = redact_secrets(msg);
+        let cut: String = safe.chars().take(2000).collect();
+        let more = if cut.len() < safe.len() { format!(" ...[{} bytes]", safe.len()) } else { String::new() };
         file_line(false, "debug", &format_args!("[{dir}] {cut}{more}"));
         eprintln!("[debug {dir}] {cut}{more}");
     }
@@ -161,5 +211,41 @@ mod tests {
         assert!(ev.contains("[error] boom") && !ev.contains("hello info"));
         assert!(sv.starts_with("20"));
         std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn redacts_liveview_join_csrf_session_and_static() {
+        let raw = concat!(
+            r#"["1","1","lv:phx-GN7feKAwRQZGuY5j","phx_join","#,
+            r#"{"params":{"_csrf_token":"HCcyDg18Q2NxEBRVAXIODCFaBWUKCxYVnmfegKtS6wC9N0QmGlG5_ELF","_mounts":0},"#,
+            r#""session":"SFMyNTY.g2gDaAJhBnQAAAAIdwJpZG0AAAAUcGh4LUdON2ZlS0F3UlFaR3VZNWp3B3Nlc3Npb24.sig","#,
+            r#""static":"SFMyNTY.g2gDaAJhBnQAAAADdwJpZG0.othersig","#,
+            r#""url":"https://acp.us/rs/@hazaldin"}]"#,
+        );
+        let out = redact_secrets(raw);
+        assert!(!out.contains("HCcyDg18Q2Nx"), "csrf leaked: {out}");
+        assert!(!out.contains("SFMyNTY.g2g"), "phoenix blob leaked: {out}");
+        assert!(out.contains(r#""_csrf_token":"[REDACTED]""#), "{out}");
+        assert!(out.contains(r#""session":"[REDACTED]""#), "{out}");
+        assert!(out.contains(r#""static":"[REDACTED]""#), "{out}");
+        assert!(out.contains("phx_join") && out.contains("@hazaldin") && out.contains(r#""_mounts":0"#));
+    }
+
+    #[test]
+    fn redacts_csrf_query_param_and_html_value_attr() {
+        let raw = concat!(
+            r#"https://acp.us/live/websocket?_csrf_token=HCcyDg18Q2NxEBRVAXIODCFaBWUKCxYV&vsn=2.0.0 "#,
+            r#"{"0":" value=\"XHZqBQAaKRRKGShlSA92OWsHBkUFNzR7jD0HcjPZ9qKVq7DQ1WH6BbVM\"","#,
+            r#""s":["<input name=\"_csrf_token\" type=\"hidden\" hidden",">"]}"#,
+        );
+        let out = redact_secrets(raw);
+        assert!(!out.contains("HCcyDg18Q2Nx"), "{out}");
+        assert!(!out.contains("XHZqBQAaKRRKGShl"), "{out}");
+        assert!(out.contains("_csrf_token=[REDACTED]"), "{out}");
+        assert!(
+            out.contains("value=\\\"[REDACTED]\\\"") || out.contains(r#"value=\"[REDACTED]\""#),
+            "{out}"
+        );
+        assert!(out.contains(r#"name=\"_csrf_token\""#));
     }
 }

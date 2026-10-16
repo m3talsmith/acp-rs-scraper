@@ -6,6 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.24.0] - 2026-10-15
+
+One security hardening since 1.23.0 (minor 23 → 24).
+
+### Security
+1. **Debug logs no longer leak session secrets**: `--debug` / `ACP_DEBUG=1` wire frames
+   (`dbg_log`) now run through `redact_secrets` before stderr or `success.log`. JSON values
+   for `_csrf_token`, `session`, `static`, cookies, and bearer-style tokens are replaced with
+   `[REDACTED]`, as are `_csrf_token=` query params, Phoenix signed blobs (`SFMyNTY.…`), and
+   long hidden-input `value="…"` attributes that carry CSRF tokens in LiveView HTML diffs.
+   Event names, topics, and feed structure stay visible.
+
 ## [1.23.0] - 2026-10-15
 
 Two fixes since 1.22.0, released together (minor 22 → 23).
