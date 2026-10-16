@@ -74,7 +74,7 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 | `--nick <NICK>` | One nick; the `@` is optional. Can't be used with `--nicks`. |
 | `--nicks <LIST>` | A comma-separated list, e.g. `@hazaldin,@m3talsmith`. Spaces are trimmed, `@` is optional, and repeats are removed (ignoring case). |
 | `--no-mentions` | Skip the mentions crawl, which is on by default. |
-| `--said-by` | Only what the nick said: their own posts and their own replies, from the Posts and "Posts and replies" feeds. Other people's replies in the nick's threads aren't fetched and the mentions crawl is skipped (implies `--no-mentions`). A thread page is read only when one of the nick's own items has a blank body in the feed. |
+| `--said-by` | Only what the nick said: their own top-level posts **and** their own replies/comments, from the Posts and "Posts and replies" feeds. Other people's replies in the nick's threads aren't fetched and the mentions crawl is skipped (implies `--no-mentions`). A thread page is read only when one of the nick's own items has a blank body in the feed. Exports list the posts first and the replies after, each marked `"kind": "post"`/`"reply"` (JSON) and with a Post/Reply badge (HTML). |
 | `--crawl-limit <N>` | The most site-feed posts to scan when looking for mentions (default 500). |
 | `--no-attachments` | Don't download media, avatars or banners. Profile images are otherwise saved to `~/.acp/ai/data/attachments/profiles/<nick>.<ext>` and shown in HTML exports. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
@@ -301,13 +301,14 @@ A nick's own posts can also be recorded as mentions of that nick.
   "title": "<name>",
   "nick": "@alice, @bob",
   "exported_at": "2026-10-15T04:30:00-04:00",
+  "counts": { "posts": 65, "replies": 158 },
   "profiles": [ { "nick": "alice", "user_id": "...", "display_name": "...", "bio": "...",
                   "avatar_url": "...", "avatar_path": "...", "banner_url": null, "banner_path": null,
                   "location": null, "role": null, "joined_at": null,
                   "followers": null, "following": null, "posts_count": null, "scraped_at": "..." } ],
   "mentions": [ { "post_id": "...", "mentioned_nick": "alice", "match_type": "mention" } ],
   "posts": [ {
-      "post_id": "...", "parent_post_id": "", "in_reply_to_id": "", "nick": "alice", "title": "...",
+      "post_id": "...", "kind": "post", "parent_post_id": "", "in_reply_to_id": "", "nick": "alice", "title": "...",
       "content": "...", "posted_at": "...",
       "attachments": [ { "url": "...", "kind": "image", "mime_type": "image/png",
                          "local_path": "attachments/abc123.png" } ],
@@ -317,6 +318,7 @@ A nick's own posts can also be recorded as mentions of that nick.
 ```
 
 - **HTML exports** are a single page. They show a profile header per nick, threads with nested replies, embedded media and a Mentions section. Every post is an `<article id="post-{post_id}">`. A reply shows "Replying to {id}" linking to its immediate parent, plus "thread {id}" when the parent is a comment rather than the root. A link goes to `#post-{id}` when that post is in the export and to `https://acp.us/rs/post/{thread}/{id}` (or `/rs/post/{id}` for a thread root) when it isn't. The same JSON is embedded in `<script type="application/json" id="acp-data">`, which is how HTML exports can be imported again.
+- **Posts vs replies:** every node has `"kind"`: `"post"` for a top-level thread post (`parent_post_id` is `""`), `"reply"` for a reply/comment. `counts` totals both over the whole tree. Top-level `posts` lists thread posts first (newest first), then replies whose parent isn't in the export (newest first). The HTML page has a "N posts · M replies" line, a **Posts** section (thread posts with their nested replies) and a **Replies in other threads** section, and every article carries a Post/Reply badge and a `kind-post`/`kind-reply` class.
 - **Parent ids:** `parent_post_id` is the thread root and `in_reply_to_id` the immediate parent (equal to the root for a direct reply, `""` for roots). Import reads `in_reply_to_id` when present and falls back to `parent_post_id`.
 - **Versions:** import accepts versions 1 (no profiles or mentions) and 2, and refuses newer versions or unknown formats.
 

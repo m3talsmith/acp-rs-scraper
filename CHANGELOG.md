@@ -6,6 +6,22 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.25.1] - 2026-10-16
+
+Bug fix since 1.25.0 (patch).
+
+### Fixed
+1. **`--said-by` exports looked like "comments only"**: the nick's own top-level posts were exported, but
+   interleaved by date with their replies, with nothing marking which was which; replies in other people's
+   threads (newest) filled the top of the page. Exports now separate and label them:
+   - JSON: every node has `"kind": "post"` or `"reply"`; the document has `"counts": {"posts", "replies"}`;
+     top-level `posts` lists thread posts first, then replies whose parent isn't in the export.
+   - HTML: a "N posts · M replies" line, a **Posts** section, a **Replies in other threads** section, and a
+     Post/Reply badge (`kind-post`/`kind-reply` class) on every article.
+   Applies to every export (not only `--said-by`); `format_version` stays 2 (fields are additive, import ignores them).
+2. `--said-by` help/docs now say explicitly that it keeps the nick's top-level posts **and** their replies.
+3. Tests: unit tests for JSON kinds/counts/order and HTML sections/badges; e2e `--said-by --format json,html` scenario.
+
 ## [1.25.0] - 2026-10-15
 
 One feature since 1.24.0 (minor 24 → 25).

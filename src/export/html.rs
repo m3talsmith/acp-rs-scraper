@@ -35,12 +35,24 @@ pub fn reply_links(root: &str, direct: &str, ids: &HashSet<String>) -> String {
     s
 }
 
+/// (top-level posts, replies) over a whole export post tree.
+pub fn count_kinds(posts: &Value) -> (usize, usize) {
+    let mut n = (0, 0);
+    for p in posts.as_array().into_iter().flatten() {
+        if p["parent_post_id"].as_str().unwrap_or_default().is_empty() { n.0 += 1 } else { n.1 += 1 }
+        let (a, b) = count_kinds(&p["children"]);
+        n.0 += a; n.1 += b;
+    }
+    n
+}
+
 /// Append one post (and, recursively, its replies) as nested HTML.
 pub fn html_post(v: &Value, out: &mut String, depth: usize, ids: &HashSet<String>) {
     let g = |k: &str| v[k].as_str().unwrap_or_default().to_string();
-    out.push_str(&format!("<article class=\"post d{}\" id=\"post-{}\">", depth.min(6), esc(&g("post_id"))));
+    let kind = if g("parent_post_id").is_empty() { "post" } else { "reply" };
+    out.push_str(&format!("<article class=\"post kind-{kind} d{}\" id=\"post-{}\">", depth.min(6), esc(&g("post_id"))));
     if !g("title").is_empty() { out.push_str(&format!("<h2>{}</h2>", esc(&g("title")))); }
-    out.push_str(&format!("<div class=\"meta\"><b>@{}</b> · <time>{}</time></div>", esc(&g("nick")), esc(&g("posted_at"))));
+    out.push_str(&format!("<div class=\"meta\"><span class=\"badge {kind}\">{}</span> <b>@{}</b> · <time>{}</time></div>", if kind == "post" { "Post" } else { "Reply" }, esc(&g("nick")), esc(&g("posted_at"))));
     out.push_str(&reply_links(&g("parent_post_id"), &g("in_reply_to_id"), ids));
     out.push_str(&format!("<div class=\"body\">{}</div>", esc(&g("content")).replace('\n', "<br>")));
     for a in v["attachments"].as_array().into_iter().flatten() {
@@ -76,10 +88,22 @@ pub fn build_html(doc: &Value) -> String {
         if !bits.is_empty() { body.push_str(&format!("<p class=\"meta\">{}</p>", bits.join(" · "))); }
         body.push_str("</div></header>");
     }
-    body.push_str("<h2>Posts</h2>");
     let mut ids = HashSet::new();
     export_ids(&doc["posts"], &mut ids);
-    for p in doc["posts"].as_array().into_iter().flatten() { html_post(p, &mut body, 0, &ids); }
+    // Thread roots (top-level posts) and replies in separate sections, so a
+    // nick's own posts are never lost among their replies.
+    let top: Vec<&Value> = doc["posts"].as_array().into_iter().flatten().collect();
+    let (roots, orphans): (Vec<&Value>, Vec<&Value>) = top.into_iter()
+        .partition(|p| p["parent_post_id"].as_str().unwrap_or_default().is_empty());
+    let (np, nr) = count_kinds(&doc["posts"]);
+    body.push_str(&format!("<p class=\"meta counts\">{np} posts · {nr} replies</p>"));
+    body.push_str(&format!("<h2 id=\"posts\">Posts ({})</h2>", roots.len()));
+    if roots.is_empty() { body.push_str("<p class=\"meta\">No top-level posts in this export.</p>"); }
+    for p in roots { html_post(p, &mut body, 0, &ids); }
+    if !orphans.is_empty() {
+        body.push_str(&format!("<h2 id=\"replies\">Replies in other threads ({})</h2>", orphans.len()));
+        for p in orphans { html_post(p, &mut body, 0, &ids); }
+    }
     let mentions = doc["mentions"].as_array().cloned().unwrap_or_default();
     if !mentions.is_empty() {
         body.push_str("<h2>Mentions</h2><ul class=\"mentions\">");
@@ -104,6 +128,8 @@ h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .bod
 .att img,.att video{{max-width:100%;border-radius:6px}} .att{{margin:.4em 0}}
 .profile{{display:flex;gap:1em;align-items:flex-start;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:1em;margin:1em 0}}
 .profile .avatar{{width:72px;height:72px;border-radius:50%;object-fit:cover}}
+.badge{{display:inline-block;font-size:.75em;font-weight:600;padding:0 .45em;border-radius:4px;color:#fff;background:#71717a}} .badge.post{{background:#dc2626}}
+.post.kind-post.d0{{border-left:4px solid #dc2626}}
 .mentions{{padding-left:1.2em}} .reply-to a{{color:#dc2626}}
 </style><script type="application/json" id="{data_id}">{data}</script></head><body><h1>{nick}</h1><p class="meta">Exported {}</p>{body}</body></html>"#,
         esc(doc["exported_at"].as_str().unwrap_or_default()),
@@ -114,6 +140,25 @@ h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .bod
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn posts_and_replies_get_separate_sections_and_badges() {
+        let doc = json!({"nick": "@haz", "posts": [
+            {"post_id": "R1", "parent_post_id": "", "nick": "haz", "content": "my post", "children": [
+                {"post_id": "R1a", "parent_post_id": "R1", "nick": "haz", "content": "self reply", "children": []}]},
+            {"post_id": "C1", "parent_post_id": "T9", "nick": "haz", "content": "comment", "children": []},
+        ]});
+        assert_eq!(count_kinds(&doc["posts"]), (1, 2));
+        let h = build_html(&doc);
+        let posts = h.find("<h2 id=\"posts\">Posts (1)</h2>").expect("posts section");
+        let replies = h.find("<h2 id=\"replies\">Replies in other threads (1)</h2>").expect("replies section");
+        let r1 = h.find("id=\"post-R1\"").unwrap();
+        let c1 = h.find("id=\"post-C1\"").unwrap();
+        assert!(posts < r1 && r1 < replies && replies < c1, "posts before replies");
+        assert!(h.contains("class=\"post kind-post d0\" id=\"post-R1\""));
+        assert!(h.contains("class=\"post kind-reply d0\" id=\"post-C1\""));
+        assert!(h.contains("1 posts · 2 replies"));
+    }
 
     #[test]
     fn reply_links_prefer_in_export_anchors() {

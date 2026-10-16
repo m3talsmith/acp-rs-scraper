@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        1.25.0
+Version:        1.25.1
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -45,6 +45,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Fri Oct 16 2026 m3talsmith <m3talsmith@gmail.com> - 1.25.1-1
+- Exports mark posts vs replies and list posts first (--said-by fix)
+
 * Thu Oct 15 2026 m3talsmith <m3talsmith@gmail.com> - 1.25.0-1
 - --format accepts several formats (json,html) in one run
 

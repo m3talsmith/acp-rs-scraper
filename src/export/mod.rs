@@ -202,6 +202,22 @@ mod tests {
     }
 
     #[test]
+    fn json_marks_posts_and_replies_and_lists_posts_first() {
+        let root = post();
+        let mut own_reply = post(); own_reply.post_id = "p2".into(); own_reply.parent_post_id = "p1".into();
+        // A newer reply in someone else's thread must not push the post down.
+        let mut other = post(); other.post_id = "c1".into(); other.parent_post_id = "t9".into(); other.posted_at = "2026-10-16T00:00:00Z".into();
+        let doc = build_json("@hazaldin", &[root, own_reply, other], &[], &[], &[], &|_| String::new());
+        assert_eq!(doc["counts"], json!({"posts": 1, "replies": 2}));
+        let top = doc["posts"].as_array().unwrap();
+        assert_eq!(top[0]["post_id"], "p1");
+        assert_eq!(top[0]["kind"], "post");
+        assert_eq!(top[0]["children"][0]["kind"], "reply");
+        assert_eq!(top[1]["post_id"], "c1");
+        assert_eq!(top[1]["kind"], "reply");
+    }
+
+    #[test]
     fn output_paths_for_several_formats() {
         let both = [Format::Json, Format::Html];
         let d = tmp("outpaths");

@@ -44,3 +44,15 @@ Feature: Scraping a nick
     And the site served 0 thread pages
     And post "AR1" has parent "B1"
     And stderr contains "--said-by"
+
+  Scenario: --said-by exports show the nick's own posts and their replies
+    When I run "--nick alice --said-by --no-attachments --format json,html --output $HOME/alice.json"
+    Then it succeeds
+    And the file "$HOME/alice.json" contains '"posts": 5,'
+    And the file "$HOME/alice.json" contains '"replies": 1'
+    And the file "$HOME/alice.json" contains '"kind": "post"'
+    And the file "$HOME/alice.json" contains '"kind": "reply"'
+    And the file "$HOME/alice.html" contains '<h2 id="posts">Posts (5)</h2>'
+    And the file "$HOME/alice.html" contains '<h2 id="replies">Replies in other threads (1)</h2>'
+    And the file "$HOME/alice.html" contains 'class="post kind-post d0" id="post-A1"'
+    And the file "$HOME/alice.html" contains 'class="post kind-reply d0" id="post-AR1"'
