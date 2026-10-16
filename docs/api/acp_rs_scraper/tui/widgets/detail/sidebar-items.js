@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["badge","detail_lines","header_lines","link_label","meta_line","snippet"]};

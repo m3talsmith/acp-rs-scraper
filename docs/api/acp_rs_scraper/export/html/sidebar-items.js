@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["build_html","esc","export_ids","html_post","post_href","reply_links"]};
+window.SIDEBAR_ITEMS = {"fn":["build_html","count_kinds","esc","export_ids","html_post","paragraphs_html","post_href","reply_links"]};

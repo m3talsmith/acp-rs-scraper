@@ -1,8 +1,9 @@
 # acp-rs-scraper: usage guide
 
-`acp-rs-scraper` logs in to the Red Star forum (https://acp.us/rs) as Firefox and scrapes one or more nicks' posts, the replies in their threads, the posts that mention them, and their profiles into a local SQLite database. It downloads attachments and exports to JSON or HTML, optionally compressed. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` run offline.
+Run `acp-rs-scraper` with no flags (or `--tui`) for the [terminal UI](#terminal-ui). With flags, `acp-rs-scraper` logs in to the Red Star forum (https://acp.us/rs) as Firefox and scrapes one or more nicks' posts, the replies in their threads, the posts that mention them, and their profiles into a local SQLite database. It downloads attachments and exports to JSON or HTML, optionally compressed. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` run offline.
 
 - [Install and build](#install-and-build)
+- [Terminal UI](#terminal-ui)
 - [First run and login](#first-run-and-login)
 - [Where data lives](#where-data-lives)
 - [Flags](#flags)
@@ -27,9 +28,49 @@ You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus le
 
 You can also run it through cargo with `cargo run --release -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
+## Terminal UI
+
+`acp-rs-scraper` (no flags) or `acp-rs-scraper --tui` opens it. It needs a terminal on stdin/stdout
+(at least 60×16); piped or scripted runs get an error naming the headless flags instead.
+
+- **Layout:** top bar (name, version, session, running job) · menu bar (one item per group of CLI
+  flags, Start Scanning pinned right) · nick bar on the left (`@nick` and post count) · Body · status
+  line (`l` expands it to a log panel).
+- **Browsing** is offline and read-only (the database is opened `SQLITE_OPEN_READ_ONLY`). Select a
+  nick to list their posts and replies, newest first; select several with `Space`, `Shift-↑/↓`,
+  `Ctrl-A`, or Ctrl/Shift-click.
+- **Details** open in place: the list slides up to a strip, the detail fills the Body, with the same
+  fields as the HTML export. Links (reply-to, thread, post ids in the body, replies) cross-load: the
+  linked post nests inside and the previous detail is pushed up into a header strip. `Esc` pops one,
+  clicking a header pops back to it, at most 8 deep. Ids not in the database say so.
+- **Search** (Search menu, or `Shift-S` for keyword + nicks + post id + date range + posts/replies)
+  replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears.
+- **Menu → flags:**
+
+  | Menu | Flags it builds |
+  |---|---|
+  | Scrape (Start Scanning, `F5`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format` |
+  | Search | in-app search (same matching as `--search`, plus the filters above) |
+  | Export | `--export PATH` + `--nicks` (selection) or `--search`/`--nicks` (current view) or nothing (everything), `--format`, `--name`, `--compress --tar-gz` |
+  | Import | `--import PATH` `--compress --tar-gz` |
+  | List | re-reads the nick bar (`--list-nicks` data) |
+  | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
+  | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
+  | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
+
+  Every argv is validated by clap before it runs, then runs as the headless binary in its own
+  process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
+  quitting asks whether to keep it running in the background (default) or cancel it.
+- **Login** happens only when needed: Start Scanning checks `~/.acp/session.json` against the site
+  and, when logged out, opens the Login modal (email, then the code or login link), then starts the
+  scan.
+- **Theme:** `[theme]` in `~/.acp/preferences.toml` (`accent`, `muted`, `border`, `on_accent`,
+  `#rrggbb`); the default accent is ACP red `#dc2626`.
+- **Keys:** `?`/`F1` lists them all next to the full `--help`.
+
 ## First run and login
 
-1. Run a scrape, for example `acp-rs-scraper --nick alice`.
+1. Run a scrape, for example `acp-rs-scraper --nick alice` (or Start Scanning in the TUI, whose Login modal asks for the email and code instead of the prompts below).
 2. **Email:** the tool reads `email` from `~/.acp/preferences.toml`. If the file doesn't exist, it creates `~/.acp/`, asks for your email, and saves it:
 
        email = "you@example.com"
@@ -38,9 +79,9 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 3. The tool asks the site to email you login details (the same form as the "Create account or log in" button).
 4. **Code:** enter the verification code from the email (e.g. `KWMRUV`), or paste the login link instead.
 5. The tool submits the code, completes the sign-in form the site sends back, and checks that `/rs` no longer redirects to `/auth`.
-6. If you gave no `--nick`/`--nicks`, it asks for a nick; a comma-separated list is accepted.
+6. With `--scrape` and no `--nick`/`--nicks`, it asks for a nick; a comma-separated list is accepted.
 
-The session lasts for one run only (an in-memory cookie jar), so each scrape logs in again. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
+The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip the code until the site expires it; `--logout` (or Session › Log out) deletes it. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
 
 ## Where data lives
 
@@ -48,6 +89,7 @@ The session lasts for one run only (an in-memory cookie jar), so each scrape log
 |---|---|
 | Preferences | `~/.acp/preferences.toml` |
 | Saved login session (mode `0600`) | `~/.acp/session.json` |
+| Logs of jobs started from the TUI (mode `0600`) | `~/.acp/logs/tui-<kind>-<time>.log` |
 | Database | `~/.acp/ai/data/rs.database` |
 | Attachments (persistent copies) | `~/.acp/ai/data/attachments/<hash>.<ext>` |
 | Default export / archive location | `~/.acp/ai/data/exports/` |
@@ -57,6 +99,14 @@ Every scrape is saved to the database. Exports are written on top of that.
 ## Flags
 
 These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`--version` prints the version.
+
+### Interface
+
+| Flag | Meaning |
+|---|---|
+| *(no flags)* | Open the terminal UI. Logging flags (`-q`, `-v`, `--debug`, `--enable-logging`, `--log`, `--error-log`) don't count as flags here. |
+| `--tui` | Open the terminal UI even with other flags; `--nick`/`--nicks` pre-select those nicks, logging flags pre-tick the Debug menu. |
+| `--scrape` | Headless scrape without other scraping flags; asks for nicks when none are given (what a bare run did before 2.0). |
 
 ### Mode
 
@@ -365,7 +415,8 @@ A nick's own posts can also be recorded as mentions of that nick.
 - **"Posts and replies":** this is the profile Filter dialog (`<dialog id="js-configureFeed">`, form `configure-feed`, radios `replies=0|1`). Checked on the live site: choosing it switches to `/rs/@nick?replies=1`, the URL the scraper loads. The fallback form submission is covered by the mocked end-to-end tests. Profiles also have a Top feed (`/rs/@nick/top?t=all`), which isn't scraped.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
-- **Logins:** each scrape run needs a fresh email code.
+- **Logins:** a saved session is reused until the site expires it; then the next scrape asks for a fresh email code.
+- **TUI:** images are listed as paths (with an `xdg-open` hint), not drawn in the terminal; Ctrl-Shift-S arrives as Ctrl-S in most terminals; cancelling a job kills it outright.
 - **Truncated bodies:** feeds shorten long posts and comments (`body_truncated: true`, cut `body` plus `body_text_summary`). Checked on the live site: the thread page (`/rs/post/{thread}`) carries every item's full body with `body_truncated: false`, so the scraper reads it (once per thread) instead of pushing the "show more" action over LiveView.
 
 ## Contributing
@@ -382,7 +433,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `tui/{state,input,layout,commands,data,jobs,theme,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/features/*.feature` and the steps in `tests/e2e.rs`. It runs the real binary against a **mock acp.us** (`tests/support/mock.rs`: HTTP pages, the LiveView websocket, OTP sign-in, threads and media) with a temporary `HOME`. It covers:
 - login (right and wrong code);
@@ -391,7 +442,10 @@ The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/featur
 - mentions;
 - the "Posts and replies" URL and its form fallback;
 - truncated feed bodies completed from the thread page, and `--refetch-truncated`;
-- search, export/import round trip, `--remove-nick` and `--clear-all`.
+- search, export/import round trip, `--remove-nick` and `--clear-all`;
+- the TUI entry (bare / `--tui` / `--scrape`) and the argvs its Scrape, Export and Maintain menus build.
+
+TUI state, menu → argv mapping, layout geometry and headless renders (ratatui `TestBackend`) are unit-tested in `src/tui/tests/`. `cargo test smoke_real_db -- --ignored --nocapture` renders your own database read-only.
 
 It never contacts the real site.
 

@@ -1,0 +1,43 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tui/widgets/nicks.rs`."><title>nicks.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="acp_rs_scraper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.97.1 (8bab26f4f 2026-07-14)" data-channel="1.97.1" data-search-js="search-fd9372ac.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-fcd733ba.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">acp_rs_scraper/tui/widgets/</div>nicks.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Left nick bar: `@nick` and post count; multi-select.
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span><span class="kw">crate</span>::tui::state::{App, Focus, Hit};
+<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>ratatui::Frame;
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>ratatui::layout::Rect;
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>ratatui::style::{Modifier, Style};
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>ratatui::text::{Line, Span};
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>ratatui::widgets::{Block, Borders, Paragraph};
+<a href=#9 id=9 data-nosnippet>9</a>
+<a href=#10 id=10 data-nosnippet>10</a><span class="doccomment">/// Draw the nick bar into `r`.
+<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">pub fn </span>draw(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;mut </span>App, r: Rect) {
+<a href=#12 id=12 data-nosnippet>12</a>    <span class="kw">let </span>t = app.theme;
+<a href=#13 id=13 data-nosnippet>13</a>    <span class="kw">let </span>title = <span class="kw">if </span>app.selected.len() &gt; <span class="number">1 </span>{ <span class="macro">format!</span>(<span class="string">" Nicks · {} selected "</span>, app.selected.len()) } <span class="kw">else </span>{ <span class="macro">format!</span>(<span class="string">" Nicks ({}) "</span>, app.nicks.len()) };
+<a href=#14 id=14 data-nosnippet>14</a>    <span class="kw">let </span>b = Block::default().borders(Borders::ALL).title(title).border_style(t.border(app.focus == Focus::Nicks));
+<a href=#15 id=15 data-nosnippet>15</a>    <span class="kw">let </span>inner = b.inner(r);
+<a href=#16 id=16 data-nosnippet>16</a>    f.render_widget(b, r);
+<a href=#17 id=17 data-nosnippet>17</a>    app.hits.push((r, Hit::NickPane));
+<a href=#18 id=18 data-nosnippet>18</a>    <span class="kw">if </span>app.nicks.is_empty() {
+<a href=#19 id=19 data-nosnippet>19</a>        f.render_widget(Paragraph::new(<span class="macro">vec!</span>[Line::raw(<span class="string">"No nicks yet —"</span>), Line::raw(<span class="string">"use Scrape or Import."</span>)]).style(t.muted()), inner);
+<a href=#20 id=20 data-nosnippet>20</a>        <span class="kw">return</span>;
+<a href=#21 id=21 data-nosnippet>21</a>    }
+<a href=#22 id=22 data-nosnippet>22</a>    <span class="kw">let </span>h = inner.height <span class="kw">as </span>usize;
+<a href=#23 id=23 data-nosnippet>23</a>    <span class="kw">if </span>app.nick_cursor &lt; app.nick_offset { app.nick_offset = app.nick_cursor; }
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="kw">if </span>h &gt; <span class="number">0 </span>&amp;&amp; app.nick_cursor &gt;= app.nick_offset + h { app.nick_offset = app.nick_cursor + <span class="number">1 </span>- h; }
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="kw">for </span>(row, i) <span class="kw">in </span>(app.nick_offset..app.nicks.len()).take(h).enumerate() {
+<a href=#26 id=26 data-nosnippet>26</a>        <span class="kw">let </span>n = <span class="kw-2">&amp;</span>app.nicks[i];
+<a href=#27 id=27 data-nosnippet>27</a>        <span class="kw">let </span>sel = app.selected.iter().any(|s| s == <span class="kw-2">&amp;</span>n.nick);
+<a href=#28 id=28 data-nosnippet>28</a>        <span class="kw">let </span>cur = i == app.nick_cursor;
+<a href=#29 id=29 data-nosnippet>29</a>        <span class="kw">let </span>rr = Rect { x: inner.x, y: inner.y + row <span class="kw">as </span>u16, width: inner.width, height: <span class="number">1 </span>};
+<a href=#30 id=30 data-nosnippet>30</a>        <span class="kw">let </span>count = <span class="macro">format!</span>(<span class="string">"{} "</span>, n.post_count);
+<a href=#31 id=31 data-nosnippet>31</a>        <span class="kw">let </span>mark = <span class="kw">if </span>sel { <span class="string">"▌" </span>} <span class="kw">else </span>{ <span class="string">" " </span>};
+<a href=#32 id=32 data-nosnippet>32</a>        <span class="kw">let </span>w = (inner.width <span class="kw">as </span>usize).saturating_sub(count.len() + <span class="number">2</span>);
+<a href=#33 id=33 data-nosnippet>33</a>        <span class="kw">let </span>name = <span class="kw">crate</span>::tui::layout::ellipsize(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"@{}"</span>, n.nick), w);
+<a href=#34 id=34 data-nosnippet>34</a>        <span class="kw">let </span>pad = w.saturating_sub(unicode_width::UnicodeWidthStr::width(name.as_str()));
+<a href=#35 id=35 data-nosnippet>35</a>        <span class="kw">let </span><span class="kw-2">mut </span>st = <span class="kw">if </span>sel { t.accent_bold() } <span class="kw">else </span>{ Style::default() };
+<a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">if </span>cur &amp;&amp; app.focus == Focus::Nicks { st = t.selected(); } <span class="kw">else if </span>cur { st = st.add_modifier(Modifier::REVERSED); }
+<a href=#37 id=37 data-nosnippet>37</a>        <span class="kw">let </span>line = Line::from(<span class="macro">vec!</span>[Span::styled(mark, t.accent()), Span::styled(<span class="macro">format!</span>(<span class="string">"{name}{}"</span>, <span class="string">" "</span>.repeat(pad)), st),
+<a href=#38 id=38 data-nosnippet>38</a>            Span::styled(<span class="macro">format!</span>(<span class="string">" {count}"</span>), <span class="kw">if </span>cur &amp;&amp; app.focus == Focus::Nicks { st } <span class="kw">else </span>{ t.muted() })]);
+<a href=#39 id=39 data-nosnippet>39</a>        f.render_widget(Paragraph::new(line), rr);
+<a href=#40 id=40 data-nosnippet>40</a>        app.hits.push((rr, Hit::Nick(i)));
+<a href=#41 id=41 data-nosnippet>41</a>    }
+<a href=#42 id=42 data-nosnippet>42</a>}
+</code></pre></div></section></main></body></html>

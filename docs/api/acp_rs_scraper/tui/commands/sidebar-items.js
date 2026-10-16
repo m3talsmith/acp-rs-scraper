@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ARGV0","FORMAT_CHOICES","MODE_CHOICES","SCOPE_CHOICES"],"enum":["Action","CommandId","Widget"],"fn":["button","check","choice","opt","shell_line","text","validate"],"struct":["Menu","MenuCommand","Opt"]};

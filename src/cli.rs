@@ -16,8 +16,11 @@ pub fn prompt(msg: &str) -> Result<String> {
     name = "acp-rs-scraper",
     version,
     about = "Scrape Red Star (acp.us/rs) posts into SQLite and export them",
-    long_about = "Log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.",
+    long_about = "Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.",
     after_help = "Examples:
+  acp-rs-scraper                      # terminal UI
+  acp-rs-scraper --tui --nicks @hazaldin -v
+  acp-rs-scraper --scrape             # headless scrape; asks for nicks
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
   acp-rs-scraper --nick alice --no-mentions --crawl-limit 200

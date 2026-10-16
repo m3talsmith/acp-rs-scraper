@@ -13,4 +13,5 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: Scrape Red Star (acp.us/rs) posts into SQLite and export them
  Logs in to https://acp.us/rs, scrapes posts, mentions and profiles for one or
  more nicks into a local SQLite database, downloads attachments, and exports
- JSON/HTML. Search, export, import and maintenance work offline.
+ JSON/HTML. Search, export, import and maintenance work offline. Run with
+ no flags for a terminal UI that browses the database and drives scans.

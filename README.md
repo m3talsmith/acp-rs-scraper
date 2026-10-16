@@ -1,12 +1,12 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 1.26.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.0.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
 > **Full usage guide:** [docs/USAGE.md](docs/USAGE.md) · Install/uninstall: [docs/INSTALL.md](docs/INSTALL.md) · API docs: [docs/index.html](docs/index.html)
 
-Rust 2024 CLI. It logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
+Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that browses everything you have scraped; with flags it logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
 
 ## Install
 
@@ -24,7 +24,7 @@ Uninstall with `scripts/uninstall.sh` (add `--no-purge` to keep `~/.acp`). See [
 ## Usage
 
 ```text
-Log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
+Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
 
 Usage: acp-rs-scraper [OPTIONS]
 
@@ -42,9 +42,16 @@ Mode:
       --trending
           Site feed: Trending tab (/rs). Opt-in; incremental early-stop disabled (not chronological)
 
+Interface:
+      --tui
+          Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it
+
 Scraping:
+      --scrape
+          Scrape headlessly, without the terminal UI (what a bare invocation did before 2.0). Asks for nicks when no --nick/--nicks is given. Implied by any other scraping flag
+
       --nick <NICK>
-          Single nick (alias for --nicks). Prompted if neither is given
+          Single nick (alias for --nicks). With --scrape and neither given, you are asked
 
       --nicks <LIST>
           Comma-separated nicks, e.g. "@hazaldin,@m3talsmith" (@ optional, trimmed, deduped)
@@ -146,6 +153,9 @@ Debug:
           Error log file (default ~/.acp/logs/error.log); implies --enable-logging
 
 Examples:
+  acp-rs-scraper                      # terminal UI
+  acp-rs-scraper --tui --nicks @hazaldin -v
+  acp-rs-scraper --scrape             # headless scrape; asks for nicks
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
   acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
@@ -165,11 +175,81 @@ Examples:
   acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 200
 ```
 
+## Terminal UI
+
+`acp-rs-scraper` with no flags (or `--tui`) opens the terminal UI. Logging flags still apply
+(`-v`, `--debug`, `--enable-logging` pre-tick the Debug menu), and `--tui --nicks a,b` opens with
+those nicks selected. Everything else on the command line keeps working headless as before; a bare
+headless scrape is now `--scrape`.
+
+```
++--------------------------------------------------------------+
+| ★ ACP Red Star Scraper  v2.0.0                 ● logged in   |  top bar (session, running job)
+| Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
+| Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
+| @feistyD 369 | ╔═ Reply @hazaldin · 2026-10-16 … ══════════╗ |  the post you opened
+|▌@hazaldin 223| ║ ╔═ Post @Deco1099 · 2026-10-15 … ═══════╗ ║ |  a linked post, nested
+| …            | ║ ║ …                                      ║ ║ |
+|              | ╚═╩════════════════════════════════════════╝ |
+|              |  Reply @hazaldin · 2026-10-16  Tell Jackson…  |  the list, slid up
+| status / log line                                            |
++--------------------------------------------------------------+
+```
+
+- **Browse offline.** The left bar lists every nick with its post count. Click one (or `Enter`)
+  to read their posts and replies, newest first; `Space`, `Shift-↑/↓`, or Ctrl/Shift-click
+  select several, `Ctrl-A` all of them. The database is opened **read-only**; nothing you do while
+  browsing changes it.
+- **Post details.** Click a post (or `Enter`): the detail slides in and the list slides up to a
+  thin strip. A detail shows what the HTML export shows: Post/Reply badge, `@nick · posted_at ·
+  post_id`, "Replying to … · thread …", the title and body with its paragraphs, attachments (path
+  and an `xdg-open` hint), linked posts (ids in the body) and replies. Click a link (or `←`/`→`
+  then `Enter`) to cross-load that post: it opens on top and pushes the previous detail up into a
+  header strip. Up to 8 nest; `Esc` closes the top one, a click on a header goes back to it.
+- **Search** replaces the Body in place; `<` (or the `< Back` button) returns to the nick view
+  as you left it. `Shift-S` opens the full search: keyword, nicks, post id (the post and its
+  thread), date range, posts/replies. `Ctrl-S` clears it. (Terminals send Ctrl-Shift-S as Ctrl-S.)
+- **Menu bar.** Every command comes from the CLI flags: Scrape, Search, Export, Import, List,
+  Maintain, Session, Debug, Help, Quit. Options show as checkboxes `[x]`, dropdowns `‹ … ›`,
+  text fields `[…]` and buttons `< … >`; `*` marks a required one. Keyboard: `m`/`F10` or
+  `Alt`+the underlined letter, `↑↓` to pick, `Space`/`Enter` to change, `Esc` to close.
+  `Ctrl-Space` (or `Ctrl-P`) opens a command palette. Selecting nicks fills Scrape › Nicks.
+- **Start Scanning** (pinned right, or `F5`) builds the same argv the CLI takes, checks it with
+  clap, and runs the headless scraper as a background process, with its progress in the status
+  line (`l` shows a 10-line log panel). Its full log is in `~/.acp/logs/tui-scan-<time>.log`
+  (mode 0600; nothing secret is logged). While it runs the button becomes **Cancel**, which kills
+  it (SQLite rolls back a half-written transaction). Nick counts refresh when it finishes.
+  Export (bulk from the selected nicks, the current search, or everything), Import and Maintain
+  run the same way; Remove and Clear all ask first (Clear all wants you to type `yes`).
+- **Login.** Browsing needs no login. Start Scanning checks the saved session; when you're logged
+  out the Login modal opens (email, then the one-time code or the login link from the email) and
+  the scan starts as soon as you're in. Session › Log in / Log out do the same by hand; logging out
+  deletes `~/.acp/session.json` and returns to the Login modal.
+- **Quit** (`q`) while a scan runs asks whether to keep it running in the background (the default:
+  it is its own process, so it carries on after the TUI exits and prints the `tail -f` line for its
+  log) or to cancel it first.
+- **Theme.** The accent is ACP red `#dc2626`, as in the HTML export. Override any colour in
+  `~/.acp/preferences.toml`:
+
+  ```toml
+  [theme]
+  accent = "#dc2626"     # reply links, selection, focused borders, Start Scanning
+  muted = "#9ca3af"      # dates, ids, hints
+  border = "#4b5563"     # unfocused borders
+  on_accent = "#ffffff"  # text on the accent colour
+  ```
+
+Keys: `?`/`F1` help (the full `--help` plus every key), `Tab` cycles Nicks → Body → Menu,
+`↑↓`/`jk`, `PgUp`/`PgDn`, `Home`/`End`, `Ctrl-R` re-reads nicks, `q` or `Ctrl-C` quits.
+The TUI needs at least 60×16 cells and a terminal on stdin/stdout; without one it tells you which
+headless flags to use.
+
 ## Running from a checkout
 
-    cargo run --release
+    cargo run --release                     # terminal UI
+    cargo run --release -- --scrape         # headless scrape (asks for nicks)
 
-Flow: loads saved cookies from `~/.acp/session.json` (if `/rs` doesn't redirect to `/auth`, login is skipped) -> reads `email` from `~/.acp/preferences.toml` (prompts and creates it if missing) -> LiveView `send-login-email` -> prompts for the code -> LiveView `submit-code` -> HTTP POST of the `phx-trigger-action` form to `/auth/user/otp/sign_in` -> checks that `/rs` no longer redirects to `/auth` -> saves the session to `~/.acp/session.json` (mode `0600`; `--logout` deletes it) -> prompts for a nick -> scrapes -> writes `~/.acp/ai/data/rs.database` (set by `DB_REL_PATH`).
+Headless scrape flow: loads saved cookies from `~/.acp/session.json` (if `/rs` doesn't redirect to `/auth`, login is skipped) -> reads `email` from `~/.acp/preferences.toml` (prompts and creates it if missing) -> LiveView `send-login-email` -> prompts for the code -> LiveView `submit-code` -> HTTP POST of the `phx-trigger-action` form to `/auth/user/otp/sign_in` -> checks that `/rs` no longer redirects to `/auth` -> saves the session to `~/.acp/session.json` (mode `0600`; `--logout` deletes it) -> prompts for a nick -> scrapes -> writes `~/.acp/ai/data/rs.database` (set by `DB_REL_PATH`).
 
 ## How it works
 - **Login:** the site is Phoenix LiveView. The client keeps the rendered tree (join `rendered` merged with each reply's `diff`) and turns it back into HTML. From that HTML it reads the code form's event, field and `phx-target`, and the hidden inputs of the `phx-trigger-action` form. It then POSTs those inputs plus `_csrf_token` as a normal form, using the same cookie jar.

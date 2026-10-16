@@ -62,7 +62,7 @@
 <a href=#62 id=62 data-nosnippet>62</a>        <span class="kw">let </span>pp = n[<span class="string">"parent_post_id"</span>].as_str().map(str::to_string).unwrap_or_else(|| parent.to_string());
 <a href=#63 id=63 data-nosnippet>63</a>        <span class="kw">let </span>irt = n[<span class="string">"in_reply_to_id"</span>].as_str().filter(|x| !x.is_empty()).map(str::to_string).unwrap_or_else(|| pp.clone());
 <a href=#64 id=64 data-nosnippet>64</a>        posts.push(Post { post_id: id.clone(), parent_post_id: pp, in_reply_to_id: irt, nick: g(<span class="string">"nick"</span>), title: g(<span class="string">"title"</span>),
-<a href=#65 id=65 data-nosnippet>65</a>            content: g(<span class="string">"content"</span>), posted_at: g(<span class="string">"posted_at"</span>), media: Vec::new() });
+<a href=#65 id=65 data-nosnippet>65</a>            content: g(<span class="string">"content"</span>), posted_at: g(<span class="string">"posted_at"</span>), media: Vec::new(), truncated: n[<span class="string">"truncated"</span>].as_bool().unwrap_or(<span class="bool-val">false</span>) });
 <a href=#66 id=66 data-nosnippet>66</a>        <span class="kw">for </span>a <span class="kw">in </span>n[<span class="string">"attachments"</span>].as_array().into_iter().flatten() {
 <a href=#67 id=67 data-nosnippet>67</a>            <span class="kw">let </span>url = a[<span class="string">"url"</span>].as_str().unwrap_or_default().to_string();
 <a href=#68 id=68 data-nosnippet>68</a>            <span class="kw">if </span>url.is_empty() || !seen.insert((id.clone(), url.clone())) { <span class="kw">continue</span>; }

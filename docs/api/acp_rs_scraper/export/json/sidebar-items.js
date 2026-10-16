@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["build_json"]};
+window.SIDEBAR_ITEMS = {"fn":["build_json","post_kind"]};

@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        1.26.1
+Version:        2.0.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -22,6 +22,7 @@ BuildRequires:  gcc
 Logs in to https://acp.us/rs, scrapes posts, mentions and profiles for one or
 more nicks into a local SQLite database, downloads attachments, and exports
 JSON/HTML. Search, export, import and maintenance work offline.
+Run with no flags for a terminal UI that browses the database and drives scans.
 
 %prep
 %autosetup -n %{name}-%{version}
@@ -45,6 +46,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Fri Oct 16 2026 m3talsmith <m3talsmith@gmail.com> - 2.0.0-1
+- Terminal UI by default (no flags or --tui); --scrape for the old bare scrape
+
 * Fri Oct 16 2026 m3talsmith <m3talsmith@gmail.com> - 1.26.1-1
 - Do not duplicate attachments when media links are re-signed
 

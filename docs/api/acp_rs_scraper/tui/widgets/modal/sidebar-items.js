@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["buttons","dim","draw","field_line","frame"]};

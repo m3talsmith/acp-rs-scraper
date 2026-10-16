@@ -74,42 +74,63 @@
 <a href=#74 id=74 data-nosnippet>74</a>    <span class="prelude-val">Ok</span>(())
 <a href=#75 id=75 data-nosnippet>75</a>}
 <a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a><span class="doccomment">/// Log in: open `/rs` (redirects to `/auth` when logged out), submit the saved email over the LiveView, prompt for the one-time code (or login link), submit it and finish with the sign-in POST. Fails if `/rs` still redirects to `/auth`. A saved session in the jar (see [`session`]) skips the code; the session is saved again on success.
-<a href=#78 id=78 data-nosnippet>78</a></span><span class="kw">pub async fn </span>login(http: <span class="kw-2">&amp;</span>reqwest::Client, jar: <span class="kw-2">&amp;</span>Arc&lt;Jar&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#77 id=77 data-nosnippet>77</a><span class="doccomment">/// Whether the jar's session is accepted by the site: `GET /rs` does not redirect to `/auth`.
+<a href=#78 id=78 data-nosnippet>78</a></span><span class="kw">pub async fn </span>session_valid(http: <span class="kw-2">&amp;</span>reqwest::Client) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
 <a href=#79 id=79 data-nosnippet>79</a>    <span class="kw">let </span>resp = http.get(start_url()).send().<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span>url = resp.url().to_string();
-<a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">let </span>html = resp.text().<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">if </span>!url.contains(<span class="string">"/auth"</span>) {
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="macro">info!</span>(<span class="string">"Already logged in."</span>);
-<a href=#84 id=84 data-nosnippet>84</a>        save_session(jar)<span class="question-mark">?</span>;
-<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#86 id=86 data-nosnippet>86</a>    }
-<a href=#87 id=87 data-nosnippet>87</a>    <span class="kw">let </span>page = parse_lv(<span class="kw-2">&amp;</span>url, <span class="kw-2">&amp;</span>html)<span class="question-mark">?</span>;
-<a href=#88 id=88 data-nosnippet>88</a>    <span class="kw">let </span>email = load_email()<span class="question-mark">?</span>;
-<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">let </span><span class="kw-2">mut </span>lv = Lv::connect(<span class="kw-2">&amp;</span>page, jar).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">let </span>r = lv.form(EMAIL_EVENT, EMAIL_FIELD, <span class="kw-2">&amp;</span>email, <span class="prelude-val">Some</span>(EMAIL_FORM_CID)).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#91 id=91 data-nosnippet>91</a>    <span class="kw">if </span>r[<span class="string">"status"</span>] != <span class="string">"ok" </span>{
-<a href=#92 id=92 data-nosnippet>92</a>        <span class="macro">bail!</span>(<span class="string">"email submit failed: {r}"</span>);
-<a href=#93 id=93 data-nosnippet>93</a>    }
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="macro">info!</span>(<span class="string">"Login email requested for {email}."</span>);
-<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">let </span>code = prompt(<span class="string">"Verification code (or paste the login link): "</span>)<span class="question-mark">?</span>;
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">if </span>code.starts_with(<span class="string">"http"</span>) {
-<a href=#97 id=97 data-nosnippet>97</a>        http.get(<span class="kw-2">&amp;</span>code).send().<span class="kw">await</span><span class="question-mark">?</span>.error_for_status()<span class="question-mark">?</span>;
-<a href=#98 id=98 data-nosnippet>98</a>    } <span class="kw">else </span>{
-<a href=#99 id=99 data-nosnippet>99</a>        <span class="kw">let </span>(ev, field, cid) = detect_code_form(<span class="kw-2">&amp;</span>lv.html(), <span class="kw-2">&amp;</span>r);
-<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span>r2 = lv.form(<span class="kw-2">&amp;</span>ev, <span class="kw-2">&amp;</span>field, <span class="kw-2">&amp;</span>code, cid).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(to) = find_redirect(<span class="kw-2">&amp;</span>r2) {
-<a href=#102 id=102 data-nosnippet>102</a>            http.get(Url::parse(base_url())<span class="question-mark">?</span>.join(<span class="kw-2">&amp;</span>to)<span class="question-mark">?</span>).send().<span class="kw">await</span><span class="question-mark">?</span>.error_for_status()<span class="question-mark">?</span>;
-<a href=#103 id=103 data-nosnippet>103</a>        } <span class="kw">else </span>{
-<a href=#104 id=104 data-nosnippet>104</a>            trigger_action_post(http, <span class="kw-2">&amp;</span>lv.html(), <span class="kw-2">&amp;</span>page.csrf, <span class="kw-2">&amp;</span>email, <span class="kw-2">&amp;</span>field, <span class="kw-2">&amp;</span>code).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#105 id=105 data-nosnippet>105</a>        }
-<a href=#106 id=106 data-nosnippet>106</a>    }
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">let </span>check = http.get(start_url()).send().<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">if </span>check.url().path().starts_with(<span class="string">"/auth"</span>) {
-<a href=#109 id=109 data-nosnippet>109</a>        <span class="macro">bail!</span>(<span class="string">"still not logged in after verification"</span>);
-<a href=#110 id=110 data-nosnippet>110</a>    }
-<a href=#111 id=111 data-nosnippet>111</a>    <span class="macro">info!</span>(<span class="string">"Logged in."</span>);
-<a href=#112 id=112 data-nosnippet>112</a>    save_session(jar)<span class="question-mark">?</span>;
-<a href=#113 id=113 data-nosnippet>113</a>    <span class="prelude-val">Ok</span>(())
-<a href=#114 id=114 data-nosnippet>114</a>}
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="prelude-val">Ok</span>(!resp.url().path().starts_with(<span class="string">"/auth"</span>))
+<a href=#81 id=81 data-nosnippet>81</a>}
+<a href=#82 id=82 data-nosnippet>82</a>
+<a href=#83 id=83 data-nosnippet>83</a><span class="doccomment">/// Log in: open `/rs` (redirects to `/auth` when logged out), submit the saved email over the LiveView, prompt for the one-time code (or login link), submit it and finish with the sign-in POST. Fails if `/rs` still redirects to `/auth`. A saved session in the jar (see [`session`]) skips the code; the session is saved again on success.
+<a href=#84 id=84 data-nosnippet>84</a></span><span class="kw">pub async fn </span>login(http: <span class="kw-2">&amp;</span>reqwest::Client, jar: <span class="kw-2">&amp;</span>Arc&lt;Jar&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#85 id=85 data-nosnippet>85</a>    login_flow(http, jar, <span class="prelude-val">None</span>, || <span class="kw">async </span>{ prompt(<span class="string">"Verification code (or paste the login link): "</span>) }).<span class="kw">await
+<a href=#86 id=86 data-nosnippet>86</a></span>}
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a><span class="doccomment">/// The login steps behind [`login`], with the email and the code supplied by the caller
+<a href=#89 id=89 data-nosnippet>89</a>/// (the terminal UI's Login modal passes the typed email and awaits the typed code).
+<a href=#90 id=90 data-nosnippet>90</a>/// `email = None` reads it from `~/.acp/preferences.toml` (prompting when missing);
+<a href=#91 id=91 data-nosnippet>91</a>/// `Some` is used as given and saved there. `code` is only called when the site asks.
+<a href=#92 id=92 data-nosnippet>92</a></span><span class="kw">pub async fn </span>login_flow&lt;F, Fut&gt;(http: <span class="kw-2">&amp;</span>reqwest::Client, jar: <span class="kw-2">&amp;</span>Arc&lt;Jar&gt;, email: <span class="prelude-ty">Option</span>&lt;String&gt;, code: F) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;
+<a href=#93 id=93 data-nosnippet>93</a><span class="kw">where
+<a href=#94 id=94 data-nosnippet>94</a>    </span>F: FnOnce() -&gt; Fut,
+<a href=#95 id=95 data-nosnippet>95</a>    Fut: std::future::Future&lt;Output = <span class="prelude-ty">Result</span>&lt;String&gt;&gt;,
+<a href=#96 id=96 data-nosnippet>96</a>{
+<a href=#97 id=97 data-nosnippet>97</a>    <span class="kw">let </span>resp = http.get(start_url()).send().<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">let </span>url = resp.url().to_string();
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">let </span>html = resp.text().<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">if </span>!url.contains(<span class="string">"/auth"</span>) {
+<a href=#101 id=101 data-nosnippet>101</a>        <span class="macro">info!</span>(<span class="string">"Already logged in."</span>);
+<a href=#102 id=102 data-nosnippet>102</a>        save_session(jar)<span class="question-mark">?</span>;
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#104 id=104 data-nosnippet>104</a>    }
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="kw">let </span>page = parse_lv(<span class="kw-2">&amp;</span>url, <span class="kw-2">&amp;</span>html)<span class="question-mark">?</span>;
+<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">let </span>email = <span class="kw">match </span>email {
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="prelude-val">Some</span>(e) =&gt; { save_email(<span class="kw-2">&amp;</span>e)<span class="question-mark">?</span>; e }
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="prelude-val">None </span>=&gt; load_email()<span class="question-mark">?</span>,
+<a href=#109 id=109 data-nosnippet>109</a>    };
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">let </span><span class="kw-2">mut </span>lv = Lv::connect(<span class="kw-2">&amp;</span>page, jar).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">let </span>r = lv.form(EMAIL_EVENT, EMAIL_FIELD, <span class="kw-2">&amp;</span>email, <span class="prelude-val">Some</span>(EMAIL_FORM_CID)).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#112 id=112 data-nosnippet>112</a>    <span class="kw">if </span>r[<span class="string">"status"</span>] != <span class="string">"ok" </span>{
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="macro">bail!</span>(<span class="string">"email submit failed: {r}"</span>);
+<a href=#114 id=114 data-nosnippet>114</a>    }
+<a href=#115 id=115 data-nosnippet>115</a>    <span class="macro">info!</span>(<span class="string">"Login email requested for {email}."</span>);
+<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">let </span>code = code().<span class="kw">await</span><span class="question-mark">?</span>.trim().to_string();
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">if </span>code.starts_with(<span class="string">"http"</span>) {
+<a href=#118 id=118 data-nosnippet>118</a>        http.get(<span class="kw-2">&amp;</span>code).send().<span class="kw">await</span><span class="question-mark">?</span>.error_for_status()<span class="question-mark">?</span>;
+<a href=#119 id=119 data-nosnippet>119</a>    } <span class="kw">else </span>{
+<a href=#120 id=120 data-nosnippet>120</a>        <span class="kw">let </span>(ev, field, cid) = detect_code_form(<span class="kw-2">&amp;</span>lv.html(), <span class="kw-2">&amp;</span>r);
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="kw">let </span>r2 = lv.form(<span class="kw-2">&amp;</span>ev, <span class="kw-2">&amp;</span>field, <span class="kw-2">&amp;</span>code, cid).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(to) = find_redirect(<span class="kw-2">&amp;</span>r2) {
+<a href=#123 id=123 data-nosnippet>123</a>            http.get(Url::parse(base_url())<span class="question-mark">?</span>.join(<span class="kw-2">&amp;</span>to)<span class="question-mark">?</span>).send().<span class="kw">await</span><span class="question-mark">?</span>.error_for_status()<span class="question-mark">?</span>;
+<a href=#124 id=124 data-nosnippet>124</a>        } <span class="kw">else </span>{
+<a href=#125 id=125 data-nosnippet>125</a>            trigger_action_post(http, <span class="kw-2">&amp;</span>lv.html(), <span class="kw-2">&amp;</span>page.csrf, <span class="kw-2">&amp;</span>email, <span class="kw-2">&amp;</span>field, <span class="kw-2">&amp;</span>code).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#126 id=126 data-nosnippet>126</a>        }
+<a href=#127 id=127 data-nosnippet>127</a>    }
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="kw">let </span>check = http.get(start_url()).send().<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="kw">if </span>check.url().path().starts_with(<span class="string">"/auth"</span>) {
+<a href=#130 id=130 data-nosnippet>130</a>        <span class="macro">bail!</span>(<span class="string">"still not logged in after verification"</span>);
+<a href=#131 id=131 data-nosnippet>131</a>    }
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="macro">info!</span>(<span class="string">"Logged in."</span>);
+<a href=#133 id=133 data-nosnippet>133</a>    save_session(jar)<span class="question-mark">?</span>;
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="prelude-val">Ok</span>(())
+<a href=#135 id=135 data-nosnippet>135</a>}
 </code></pre></div></section></main></body></html>

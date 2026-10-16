@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["collect_media","download_all","ext_from_mime","ext_from_url","fetch_avatar","fetch_one_pub","mime_from_ext","url_key"],"struct":["Attachment","MediaRef"]};
+window.SIDEBAR_ITEMS = {"fn":["canonical_url","collect_media","download_all","ext_from_mime","ext_from_url","fetch_avatar","fetch_one_pub","mime_from_ext","url_key"],"struct":["Attachment","MediaRef"]};

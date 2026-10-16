@@ -6,15 +6,46 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-16
+
+Major release: a bare `acp-rs-scraper` now opens a terminal UI instead of prompting for nicks and
+scraping. Every flag still works headless; the old bare behaviour is `--scrape`.
+
 ### Added
-- Terminal UI (`src/tui/`, ratatui + crossterm): opens with no flags or with `--tui`. See 2.0.0.
-- `--scrape`: headless scrape (asks for nicks when none given), what a bare run did before.
-- `login_flow`: the login steps with the email and the one-time code supplied by the caller (the CLI
-  still prompts; a UI can collect them in a form). `session_valid` checks a saved session against the site.
-- `set_log_sink`: route progress / error / debug lines somewhere other than stderr (redaction unchanged).
-- `[theme]` table in `~/.acp/preferences.toml` (accent / muted / border / on_accent, `#rrggbb`).
-  Writing the email now keeps the file's other settings.
-- `list_nicks_conn`: `--list-nicks` data from an already open (e.g. read-only) connection.
+- **Terminal UI** (ratatui + crossterm, `src/tui/`), opened with no flags or `--tui`:
+  - top bar, menu bar, nick bar with post counts, Body, status/log line; mouse and keyboard for
+    every action; command palette (`Ctrl-Space` / `Ctrl-P`); Help modal generated from `--help`
+    plus the key bindings.
+  - offline, read-only browsing of the database; **multi-select nicks** (`Space`, `Shift-↑/↓`,
+    `Ctrl-A`, Ctrl/Shift-click).
+  - post details at parity with the HTML export; the list slides up when a detail opens, linked
+    posts (reply-to, thread, ids in the body, replies) nest inside and push the previous detail up
+    (animated; at most 8 deep; ids not in the database are flagged).
+  - search replaces the Body in place with a `<` back button; `Shift-S` modal filters by keyword,
+    nicks, post id (post + thread), date range and posts/replies; `Ctrl-S` clears.
+  - menu bar built from the CLI flags (Scrape, Search, Export, Import, List, Maintain, Session,
+    Debug, Help, Quit) with checkbox / dropdown / text / button options and `*` for required ones.
+  - **Start Scanning** (and Export / Import / Maintain) build the CLI argv, validate it with clap and
+    run the headless binary as a child process in its own process group, logging to
+    `~/.acp/logs/tui-<kind>-<time>.log` (0600). **Cancel** kills it; **quitting during a scan
+    detaches it** to keep running in the background (or cancels it, if you choose).
+  - **bulk export from the selection** (selected nicks, current search, or everything).
+  - Start Scanning while logged out opens the **Login modal** (email, then the code or login link)
+    and starts the scan once logged in; Session › Log out deletes the saved session and returns to
+    the Login modal. Sessions persist in `~/.acp/session.json` (0600) as since 1.21.
+  - confirm modals for Remove nicks and Clear all (type `yes`).
+  - **theme**: ACP red `#dc2626` accent by default; `[theme]` in `~/.acp/preferences.toml`.
+- `--tui` (force the TUI; `--nick(s)` pre-select, logging flags pre-tick Debug) and `--scrape`
+  (headless scrape that asks for nicks).
+- `login_flow` (caller-supplied email/code), `session_valid`, `set_log_sink`, `list_nicks_conn`.
+- Tests: TUI unit tests for the detail stack, search back, Args-from-menu mapping, layout
+  geometry, modals, the read-only store, jobs and headless renders; Gherkin `tui.feature` for the
+  entry modes and the argvs the Scrape / Export / Maintain menus build, against the mock site.
+
+### Changed
+- **Breaking:** no flags (or only logging flags) opens the TUI. Scripts that relied on the bare
+  prompt-and-scrape should pass `--scrape` (or `--nick`/`--nicks`).
+- Saving the login email keeps other settings in `preferences.toml`.
 
 ## [1.26.1] - 2026-10-16
 

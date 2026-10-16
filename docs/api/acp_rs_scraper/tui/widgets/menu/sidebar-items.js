@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["draw","draw_dropdown","scan_label","widget_text"]};

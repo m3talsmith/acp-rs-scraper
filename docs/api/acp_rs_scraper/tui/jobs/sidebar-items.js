@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["JobKind"],"fn":["job_log_path","open_log","tail"],"struct":["Job"]};

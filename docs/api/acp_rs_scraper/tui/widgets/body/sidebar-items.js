@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["compact","draw","draw_cards","draw_with_detail"]};

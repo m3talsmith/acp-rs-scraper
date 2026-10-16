@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["draw","status","topbar"],"mod":["body","detail","menu","modal","nicks","text"]};

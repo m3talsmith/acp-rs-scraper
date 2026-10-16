@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["FeedMode","Generate"],"fn":["generate","nicks_name","parse_nicks","prompt"],"struct":["Args","NickList"]};
+window.SIDEBAR_ITEMS = {"enum":["FeedMode","Generate"],"fn":["generate","nicks_name","parse_nicks","parse_with_mode","prompt","wants_tui"],"struct":["Args","NickList"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Msg"],"fn":["event_loop","restore_terminal","run"],"mod":["commands","data","input","jobs","layout","modals","state","theme","widgets"],"struct":["Terminal"]};
