@@ -160,6 +160,7 @@ Flow: reads `email` from `~/.acp/preferences.toml` (prompts and creates it if mi
 ## Data mapping
 - **Root posts:** a feed item whose `thread_id` is missing or equals its own `id`. Stored with `parent_post_id = ""`.
 - **The nick's replies in other people's threads:** stored with `parent_post_id = thread_id`.
+- **Replies to a comment:** `parent_post_id` stays the thread root and `in_reply_to_id` holds the comment answered (the reply body's `postRef`). Direct replies have `in_reply_to_id = parent_post_id`.
 - **Replies in the nick's threads:** stored with `parent_post_id = thread id` and `nick` = the reply author's username. They get `title = ""`; root posts keep their own `title`.
 - **`content`:** the ProseMirror `body` flattened to text, or `body_text_summary` if that comes out empty.
 - **`posted_at`:** `inserted_at`.
@@ -187,7 +188,7 @@ Every scrape is still saved to SQLite. Progress messages go to stderr, so stdout
 - `--format json|html` (default `json`). `--output <path>` is a file path; with `--compress` it is the archive path. `--name <name>` sets the file basename, the archive name, the folder inside the archive and the HTML title. The default name is `<nick>-<YYYYmmdd-HHMMSS>`, or `search-<slug>-<ts>` for a search. `--no-attachments` skips downloads. `--debug` logs LiveView traffic.
 - **Compression:** `--compress` plus exactly one format flag; `--tar-gz` is the only one so far (more, such as `--zip`, can be added later). `--compress` without a format flag, a format flag without `--compress`, or two format flags is an error. Without `--compress`, nothing is compressed.
 - **Folder layout:** an archive contains `<name>/<name>.<ext>` and `<name>/attachments/`.
-- **JSON:** `{title, nick, exported_at, posts:[{post_id, parent_post_id, nick, title, content, posted_at, attachments:[{url, kind, mime_type, local_path}], children:[...]}]}`. When output goes to stdout, `local_path` is the absolute path of the saved copy. When it goes to a file or bundle, the path is `attachments/<file>`.
+- **JSON:** `{title, nick, exported_at, posts:[{post_id, parent_post_id, in_reply_to_id, nick, title, content, posted_at, attachments:[{url, kind, mime_type, local_path}], children:[...]}]}`. When output goes to stdout, `local_path` is the absolute path of the saved copy. When it goes to a file or bundle, the path is `attachments/<file>`.
 - **HTML:** a single page with threads and nested replies, plus `<img>`, `<video>` and `<audio>` tags that point at relative attachment paths.
 - **Attachments:** URLs are taken from `post.media[]` (`url`, and `thumb_url` for video posters) and any `attachments`/`files`/`images` arrays. Body node attributes `src`, `url` and `href` are also used when they point at media.acp.us, posts-media.acp.us or Backblaze. Each URL is downloaded once, using the logged-in client, into `~/.acp/ai/data/attachments/<hash>.<ext>`. The extension comes from the Content-Type, otherwise from the URL. Failed downloads print a warning and are skipped. Each is recorded in a new `attachments` table (`post_id, url, local_path, mime_type`, unique on `(post_id, url)`); the `posts` table is unchanged.
 - **Search:** case-insensitive `LIKE` on title and content, with `--nick` as an optional author filter. The export includes each match plus its parent and direct children, along with their stored attachments.

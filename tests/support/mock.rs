@@ -85,7 +85,10 @@ fn posts(base: &str) -> Vec<Value> {
         // body, and a feed item with no body at all (only the thread has it).
         { let mut r = reply("DR1", "C1", "dave", 10, ""); r["body"] = json!("<p>dave &amp; the <b>html</b> body</p>"); r }
         ,
-        { let mut r = reply("DR2", "C1", "dave", 11, "dave full reply from the thread"); r["feed_body_missing"] = json!(true); r },
+        // DR2 answers DR1 (a comment, not the root): the site marks that with a
+        // `postRef` node in the body; the thread itself stays flat (thread_id C1).
+        { let mut r = reply("DR2", "C1", "dave", 11, "dave full reply from the thread"); r["feed_body_missing"] = json!(true);
+          r["body"]["content"].as_array_mut().unwrap().insert(0, json!({"type": "postRef", "attrs": {"postId": "DR1", "threadId": "C1"}})); r },
     ]
 }
 

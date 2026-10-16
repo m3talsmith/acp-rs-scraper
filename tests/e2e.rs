@@ -188,6 +188,37 @@ async fn shows_avatar(w: &mut E2e, f: String, src: String) {
     assert!(t.contains(&format!("<img class=\"avatar\" src=\"{src}\"")), "{f} has no avatar {src}");
 }
 
+#[then(expr = "post {string} replies directly to {string}")]
+async fn direct_parent(w: &mut E2e, id: String, p: String) {
+    let got: String = Connection::open(w.db()).unwrap()
+        .query_row("SELECT in_reply_to_id FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
+    assert_eq!(got, p);
+}
+
+/// The `<article id="post-{id}">` block of `id` up to its first nested article or end.
+fn article(html: &str, id: &str) -> String {
+    let start = html.find(&format!("id=\"post-{id}\"")).unwrap_or_else(|| panic!("no #post-{id}"));
+    let rest = &html[start..];
+    let end = rest[1..].find("<article").map(|i| i + 1).unwrap_or(rest.len());
+    rest[..end].to_string()
+}
+
+#[then(expr = "the file {string} links {string} to its parent {string}")]
+async fn links_parent(w: &mut E2e, f: String, id: String, href: String) {
+    let t = std::fs::read_to_string(w.home.join(f.trim_start_matches("$HOME/"))).unwrap();
+    let a = article(&t, &id);
+    assert!(a.contains(&format!("class=\"parent\" href=\"{href}\"")), "{id} lacks parent link {href}: {a}");
+    if let Some(target) = href.strip_prefix('#') { assert!(t.contains(&format!("id=\"{target}\"")), "anchor {target} missing"); }
+}
+
+#[then(expr = "the file {string} links {string} to its thread {string}")]
+async fn links_thread(w: &mut E2e, f: String, id: String, path: String) {
+    let t = std::fs::read_to_string(w.home.join(f.trim_start_matches("$HOME/"))).unwrap();
+    let a = article(&t, &id);
+    let base = &w.mock().base;
+    assert!(a.contains(&format!("class=\"thread\" href=\"{base}{path}\"")), "{id} lacks thread link {path}: {a}");
+}
+
 #[tokio::main]
 async fn main() {
     E2e::cucumber().max_concurrent_scenarios(4).fail_on_skipped().run_and_exit("tests/features").await;

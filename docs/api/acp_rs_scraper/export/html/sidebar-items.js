@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["build_html","esc","html_post"]};
+window.SIDEBAR_ITEMS = {"fn":["build_html","esc","export_ids","html_post","post_href","reply_links"]};

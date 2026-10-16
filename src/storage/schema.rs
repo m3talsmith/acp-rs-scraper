@@ -1,16 +1,33 @@
 //! SQL schema for every table, kept in one place.
 
 /// `posts` table (the original spec schema) plus the unique `post_id` index.
+///
+/// Reply relationships:
+/// - `parent_post_id`: the thread root (`""` for root posts). Unchanged since 1.0.
+/// - `in_reply_to_id`: the immediate parent, i.e. the comment a reply answers
+///   (its first `postRef`), else the thread root; `""` for root posts.
+///
+/// Older databases gain `in_reply_to_id` through [`POSTS_MIGRATIONS`].
 pub const POSTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS posts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             post_id TEXT NOT NULL,
             parent_post_id TEXT NOT NULL,
+            in_reply_to_id TEXT NOT NULL DEFAULT '',
             nick TEXT NOT NULL,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
             posted_at TEXT NOT NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS posts_post_id_uq ON posts(post_id);";
+
+/// Run after [`POSTS_SCHEMA`] when `posts` lacks `in_reply_to_id`: add the
+/// column and point existing replies at their thread root (the best known parent).
+pub const POSTS_ADD_IN_REPLY_TO: &str = "ALTER TABLE posts ADD COLUMN in_reply_to_id TEXT NOT NULL DEFAULT '';
+        UPDATE posts SET in_reply_to_id = parent_post_id WHERE in_reply_to_id = '' AND parent_post_id <> '';";
+
+/// Indexes on the relationship columns (safe to re-run).
+pub const POSTS_MIGRATIONS: &str = "CREATE INDEX IF NOT EXISTS posts_parent_idx ON posts(parent_post_id);
+        CREATE INDEX IF NOT EXISTS posts_in_reply_to_idx ON posts(in_reply_to_id);";
 
 /// `profiles` table: one row per scraped nick, upserted every scrape.
 pub const PROFILES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS profiles (

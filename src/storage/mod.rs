@@ -2,3 +2,6 @@
 
 pub mod db;
 pub mod schema;
+
+#[cfg(test)]
+mod tests;

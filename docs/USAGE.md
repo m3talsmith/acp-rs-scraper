@@ -226,16 +226,29 @@ A summary for each nick is printed to stderr at the end.
 ## Database schema
 
 ```sql
--- Unchanged from the original spec. post_id is unique (index posts_post_id_uq).
+-- The original spec plus in_reply_to_id (1.20.0). post_id is unique (index posts_post_id_uq);
+-- posts_parent_idx and posts_in_reply_to_idx index the two relationship columns.
 CREATE TABLE posts (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   post_id TEXT NOT NULL,          -- 22-char base64url site id
-  parent_post_id TEXT NOT NULL,   -- '' for thread roots; thread id for replies
+  parent_post_id TEXT NOT NULL,   -- thread root: '' for thread roots; thread id for replies
+  in_reply_to_id TEXT NOT NULL DEFAULT '',  -- immediate parent: the comment a reply answers,
+                                  -- else the thread root; '' for thread roots
   nick TEXT NOT NULL,             -- author username
   title TEXT NOT NULL,            -- '' for replies
   content TEXT NOT NULL,          -- ProseMirror body flattened to text
   posted_at TEXT NOT NULL         -- inserted_at (ISO 8601)
 );
+
+-- How nesting works on the site: threads are flat (every reply carries only
+-- thread_id). Replying to a comment puts a postRef node {postId, threadId} at the
+-- top of the reply's body; that postId is stored as in_reply_to_id.
+-- Databases from before 1.20.0 are upgraded in place on first use: the column is
+-- added and existing replies get in_reply_to_id = parent_post_id until a re-scrape
+-- (any run that sees the reply again, e.g. --full) records the real comment.
+-- Example: the whole reply chain under a comment
+--   WITH RECURSIVE t(id) AS (SELECT 'COMMENT_ID' UNION
+--     SELECT p.post_id FROM posts p JOIN t ON p.in_reply_to_id = t.id) SELECT * FROM t;
 
 CREATE TABLE attachments (        -- unique (post_id, url)
   id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -284,16 +297,17 @@ A nick's own posts can also be recorded as mentions of that nick.
                   "followers": null, "following": null, "posts_count": null, "scraped_at": "..." } ],
   "mentions": [ { "post_id": "...", "mentioned_nick": "alice", "match_type": "mention" } ],
   "posts": [ {
-      "post_id": "...", "parent_post_id": "", "nick": "alice", "title": "...",
+      "post_id": "...", "parent_post_id": "", "in_reply_to_id": "", "nick": "alice", "title": "...",
       "content": "...", "posted_at": "...",
       "attachments": [ { "url": "...", "kind": "image", "mime_type": "image/png",
                          "local_path": "attachments/abc123.png" } ],
-      "children": [ /* replies, same shape */ ]
+      "children": [ /* replies, same shape; nested under their thread root */ ]
   } ]
 }
 ```
 
-- **HTML exports** are a single page. They show a profile header per nick, threads with nested replies, embedded media and a Mentions section. The same JSON is embedded in `<script type="application/json" id="acp-data">`, which is how HTML exports can be imported again.
+- **HTML exports** are a single page. They show a profile header per nick, threads with nested replies, embedded media and a Mentions section. Every post is an `<article id="post-{post_id}">`. A reply shows "Replying to {id}" linking to its immediate parent, plus "thread {id}" when the parent is a comment rather than the root. A link goes to `#post-{id}` when that post is in the export and to `https://acp.us/rs/post/{thread}/{id}` (or `/rs/post/{id}` for a thread root) when it isn't. The same JSON is embedded in `<script type="application/json" id="acp-data">`, which is how HTML exports can be imported again.
+- **Parent ids:** `parent_post_id` is the thread root and `in_reply_to_id` the immediate parent (equal to the root for a direct reply, `""` for roots). Import reads `in_reply_to_id` when present and falls back to `parent_post_id`.
 - **Versions:** import accepts versions 1 (no profiles or mentions) and 2, and refuses newer versions or unknown formats.
 
 ## Troubleshooting and debugging

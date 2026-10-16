@@ -60,7 +60,8 @@ pub fn import(file: &Path, compress: Option<Compress>, att_dir: &Path, tmp_root:
         let id = g("post_id");
         if id.is_empty() { return; }
         let pp = n["parent_post_id"].as_str().map(str::to_string).unwrap_or_else(|| parent.to_string());
-        posts.push(Post { post_id: id.clone(), parent_post_id: pp, nick: g("nick"), title: g("title"),
+        let irt = n["in_reply_to_id"].as_str().filter(|x| !x.is_empty()).map(str::to_string).unwrap_or_else(|| pp.clone());
+        posts.push(Post { post_id: id.clone(), parent_post_id: pp, in_reply_to_id: irt, nick: g("nick"), title: g("title"),
             content: g("content"), posted_at: g("posted_at"), media: Vec::new() });
         for a in n["attachments"].as_array().into_iter().flatten() {
             let url = a["url"].as_str().unwrap_or_default().to_string();

@@ -38,3 +38,18 @@ fn said_by_matches_own_items_only() {
     assert!(!said_by_nick(&json!({"post": {"author": {"username": "bob"}}}), "haz"));
     assert!(said_by_nick(&json!({"id": "1"}), "haz"));
 }
+
+#[test]
+fn reply_to_comment_uses_post_ref_as_immediate_parent() {
+    let body = json!({"type": "doc", "content": [
+        {"type": "postRef", "attrs": {"postId": "c1", "threadId": "t1"}},
+        {"type": "paragraph", "content": [{"type": "text", "text": "agreed"}]}]});
+    let p = to_post(&json!({"id": "r2", "thread_id": "t1", "body": body}), "t1", "n");
+    assert_eq!((p.parent_post_id.as_str(), p.in_reply_to_id.as_str()), ("t1", "c1"));
+    // Wrapped and string-encoded bodies too.
+    let w = to_post(&json!({"id": "r3", "reply": {"id": "r3", "body": body.to_string()}}), "t1", "n");
+    assert_eq!(w.in_reply_to_id, "c1");
+    // A reply straight to the thread root, and a root post.
+    assert_eq!(to_post(&json!({"id": "r4", "body": {}}), "t1", "n").in_reply_to_id, "t1");
+    assert_eq!(to_post(&json!({"id": "t1", "body": body}), "", "n").in_reply_to_id, "");
+}

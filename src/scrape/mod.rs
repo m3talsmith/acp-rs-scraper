@@ -15,6 +15,9 @@ pub struct Post {
     pub post_id: String,
     /// Thread root id for replies; `""` for root posts.
     pub parent_post_id: String,
+    /// Immediate parent: the comment this reply answers (the first `postRef`
+    /// node in its body), else the thread root; `""` for root posts.
+    pub in_reply_to_id: String,
     /// Nick (username, without `@`).
     pub nick: String,
     /// Title (`""` for replies).
@@ -110,6 +113,28 @@ pub fn body_text(v: &Value) -> String {
     String::new()
 }
 
+/// The post a reply answers directly: the first `postRef` node
+/// (`attrs.postId`) in its ProseMirror body, wrapped or not, skipping `own`.
+/// The site keeps threads flat (`thread_id` only); nesting under a comment
+/// is this reference. `None` when the body has no reference.
+pub fn reply_ref(v: &Value, own: &str) -> Option<String> {
+    fn walk(v: &Value, own: &str) -> Option<String> {
+        match v {
+            Value::Object(m) => {
+                if m.get("type").and_then(Value::as_str) == Some("postRef")
+                    && let Some(id) = m.get("attrs").and_then(|a| a.get("postId")).and_then(Value::as_str)
+                    && !id.is_empty() && id != own { return Some(id.to_string()); }
+                m.get("content").and_then(|c| walk(c, own))
+            }
+            Value::Array(a) => a.iter().find_map(|x| walk(x, own)),
+            Value::String(st) if st.contains("postRef") => serde_json::from_str::<Value>(st.trim()).ok().and_then(|j| walk(&j, own)),
+            _ => None,
+        }
+    }
+    let inner = ["post", "reply"].iter().filter_map(|k| v.get(*k));
+    std::iter::once(v).chain(inner).find_map(|x| x.get("body").and_then(|b| walk(b, own)))
+}
+
 /// Convert site post JSON to a [`Post`] with the given parent (`""` for roots), flattening the body to text.
 pub fn to_post(v: &Value, parent: &str, fallback_nick: &str) -> Post {
     // Some feeds wrap the post (e.g. `{"post": {...}}` / `{"reply": {...}}`).
@@ -118,9 +143,14 @@ pub fn to_post(v: &Value, parent: &str, fallback_nick: &str) -> Post {
     if content.is_empty() && let Some(i) = inner { content = body_text(i); }
     let nick = v.pointer("/author/username").and_then(Value::as_str)
         .map(str::to_string).unwrap_or_else(|| fallback_nick.to_string());
+    let post_id = { let i = s(v, "id"); if i.is_empty() { inner.map(|x| s(x, "id")).unwrap_or_default() } else { i } };
+    let in_reply_to_id = if parent.is_empty() { String::new() } else {
+        reply_ref(v, &post_id).unwrap_or_else(|| parent.to_string())
+    };
     Post {
-        post_id: s(v, "id"),
+        post_id,
         parent_post_id: parent.to_string(),
+        in_reply_to_id,
         nick,
         title: { let t = s(v, "title"); if t.is_empty() { inner.map(|i| s(i, "title")).unwrap_or_default() } else { t } },
         content,
@@ -211,6 +241,7 @@ pub async fn scrape(
         if let Some(full) = thread_cache[&tid].iter().find(|x| s(x, "id") == p.post_id) {
             let fp = to_post(full, &p.parent_post_id, nick);
             p.content = fp.content;
+            if p.in_reply_to_id == p.parent_post_id { p.in_reply_to_id = fp.in_reply_to_id; }
             if p.title.is_empty() { p.title = fp.title; }
             if p.media.is_empty() { p.media = fp.media; }
         }

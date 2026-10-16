@@ -6,6 +6,26 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.20.0] - 2026-10-15
+
+Three changes since 1.17.0 (minor 17 → 20).
+
+### Added
+1. **Immediate-parent relationship in the database**: new `posts.in_reply_to_id` column holds
+   the post or comment a reply answers. The site keeps threads flat (`thread_id` only) and marks
+   a reply to a comment with a `postRef` node in its body; that id is stored. `parent_post_id`
+   keeps meaning the thread root. Both columns are indexed. Existing databases upgrade in place
+   on first use (column added, replies backfilled with their thread root); a later scrape that
+   sees the reply again records the real comment.
+2. **Parent links in HTML exports**: each post is an `<article id="post-{id}">`, and every reply
+   shows "Replying to {id}" (plus "thread {id}" when it answers a comment). Links jump to the
+   anchor when the parent is in the export, otherwise to the post on acp.us.
+3. **`in_reply_to_id` in JSON exports and imports**, next to `parent_post_id`. Imports of older
+   exports fall back to the thread root. Searches now include each match's immediate parent too.
+
+### Changed
+- HTML anchors are now `#post-{id}` (were `#p-{id}`); the Mentions list links to them.
+
 ## [1.17.0] - 2026-10-15
 
 One change since 1.16.0 (minor 16 → 17).

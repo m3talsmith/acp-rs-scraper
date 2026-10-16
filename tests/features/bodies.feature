@@ -35,3 +35,12 @@ Feature: Post bodies, profile images and compressed exports
     Then it succeeds
     And the file "$HOME/out/dave.tar.gz" exists
     And the file "$HOME/out/dave" does not exist
+
+  Scenario: A reply to a comment links to its parent in the HTML export
+    When I run "--nick dave --no-mentions --no-attachments --format html --output $HOME/dave.html"
+    Then it succeeds
+    And post "DR2" has parent "C1"
+    And post "DR2" replies directly to "DR1"
+    And post "DR1" replies directly to "C1"
+    And the file "$HOME/dave.html" links "DR2" to its parent "#post-DR1"
+    And the file "$HOME/dave.html" links "DR2" to its thread "/rs/post/C1"

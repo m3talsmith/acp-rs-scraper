@@ -60,52 +60,53 @@
 <a href=#60 id=60 data-nosnippet>60</a>        <span class="kw">let </span>id = g(<span class="string">"post_id"</span>);
 <a href=#61 id=61 data-nosnippet>61</a>        <span class="kw">if </span>id.is_empty() { <span class="kw">return</span>; }
 <a href=#62 id=62 data-nosnippet>62</a>        <span class="kw">let </span>pp = n[<span class="string">"parent_post_id"</span>].as_str().map(str::to_string).unwrap_or_else(|| parent.to_string());
-<a href=#63 id=63 data-nosnippet>63</a>        posts.push(Post { post_id: id.clone(), parent_post_id: pp, nick: g(<span class="string">"nick"</span>), title: g(<span class="string">"title"</span>),
-<a href=#64 id=64 data-nosnippet>64</a>            content: g(<span class="string">"content"</span>), posted_at: g(<span class="string">"posted_at"</span>), media: Vec::new() });
-<a href=#65 id=65 data-nosnippet>65</a>        <span class="kw">for </span>a <span class="kw">in </span>n[<span class="string">"attachments"</span>].as_array().into_iter().flatten() {
-<a href=#66 id=66 data-nosnippet>66</a>            <span class="kw">let </span>url = a[<span class="string">"url"</span>].as_str().unwrap_or_default().to_string();
-<a href=#67 id=67 data-nosnippet>67</a>            <span class="kw">if </span>url.is_empty() || !seen.insert((id.clone(), url.clone())) { <span class="kw">continue</span>; }
-<a href=#68 id=68 data-nosnippet>68</a>            <span class="kw">let </span>lp = PathBuf::from(a[<span class="string">"local_path"</span>].as_str().unwrap_or_default());
-<a href=#69 id=69 data-nosnippet>69</a>            <span class="kw">let </span>src = <span class="kw">if </span>lp.is_absolute() { lp } <span class="kw">else </span>{ base.join(lp) };
-<a href=#70 id=70 data-nosnippet>70</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(fname) = src.file_name() <span class="kw">else </span>{ <span class="kw">continue </span>};
-<a href=#71 id=71 data-nosnippet>71</a>            <span class="kw">let </span>dst = att_dir.join(fname);
-<a href=#72 id=72 data-nosnippet>72</a>            <span class="kw">if </span>!dst.exists() &amp;&amp; <span class="kw">let </span><span class="prelude-val">Err</span>(e) = std::fs::copy(<span class="kw-2">&amp;</span>src, <span class="kw-2">&amp;</span>dst) {
-<a href=#73 id=73 data-nosnippet>73</a>                log_error(<span class="macro">format_args!</span>(<span class="string">"warning: attachment {} not imported: {e}"</span>, src.display()));
-<a href=#74 id=74 data-nosnippet>74</a>                <span class="kw">continue</span>;
-<a href=#75 id=75 data-nosnippet>75</a>            }
-<a href=#76 id=76 data-nosnippet>76</a>            atts.push(Attachment { post_id: id.clone(), url, kind: a[<span class="string">"kind"</span>].as_str().unwrap_or(<span class="string">"file"</span>).into(),
-<a href=#77 id=77 data-nosnippet>77</a>                local_path: dst, mime_type: a[<span class="string">"mime_type"</span>].as_str().unwrap_or_default().into() });
-<a href=#78 id=78 data-nosnippet>78</a>        }
-<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">for </span>c <span class="kw">in </span>n[<span class="string">"children"</span>].as_array().into_iter().flatten() { walk(c, <span class="kw-2">&amp;</span>id, base, att_dir, posts, atts, seen); }
-<a href=#80 id=80 data-nosnippet>80</a>    }
-<a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">for </span>p <span class="kw">in </span>doc[<span class="string">"posts"</span>].as_array().into_iter().flatten() {
-<a href=#82 id=82 data-nosnippet>82</a>        walk(p, <span class="string">""</span>, <span class="kw-2">&amp;</span>base, att_dir, <span class="kw-2">&amp;mut </span>posts, <span class="kw-2">&amp;mut </span>atts, <span class="kw-2">&amp;mut </span>seen);
-<a href=#83 id=83 data-nosnippet>83</a>    }
-<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">let </span><span class="kw-2">mut </span>profiles = Vec::new();
-<a href=#85 id=85 data-nosnippet>85</a>    <span class="kw">for </span>pr <span class="kw">in </span>doc[<span class="string">"profiles"</span>].as_array().into_iter().flatten() {
-<a href=#86 id=86 data-nosnippet>86</a>        <span class="kw">let </span>g = |k: <span class="kw-2">&amp;</span>str| pr[k].as_str().map(str::to_string);
-<a href=#87 id=87 data-nosnippet>87</a>        profiles.push(Profile {
-<a href=#88 id=88 data-nosnippet>88</a>            nick: g(<span class="string">"nick"</span>).unwrap_or_default(),
-<a href=#89 id=89 data-nosnippet>89</a>            user_id: g(<span class="string">"user_id"</span>), display_name: g(<span class="string">"display_name"</span>), bio: g(<span class="string">"bio"</span>),
-<a href=#90 id=90 data-nosnippet>90</a>            avatar_url: g(<span class="string">"avatar_url"</span>), avatar_path: g(<span class="string">"avatar_path"</span>),
-<a href=#91 id=91 data-nosnippet>91</a>            banner_url: g(<span class="string">"banner_url"</span>), banner_path: g(<span class="string">"banner_path"</span>),
-<a href=#92 id=92 data-nosnippet>92</a>            location: g(<span class="string">"location"</span>), role: g(<span class="string">"role"</span>), joined_at: g(<span class="string">"joined_at"</span>),
-<a href=#93 id=93 data-nosnippet>93</a>            followers: pr[<span class="string">"followers"</span>].as_i64(), following: pr[<span class="string">"following"</span>].as_i64(),
-<a href=#94 id=94 data-nosnippet>94</a>            posts_count: pr[<span class="string">"posts_count"</span>].as_i64(),
-<a href=#95 id=95 data-nosnippet>95</a>            raw_json: pr.to_string(), scraped_at: g(<span class="string">"scraped_at"</span>).unwrap_or_default(),
-<a href=#96 id=96 data-nosnippet>96</a>        });
-<a href=#97 id=97 data-nosnippet>97</a>    }
-<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">let </span><span class="kw-2">mut </span>hits = Vec::new();
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">for </span>h <span class="kw">in </span>doc[<span class="string">"mentions"</span>].as_array().into_iter().flatten() {
-<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span>mt = h[<span class="string">"match_type"</span>].as_str().and_then(MatchType::parse);
-<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(match_type) = mt {
-<a href=#102 id=102 data-nosnippet>102</a>            hits.push(MentionHit {
-<a href=#103 id=103 data-nosnippet>103</a>                post_id: h[<span class="string">"post_id"</span>].as_str().unwrap_or(<span class="string">""</span>).into(),
-<a href=#104 id=104 data-nosnippet>104</a>                mentioned_nick: h[<span class="string">"mentioned_nick"</span>].as_str().unwrap_or(<span class="string">""</span>).into(),
-<a href=#105 id=105 data-nosnippet>105</a>                match_type,
-<a href=#106 id=106 data-nosnippet>106</a>            });
-<a href=#107 id=107 data-nosnippet>107</a>        }
-<a href=#108 id=108 data-nosnippet>108</a>    }
-<a href=#109 id=109 data-nosnippet>109</a>    <span class="prelude-val">Ok</span>((posts, atts, profiles, hits))
-<a href=#110 id=110 data-nosnippet>110</a>}
+<a href=#63 id=63 data-nosnippet>63</a>        <span class="kw">let </span>irt = n[<span class="string">"in_reply_to_id"</span>].as_str().filter(|x| !x.is_empty()).map(str::to_string).unwrap_or_else(|| pp.clone());
+<a href=#64 id=64 data-nosnippet>64</a>        posts.push(Post { post_id: id.clone(), parent_post_id: pp, in_reply_to_id: irt, nick: g(<span class="string">"nick"</span>), title: g(<span class="string">"title"</span>),
+<a href=#65 id=65 data-nosnippet>65</a>            content: g(<span class="string">"content"</span>), posted_at: g(<span class="string">"posted_at"</span>), media: Vec::new() });
+<a href=#66 id=66 data-nosnippet>66</a>        <span class="kw">for </span>a <span class="kw">in </span>n[<span class="string">"attachments"</span>].as_array().into_iter().flatten() {
+<a href=#67 id=67 data-nosnippet>67</a>            <span class="kw">let </span>url = a[<span class="string">"url"</span>].as_str().unwrap_or_default().to_string();
+<a href=#68 id=68 data-nosnippet>68</a>            <span class="kw">if </span>url.is_empty() || !seen.insert((id.clone(), url.clone())) { <span class="kw">continue</span>; }
+<a href=#69 id=69 data-nosnippet>69</a>            <span class="kw">let </span>lp = PathBuf::from(a[<span class="string">"local_path"</span>].as_str().unwrap_or_default());
+<a href=#70 id=70 data-nosnippet>70</a>            <span class="kw">let </span>src = <span class="kw">if </span>lp.is_absolute() { lp } <span class="kw">else </span>{ base.join(lp) };
+<a href=#71 id=71 data-nosnippet>71</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(fname) = src.file_name() <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#72 id=72 data-nosnippet>72</a>            <span class="kw">let </span>dst = att_dir.join(fname);
+<a href=#73 id=73 data-nosnippet>73</a>            <span class="kw">if </span>!dst.exists() &amp;&amp; <span class="kw">let </span><span class="prelude-val">Err</span>(e) = std::fs::copy(<span class="kw-2">&amp;</span>src, <span class="kw-2">&amp;</span>dst) {
+<a href=#74 id=74 data-nosnippet>74</a>                log_error(<span class="macro">format_args!</span>(<span class="string">"warning: attachment {} not imported: {e}"</span>, src.display()));
+<a href=#75 id=75 data-nosnippet>75</a>                <span class="kw">continue</span>;
+<a href=#76 id=76 data-nosnippet>76</a>            }
+<a href=#77 id=77 data-nosnippet>77</a>            atts.push(Attachment { post_id: id.clone(), url, kind: a[<span class="string">"kind"</span>].as_str().unwrap_or(<span class="string">"file"</span>).into(),
+<a href=#78 id=78 data-nosnippet>78</a>                local_path: dst, mime_type: a[<span class="string">"mime_type"</span>].as_str().unwrap_or_default().into() });
+<a href=#79 id=79 data-nosnippet>79</a>        }
+<a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">for </span>c <span class="kw">in </span>n[<span class="string">"children"</span>].as_array().into_iter().flatten() { walk(c, <span class="kw-2">&amp;</span>id, base, att_dir, posts, atts, seen); }
+<a href=#81 id=81 data-nosnippet>81</a>    }
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">for </span>p <span class="kw">in </span>doc[<span class="string">"posts"</span>].as_array().into_iter().flatten() {
+<a href=#83 id=83 data-nosnippet>83</a>        walk(p, <span class="string">""</span>, <span class="kw-2">&amp;</span>base, att_dir, <span class="kw-2">&amp;mut </span>posts, <span class="kw-2">&amp;mut </span>atts, <span class="kw-2">&amp;mut </span>seen);
+<a href=#84 id=84 data-nosnippet>84</a>    }
+<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">let </span><span class="kw-2">mut </span>profiles = Vec::new();
+<a href=#86 id=86 data-nosnippet>86</a>    <span class="kw">for </span>pr <span class="kw">in </span>doc[<span class="string">"profiles"</span>].as_array().into_iter().flatten() {
+<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">let </span>g = |k: <span class="kw-2">&amp;</span>str| pr[k].as_str().map(str::to_string);
+<a href=#88 id=88 data-nosnippet>88</a>        profiles.push(Profile {
+<a href=#89 id=89 data-nosnippet>89</a>            nick: g(<span class="string">"nick"</span>).unwrap_or_default(),
+<a href=#90 id=90 data-nosnippet>90</a>            user_id: g(<span class="string">"user_id"</span>), display_name: g(<span class="string">"display_name"</span>), bio: g(<span class="string">"bio"</span>),
+<a href=#91 id=91 data-nosnippet>91</a>            avatar_url: g(<span class="string">"avatar_url"</span>), avatar_path: g(<span class="string">"avatar_path"</span>),
+<a href=#92 id=92 data-nosnippet>92</a>            banner_url: g(<span class="string">"banner_url"</span>), banner_path: g(<span class="string">"banner_path"</span>),
+<a href=#93 id=93 data-nosnippet>93</a>            location: g(<span class="string">"location"</span>), role: g(<span class="string">"role"</span>), joined_at: g(<span class="string">"joined_at"</span>),
+<a href=#94 id=94 data-nosnippet>94</a>            followers: pr[<span class="string">"followers"</span>].as_i64(), following: pr[<span class="string">"following"</span>].as_i64(),
+<a href=#95 id=95 data-nosnippet>95</a>            posts_count: pr[<span class="string">"posts_count"</span>].as_i64(),
+<a href=#96 id=96 data-nosnippet>96</a>            raw_json: pr.to_string(), scraped_at: g(<span class="string">"scraped_at"</span>).unwrap_or_default(),
+<a href=#97 id=97 data-nosnippet>97</a>        });
+<a href=#98 id=98 data-nosnippet>98</a>    }
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">let </span><span class="kw-2">mut </span>hits = Vec::new();
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">for </span>h <span class="kw">in </span>doc[<span class="string">"mentions"</span>].as_array().into_iter().flatten() {
+<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">let </span>mt = h[<span class="string">"match_type"</span>].as_str().and_then(MatchType::parse);
+<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(match_type) = mt {
+<a href=#103 id=103 data-nosnippet>103</a>            hits.push(MentionHit {
+<a href=#104 id=104 data-nosnippet>104</a>                post_id: h[<span class="string">"post_id"</span>].as_str().unwrap_or(<span class="string">""</span>).into(),
+<a href=#105 id=105 data-nosnippet>105</a>                mentioned_nick: h[<span class="string">"mentioned_nick"</span>].as_str().unwrap_or(<span class="string">""</span>).into(),
+<a href=#106 id=106 data-nosnippet>106</a>                match_type,
+<a href=#107 id=107 data-nosnippet>107</a>            });
+<a href=#108 id=108 data-nosnippet>108</a>        }
+<a href=#109 id=109 data-nosnippet>109</a>    }
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="prelude-val">Ok</span>((posts, atts, profiles, hits))
+<a href=#111 id=111 data-nosnippet>111</a>}
 </code></pre></div></section></main></body></html>

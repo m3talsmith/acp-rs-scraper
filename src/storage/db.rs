@@ -122,24 +122,40 @@ pub fn print_nicks_table(infos: &[NickInfo]) {
 pub fn save(posts: &[Post]) -> Result<usize> {
     let path = home()?.join(DB_REL_PATH);
     let mut db = open_db(&path)?;
-    db.execute_batch(
-        POSTS_SCHEMA,
-    )?;
+    ensure_posts_schema(&db)?;
     let tx = db.transaction()?;
     let mut n = 0;
     {
         let mut st = tx.prepare(
-            "INSERT INTO posts (post_id,parent_post_id,nick,title,content,posted_at)
-             VALUES (?1,?2,?3,?4,?5,?6)
-             ON CONFLICT(post_id) DO UPDATE SET title=excluded.title, content=excluded.content
-             WHERE posts.content = '' AND posts.title = '' AND (excluded.content <> '' OR excluded.title <> '')")?;
+            "INSERT INTO posts (post_id,parent_post_id,in_reply_to_id,nick,title,content,posted_at)
+             VALUES (?1,?2,?3,?4,?5,?6,?7)
+             ON CONFLICT(post_id) DO UPDATE SET
+               title = CASE WHEN posts.content = '' AND posts.title = '' THEN excluded.title ELSE posts.title END,
+               content = CASE WHEN posts.content = '' AND posts.title = '' THEN excluded.content ELSE posts.content END,
+               in_reply_to_id = CASE WHEN excluded.in_reply_to_id <> '' AND excluded.in_reply_to_id <> excluded.parent_post_id
+                                THEN excluded.in_reply_to_id ELSE posts.in_reply_to_id END
+             WHERE (posts.content = '' AND posts.title = '' AND (excluded.content <> '' OR excluded.title <> ''))
+                OR (excluded.in_reply_to_id <> '' AND excluded.in_reply_to_id <> excluded.parent_post_id
+                    AND excluded.in_reply_to_id <> posts.in_reply_to_id)")?;
         for p in posts {
-            n += st.execute(params![p.post_id, p.parent_post_id, p.nick, p.title, p.content, p.posted_at])?;
+            n += st.execute(params![p.post_id, p.parent_post_id, p.in_reply_to_id, p.nick, p.title, p.content, p.posted_at])?;
         }
     }
     tx.commit()?;
     info!("DB: {}", path.display());
     Ok(n)
+}
+
+/// Create `posts` if missing and upgrade older tables in place: adds
+/// `in_reply_to_id` (backfilled from `parent_post_id`) and the relationship indexes.
+pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
+    c.execute_batch(POSTS_SCHEMA)?;
+    let has: bool = c.query_row(
+        "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'in_reply_to_id'", [],
+        |r| r.get::<_, i64>(0))? > 0;
+    if !has { c.execute_batch(&format!("BEGIN; {POSTS_ADD_IN_REPLY_TO} COMMIT;"))?; }
+    c.execute_batch(POSTS_MIGRATIONS)?;
+    Ok(())
 }
 
 /// Insert or update a nick's profile row.
@@ -250,11 +266,12 @@ pub fn save_attachments(db: &Path, atts: &[Attachment]) -> Result<()> {
 /// its direct children. Attachments come from the attachments table.
 pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Vec<Post>, Vec<Attachment>, usize)> {
     let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
+    ensure_posts_schema(&c)?;
     let like = query.map(|q| format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")));
-    let cols = "post_id,parent_post_id,nick,title,content,posted_at";
+    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id";
     let row = |r: &rusqlite::Row| -> rusqlite::Result<Post> {
         Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
-                  content: r.get(4)?, posted_at: r.get(5)?, media: Vec::new() })
+                  content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new() })
     };
     let mut st = c.prepare(&format!(
         "SELECT {cols} FROM posts WHERE (?1 IS NULL OR title LIKE ?1 ESCAPE '\\' OR content LIKE ?1 ESCAPE '\\')
@@ -269,10 +286,11 @@ pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Ve
     let mut by_id = c.prepare(&format!("SELECT {cols} FROM posts WHERE post_id = ?1"))?;
     let mut kids = c.prepare(&format!("SELECT {cols} FROM posts WHERE parent_post_id = ?1 ORDER BY posted_at"))?;
     // Context (parent + children) only for text searches; a full/nick dump has it already.
-    let base: Vec<(String, String)> = if query.is_none() { Vec::new() } else { out.iter().map(|p| (p.post_id.clone(), p.parent_post_id.clone())).collect() };
-    for (id, parent) in base {
-        if !parent.is_empty() {
-            for p in by_id.query_map(params![parent], row)? { let p = p?; if seen.insert(p.post_id.clone()) { out.push(p); } }
+    let base: Vec<(String, String, String)> = if query.is_none() { Vec::new() } else { out.iter().map(|p| (p.post_id.clone(), p.parent_post_id.clone(), p.in_reply_to_id.clone())).collect() };
+    for (id, parent, direct) in base {
+        for up in [parent, direct] {
+            if up.is_empty() { continue; }
+            for p in by_id.query_map(params![up], row)? { let p = p?; if seen.insert(p.post_id.clone()) { out.push(p); } }
         }
         for p in kids.query_map(params![id], row)? { let p = p?; if seen.insert(p.post_id.clone()) { out.push(p); } }
     }
