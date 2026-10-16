@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        1.26.0
+Version:        1.26.1
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -45,6 +45,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Fri Oct 16 2026 m3talsmith <m3talsmith@gmail.com> - 1.26.1-1
+- Do not duplicate attachments when media links are re-signed
+
 * Fri Oct 16 2026 m3talsmith <m3talsmith@gmail.com> - 1.26.0-1
 - Complete truncated post/comment bodies from thread pages; keep paragraph breaks; --refetch-truncated
 

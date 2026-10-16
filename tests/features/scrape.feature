@@ -14,6 +14,13 @@ Feature: Scraping a nick
     And the attachments table has 1 rows
     And stdout contains "first post from alice"
 
+  Scenario: Re-signed media links are not downloaded or exported twice
+    Given I have run "--nick alice --no-mentions --full"
+    When I run "--nick alice --no-mentions --full"
+    Then it succeeds
+    And the attachments table has 1 rows
+    And 1 media files are on disk
+
   Scenario: Incremental re-scrape fetches nothing new
     Given I have run "--nick alice --no-mentions --no-attachments"
     When I run "--nick alice --no-mentions --no-attachments"

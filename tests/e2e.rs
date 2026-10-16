@@ -128,6 +128,12 @@ async fn files(w: &mut E2e, n: usize) {
     assert_eq!(c, n);
 }
 
+#[then(expr = "{int} media files are on disk")]
+async fn media_files(w: &mut E2e, n: usize) {
+    let c = std::fs::read_dir(w.att()).map(|d| d.flatten().filter(|e| e.path().is_file()).count()).unwrap_or(0);
+    assert_eq!(c, n);
+}
+
 #[then(expr = "the attachments table has {int} rows")]
 async fn att_rows(w: &mut E2e, n: i64) { assert_eq!(w.q("SELECT count(*) FROM attachments"), n); }
 

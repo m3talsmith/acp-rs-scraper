@@ -123,10 +123,17 @@ pub fn ext_from_url(u: &str) -> Option<String> {
     (e.len() <= 5 && e.chars().all(|c| c.is_ascii_alphanumeric())).then_some(e)
 }
 
+/// A media URL without its query string or fragment. The site serves media
+/// through presigned links whose `X-Amz-Date`/`X-Amz-Signature` change on every
+/// page load, so the bare path is what identifies the file.
+pub fn canonical_url(u: &str) -> &str {
+    u.split(['?', '#']).next().unwrap_or(u)
+}
+
 /// Stable hex hash of a URL without its query string, used to name downloaded files.
 pub fn url_key(u: &str) -> String {
     let mut h = DefaultHasher::new();
-    u.hash(&mut h);
+    canonical_url(u).hash(&mut h);
     format!("{:016x}", h.finish())
 }
 
@@ -138,7 +145,7 @@ pub async fn download_all(http: &reqwest::Client, posts: &[Post], dir: &Path) ->
     let mut seen_pair = HashSet::new();
     for p in posts {
         for m in &p.media {
-            if !seen_pair.insert((p.post_id.clone(), m.url.clone())) { continue; }
+            if !seen_pair.insert((p.post_id.clone(), canonical_url(&m.url).to_string())) { continue; }
             if !done.contains_key(&m.url) {
                 let r = fetch_one_pub(http, &m.url, dir).await;
                 if let Err(e) = &r { log_error(format_args!("warning: attachment {} skipped: {e:#}", m.url)); }
@@ -209,4 +216,17 @@ pub async fn fetch_avatar(http: &reqwest::Client, u: &str, att_dir: &Path, nick:
     };
     let _ = std::fs::remove_dir_all(&tmp);
     out
+}
+
+#[cfg(test)]
+mod url_tests {
+    use super::*;
+    #[test]
+    fn presigned_links_share_a_key() {
+        let a = "https://media.acp.us/uploads/x.avif?X-Amz-Date=20261015T104332Z&X-Amz-Signature=aa";
+        let b = "https://media.acp.us/uploads/x.avif?X-Amz-Date=20261016T114716Z&X-Amz-Signature=bb";
+        assert_eq!(canonical_url(a), "https://media.acp.us/uploads/x.avif");
+        assert_eq!(url_key(a), url_key(b));
+        assert_ne!(url_key(a), url_key("https://media.acp.us/uploads/x-thumb.avif?X-Amz-Date=1"));
+    }
 }

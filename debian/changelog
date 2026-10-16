@@ -1,5 +1,7 @@
-acp-rs-scraper (1.26.0) unstable; urgency=medium
+acp-rs-scraper (1.26.1) unstable; urgency=medium
 
+  * Key downloaded media by URL without the presigned query; no duplicate
+    attachments across scrapes or in DB exports (1.26.1).
   * Complete truncated post/comment bodies from thread pages, keep paragraph
     breaks, add --refetch-truncated (1.26.0).
   * Label posts vs replies in exports (1.25.1).

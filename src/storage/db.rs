@@ -254,7 +254,8 @@ pub fn load_profiles_mentions(db: &std::path::Path, nicks: &[String]) -> Result<
     Ok((profiles, hits))
 }
 
-/// Insert or update attachment rows.
+/// Insert or update attachment rows. A row whose URL differs from a stored one
+/// only in its query string (a fresh presigned link to the same file) replaces it.
 pub fn save_attachments(db: &Path, atts: &[Attachment]) -> Result<()> {
     let mut c = open_db(db)?;
     c.execute_batch(
@@ -265,7 +266,14 @@ pub fn save_attachments(db: &Path, atts: &[Attachment]) -> Result<()> {
         let mut st = tx.prepare(
             "INSERT INTO attachments (post_id,url,local_path,mime_type) VALUES (?1,?2,?3,?4)
              ON CONFLICT(post_id,url) DO UPDATE SET local_path=excluded.local_path, mime_type=excluded.mime_type")?;
+        let mut old = tx.prepare("SELECT id,url FROM attachments WHERE post_id = ?1 AND url <> ?2")?;
+        let mut del = tx.prepare("DELETE FROM attachments WHERE id = ?1")?;
         for a in atts {
+            let stale: Vec<i64> = old.query_map(params![a.post_id, a.url], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
+                .filter_map(|r| r.ok())
+                .filter(|(_, u)| crate::media::canonical_url(u) == crate::media::canonical_url(&a.url))
+                .map(|(id, _)| id).collect();
+            for id in stale { del.execute(params![id])?; }
             st.execute(params![a.post_id, a.url, a.local_path.to_string_lossy(), a.mime_type])?;
         }
     }
@@ -310,13 +318,17 @@ pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Ve
     let mut atts = Vec::new();
     let has_att: bool = c.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='attachments'", [], |r| r.get::<_, i64>(0))? > 0;
     if has_att {
-        let mut st = c.prepare("SELECT post_id,url,local_path,mime_type FROM attachments WHERE post_id = ?1")?;
+        // Newest row first; older rows for the same file (stale presigned links
+        // stored before 1.26.1) are skipped so each file is exported once.
+        let mut st = c.prepare("SELECT post_id,url,local_path,mime_type FROM attachments WHERE post_id = ?1 ORDER BY id DESC")?;
+        let mut seen_att: HashSet<(String, String)> = HashSet::new();
         for p in &out {
             for a in st.query_map(params![p.post_id], |r| Ok(Attachment {
                 post_id: r.get(0)?, url: r.get(1)?, kind: "file".into(),
                 local_path: PathBuf::from(r.get::<_, String>(2)?), mime_type: r.get(3)?,
             }))? {
                 let a = a?;
+                if !seen_att.insert((a.post_id.clone(), crate::media::canonical_url(&a.url).to_string())) { continue; }
                 if a.local_path.exists() { atts.push(a); } else { log_error(format_args!("warning: missing attachment file {}", a.local_path.display())); }
             }
         }

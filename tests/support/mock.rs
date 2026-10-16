@@ -24,6 +24,8 @@ use std::{collections::HashMap, sync::{Arc, Mutex}};
 pub const CODE: &str = "KWMRUV";
 /// Session cookie name set after sign-in.
 const SESSION: &str = "_mock_session";
+/// Bumped each time the fixture is built, so media URLs carry a new signature.
+static SIGNED: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 /// Items per feed page.
 const PAGE: usize = 2;
 
@@ -76,7 +78,9 @@ fn posts(base: &str) -> Vec<Value> {
         "id": id, "thread_id": thread, "author": author(n), "title": "", "body": body(text),
         "inserted_at": format!("2026-10-{day:02}T13:00:00Z")});
     let mut a1 = root("A1", "alice", 1, "first post from alice", 1);
-    a1["media"] = json!([{"type": "image", "url": format!("{base}/media/a1.png")}]);
+    // Like the live site, media links are presigned and re-signed on every load.
+    let sig = SIGNED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    a1["media"] = json!([{"type": "image", "url": format!("{base}/media/a1.png?X-Amz-Date={sig}&X-Amz-Signature=s{sig}")}]);
     vec![
         a1,
         root("A2", "alice", 2, "second", 0),

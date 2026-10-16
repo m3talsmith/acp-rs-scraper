@@ -6,6 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.26.1] - 2026-10-16
+
+### Fixed
+- **Duplicate attachments from re-signed media links.** The site serves media through presigned URLs
+  whose `X-Amz-Date`/`X-Amz-Signature` change on every page load. Files were named by a hash of the
+  whole URL, so every scrape downloaded each image again under a new name and added another
+  `attachments` row (hazaldin's 17 images had become 68 rows and files). Files are now keyed by the URL
+  without its query string, a fresh link replaces the stored row for the same file, and DB exports
+  (`--export`) list each file once even for rows stored before this fix. Scrape exports were already
+  correct; DB exports and the attachments directory were the bloated ones.
+- Tests: unit test for URL keys; e2e scenario re-scraping with re-signed links.
+
 ## [1.26.0] - 2026-10-16
 
 One feature/fix since 1.25.1 (minor 25 → 26).
