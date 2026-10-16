@@ -72,7 +72,7 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 | Flag | Meaning |
 |---|---|
 | `--nick <NICK>` | One nick; the `@` is optional. Can't be used with `--nicks`. |
-| `--nicks <LIST>` | A comma-separated list, e.g. `@haz,@m3talsmith`. Spaces are trimmed, `@` is optional, and repeats are removed (ignoring case). |
+| `--nicks <LIST>` | A comma-separated list, e.g. `@hazaldin,@m3talsmith`. Spaces are trimmed, `@` is optional, and repeats are removed (ignoring case). |
 | `--no-mentions` | Skip the mentions crawl, which is on by default. |
 | `--said-by` | Only what the nick said: their own posts and their own replies, from the Posts and "Posts and replies" feeds. Other people's replies in the nick's threads aren't fetched and the mentions crawl is skipped (implies `--no-mentions`). A thread page is read only when one of the nick's own items has a blank body in the feed. |
 | `--crawl-limit <N>` | The most site-feed posts to scan when looking for mentions (default 500). |
@@ -158,7 +158,7 @@ An archive contains `<name>/<name>.<ext>` and `<name>/attachments/`. It's writte
 |---|---|
 | `-q`, `--quiet` | Hide progress and summaries. Prompts and errors still show. |
 | `-v`, `--verbose` | Show detail per page and per thread, and counts of skipped items. |
-| `--debug` | Print every LiveView websocket message (cut at 2000 characters). Turns on verbose too. `ACP_DEBUG=1` does the same. |
+| `--debug` | Print every LiveView websocket message (cut at 2000 characters). Turns on verbose too. `ACP_DEBUG=1` does the same. CSRF tokens, signed sessions, cookies and bearer tokens are replaced with `[REDACTED]` before anything reaches stderr or `success.log` (1.24.0). |
 
 `-q` can't be combined with `-v` or `--debug`.
 
@@ -169,7 +169,7 @@ An archive contains `<name>/<name>.<ext>` and `<name>/attachments/`. It's writte
 acp-rs-scraper --nick alice > alice.json
 
 # Several nicks in one session, HTML bundle with attachments
-acp-rs-scraper --nicks @haz,@m3talsmith --format html --compress --tar-gz --name comrades
+acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz --name comrades
 # -> ~/.acp/ai/data/exports/comrades.tar.gz
 
 # Skip mentions; or scan fewer feed posts for them
@@ -180,8 +180,8 @@ acp-rs-scraper --nick alice --crawl-limit 200
 acp-rs-scraper --nick alice --said-by
 
 # Latest (default) vs Trending for the site-wide mentions crawl
-acp-rs-scraper --nicks @haz --latest
-acp-rs-scraper --nicks @haz --trending --crawl-limit 300
+acp-rs-scraper --nicks @hazaldin --latest
+acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 300
 
 # Incremental re-run (default) vs full re-crawl
 acp-rs-scraper --nick alice          # stops paging at known posts, skips unchanged threads
@@ -320,6 +320,8 @@ A nick's own posts can also be recorded as mentions of that nick.
 - **"feed paging stopped before at_end":**
   - Rerun with `--debug`.
   - Check the `page-next` replies: posts should be in `response.diff.r`, or in a rebuilt `forum/Feed` data-props.
+- **"no profile @nick … redirected to /rs":** the nick doesn't exist. ACP redirects unknown profiles to Trending; since 1.23.0 the scraper stops that nick with this error (also written to `error.log` with `--enable-logging`) instead of scraping Trending. Check the spelling, e.g. Haz is `@hazaldin`.
+- **"0 posts kept, not writing an export":** a run that kept nothing (for example `--said-by` filtered everything out) never writes or overwrites an export file; any existing export of that name is left as it was.
 - **Re-run finds nothing new:** that's the incremental stop at work. Use `--full`.
 - **Attachment warnings:** failed downloads are skipped. Rerun later; files already on disk are reused.
 - **Import errors about gzip:** add `--compress --tar-gz`, or remove them if the file is plain JSON or HTML.

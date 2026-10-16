@@ -18,7 +18,7 @@ pub fn prompt(msg: &str) -> Result<String> {
     about = "Scrape Red Star (acp.us/rs) posts into SQLite and export them",
     long_about = "Log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.",
     after_help = "Examples:
-  acp-rs-scraper --nicks @haz,@m3talsmith --format html --compress --tar-gz
+  acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
   acp-rs-scraper --search \"general strike\" --format json
   acp-rs-scraper --export all.json
@@ -35,9 +35,9 @@ acp-rs-scraper --nick alice -q
   \
 acp-rs-scraper --nick alice -v
   \
-acp-rs-scraper --nicks @haz --latest
+acp-rs-scraper --nicks @hazaldin --latest
   \
-acp-rs-scraper --nicks @haz --trending --crawl-limit 200
+acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 200
 ",
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
@@ -55,7 +55,7 @@ pub struct Args {
     /// Single nick (alias for --nicks). Prompted if neither is given.
     #[arg(long, help_heading = "Scraping", conflicts_with = "nicks")]
     pub nick: Option<String>,
-    /// Comma-separated nicks, e.g. "@haz,@m3talsmith" (@ optional, trimmed, deduped).
+    /// Comma-separated nicks, e.g. "@hazaldin,@m3talsmith" (@ optional, trimmed, deduped).
     #[arg(long, value_parser = parse_nicks, value_name = "LIST", help_heading = "Scraping")]
     pub nicks: Option<NickList>,
     /// Find posts that mention each nick (default: on). Crawls the site feed (--latest/--trending); no server search in the JS.

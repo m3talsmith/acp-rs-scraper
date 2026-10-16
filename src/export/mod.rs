@@ -141,3 +141,22 @@ pub fn slug(s: &str) -> String {
     let o = o.trim_matches('-').chars().take(40).collect::<String>();
     if o.is_empty() { "query".into() } else { o }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::Parser;
+
+    #[test]
+    fn empty_run_leaves_existing_export_untouched() {
+        let dir = std::env::temp_dir().join(format!("acp-empty-export-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let f = dir.join("keep.html");
+        std::fs::write(&f, "good export").unwrap();
+        let args = Args::try_parse_from(["x", "--nick", "hazaldin", "--format", "html", "--output", f.to_str().unwrap()]).unwrap();
+        export(&args, "keep", "hazaldin", &[], &[], &[], &[], &dir).unwrap();
+        assert_eq!(std::fs::read_to_string(&f).unwrap(), "good export");
+        assert!(!dir.join("attachments").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+}

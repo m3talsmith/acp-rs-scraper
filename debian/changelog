@@ -1,3 +1,11 @@
+acp-rs-scraper (1.24.0) unstable; urgency=medium
+
+  * Redact CSRF/session secrets in --debug wire logs (1.24.0).
+  * Fail on unknown nicks instead of scraping Trending; never write empty exports (1.23.0).
+  * Run logs with --enable-logging (1.22.0) and earlier changes: see CHANGELOG.md.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 15 Oct 2026 22:00:00 -0400
+
 acp-rs-scraper (1.16.0) unstable; urgency=medium
 
   * Find profile photos for reply-only members (nested/wrapped author objects); never use the site banner.

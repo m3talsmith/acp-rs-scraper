@@ -1,5 +1,7 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
+**Current version: 1.24.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+
 # acp-rs-scraper
 
 > **Full usage guide:** [docs/USAGE.md](docs/USAGE.md) · Install/uninstall: [docs/INSTALL.md](docs/INSTALL.md) · API docs: [docs/index.html](docs/index.html)
@@ -45,7 +47,7 @@ Scraping:
           Single nick (alias for --nicks). Prompted if neither is given
 
       --nicks <LIST>
-          Comma-separated nicks, e.g. "@haz,@m3talsmith" (@ optional, trimmed, deduped)
+          Comma-separated nicks, e.g. "@hazaldin,@m3talsmith" (@ optional, trimmed, deduped)
 
       --no-mentions
           Skip the mentions crawl
@@ -141,7 +143,7 @@ Debug:
           Error log file (default ~/.acp/logs/error.log); implies --enable-logging
 
 Examples:
-  acp-rs-scraper --nicks @haz,@m3talsmith --format html --compress --tar-gz
+  acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
   acp-rs-scraper --search "general strike" --format json
   acp-rs-scraper --export all.json
@@ -155,8 +157,8 @@ Examples:
   acp-rs-scraper --nick alice --said-by
   acp-rs-scraper --nick alice -q
   acp-rs-scraper --nick alice -v
-  acp-rs-scraper --nicks @haz --latest
-  acp-rs-scraper --nicks @haz --trending --crawl-limit 200
+  acp-rs-scraper --nicks @hazaldin --latest
+  acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 200
 ```
 
 ## Running from a checkout
@@ -185,7 +187,7 @@ Crates: `scraper` (the crate named `rust_scraper` is a TUI crawler app, not an H
 - **Where a reply arrives:** the site bundles phoenix_live_view 1.2.12. With that version, a hook `pushEvent` reply comes back in `phx_reply` `response.diff.r`. The scraper reads it from there, falling back to `response.r`. The `r`/`e`/`t` keys are removed before the diff is merged into the page state.
 - **Feed:** sends `page-next {cursor}` repeatedly. It uses the reply if it has `posts`; otherwise it rebuilds the page and reads `forum/Feed` `data-props` again. It dedupes by id and stops at `at_end`, after 2 pages with nothing new, or when the cursor stops changing.
 - **Threads:** sends `next-page {}` (the InfiniteScroll hook), with that element's `phx-target` as cid if it has one. It only tries if a hook element exists or `root.replies_count` is greater than the replies loaded. New replies are taken from the reply and from the rebuilt `forum/Thread` `data-props`, and it stops once nothing new comes back.
-- **Debugging:** `cargo run -- --debug` or `ACP_DEBUG=1` prints every websocket frame sent and received to stderr, cut at 2000 characters.
+- **Debugging:** `cargo run -- --debug` or `ACP_DEBUG=1` prints every websocket frame sent and received to stderr, cut at 2000 characters. CSRF tokens, signed sessions, cookies and bearer tokens are masked as `[REDACTED]` in that output and in `success.log`.
 
 ## Export, attachments, search
 Every scrape is still saved to SQLite. Progress messages go to stderr, so stdout carries only the export.
@@ -198,7 +200,7 @@ Every scrape is still saved to SQLite. Progress messages go to stderr, so stdout
     cargo run --release -- --search strike --nick alice --format html --compress --tar-gz --name strike-posts
     cargo run --release -- --format html --compress --tar-gz --name my-export   # -> ~/.acp/ai/data/exports/my-export.tar.gz
 
-- `--format json|html` (default `json`). `--output <path>` is a file path; with `--compress` it is the archive path. `--name <name>` sets the file basename, the archive name, the folder inside the archive and the HTML title. The default name is `<nick>-<YYYYmmdd-HHMMSS>`, or `search-<slug>-<ts>` for a search. `--no-attachments` skips downloads. `--debug` logs LiveView traffic.
+- `--format json|html` (default `json`). `--output <path>` is a file path; with `--compress` it is the archive path. `--name <name>` sets the file basename, the archive name, the folder inside the archive and the HTML title. The default name is `<nick>-<YYYYmmdd-HHMMSS>`, or `search-<slug>-<ts>` for a search. `--no-attachments` skips downloads. `--debug` logs LiveView traffic. A run that keeps 0 posts writes no export file, so an existing export is never overwritten with an empty one. An unknown nick (ACP redirects it to Trending) fails with `no profile @nick` instead of scraping the Trending feed.
 - **Compression:** `--compress` plus exactly one format flag; `--tar-gz` is the only one so far (more, such as `--zip`, can be added later). `--compress` without a format flag, a format flag without `--compress`, or two format flags is an error. Without `--compress`, nothing is compressed.
 - **Folder layout:** an archive contains `<name>/<name>.<ext>` and `<name>/attachments/`.
 - **JSON:** `{title, nick, exported_at, posts:[{post_id, parent_post_id, in_reply_to_id, nick, title, content, posted_at, attachments:[{url, kind, mime_type, local_path}], children:[...]}]}`. When output goes to stdout, `local_path` is the absolute path of the saved copy. When it goes to a file or bundle, the path is `attachments/<file>`.
@@ -223,9 +225,9 @@ Every scrape is still saved to SQLite. Progress messages go to stderr, so stdout
 - **What can't be combined:** `--import` can't be used with `--export`, `--search`, `--nick`, `--output`, `--format`, `--name` or `--no-attachments`, and `--export` can't be used with `--output`.
 
 ## Multiple nicks
-    cargo run --release -- --nicks @haz,@m3talsmith --format html --compress --tar-gz
+    cargo run --release -- --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
     cargo run --release -- --export both.json --nicks haz,m3talsmith
-    cargo run --release -- --search strike --nicks "@haz, @m3talsmith"
+    cargo run --release -- --search strike --nicks "@hazaldin, @m3talsmith"
 
 - **`--nicks <LIST>`** takes a comma-separated list. A leading `@` is optional, spaces are trimmed, empty entries are dropped and repeats are removed (ignoring case).
 - **`--nick <NICK>`** is a one-nick shortcut for `--nicks`; the two can't be used together. With neither, the program asks for a nick (a comma-separated list is accepted there too).
@@ -246,7 +248,7 @@ Profiles are scraped from each nick's `/rs/@{nick}` page (data-props / og: tags 
 JSON/HTML exports include `profiles` and `mentions` (`format_version` 2; import still accepts version 1). HTML shows a profile header per nick and a Mentions section.
 
     cargo run --release -- --nick alice --no-mentions
-    cargo run --release -- --nicks @haz,@m3talsmith --crawl-limit 200
+    cargo run --release -- --nicks @hazaldin,@m3talsmith --crawl-limit 200
 
 ## Incremental scraping
 Re-runs avoid duplicates beyond `INSERT OR IGNORE`:
@@ -264,9 +266,9 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 
 
 ## Feed mode
-    cargo run --release -- --nicks @haz                 # Latest (default)
-    cargo run --release -- --nicks @haz --latest        # same
-    cargo run --release -- --nicks @haz --trending      # Trending tab
+    cargo run --release -- --nicks @hazaldin                 # Latest (default)
+    cargo run --release -- --nicks @hazaldin --latest        # same
+    cargo run --release -- --nicks @hazaldin --trending      # Trending tab
 
 - **`--latest` (default):** site-wide crawls (the mentions crawl) use `https://acp.us/rs/latest`. Chronological, so incremental early-stop on all-known pages still applies.
 - **`--trending`:** site-wide crawls use `https://acp.us/rs` (the site's default Trending tab; `/rs/trending` is 404). Not chronological, so incremental early-stop is **disabled** — paging runs until `at_end` or `--crawl-limit`, with dedupe only. Use `--full` only matters for thread/attachment skipping here.
@@ -280,7 +282,7 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 
 - **`--quiet` / `-q`:** suppress progress and summaries on stderr. Prompts and errors still show. Conflicts with `-v` / `--debug`.
 - **`--verbose` / `-v`:** extra detail (new posts per page, thread reply counts, skipped known items).
-- **`--debug`:** raw LiveView frames (also `ACP_DEBUG=1`); implies verbose and `--enable-logging`.
+- **`--debug`:** raw LiveView frames (also `ACP_DEBUG=1`); implies verbose and `--enable-logging`. Session secrets are redacted.
 - **`--enable-logging`:** also append every message, timestamped, to log files. Progress, verbose
   detail and debug wire frames go to `~/.acp/logs/success.log`; errors and warnings go to
   `~/.acp/logs/error.log`. Files always get the full verbose record even when stderr is `-q`;

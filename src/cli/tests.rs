@@ -5,7 +5,7 @@ use clap::Parser;
 
 #[test]
 fn nicks_parse() {
-    assert_eq!(parse_nicks("@haz,@m3talsmith").unwrap().0, ["haz", "m3talsmith"]);
+    assert_eq!(parse_nicks("@hazaldin,@m3talsmith").unwrap().0, ["hazaldin", "m3talsmith"]);
     assert_eq!(parse_nicks(" @a , b,,@A, @b ,c").unwrap().0, ["a", "b", "c"]);
     assert_eq!(parse_nicks("solo").unwrap().0, ["solo"]);
     assert!(parse_nicks(" , @ ,").is_err());
@@ -14,8 +14,8 @@ fn nicks_parse() {
 
 #[test]
 fn nicks_cli() {
-    let a = Args::try_parse_from(["x", "--nicks", "@haz, @m3talsmith,@haz"]).unwrap();
-    assert_eq!(a.nick_list().unwrap(), ["haz", "m3talsmith"]);
+    let a = Args::try_parse_from(["x", "--nicks", "@hazaldin, @m3talsmith,@hazaldin"]).unwrap();
+    assert_eq!(a.nick_list().unwrap(), ["hazaldin", "m3talsmith"]);
     let a = Args::try_parse_from(["x", "--nick", "@solo"]).unwrap();
     assert_eq!(a.nick_list().unwrap(), ["solo"]);
     assert!(Args::try_parse_from(["x", "--nick", "a", "--nicks", "b"]).is_err());

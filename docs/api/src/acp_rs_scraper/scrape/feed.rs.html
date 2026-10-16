@@ -22,96 +22,122 @@
 <a href=#22 id=22 data-nosnippet>22</a>    })
 <a href=#23 id=23 data-nosnippet>23</a>}
 <a href=#24 id=24 data-nosnippet>24</a>
-<a href=#25 id=25 data-nosnippet>25</a><span class="doccomment">/// Fetch a feed page (profile, site or filter URL), then page it to the end with `page-next`, honouring `limit` and incremental early-stop against `known`.
-<a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">pub async fn </span>fetch_feed(
-<a href=#27 id=27 data-nosnippet>27</a>    http: <span class="kw-2">&amp;</span>reqwest::Client, jar: <span class="kw-2">&amp;</span>Jar, url: <span class="kw-2">&amp;</span>str, limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-<a href=#28 id=28 data-nosnippet>28</a>    known: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashSet&lt;String&gt;&gt;,
-<a href=#29 id=29 data-nosnippet>29</a>    allow_incremental: bool, <span class="comment">// false for Trending: no early stop on all-known pages
-<a href=#30 id=30 data-nosnippet>30</a></span>) -&gt; <span class="prelude-ty">Result</span>&lt;FeedPage&gt; {
-<a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">let </span>resp = http.get(url).send().<span class="kw">await</span><span class="question-mark">?</span>.error_for_status()<span class="question-mark">?</span>;
-<a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">let </span>final_url = resp.url().to_string();
-<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>html = resp.text().<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="kw">let </span>feed = props(<span class="kw-2">&amp;</span>html, FEED_PROPS_SEL).with_context(|| <span class="macro">format!</span>(<span class="string">"no forum/Feed data-props on {url}"</span>))<span class="question-mark">?</span>;
-<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">let </span><span class="kw-2">mut </span>items: Vec&lt;Value&gt; = feed[<span class="string">"posts"</span>].as_array().cloned().unwrap_or_default();
-<a href=#36 id=36 data-nosnippet>36</a>    <span class="kw">let </span><span class="kw-2">mut </span>at_end = feed[<span class="string">"at_end"</span>].as_bool().unwrap_or(<span class="bool-val">true</span>);
-<a href=#37 id=37 data-nosnippet>37</a>    <span class="kw">let </span>cursor = feed[<span class="string">"next_cursor"</span>].as_str().map(str::to_string);
-<a href=#38 id=38 data-nosnippet>38</a>    <span class="kw">let </span>hit_limit = |n: usize| limit.is_some_and(|l| n &gt;= l);
-<a href=#39 id=39 data-nosnippet>39</a>    <span class="kw">let </span><span class="kw-2">mut </span>stopped_incremental = <span class="bool-val">false</span>;
-<a href=#40 id=40 data-nosnippet>40</a>    <span class="kw">let </span><span class="kw-2">mut </span>pages: u32 = <span class="number">1</span>;
-<a href=#41 id=41 data-nosnippet>41</a>    <span class="macro">info!</span>(<span class="string">"feed {url}: {} posts from initial page"</span>, items.len());
-<a href=#42 id=42 data-nosnippet>42</a>    <span class="kw">if </span>allow_incremental
-<a href=#43 id=43 data-nosnippet>43</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(k) = known
-<a href=#44 id=44 data-nosnippet>44</a>        &amp;&amp; page_all_known(<span class="kw-2">&amp;</span>items, k) {
-<a href=#45 id=45 data-nosnippet>45</a>            <span class="macro">info!</span>(<span class="string">"feed: initial page all known — stopping (use --full to re-crawl)"</span>);
-<a href=#46 id=46 data-nosnippet>46</a>            stopped_incremental = <span class="bool-val">true</span>;
-<a href=#47 id=47 data-nosnippet>47</a>            at_end = <span class="bool-val">true</span>;
-<a href=#48 id=48 data-nosnippet>48</a>        }
+<a href=#25 id=25 data-nosnippet>25</a><span class="doccomment">/// Nick from a `/rs/@{nick}` URL path, if it is a profile URL.
+<a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">pub fn </span>profile_nick_of(url: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#27 id=27 data-nosnippet>27</a>    <span class="kw">let </span>u = Url::parse(url).ok()<span class="question-mark">?</span>;
+<a href=#28 id=28 data-nosnippet>28</a>    <span class="kw">let </span>rest = u.path().strip_prefix(<span class="string">"/rs/@"</span>)<span class="question-mark">?</span>;
+<a href=#29 id=29 data-nosnippet>29</a>    <span class="kw">let </span>nick = rest.split(<span class="string">'/'</span>).next().unwrap_or_default();
+<a href=#30 id=30 data-nosnippet>30</a>    (!nick.is_empty()).then(|| nick.to_string())
+<a href=#31 id=31 data-nosnippet>31</a>}
+<a href=#32 id=32 data-nosnippet>32</a>
+<a href=#33 id=33 data-nosnippet>33</a><span class="doccomment">/// Fail when a profile URL (`/rs/@nick`) did not land on that profile.
+<a href=#34 id=34 data-nosnippet>34</a>/// ACP answers an unknown nick with a 302 to `/rs` (Trending) and a flash
+<a href=#35 id=35 data-nosnippet>35</a>/// "No profile exists with the username @nick"; reqwest follows redirects,
+<a href=#36 id=36 data-nosnippet>36</a>/// so without this check the Trending feed would be scraped as the profile.
+<a href=#37 id=37 data-nosnippet>37</a></span><span class="kw">pub fn </span>check_profile_landing(requested: <span class="kw-2">&amp;</span>str, final_url: <span class="kw-2">&amp;</span>str, html: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(want) = profile_nick_of(requested) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(()) };
+<a href=#39 id=39 data-nosnippet>39</a>    <span class="kw">let </span>got = profile_nick_of(final_url);
+<a href=#40 id=40 data-nosnippet>40</a>    <span class="kw">if </span>!got.as_deref().is_some_and(|g| g.eq_ignore_ascii_case(<span class="kw-2">&amp;</span>want)) {
+<a href=#41 id=41 data-nosnippet>41</a>        <span class="kw">let </span>to = Url::parse(final_url).map(|u| u.path().to_string()).unwrap_or_else(|<span class="kw">_</span>| final_url.to_string());
+<a href=#42 id=42 data-nosnippet>42</a>        <span class="macro">bail!</span>(<span class="string">"no profile @{want}: {requested} redirected to {to} (no such user? check the nick)"</span>);
+<a href=#43 id=43 data-nosnippet>43</a>    }
+<a href=#44 id=44 data-nosnippet>44</a>    <span class="kw">if </span>html.contains(<span class="string">"No profile exists with the username"</span>) {
+<a href=#45 id=45 data-nosnippet>45</a>        <span class="macro">bail!</span>(<span class="string">"no profile @{want}: site says \"No profile exists with the username @{want}\""</span>);
+<a href=#46 id=46 data-nosnippet>46</a>    }
+<a href=#47 id=47 data-nosnippet>47</a>    <span class="prelude-val">Ok</span>(())
+<a href=#48 id=48 data-nosnippet>48</a>}
 <a href=#49 id=49 data-nosnippet>49</a>
-<a href=#50 id=50 data-nosnippet>50</a>    <span class="kw">if </span>!at_end &amp;&amp; cursor.is_some() &amp;&amp; !hit_limit(items.len()) &amp;&amp; !stopped_incremental {
-<a href=#51 id=51 data-nosnippet>51</a>        <span class="kw">let </span>page = parse_lv(<span class="kw-2">&amp;</span>final_url, <span class="kw-2">&amp;</span>html)<span class="question-mark">?</span>;
-<a href=#52 id=52 data-nosnippet>52</a>        <span class="kw">let </span><span class="kw-2">mut </span>lv = Lv::connect(<span class="kw-2">&amp;</span>page, jar).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#53 id=53 data-nosnippet>53</a>        <span class="kw">let </span>(stop, extra) = page_rest(<span class="kw-2">&amp;mut </span>lv, <span class="kw-2">&amp;mut </span>items, cursor, limit, known, allow_incremental).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#54 id=54 data-nosnippet>54</a>        stopped_incremental = stop;
-<a href=#55 id=55 data-nosnippet>55</a>        pages += extra;
-<a href=#56 id=56 data-nosnippet>56</a>    }
-<a href=#57 id=57 data-nosnippet>57</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(l) = limit { items.truncate(l); }
-<a href=#58 id=58 data-nosnippet>58</a>    <span class="prelude-val">Ok</span>(FeedPage { items, html, stopped_incremental, pages })
-<a href=#59 id=59 data-nosnippet>59</a>}
-<a href=#60 id=60 data-nosnippet>60</a>
-<a href=#61 id=61 data-nosnippet>61</a><span class="doccomment">/// Page a feed that is open on `lv` to its end with `page-next {cursor}`,
-<a href=#62 id=62 data-nosnippet>62</a>/// appending new (id-deduped) posts to `items`. Returns
-<a href=#63 id=63 data-nosnippet>63</a>/// `(stopped_incremental, extra_pages)`. Shared by profile, site and
-<a href=#64 id=64 data-nosnippet>64</a>/// "Posts and replies" feeds so incremental/limit rules are identical.
-<a href=#65 id=65 data-nosnippet>65</a></span><span class="kw">pub async fn </span>page_rest(
-<a href=#66 id=66 data-nosnippet>66</a>    lv: <span class="kw-2">&amp;mut </span>Lv, items: <span class="kw-2">&amp;mut </span>Vec&lt;Value&gt;, <span class="kw-2">mut </span>cursor: <span class="prelude-ty">Option</span>&lt;String&gt;, limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
-<a href=#67 id=67 data-nosnippet>67</a>    known: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashSet&lt;String&gt;&gt;, allow_incremental: bool,
-<a href=#68 id=68 data-nosnippet>68</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(bool, u32)&gt; {
-<a href=#69 id=69 data-nosnippet>69</a>    <span class="kw">let </span>hit_limit = |n: usize| limit.is_some_and(|l| n &gt;= l);
-<a href=#70 id=70 data-nosnippet>70</a>    <span class="kw">let </span><span class="kw-2">mut </span>ids: HashSet&lt;String&gt; = items.iter().map(|x| s(x, <span class="string">"id"</span>)).collect();
-<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">let </span><span class="kw-2">mut </span>stale = <span class="number">0</span>;
-<a href=#72 id=72 data-nosnippet>72</a>    <span class="kw">let </span><span class="kw-2">mut </span>pages = <span class="number">0</span>;
-<a href=#73 id=73 data-nosnippet>73</a>    <span class="kw">let </span><span class="kw-2">mut </span>at_end = <span class="bool-val">false</span>;
-<a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">let </span><span class="kw-2">mut </span>stopped_incremental = <span class="bool-val">false</span>;
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="kw">for _ in </span><span class="number">0</span>..MAX_PAGES {
-<a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(c) = cursor.clone() <span class="kw">else </span>{ at_end = <span class="bool-val">true</span>; <span class="kw">break </span>};
-<a href=#77 id=77 data-nosnippet>77</a>        <span class="kw">let </span>r = lv.push(<span class="string">"event"</span>, <span class="macro">json!</span>({<span class="string">"type"</span>: <span class="string">"hook"</span>, <span class="string">"event"</span>: FEED_NEXT_EVENT, <span class="string">"value"</span>: {<span class="string">"cursor"</span>: c}})).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">if </span>r[<span class="string">"status"</span>] != <span class="string">"ok" </span>{ <span class="macro">err!</span>(<span class="string">"warning: page-next failed: {r}"</span>); <span class="kw">break</span>; }
-<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">let </span>body = reply_body(<span class="kw-2">&amp;</span>r);
-<a href=#80 id=80 data-nosnippet>80</a>        <span class="kw">let </span>body = <span class="kw">if </span>body[<span class="string">"posts"</span>].is_array() { body.clone() }
-<a href=#81 id=81 data-nosnippet>81</a>            <span class="kw">else </span>{ props(<span class="kw-2">&amp;</span>lv.html(), FEED_PROPS_SEL).unwrap_or(Value::Null) };
-<a href=#82 id=82 data-nosnippet>82</a>        <span class="kw">let </span>ps = body[<span class="string">"posts"</span>].as_array().cloned().unwrap_or_default();
-<a href=#83 id=83 data-nosnippet>83</a>        pages += <span class="number">1</span>;
-<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">if </span>allow_incremental
-<a href=#85 id=85 data-nosnippet>85</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(k) = known
-<a href=#86 id=86 data-nosnippet>86</a>            &amp;&amp; page_all_known(<span class="kw-2">&amp;</span>ps, k) {
-<a href=#87 id=87 data-nosnippet>87</a>                <span class="macro">info!</span>(<span class="string">"feed: page {} all known — stopping (use --full to re-crawl)"</span>, pages + <span class="number">1</span>);
-<a href=#88 id=88 data-nosnippet>88</a>                stopped_incremental = <span class="bool-val">true</span>;
-<a href=#89 id=89 data-nosnippet>89</a>                <span class="kw">break</span>;
-<a href=#90 id=90 data-nosnippet>90</a>            }
-<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">let </span>new: Vec&lt;Value&gt; = ps.into_iter().filter(|x| ids.insert(s(x, <span class="string">"id"</span>))).collect();
-<a href=#92 id=92 data-nosnippet>92</a>        <span class="macro">verbose!</span>(<span class="string">"feed: +{} new posts"</span>, new.len());
-<a href=#93 id=93 data-nosnippet>93</a>        items.extend(new.iter().cloned());
-<a href=#94 id=94 data-nosnippet>94</a>        at_end = body[<span class="string">"at_end"</span>].as_bool().unwrap_or(new.is_empty());
-<a href=#95 id=95 data-nosnippet>95</a>        cursor = body[<span class="string">"next_cursor"</span>].as_str().map(str::to_string).or(cursor);
-<a href=#96 id=96 data-nosnippet>96</a>        <span class="kw">if </span>new.is_empty() { stale += <span class="number">1</span>; } <span class="kw">else </span>{ stale = <span class="number">0</span>; }
-<a href=#97 id=97 data-nosnippet>97</a>        <span class="kw">if </span>hit_limit(items.len()) { <span class="macro">info!</span>(<span class="string">"feed: reached limit {}"</span>, limit.unwrap_or(<span class="number">0</span>)); <span class="kw">break</span>; }
-<a href=#98 id=98 data-nosnippet>98</a>        <span class="kw">if </span>at_end || stale &gt;= <span class="number">2 </span>|| (new.is_empty() &amp;&amp; cursor.as_deref() == <span class="prelude-val">Some</span>(c.as_str())) { <span class="kw">break</span>; }
-<a href=#99 id=99 data-nosnippet>99</a>    }
-<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">if </span>!at_end &amp;&amp; !hit_limit(items.len()) &amp;&amp; !stopped_incremental {
-<a href=#101 id=101 data-nosnippet>101</a>        <span class="macro">err!</span>(<span class="string">"warning: feed paging stopped before at_end (run with --debug)"</span>);
-<a href=#102 id=102 data-nosnippet>102</a>    }
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="prelude-val">Ok</span>((stopped_incremental, pages))
-<a href=#104 id=104 data-nosnippet>104</a>}
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a><span class="doccomment">/// Append `extra` feed items whose `id` isn't already in `items`.
-<a href=#107 id=107 data-nosnippet>107</a>/// Returns how many were added.
-<a href=#108 id=108 data-nosnippet>108</a></span><span class="kw">pub fn </span>merge_feed_items(items: <span class="kw-2">&amp;mut </span>Vec&lt;Value&gt;, extra: Vec&lt;Value&gt;) -&gt; usize {
-<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">let </span><span class="kw-2">mut </span>ids: HashSet&lt;String&gt; = items.iter().map(|x| s(x, <span class="string">"id"</span>)).collect();
-<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">let </span>before = items.len();
-<a href=#111 id=111 data-nosnippet>111</a>    items.extend(extra.into_iter().filter(|x| { <span class="kw">let </span>id = s(x, <span class="string">"id"</span>); !id.is_empty() &amp;&amp; ids.insert(id) }));
-<a href=#112 id=112 data-nosnippet>112</a>    items.len() - before
-<a href=#113 id=113 data-nosnippet>113</a>}
-<a href=#114 id=114 data-nosnippet>114</a>
-<a href=#115 id=115 data-nosnippet>115</a><span class="attr">#[cfg(test)]
-<a href=#116 id=116 data-nosnippet>116</a></span><span class="kw">mod </span>tests;
+<a href=#50 id=50 data-nosnippet>50</a><span class="doccomment">/// Fetch a feed page (profile, site or filter URL), then page it to the end with `page-next`, honouring `limit` and incremental early-stop against `known`.
+<a href=#51 id=51 data-nosnippet>51</a></span><span class="kw">pub async fn </span>fetch_feed(
+<a href=#52 id=52 data-nosnippet>52</a>    http: <span class="kw-2">&amp;</span>reqwest::Client, jar: <span class="kw-2">&amp;</span>Jar, url: <span class="kw-2">&amp;</span>str, limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href=#53 id=53 data-nosnippet>53</a>    known: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashSet&lt;String&gt;&gt;,
+<a href=#54 id=54 data-nosnippet>54</a>    allow_incremental: bool, <span class="comment">// false for Trending: no early stop on all-known pages
+<a href=#55 id=55 data-nosnippet>55</a></span>) -&gt; <span class="prelude-ty">Result</span>&lt;FeedPage&gt; {
+<a href=#56 id=56 data-nosnippet>56</a>    <span class="kw">let </span>resp = http.get(url).send().<span class="kw">await</span><span class="question-mark">?</span>.error_for_status()<span class="question-mark">?</span>;
+<a href=#57 id=57 data-nosnippet>57</a>    <span class="kw">let </span>final_url = resp.url().to_string();
+<a href=#58 id=58 data-nosnippet>58</a>    <span class="kw">let </span>html = resp.text().<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#59 id=59 data-nosnippet>59</a>    check_profile_landing(url, <span class="kw-2">&amp;</span>final_url, <span class="kw-2">&amp;</span>html)<span class="question-mark">?</span>;
+<a href=#60 id=60 data-nosnippet>60</a>    <span class="kw">let </span>feed = props(<span class="kw-2">&amp;</span>html, FEED_PROPS_SEL).with_context(|| <span class="macro">format!</span>(<span class="string">"no forum/Feed data-props on {url}"</span>))<span class="question-mark">?</span>;
+<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">let </span><span class="kw-2">mut </span>items: Vec&lt;Value&gt; = feed[<span class="string">"posts"</span>].as_array().cloned().unwrap_or_default();
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">let </span><span class="kw-2">mut </span>at_end = feed[<span class="string">"at_end"</span>].as_bool().unwrap_or(<span class="bool-val">true</span>);
+<a href=#63 id=63 data-nosnippet>63</a>    <span class="kw">let </span>cursor = feed[<span class="string">"next_cursor"</span>].as_str().map(str::to_string);
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="kw">let </span>hit_limit = |n: usize| limit.is_some_and(|l| n &gt;= l);
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="kw">let </span><span class="kw-2">mut </span>stopped_incremental = <span class="bool-val">false</span>;
+<a href=#66 id=66 data-nosnippet>66</a>    <span class="kw">let </span><span class="kw-2">mut </span>pages: u32 = <span class="number">1</span>;
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="macro">info!</span>(<span class="string">"feed {url}: {} posts from initial page"</span>, items.len());
+<a href=#68 id=68 data-nosnippet>68</a>    <span class="kw">if </span>allow_incremental
+<a href=#69 id=69 data-nosnippet>69</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(k) = known
+<a href=#70 id=70 data-nosnippet>70</a>        &amp;&amp; page_all_known(<span class="kw-2">&amp;</span>items, k) {
+<a href=#71 id=71 data-nosnippet>71</a>            <span class="macro">info!</span>(<span class="string">"feed: initial page all known — stopping (use --full to re-crawl)"</span>);
+<a href=#72 id=72 data-nosnippet>72</a>            stopped_incremental = <span class="bool-val">true</span>;
+<a href=#73 id=73 data-nosnippet>73</a>            at_end = <span class="bool-val">true</span>;
+<a href=#74 id=74 data-nosnippet>74</a>        }
+<a href=#75 id=75 data-nosnippet>75</a>
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="kw">if </span>!at_end &amp;&amp; cursor.is_some() &amp;&amp; !hit_limit(items.len()) &amp;&amp; !stopped_incremental {
+<a href=#77 id=77 data-nosnippet>77</a>        <span class="kw">let </span>page = parse_lv(<span class="kw-2">&amp;</span>final_url, <span class="kw-2">&amp;</span>html)<span class="question-mark">?</span>;
+<a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">let </span><span class="kw-2">mut </span>lv = Lv::connect(<span class="kw-2">&amp;</span>page, jar).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">let </span>(stop, extra) = page_rest(<span class="kw-2">&amp;mut </span>lv, <span class="kw-2">&amp;mut </span>items, cursor, limit, known, allow_incremental).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#80 id=80 data-nosnippet>80</a>        stopped_incremental = stop;
+<a href=#81 id=81 data-nosnippet>81</a>        pages += extra;
+<a href=#82 id=82 data-nosnippet>82</a>    }
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(l) = limit { items.truncate(l); }
+<a href=#84 id=84 data-nosnippet>84</a>    <span class="prelude-val">Ok</span>(FeedPage { items, html, stopped_incremental, pages })
+<a href=#85 id=85 data-nosnippet>85</a>}
+<a href=#86 id=86 data-nosnippet>86</a>
+<a href=#87 id=87 data-nosnippet>87</a><span class="doccomment">/// Page a feed that is open on `lv` to its end with `page-next {cursor}`,
+<a href=#88 id=88 data-nosnippet>88</a>/// appending new (id-deduped) posts to `items`. Returns
+<a href=#89 id=89 data-nosnippet>89</a>/// `(stopped_incremental, extra_pages)`. Shared by profile, site and
+<a href=#90 id=90 data-nosnippet>90</a>/// "Posts and replies" feeds so incremental/limit rules are identical.
+<a href=#91 id=91 data-nosnippet>91</a></span><span class="kw">pub async fn </span>page_rest(
+<a href=#92 id=92 data-nosnippet>92</a>    lv: <span class="kw-2">&amp;mut </span>Lv, items: <span class="kw-2">&amp;mut </span>Vec&lt;Value&gt;, <span class="kw-2">mut </span>cursor: <span class="prelude-ty">Option</span>&lt;String&gt;, limit: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href=#93 id=93 data-nosnippet>93</a>    known: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>HashSet&lt;String&gt;&gt;, allow_incremental: bool,
+<a href=#94 id=94 data-nosnippet>94</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(bool, u32)&gt; {
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">let </span>hit_limit = |n: usize| limit.is_some_and(|l| n &gt;= l);
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">let </span><span class="kw-2">mut </span>ids: HashSet&lt;String&gt; = items.iter().map(|x| s(x, <span class="string">"id"</span>)).collect();
+<a href=#97 id=97 data-nosnippet>97</a>    <span class="kw">let </span><span class="kw-2">mut </span>stale = <span class="number">0</span>;
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">let </span><span class="kw-2">mut </span>pages = <span class="number">0</span>;
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">let </span><span class="kw-2">mut </span>at_end = <span class="bool-val">false</span>;
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">let </span><span class="kw-2">mut </span>stopped_incremental = <span class="bool-val">false</span>;
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">for _ in </span><span class="number">0</span>..MAX_PAGES {
+<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(c) = cursor.clone() <span class="kw">else </span>{ at_end = <span class="bool-val">true</span>; <span class="kw">break </span>};
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">let </span>r = lv.push(<span class="string">"event"</span>, <span class="macro">json!</span>({<span class="string">"type"</span>: <span class="string">"hook"</span>, <span class="string">"event"</span>: FEED_NEXT_EVENT, <span class="string">"value"</span>: {<span class="string">"cursor"</span>: c}})).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="kw">if </span>r[<span class="string">"status"</span>] != <span class="string">"ok" </span>{ <span class="macro">err!</span>(<span class="string">"warning: page-next failed: {r}"</span>); <span class="kw">break</span>; }
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>body = reply_body(<span class="kw-2">&amp;</span>r);
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">let </span>body = <span class="kw">if </span>body[<span class="string">"posts"</span>].is_array() { body.clone() }
+<a href=#107 id=107 data-nosnippet>107</a>            <span class="kw">else </span>{ props(<span class="kw-2">&amp;</span>lv.html(), FEED_PROPS_SEL).unwrap_or(Value::Null) };
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">let </span>ps = body[<span class="string">"posts"</span>].as_array().cloned().unwrap_or_default();
+<a href=#109 id=109 data-nosnippet>109</a>        pages += <span class="number">1</span>;
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">if </span>allow_incremental
+<a href=#111 id=111 data-nosnippet>111</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(k) = known
+<a href=#112 id=112 data-nosnippet>112</a>            &amp;&amp; page_all_known(<span class="kw-2">&amp;</span>ps, k) {
+<a href=#113 id=113 data-nosnippet>113</a>                <span class="macro">info!</span>(<span class="string">"feed: page {} all known — stopping (use --full to re-crawl)"</span>, pages + <span class="number">1</span>);
+<a href=#114 id=114 data-nosnippet>114</a>                stopped_incremental = <span class="bool-val">true</span>;
+<a href=#115 id=115 data-nosnippet>115</a>                <span class="kw">break</span>;
+<a href=#116 id=116 data-nosnippet>116</a>            }
+<a href=#117 id=117 data-nosnippet>117</a>        <span class="kw">let </span>new: Vec&lt;Value&gt; = ps.into_iter().filter(|x| ids.insert(s(x, <span class="string">"id"</span>))).collect();
+<a href=#118 id=118 data-nosnippet>118</a>        <span class="macro">verbose!</span>(<span class="string">"feed: +{} new posts"</span>, new.len());
+<a href=#119 id=119 data-nosnippet>119</a>        items.extend(new.iter().cloned());
+<a href=#120 id=120 data-nosnippet>120</a>        at_end = body[<span class="string">"at_end"</span>].as_bool().unwrap_or(new.is_empty());
+<a href=#121 id=121 data-nosnippet>121</a>        cursor = body[<span class="string">"next_cursor"</span>].as_str().map(str::to_string).or(cursor);
+<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">if </span>new.is_empty() { stale += <span class="number">1</span>; } <span class="kw">else </span>{ stale = <span class="number">0</span>; }
+<a href=#123 id=123 data-nosnippet>123</a>        <span class="kw">if </span>hit_limit(items.len()) { <span class="macro">info!</span>(<span class="string">"feed: reached limit {}"</span>, limit.unwrap_or(<span class="number">0</span>)); <span class="kw">break</span>; }
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">if </span>at_end || stale &gt;= <span class="number">2 </span>|| (new.is_empty() &amp;&amp; cursor.as_deref() == <span class="prelude-val">Some</span>(c.as_str())) { <span class="kw">break</span>; }
+<a href=#125 id=125 data-nosnippet>125</a>    }
+<a href=#126 id=126 data-nosnippet>126</a>    <span class="kw">if </span>!at_end &amp;&amp; !hit_limit(items.len()) &amp;&amp; !stopped_incremental {
+<a href=#127 id=127 data-nosnippet>127</a>        <span class="macro">err!</span>(<span class="string">"warning: feed paging stopped before at_end (run with --debug)"</span>);
+<a href=#128 id=128 data-nosnippet>128</a>    }
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="prelude-val">Ok</span>((stopped_incremental, pages))
+<a href=#130 id=130 data-nosnippet>130</a>}
+<a href=#131 id=131 data-nosnippet>131</a>
+<a href=#132 id=132 data-nosnippet>132</a><span class="doccomment">/// Append `extra` feed items whose `id` isn't already in `items`.
+<a href=#133 id=133 data-nosnippet>133</a>/// Returns how many were added.
+<a href=#134 id=134 data-nosnippet>134</a></span><span class="kw">pub fn </span>merge_feed_items(items: <span class="kw-2">&amp;mut </span>Vec&lt;Value&gt;, extra: Vec&lt;Value&gt;) -&gt; usize {
+<a href=#135 id=135 data-nosnippet>135</a>    <span class="kw">let </span><span class="kw-2">mut </span>ids: HashSet&lt;String&gt; = items.iter().map(|x| s(x, <span class="string">"id"</span>)).collect();
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="kw">let </span>before = items.len();
+<a href=#137 id=137 data-nosnippet>137</a>    items.extend(extra.into_iter().filter(|x| { <span class="kw">let </span>id = s(x, <span class="string">"id"</span>); !id.is_empty() &amp;&amp; ids.insert(id) }));
+<a href=#138 id=138 data-nosnippet>138</a>    items.len() - before
+<a href=#139 id=139 data-nosnippet>139</a>}
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a><span class="attr">#[cfg(test)]
+<a href=#142 id=142 data-nosnippet>142</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

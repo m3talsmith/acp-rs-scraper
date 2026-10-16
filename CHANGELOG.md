@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Documentation
+1. README shows the current version under the banner and a refreshed `--help` block; examples use the real
+   `@hazaldin` profile; USAGE/README describe unknown-nick errors, empty-export skipping and `--debug`
+   redaction; packaging metadata (PKGBUILD, RPM spec, debian/changelog, INSTALL.md) synced to 1.24.0.
+2. New unit test: an empty run leaves an existing export file untouched.
+
 ## [1.24.0] - 2026-10-15
 
 One security hardening since 1.23.0 (minor 23 → 24).
