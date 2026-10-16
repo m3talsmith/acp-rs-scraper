@@ -6,6 +6,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `login_flow`: the login steps with the email and the one-time code supplied by the caller (the CLI
+  still prompts; a UI can collect them in a form). `session_valid` checks a saved session against the site.
+- `set_log_sink`: route progress / error / debug lines somewhere other than stderr (redaction unchanged).
+- `[theme]` table in `~/.acp/preferences.toml` (accent / muted / border / on_accent, `#rrggbb`).
+  Writing the email now keeps the file's other settings.
+- `list_nicks_conn`: `--list-nicks` data from an already open (e.g. read-only) connection.
+
 ## [1.26.1] - 2026-10-16
 
 ### Fixed

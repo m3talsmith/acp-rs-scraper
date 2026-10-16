@@ -74,8 +74,26 @@ pub async fn trigger_action_post(
     Ok(())
 }
 
+/// Whether the jar's session is accepted by the site: `GET /rs` does not redirect to `/auth`.
+pub async fn session_valid(http: &reqwest::Client) -> Result<bool> {
+    let resp = http.get(start_url()).send().await?;
+    Ok(!resp.url().path().starts_with("/auth"))
+}
+
 /// Log in: open `/rs` (redirects to `/auth` when logged out), submit the saved email over the LiveView, prompt for the one-time code (or login link), submit it and finish with the sign-in POST. Fails if `/rs` still redirects to `/auth`. A saved session in the jar (see [`session`]) skips the code; the session is saved again on success.
 pub async fn login(http: &reqwest::Client, jar: &Arc<Jar>) -> Result<()> {
+    login_flow(http, jar, None, || async { prompt("Verification code (or paste the login link): ") }).await
+}
+
+/// The login steps behind [`login`], with the email and the code supplied by the caller
+/// (the terminal UI's Login modal passes the typed email and awaits the typed code).
+/// `email = None` reads it from `~/.acp/preferences.toml` (prompting when missing);
+/// `Some` is used as given and saved there. `code` is only called when the site asks.
+pub async fn login_flow<F, Fut>(http: &reqwest::Client, jar: &Arc<Jar>, email: Option<String>, code: F) -> Result<()>
+where
+    F: FnOnce() -> Fut,
+    Fut: std::future::Future<Output = Result<String>>,
+{
     let resp = http.get(start_url()).send().await?;
     let url = resp.url().to_string();
     let html = resp.text().await?;
@@ -85,14 +103,17 @@ pub async fn login(http: &reqwest::Client, jar: &Arc<Jar>) -> Result<()> {
         return Ok(());
     }
     let page = parse_lv(&url, &html)?;
-    let email = load_email()?;
+    let email = match email {
+        Some(e) => { save_email(&e)?; e }
+        None => load_email()?,
+    };
     let mut lv = Lv::connect(&page, jar).await?;
     let r = lv.form(EMAIL_EVENT, EMAIL_FIELD, &email, Some(EMAIL_FORM_CID)).await?;
     if r["status"] != "ok" {
         bail!("email submit failed: {r}");
     }
     info!("Login email requested for {email}.");
-    let code = prompt("Verification code (or paste the login link): ")?;
+    let code = code().await?.trim().to_string();
     if code.starts_with("http") {
         http.get(&code).send().await?.error_for_status()?;
     } else {

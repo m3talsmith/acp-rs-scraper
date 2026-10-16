@@ -45,18 +45,37 @@ pub fn set_log_level(l: LogLevel) {
 /// Progress / summary (hidden by --quiet).
 pub fn log_info(args: std::fmt::Arguments<'_>) {
     file_line(false, "info", &args);
-    if log_level() >= LogLevel::Normal { eprintln!("{args}"); }
+    if log_level() >= LogLevel::Normal { emit(&args); }
 }
 
 /// Extra detail (shown with --verbose / --debug).
 pub fn log_verbose(args: std::fmt::Arguments<'_>) {
     file_line(false, "verbose", &args);
-    if log_level() >= LogLevel::Verbose { eprintln!("{args}"); }
+    if log_level() >= LogLevel::Verbose { emit(&args); }
 }
 
 /// Always (errors / warnings users must see).
 pub fn log_error(args: std::fmt::Arguments<'_>) {
     file_line(true, "error", &args);
+    emit(&args);
+}
+
+/// Where stderr-bound lines go instead while the terminal UI owns the screen.
+static SCREEN_SINK: std::sync::Mutex<Option<std::sync::mpsc::Sender<String>>> = std::sync::Mutex::new(None);
+
+/// Route every `info!` / `verbose!` / `err!` / debug line to `tx` instead of stderr
+/// (the TUI shows them in its status bar); `None` restores stderr.
+pub fn set_log_sink(tx: Option<std::sync::mpsc::Sender<String>>) {
+    if let Ok(mut s) = SCREEN_SINK.lock() { *s = tx; }
+}
+
+/// Print one line on stderr, or hand it to the sink set by [`set_log_sink`].
+fn emit(args: &dyn std::fmt::Display) {
+    if let Ok(s) = SCREEN_SINK.lock()
+        && let Some(tx) = s.as_ref() {
+            let _ = tx.send(args.to_string());
+            return;
+        }
     eprintln!("{args}");
 }
 
@@ -120,7 +139,7 @@ pub fn dbg_log(dir: &str, msg: &str) {
         let cut: String = safe.chars().take(2000).collect();
         let more = if cut.len() < safe.len() { format!(" ...[{} bytes]", safe.len()) } else { String::new() };
         file_line(false, "debug", &format_args!("[{dir}] {cut}{more}"));
-        eprintln!("[debug {dir}] {cut}{more}");
+        emit(&format_args!("[debug {dir}] {cut}{more}"));
     }
 }
 

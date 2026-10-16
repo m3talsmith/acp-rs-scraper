@@ -67,9 +67,13 @@ pub struct NickInfo {
 
 /// Every nick with posts or a profile, with counts and dates (for `--list-nicks`).
 pub fn list_nicks_db(db: &std::path::Path) -> Result<Vec<NickInfo>> {
-    let mut map: HashMap<String, NickInfo> = HashMap::new();
     if !db.exists() { return Ok(Vec::new()); }
-    let c = Connection::open(db)?;
+    list_nicks_conn(&Connection::open(db)?)
+}
+
+/// [`list_nicks_db`] on an open connection (only reads; works read-only).
+pub fn list_nicks_conn(c: &Connection) -> Result<Vec<NickInfo>> {
+    let mut map: HashMap<String, NickInfo> = HashMap::new();
     let has_posts: bool = c.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'", [],
         |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
