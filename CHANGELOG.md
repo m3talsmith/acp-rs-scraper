@@ -6,6 +6,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.23.0] - 2026-10-15
+
+Two fixes since 1.22.0, released together (minor 22 → 23).
+
+### Fixed
+1. **Unknown nick no longer scrapes Trending**: ACP answers `/rs/@{nick}` for a nick that does not
+   exist with a 302 to `/rs` and the flash "No profile exists with the username @{nick}". The HTTP
+   client follows redirects, so the Trending feed was scraped as if it were the profile (and
+   `--said-by` then kept nothing). `fetch_feed` now checks that a profile URL landed on that same
+   profile (and that the page has no "No profile exists" flash) and fails the nick with a clear
+   error, which also goes to `error.log` when logging is on.
+2. **No empty exports**: when a run kept 0 posts (and 0 mention hits), no export file is written,
+   so an earlier good export of the same name is no longer overwritten with an empty one. A warning
+   explains why nothing was written.
+
 ## [1.22.0] - 2026-10-15
 
 One new feature since 1.21.0 (minor 21 → 22).

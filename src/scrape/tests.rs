@@ -53,3 +53,18 @@ fn reply_to_comment_uses_post_ref_as_immediate_parent() {
     assert_eq!(to_post(&json!({"id": "r4", "body": {}}), "t1", "n").in_reply_to_id, "t1");
     assert_eq!(to_post(&json!({"id": "t1", "body": body}), "", "n").in_reply_to_id, "");
 }
+
+#[test]
+fn profile_landing_redirect_to_trending_fails() {
+    let e = check_profile_landing("https://acp.us/rs/@haz", "https://acp.us/rs", "").unwrap_err();
+    assert!(e.to_string().contains("no profile @haz"));
+}
+
+#[test]
+fn profile_landing_ok_and_flash() {
+    assert!(check_profile_landing("https://acp.us/rs/@hazaldin?replies=1", "https://acp.us/rs/@hazaldin?replies=1", "<html>").is_ok());
+    assert!(check_profile_landing("https://acp.us/rs", "https://acp.us/rs", "").is_ok());
+    assert!(check_profile_landing("https://acp.us/rs/@x", "https://acp.us/rs/@x",
+        "No profile exists with the username @x").is_err());
+    assert_eq!(profile_nick_of("https://acp.us/rs/@Haz/posts"), Some("Haz".into()));
+}

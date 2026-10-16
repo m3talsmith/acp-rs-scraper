@@ -54,6 +54,12 @@ pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attac
         return Ok(());
     }
 
+    // Never write (or overwrite a good export with) an empty file.
+    if posts.is_empty() && hits.is_empty() {
+        err!("warning: export {name}: 0 posts kept, not writing an export (any existing file is left untouched)");
+        return Ok(());
+    }
+
     // Export dir: the file plus attachments/ beside it.
     let (dir, file, tar_path) = if let Some(c) = args.compression() {
         let tp = args.output.clone().unwrap_or_else(|| exports_dir.join(format!("{base}.{}", c.ext())));
