@@ -136,7 +136,7 @@ Whether the file is unpacked depends on the flags, not the file name. If the fil
 
 | Flag | Meaning |
 |---|---|
-| `--format json\|html` | Export format (default `json`). |
+| `--format json\|html[,…]` | Export format(s), default `json`. Comma-separated or repeated (`--format json,html`) writes every format from one run; see [Several formats](#several-formats). |
 | `--output <PATH>` | Output file. With `--compress` it's the archive path. Defaults to stdout. |
 
 - **Stdout:** attachment paths are the absolute paths under `~/.acp/ai/data/attachments/`.
@@ -150,7 +150,16 @@ Whether the file is unpacked depends on the flags, not the file name. If the fil
 | `--compress` | Compress the export. Needs exactly one format flag. |
 | `--tar-gz` | Format: `.tar.gz`. Needs `--compress`. |
 
-An archive contains `<name>/<name>.<ext>` and `<name>/attachments/`. It's written to `--output`, or to `~/.acp/ai/data/exports/<name>.tar.gz` by default. `--tar-gz` is the only format for now. Once the archive is written, the uncompressed `<name>/` folder is removed; if compression fails it is left in place.
+### Several formats
+
+Several formats (`--format json,html` or `--format json --format html`) all come from the same run; duplicates are ignored. Paths: with `--output <dir>` each goes to `<dir>/<name>.<ext>`; with `--output <file>` (or `--export <file>`) the stem is kept and each format gets `<stem>.<ext>` (`--output out/haz.html` writes `out/haz.json` and `out/haz.html`); with `--compress` both files go into the same archive folder (`<name>/<name>.json`, `<name>/<name>.html`, one shared `attachments/`). Several formats can't go to stdout, so pass `--output`, `--export` or `--compress`. The 0-post skip applies to every format.
+
+```sh
+acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.html   # hazaldin.json + hazaldin.html
+acp-rs-scraper --export db --format html --format json                               # db.html + db.json
+```
+
+An archive contains `<name>/<name>.<ext>` (one per format) and `<name>/attachments/`. It's written to `--output`, or to `~/.acp/ai/data/exports/<name>.tar.gz` by default. `--tar-gz` is the only format for now. Once the archive is written, the uncompressed `<name>/` folder is removed; if compression fails it is left in place.
 
 ### Debug
 

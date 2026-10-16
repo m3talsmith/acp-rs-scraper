@@ -10,6 +10,17 @@ Feature: Offline search, export, import and maintenance
     Then it succeeds
     And stdout contains "fifth general strike"
 
+  Scenario: Export several formats at once
+    When I run "--export $HOME/both.json --format json,html"
+    Then it succeeds
+    And the file "$HOME/both.json" exists
+    And the file "$HOME/both.html" exists
+
+  Scenario: Several formats cannot go to stdout
+    When I run "--search strike --format json --format html"
+    Then it fails
+    And stderr contains "several formats need --output"
+
   Scenario: Export, clear everything, and import it back
     When I run "--export $HOME/all.json"
     Then it succeeds

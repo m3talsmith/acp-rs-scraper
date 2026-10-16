@@ -99,8 +99,8 @@ pub async fn run() -> Result<()> {
     if args.list_nicks {
         let infos = list_nicks_db(&home()?.join(DB_REL_PATH))?;
         let argv: Vec<String> = std::env::args().collect();
-        let want_json = argv.windows(2).any(|w| w[0] == "--format" && w[1] == "json")
-            || argv.iter().any(|a| a == "--format=json");
+        let explicit = argv.iter().any(|a| a == "--format" || a.starts_with("--format="));
+        let want_json = explicit && args.formats().contains(&Format::Json);
         if want_json {
             let v: Vec<_> = infos.iter().map(|i| json!({
                 "nick": i.nick, "display_name": i.display_name, "post_count": i.post_count,

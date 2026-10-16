@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 1.24.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 1.25.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -85,7 +85,7 @@ Import:
 
 Output:
       --format <FORMAT>
-          Export format
+          Export format(s): comma-separated or repeated (e.g. json,html). Several formats need --output, --export or --compress
 
           Possible values:
           - json: JSON document (default)
@@ -94,7 +94,7 @@ Output:
           [default: json]
 
       --output <OUTPUT>
-          Output file (with --compress: the archive path). Default: stdout
+          Output file (with --compress: the archive path). Several formats: <stem>.<ext> each, or <dir>/<name>.<ext>. Default: stdout
 
 Compression:
       --compress
@@ -144,6 +144,7 @@ Debug:
 
 Examples:
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
+  acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
   acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
   acp-rs-scraper --search "general strike" --format json
   acp-rs-scraper --export all.json
@@ -200,7 +201,7 @@ Every scrape is still saved to SQLite. Progress messages go to stderr, so stdout
     cargo run --release -- --search strike --nick alice --format html --compress --tar-gz --name strike-posts
     cargo run --release -- --format html --compress --tar-gz --name my-export   # -> ~/.acp/ai/data/exports/my-export.tar.gz
 
-- `--format json|html` (default `json`). `--output <path>` is a file path; with `--compress` it is the archive path. `--name <name>` sets the file basename, the archive name, the folder inside the archive and the HTML title. The default name is `<nick>-<YYYYmmdd-HHMMSS>`, or `search-<slug>-<ts>` for a search. `--no-attachments` skips downloads. `--debug` logs LiveView traffic. A run that keeps 0 posts writes no export file, so an existing export is never overwritten with an empty one. An unknown nick (ACP redirects it to Trending) fails with `no profile @nick` instead of scraping the Trending feed.
+- `--format json|html` (default `json`); comma-separated or repeated for several. Several formats (`--format json,html` or `--format json --format html`) all come from the same run; duplicates are ignored. Paths: with `--output <dir>` each goes to `<dir>/<name>.<ext>`; with `--output <file>` (or `--export <file>`) the stem is kept and each format gets `<stem>.<ext>` (`--output out/haz.html` writes `out/haz.json` and `out/haz.html`); with `--compress` both files go into the same archive folder (`<name>/<name>.json`, `<name>/<name>.html`, one shared `attachments/`). Several formats can't go to stdout, so pass `--output`, `--export` or `--compress`. The 0-post skip applies to every format.  `--output <path>` is a file path; with `--compress` it is the archive path. `--name <name>` sets the file basename, the archive name, the folder inside the archive and the HTML title. The default name is `<nick>-<YYYYmmdd-HHMMSS>`, or `search-<slug>-<ts>` for a search. `--no-attachments` skips downloads. `--debug` logs LiveView traffic. A run that keeps 0 posts writes no export file, so an existing export is never overwritten with an empty one. An unknown nick (ACP redirects it to Trending) fails with `no profile @nick` instead of scraping the Trending feed.
 - **Compression:** `--compress` plus exactly one format flag; `--tar-gz` is the only one so far (more, such as `--zip`, can be added later). `--compress` without a format flag, a format flag without `--compress`, or two format flags is an error. Without `--compress`, nothing is compressed.
 - **Folder layout:** an archive contains `<name>/<name>.<ext>` and `<name>/attachments/`.
 - **JSON:** `{title, nick, exported_at, posts:[{post_id, parent_post_id, in_reply_to_id, nick, title, content, posted_at, attachments:[{url, kind, mime_type, local_path}], children:[...]}]}`. When output goes to stdout, `local_path` is the absolute path of the saved copy. When it goes to a file or bundle, the path is `attachments/<file>`.

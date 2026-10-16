@@ -6,6 +6,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.25.0] - 2026-10-15
+
+One feature since 1.24.0 (minor 24 → 25).
+
+### Added
+1. **Several export formats per run**: `--format` takes a comma-separated list or can be repeated
+   (`--format json,html`, `--format json --format html`); duplicates are dropped. With `--output <file>`
+   / `--export <file>` each format is written as `<stem>.<ext>`; with a directory as `<dir>/<name>.<ext>`;
+   with `--compress --tar-gz` all formats share one archive folder and `attachments/`. Several formats to
+   stdout are rejected with a clear error. The 0-post empty-export skip applies to every format.
+   `--list-nicks --format json` still selects JSON when `json` is among the formats.
+2. Tests: CLI parsing of comma/repeated formats, output-path rule, JSON+HTML written side by side, both
+   formats in one archive, empty-run skip for both, stdout rejection; two new e2e scenarios.
+
 ### Documentation
 1. README shows the current version under the banner and a refreshed `--help` block; examples use the real
    `@hazaldin` profile; USAGE/README describe unknown-nick errors, empty-export skipping and `--debug`

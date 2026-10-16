@@ -19,6 +19,7 @@ pub fn prompt(msg: &str) -> Result<String> {
     long_about = "Log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.",
     after_help = "Examples:
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
+  acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
   acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
   acp-rs-scraper --search \"general strike\" --format json
   acp-rs-scraper --export all.json
@@ -94,10 +95,10 @@ pub struct Args {
           conflicts_with_all = ["export", "search", "nick", "nicks", "output", "format", "name", "no_attachments", "mentions", "crawl_limit", "full", "list_nicks", "said_by"])]
     pub import: Option<PathBuf>,
 
-    /// Export format.
-    #[arg(long, value_enum, default_value_t = Format::Json, help_heading = "Output")]
-    pub format: Format,
-    /// Output file (with --compress: the archive path). Default: stdout.
+    /// Export format(s): comma-separated or repeated (e.g. json,html). Several formats need --output, --export or --compress.
+    #[arg(long, value_enum, value_delimiter = ',', default_values_t = [Format::Json], help_heading = "Output")]
+    pub format: Vec<Format>,
+    /// Output file (with --compress: the archive path). Several formats: <stem>.<ext> each, or <dir>/<name>.<ext>. Default: stdout.
     #[arg(long, help_heading = "Output")]
     pub output: Option<PathBuf>,
 
@@ -247,6 +248,14 @@ impl Args {
         if !self.compress { return None; }
         if self.tar_gz { Some(Compress::TarGz) } else { None }
     }
+    /// Selected export formats, deduplicated in command-line order (never empty).
+    pub fn formats(&self) -> Vec<Format> {
+        let mut v: Vec<Format> = Vec::new();
+        for f in &self.format { if !v.contains(f) { v.push(*f); } }
+        if v.is_empty() { v.push(Format::Json); }
+        v
+    }
+
     /// Whether the mentions crawl should run (`--no-mentions` turns it off).
     pub fn want_mentions(&self) -> bool { self.mentions && !self.said_by }
     /// Default is Latest (our default), even though the site lands on Trending.

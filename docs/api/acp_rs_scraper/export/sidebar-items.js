@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Compress","Format"],"fn":["export","remove_export_dir","render","slug"],"mod":["archive","html","json"]};
+window.SIDEBAR_ITEMS = {"enum":["Compress","Format"],"fn":["export","output_files","remove_export_dir","render","slug"],"mod":["archive","html","json"]};

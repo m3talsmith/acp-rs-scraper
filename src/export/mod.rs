@@ -6,7 +6,7 @@ pub mod json;
 
 use crate::prelude::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, clap::ValueEnum)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, clap::ValueEnum)]
 /// Export format (`--format`).
 pub enum Format {
     /// JSON document (default).
@@ -30,6 +30,29 @@ impl Compress {
     }
 }
 
+impl Format {
+    /// File extension for this export format.
+    pub fn ext(self) -> &'static str {
+        match self { Format::Json => "json", Format::Html => "html" }
+    }
+}
+
+impl std::fmt::Display for Format {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.ext()) }
+}
+
+/// Where each format goes for a plain (uncompressed) `--output` path.
+/// One format: the path as given (a directory gets `<name>.<ext>`).
+/// Several: a directory gets `<dir>/<name>.<ext>` each; a file path keeps its
+/// stem and gets one `<stem>.<ext>` per format (`out/x.json` -> `out/x.json`, `out/x.html`).
+pub fn output_files(out: &Path, name: &str, formats: &[Format]) -> Vec<(Format, PathBuf)> {
+    if out.is_dir() {
+        return formats.iter().map(|f| (*f, out.join(format!("{name}.{}", f.ext())))).collect();
+    }
+    if formats.len() == 1 { return vec![(formats[0], out.to_path_buf())]; }
+    formats.iter().map(|f| (*f, out.with_extension(f.ext()))).collect()
+}
+
 /// Serialize an export document in the requested format.
 pub fn render(f: Format, doc: &Value) -> Result<String> {
     Ok(match f {
@@ -41,15 +64,19 @@ pub fn render(f: Format, doc: &Value) -> Result<String> {
 #[allow(clippy::too_many_arguments)]
 /// Write an export (JSON or HTML) to stdout, `--output`, or a `.tar.gz` archive with an `attachments/` folder, as selected in `args`.
 pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attachment], profiles: &[Profile], hits: &[MentionHit], exports_dir: &Path) -> Result<()> {
-    let ext = match args.format { Format::Json => "json", Format::Html => "html" };
+    let formats = args.formats();
     let base = name.to_string();
 
     // stdout: no bundle; attachment paths are the absolute persisted ones.
     if args.output.is_none() && args.compression().is_none() {
+        if formats.len() > 1 {
+            bail!("--format {}: several formats need --output, --export or --compress (stdout takes one format)",
+                formats.iter().map(|f| f.ext()).collect::<Vec<_>>().join(","));
+        }
         let mut doc = build_json(nick, posts, atts, profiles, hits, &|a| a.local_path.to_string_lossy().into_owned());
         doc["title"] = json!(name);
         let mut so = std::io::stdout().lock();
-        so.write_all(render(args.format, &doc)?.as_bytes())?;
+        so.write_all(render(formats[0], &doc)?.as_bytes())?;
         so.write_all(b"\n")?;
         return Ok(());
     }
@@ -61,18 +88,17 @@ pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attac
     }
 
     // Export dir: the file plus attachments/ beside it.
-    let (dir, file, tar_path) = if let Some(c) = args.compression() {
+    let (dir, files, tar_path) = if let Some(c) = args.compression() {
         let tp = args.output.clone().unwrap_or_else(|| exports_dir.join(format!("{base}.{}", c.ext())));
         let stem = tp.file_name().map(|n| n.to_string_lossy().trim_end_matches(".tar.gz").trim_end_matches(".tgz").to_string())
             .unwrap_or(base.clone());
         let dir = tp.parent().map(Path::to_path_buf).unwrap_or_default().join(&stem);
-        let file = dir.join(format!("{stem}.{ext}"));
-        (dir, file, Some((tp, stem)))
+        let files: Vec<(Format, PathBuf)> = formats.iter().map(|f| (*f, dir.join(format!("{stem}.{}", f.ext())))).collect();
+        (dir, files, Some((tp, stem)))
     } else {
-        let f = args.output.clone().unwrap();
-        // A directory as --output: write <name>.<ext> inside it.
-        let f = if f.is_dir() { f.join(format!("{base}.{ext}")) } else { f };
-        (f.parent().map(Path::to_path_buf).filter(|p| !p.as_os_str().is_empty()).unwrap_or_else(|| ".".into()), f, None)
+        let files = output_files(&args.output.clone().unwrap(), &base, &formats);
+        let f = &files[0].1;
+        (f.parent().map(Path::to_path_buf).filter(|p| !p.as_os_str().is_empty()).unwrap_or_else(|| ".".into()), files, None)
     };
     let att_dir = dir.join("attachments");
     std::fs::create_dir_all(&att_dir)?;
@@ -101,8 +127,11 @@ pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attac
         format!("attachments/{}", a.local_path.file_name().unwrap_or_default().to_string_lossy())
     });
     doc["title"] = json!(name);
-    std::fs::write(&file, render(args.format, &doc)?)?;
-    log_info(format_args!("wrote {}", file.display()));
+    for (f, file) in &files {
+        if let Some(p) = file.parent().filter(|p| !p.as_os_str().is_empty()) { std::fs::create_dir_all(p)?; }
+        std::fs::write(file, render(*f, &doc)?)?;
+        log_info(format_args!("wrote {}", file.display()));
+    }
 
     if let Some((tp, stem)) = tar_path {
         if let Some(parent) = tp.parent().filter(|p| !p.as_os_str().is_empty()) { std::fs::create_dir_all(parent)?; }
@@ -158,5 +187,77 @@ mod tests {
         assert_eq!(std::fs::read_to_string(&f).unwrap(), "good export");
         assert!(!dir.join("attachments").exists());
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    fn tmp(tag: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("acp-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn post() -> Post {
+        Post { post_id: "p1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: "hazaldin".into(),
+            title: "t".into(), content: "hello multi".into(), posted_at: "2026-10-15T00:00:00Z".into(), media: vec![] }
+    }
+
+    #[test]
+    fn output_paths_for_several_formats() {
+        let both = [Format::Json, Format::Html];
+        let d = tmp("outpaths");
+        assert_eq!(output_files(&d.join("x.json"), "n", &[Format::Html]), vec![(Format::Html, d.join("x.json"))]);
+        assert_eq!(output_files(&d.join("x.json"), "n", &both),
+            vec![(Format::Json, d.join("x.json")), (Format::Html, d.join("x.html"))]);
+        assert_eq!(output_files(&d.join("x"), "n", &both),
+            vec![(Format::Json, d.join("x.json")), (Format::Html, d.join("x.html"))]);
+        assert_eq!(output_files(&d, "n", &both),
+            vec![(Format::Json, d.join("n.json")), (Format::Html, d.join("n.html"))]);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn writes_json_and_html_to_same_stem() {
+        let d = tmp("multi-export");
+        let out = d.join("haz.html");
+        let args = Args::try_parse_from(["x", "--nick", "hazaldin", "--format", "json,html", "--output", out.to_str().unwrap()]).unwrap();
+        export(&args, "haz", "@hazaldin", &[post()], &[], &[], &[], &d).unwrap();
+        let j: Value = serde_json::from_str(&std::fs::read_to_string(d.join("haz.json")).unwrap()).unwrap();
+        assert_eq!(j["format"], "acp-rs-export");
+        assert!(std::fs::read_to_string(d.join("haz.html")).unwrap().contains("hello multi"));
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn writes_both_formats_into_one_archive() {
+        let d = tmp("multi-tgz");
+        let tp = d.join("bundle.tar.gz");
+        let args = Args::try_parse_from(["x", "--nick", "hazaldin", "--format", "html", "--format", "json",
+            "--compress", "--tar-gz", "--output", tp.to_str().unwrap()]).unwrap();
+        export(&args, "bundle", "@hazaldin", &[post()], &[], &[], &[], &d).unwrap();
+        let gz = flate2::read::GzDecoder::new(std::fs::File::open(&tp).unwrap());
+        let names: Vec<String> = tar::Archive::new(gz).entries().unwrap()
+            .map(|e| e.unwrap().path().unwrap().to_string_lossy().into_owned()).collect();
+        assert!(names.iter().any(|n| n == "bundle/bundle.json"), "{names:?}");
+        assert!(names.iter().any(|n| n == "bundle/bundle.html"), "{names:?}");
+        assert!(!d.join("bundle").exists());
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn empty_run_skips_every_format() {
+        let d = tmp("multi-empty");
+        std::fs::write(d.join("k.json"), "old json").unwrap();
+        std::fs::write(d.join("k.html"), "old html").unwrap();
+        let args = Args::try_parse_from(["x", "--nick", "h", "--format", "json,html", "--output", d.join("k.json").to_str().unwrap()]).unwrap();
+        export(&args, "k", "h", &[], &[], &[], &[], &d).unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("k.json")).unwrap(), "old json");
+        assert_eq!(std::fs::read_to_string(d.join("k.html")).unwrap(), "old html");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn several_formats_to_stdout_is_an_error() {
+        let args = Args::try_parse_from(["x", "--nick", "h", "--format", "json,html"]).unwrap();
+        assert!(export(&args, "k", "h", &[post()], &[], &[], &[], Path::new(".")).is_err());
     }
 }

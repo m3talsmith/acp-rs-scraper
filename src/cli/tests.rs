@@ -89,3 +89,14 @@ fn feed_mode_flags() {
     assert!(FeedMode::Latest.allow_incremental_stop());
     assert!(!FeedMode::Trending.allow_incremental_stop());
 }
+
+#[test]
+fn multiple_formats() {
+    use crate::export::Format::{Html, Json};
+    assert_eq!(Args::try_parse_from(["x"]).unwrap().formats(), [Json]);
+    assert_eq!(Args::try_parse_from(["x", "--format", "html"]).unwrap().formats(), [Html]);
+    assert_eq!(Args::try_parse_from(["x", "--format", "json,html"]).unwrap().formats(), [Json, Html]);
+    assert_eq!(Args::try_parse_from(["x", "--format=html,json"]).unwrap().formats(), [Html, Json]);
+    assert_eq!(Args::try_parse_from(["x", "--format", "html", "--format", "json", "--format", "html"]).unwrap().formats(), [Html, Json]);
+    assert!(Args::try_parse_from(["x", "--format", "json,pdf"]).is_err());
+}
