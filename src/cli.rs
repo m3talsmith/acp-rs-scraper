@@ -53,7 +53,14 @@ pub struct Args {
     #[arg(long, group = "mode", help_heading = "Mode")]
     pub trending: bool,
 
-    /// Single nick (alias for --nicks). Prompted if neither is given.
+    /// Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it.
+    #[arg(long, help_heading = "Interface")]
+    pub tui: bool,
+    /// Scrape headlessly, without the terminal UI (what a bare invocation did before 2.0). Asks for nicks when no --nick/--nicks is given. Implied by any other scraping flag.
+    #[arg(long, help_heading = "Scraping")]
+    pub scrape: bool,
+
+    /// Single nick (alias for --nicks). With --scrape and neither given, you are asked.
     #[arg(long, help_heading = "Scraping", conflicts_with = "nicks")]
     pub nick: Option<String>,
     /// Comma-separated nicks, e.g. "@hazaldin,@m3talsmith" (@ optional, trimmed, deduped).
@@ -238,6 +245,26 @@ pub fn parse_nicks(s: &str) -> std::result::Result<NickList, String> {
 pub fn nicks_name(nicks: &[String], stamp: &str) -> String {
     let j = nicks.join("+");
     if nicks.len() > 4 || j.len() > 40 { format!("multi-{stamp}") } else { format!("{j}-{stamp}") }
+}
+
+/// Whether these parsed arguments open the terminal UI: `--tui`, or no flag at all
+/// other than the logging ones in [`TUI_NEUTRAL_ARGS`].
+pub fn wants_tui(m: &clap::ArgMatches) -> bool {
+    use clap::CommandFactory;
+    if m.get_flag("tui") { return true; }
+    let cmd = Args::command();
+    !cmd.get_arguments().map(|a| a.get_id().as_str())
+        .filter(|id| !TUI_NEUTRAL_ARGS.contains(id))
+        .any(|id| m.value_source(id) == Some(clap::parser::ValueSource::CommandLine))
+}
+
+/// Parse `argv` into [`Args`] plus whether it opens the terminal UI ([`wants_tui`]).
+pub fn parse_with_mode<I, T>(argv: I) -> std::result::Result<(Args, bool), clap::Error>
+where I: IntoIterator<Item = T>, T: Into<std::ffi::OsString> + Clone {
+    use clap::{CommandFactory, FromArgMatches};
+    let m = Args::command().try_get_matches_from(argv)?;
+    let tui = wants_tui(&m);
+    Ok((Args::from_arg_matches(&m)?, tui))
 }
 
 impl Args {

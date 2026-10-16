@@ -7,6 +7,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Terminal UI (`src/tui/`, ratatui + crossterm): opens with no flags or with `--tui`. See 2.0.0.
+- `--scrape`: headless scrape (asks for nicks when none given), what a bare run did before.
 - `login_flow`: the login steps with the email and the one-time code supplied by the caller (the CLI
   still prompts; a UI can collect them in a form). `session_valid` checks a saved session against the site.
 - `set_log_sink`: route progress / error / debug lines somewhere other than stderr (redaction unchanged).

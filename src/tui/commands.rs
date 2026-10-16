@@ -1,0 +1,369 @@
+//! The menu bar's command catalog and the menu → command-line bridge.
+//!
+//! Every menu command maps to CLI flags (see SPECS "Menu bar ↔ CLI flag map").
+//! Actions that change data (scrape, export, import, maintenance) are turned into
+//! the exact argv the headless CLI takes, validated by clap ([`parse_with_mode`]),
+//! and run as a child process, so the TUI and the CLI share one code path.
+
+use crate::prelude::*;
+use crate::tui::data::SearchFilter;
+use crate::tui::widgets::text::TextField;
+
+/// Program name used as `argv[0]` for validation.
+pub const ARGV0: &str = "acp-rs-scraper";
+
+/// Menu bar items, left to right.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CommandId {
+    /// Scrape options (Start Scanning runs it).
+    Scrape,
+    /// Offline search into the Body.
+    Search,
+    /// Dump the DB / selection to a file.
+    Export,
+    /// Import an export into the DB.
+    Import,
+    /// Refresh the nick bar.
+    List,
+    /// Remove nicks / clear everything.
+    Maintain,
+    /// Login / logout.
+    Session,
+    /// Log level for jobs started from the TUI.
+    Debug,
+    /// Usage modal.
+    Help,
+    /// Leave the TUI.
+    Quit,
+}
+
+/// Something a button, key or palette entry does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Action {
+    /// Start Scanning (or Cancel while a job runs).
+    StartScan,
+    /// Kill the running job.
+    CancelJob,
+    /// Search with the Search menu's fields.
+    RunSearch,
+    /// Open the Shift-S search modal.
+    OpenSearchModal,
+    /// Leave the search view.
+    ClearSearch,
+    /// Export with the Export menu's fields.
+    RunExport,
+    /// Import with the Import menu's fields.
+    RunImport,
+    /// Re-read the nick bar from the DB.
+    RefreshNicks,
+    /// `--remove-nick` (after a confirm modal).
+    RemoveNicks,
+    /// `--clear-all` (after a confirm modal).
+    ClearAll,
+    /// Open the Login modal.
+    Login,
+    /// Forget the saved session, then route to Login.
+    Logout,
+    /// Help modal.
+    Help,
+    /// Toggle the log panel.
+    ToggleLog,
+    /// Quit (detaching a running job).
+    Quit,
+}
+
+/// The input type shown right of an option's label.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Widget {
+    /// Boolean flag.
+    Check(bool),
+    /// Known values.
+    Choice {
+        /// Values.
+        choices: &'static [&'static str],
+        /// Selected index.
+        idx: usize,
+    },
+    /// Open-ended value.
+    Text(TextField),
+    /// Direct action.
+    Button(Action),
+}
+
+/// One option under a menu command.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Opt {
+    /// Stable key used by the argv builders.
+    pub key: &'static str,
+    /// Label.
+    pub label: &'static str,
+    /// CLI flag(s) it maps to (shown as a hint).
+    pub flag: &'static str,
+    /// Marked `*`: must be set for the command's action.
+    pub required: bool,
+    /// Input type.
+    pub widget: Widget,
+}
+
+/// One menu bar item.
+#[derive(Clone, Debug, PartialEq)]
+pub struct MenuCommand {
+    /// Which command.
+    pub id: CommandId,
+    /// Label in the bar.
+    pub label: &'static str,
+    /// Hotkey letter (underlined; Alt+letter or the letter while the menu is focused).
+    pub hint: char,
+    /// Options in its dropdown (empty: activating runs `action`).
+    pub opts: Vec<Opt>,
+    /// Action of an option-less item.
+    pub action: Option<Action>,
+}
+
+fn opt(key: &'static str, label: &'static str, flag: &'static str, required: bool, widget: Widget) -> Opt {
+    Opt { key, label, flag, required, widget }
+}
+fn check(v: bool) -> Widget { Widget::Check(v) }
+fn text(v: &str) -> Widget { Widget::Text(TextField::new(v)) }
+fn choice(choices: &'static [&'static str]) -> Widget { Widget::Choice { choices, idx: 0 } }
+fn button(a: Action) -> Widget { Widget::Button(a) }
+
+/// Scrape feed choices.
+pub const MODE_CHOICES: &[&str] = &["Latest", "Trending"];
+/// Export format choices.
+pub const FORMAT_CHOICES: &[&str] = &["json", "html", "json,html"];
+/// Export scope choices.
+pub const SCOPE_CHOICES: &[&str] = &["Selected nicks", "Current view", "Everything"];
+
+/// The whole menu bar, with every option's current value.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Menu {
+    /// Items left to right.
+    pub items: Vec<MenuCommand>,
+}
+
+impl Menu {
+    /// Default catalog. `args` seeds the Debug options (from `-v`/`--debug`/`--enable-logging`).
+    pub fn new(args: &Args) -> Self {
+        use CommandId::*;
+        let items = vec![
+            MenuCommand { id: Scrape, label: "Scrape", hint: 's', action: None, opts: vec![
+                opt("mode", "Mode", "--latest / --trending", false, choice(MODE_CHOICES)),
+                opt("nicks", "Nicks", "--nicks (blank: selected nicks)", true, text("")),
+                opt("mentions", "Mentions", "--no-mentions when off", false, check(true)),
+                opt("said_by", "Said by", "--said-by", false, check(false)),
+                opt("crawl_limit", "Crawl limit", "--crawl-limit", false, text(&DEFAULT_CRAWL_LIMIT.to_string())),
+                opt("attachments", "Attachments", "--no-attachments when off", false, check(true)),
+                opt("full", "Full", "--full", false, check(false)),
+                opt("refetch", "Refetch truncated", "--refetch-truncated", false, check(false)),
+                opt("output", "Output file", "--output (blank: database only)", false, text("")),
+                opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
+                opt("start", "Start Scanning", "", false, button(Action::StartScan)),
+            ]},
+            MenuCommand { id: Search, label: "Search", hint: 'e', action: None, opts: vec![
+                opt("query", "Query", "--search", true, text("")),
+                opt("nick", "Nick filter", "--nicks", false, text("")),
+                opt("run", "Search", "", false, button(Action::RunSearch)),
+                opt("advanced", "Advanced…", "Shift-S", false, button(Action::OpenSearchModal)),
+                opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
+            ]},
+            MenuCommand { id: Export, label: "Export", hint: 'x', action: None, opts: vec![
+                opt("path", "Path", "--export", true, text("")),
+                opt("scope", "From", "--nicks / --search", false, choice(SCOPE_CHOICES)),
+                opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
+                opt("name", "Name", "--name", false, text("")),
+                opt("compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
+                opt("run", "Export", "", false, button(Action::RunExport)),
+            ]},
+            MenuCommand { id: Import, label: "Import", hint: 'i', action: None, opts: vec![
+                opt("path", "Path", "--import", true, text("")),
+                opt("compress", "Compressed tar.gz", "--compress --tar-gz", false, check(false)),
+                opt("run", "Import", "", false, button(Action::RunImport)),
+            ]},
+            MenuCommand { id: List, label: "List", hint: 'l', action: None, opts: vec![
+                opt("refresh", "Refresh nicks", "--list-nicks", false, button(Action::RefreshNicks)),
+            ]},
+            MenuCommand { id: Maintain, label: "Maintain", hint: 'a', action: None, opts: vec![
+                opt("nicks", "Remove nicks", "--remove-nick (blank: selected nicks)", true, text("")),
+                opt("keep_replies", "Keep replies", "--keep-replies", false, check(false)),
+                opt("dry_run", "Dry run", "--dry-run", false, check(false)),
+                opt("yes", "Skip confirmation", "--yes (dangerous)", false, check(false)),
+                opt("remove", "Remove", "", false, button(Action::RemoveNicks)),
+                opt("clear", "Clear all", "--clear-all", false, button(Action::ClearAll)),
+            ]},
+            MenuCommand { id: Session, label: "Session", hint: 'n', action: None, opts: vec![
+                opt("login", "Log in", "", false, button(Action::Login)),
+                opt("logout", "Log out", "--logout", false, button(Action::Logout)),
+            ]},
+            MenuCommand { id: Debug, label: "Debug", hint: 'd', action: None, opts: vec![
+                opt("verbose", "Verbose", "-v", false, check(args.verbose)),
+                opt("debug", "Debug wire log", "--debug", false, check(args.debug)),
+                opt("logging", "Log to files", "--enable-logging", false, check(args.enable_logging)),
+                opt("show_log", "Show log panel", "l", false, button(Action::ToggleLog)),
+            ]},
+            MenuCommand { id: Help, label: "Help", hint: 'h', opts: vec![], action: Some(Action::Help) },
+            MenuCommand { id: Quit, label: "Quit", hint: 'q', opts: vec![], action: Some(Action::Quit) },
+        ];
+        Menu { items }
+    }
+    /// Item by id.
+    pub fn get(&self, id: CommandId) -> &MenuCommand { self.items.iter().find(|c| c.id == id).expect("menu id") }
+    /// Option by command and key.
+    pub fn opt_mut(&mut self, id: CommandId, key: &str) -> &mut Opt {
+        self.items.iter_mut().find(|c| c.id == id).expect("menu id").opts.iter_mut().find(|o| o.key == key).expect("opt key")
+    }
+    fn opt(&self, id: CommandId, key: &str) -> &Opt { self.get(id).opts.iter().find(|o| o.key == key).expect("opt key") }
+    /// Checkbox value.
+    pub fn check(&self, id: CommandId, key: &str) -> bool { matches!(self.opt(id, key).widget, Widget::Check(true)) }
+    /// Text value, trimmed.
+    pub fn text(&self, id: CommandId, key: &str) -> String {
+        match &self.opt(id, key).widget { Widget::Text(t) => t.value.trim().to_string(), _ => String::new() }
+    }
+    /// Selected choice.
+    pub fn choice(&self, id: CommandId, key: &str) -> &'static str {
+        match &self.opt(id, key).widget { Widget::Choice { choices, idx } => choices[*idx], _ => "" }
+    }
+    /// Set a checkbox.
+    pub fn set_check(&mut self, id: CommandId, key: &str, v: bool) { self.opt_mut(id, key).widget = Widget::Check(v); }
+    /// Set a text field.
+    pub fn set_text(&mut self, id: CommandId, key: &str, v: &str) {
+        if let Widget::Text(t) = &mut self.opt_mut(id, key).widget { t.set(v); }
+    }
+    /// Select a choice by value (ignored when unknown).
+    pub fn set_choice(&mut self, id: CommandId, key: &str, v: &str) {
+        if let Widget::Choice { choices, idx } = &mut self.opt_mut(id, key).widget
+            && let Some(i) = choices.iter().position(|c| *c == v) { *idx = i; }
+    }
+
+    /// `-v` / `--debug` / `--enable-logging` from the Debug menu, for every job.
+    pub fn debug_args(&self) -> Vec<String> {
+        let mut v = Vec::new();
+        if self.check(CommandId::Debug, "debug") { v.push("--debug".into()); }
+        else if self.check(CommandId::Debug, "verbose") { v.push("-v".into()); }
+        if self.check(CommandId::Debug, "logging") { v.push("--enable-logging".into()); }
+        v
+    }
+
+    /// Nicks to scrape: the Nicks field, else the selected nicks.
+    pub fn scrape_nicks(&self, selected: &[String]) -> Vec<String> {
+        let t = self.text(CommandId::Scrape, "nicks");
+        if t.is_empty() { selected.to_vec() } else { parse_nicks(&t).map(|n| n.0).unwrap_or_default() }
+    }
+
+    /// argv for Start Scanning (headless scrape of the chosen nicks).
+    pub fn scrape_argv(&self, selected: &[String]) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Scrape as S;
+        let t = self.text(S, "nicks");
+        let nicks = if t.is_empty() { selected.to_vec() } else { parse_nicks(&t)?.0 };
+        if nicks.is_empty() { return Err("Scrape needs at least one nick: type them in Scrape › Nicks or select nicks on the left".into()); }
+        let mut v = vec![ARGV0.to_string(), "--nicks".into(), nicks.join(",")];
+        if self.choice(S, "mode") == "Trending" { v.push("--trending".into()); } else { v.push("--latest".into()); }
+        if !self.check(S, "mentions") { v.push("--no-mentions".into()); }
+        if self.check(S, "said_by") { v.push("--said-by".into()); }
+        let cl = self.text(S, "crawl_limit");
+        if !cl.is_empty() {
+            let n: usize = cl.parse().map_err(|_| format!("Crawl limit must be a number, not {cl:?}"))?;
+            if n != DEFAULT_CRAWL_LIMIT { v.extend(["--crawl-limit".into(), n.to_string()]); }
+        }
+        if !self.check(S, "attachments") { v.push("--no-attachments".into()); }
+        if self.check(S, "full") { v.push("--full".into()); }
+        if self.check(S, "refetch") { v.push("--refetch-truncated".into()); }
+        let out = self.text(S, "output");
+        if !out.is_empty() { v.extend(["--format".into(), self.choice(S, "format").into(), "--output".into(), out]); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Export. `selected` = selected nicks; `view` = the current search, if any.
+    pub fn export_argv(&self, selected: &[String], view: Option<&SearchFilter>) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Export as E;
+        let path = self.text(E, "path");
+        if path.is_empty() { return Err("Export needs a Path".into()); }
+        let mut v = vec![ARGV0.to_string(), "--export".into(), path];
+        let nicks_arg = |v: &mut Vec<String>, n: &[String]| if !n.is_empty() { v.extend(["--nicks".into(), n.join(",")]); };
+        match self.choice(E, "scope") {
+            "Selected nicks" => {
+                if selected.is_empty() { return Err("Export › From is \"Selected nicks\" but no nick is selected".into()); }
+                nicks_arg(&mut v, selected);
+            }
+            "Current view" => match view {
+                Some(f) => {
+                    if !f.keyword.trim().is_empty() { v.extend(["--search".into(), f.keyword.trim().into()]); }
+                    nicks_arg(&mut v, &f.nicks);
+                }
+                None => nicks_arg(&mut v, selected),
+            },
+            _ => {}
+        }
+        v.extend(["--format".into(), self.choice(E, "format").into()]);
+        let name = self.text(E, "name");
+        if !name.is_empty() { v.extend(["--name".into(), name]); }
+        if self.check(E, "compress") { v.extend(["--compress".into(), "--tar-gz".into()]); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Import.
+    pub fn import_argv(&self) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Import as I;
+        let path = self.text(I, "path");
+        if path.is_empty() { return Err("Import needs a Path".into()); }
+        let mut v = vec![ARGV0.to_string(), "--import".into(), path];
+        if self.check(I, "compress") { v.extend(["--compress".into(), "--tar-gz".into()]); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// Nicks Maintain › Remove would delete: the field, else the selection.
+    pub fn remove_nicks(&self, selected: &[String]) -> std::result::Result<Vec<String>, String> {
+        let t = self.text(CommandId::Maintain, "nicks");
+        let n = if t.is_empty() { selected.to_vec() } else { parse_nicks(&t)?.0 };
+        if n.is_empty() { return Err("Remove needs nicks: type them in Maintain › Remove nicks or select nicks on the left".into()); }
+        Ok(n)
+    }
+
+    /// argv for `--remove-nick` (always `--yes`: the TUI confirms first, or Skip confirmation was ticked).
+    pub fn remove_argv(&self, selected: &[String]) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Maintain as M;
+        let n = self.remove_nicks(selected)?;
+        let mut v = vec![ARGV0.to_string(), "--remove-nick".into(), n.join(","), "--yes".into()];
+        if self.check(M, "keep_replies") { v.push("--keep-replies".into()); }
+        if self.check(M, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--clear-all` (always `--yes`, see [`Menu::remove_argv`]).
+    pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
+        if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// Search menu fields as a filter.
+    pub fn search_filter(&self) -> std::result::Result<SearchFilter, String> {
+        let nick = self.text(CommandId::Search, "nick");
+        Ok(SearchFilter {
+            keyword: self.text(CommandId::Search, "query"),
+            nicks: if nick.is_empty() { Vec::new() } else { parse_nicks(&nick)?.0 },
+            ..SearchFilter::default()
+        })
+    }
+}
+
+/// Check `argv` with clap exactly as the CLI would and make sure it runs headless.
+pub fn validate(argv: Vec<String>) -> std::result::Result<Vec<String>, String> {
+    match parse_with_mode(&argv) {
+        Ok((_, false)) => Ok(argv),
+        Ok((_, true)) => Err("these options would open the terminal UI instead of running".into()),
+        Err(e) => Err(e.to_string().lines().next().unwrap_or("invalid options").trim_start_matches("error: ").to_string()),
+    }
+}
+
+/// Shell-style rendering of an argv (for the status line and Help).
+pub fn shell_line(argv: &[String]) -> String {
+    argv.iter().map(|a| if a.is_empty() || a.contains(|c: char| c.is_whitespace() || "\"'$\\".contains(c)) {
+        format!("'{}'", a.replace('\'', "'\\''"))
+    } else { a.clone() }).collect::<Vec<_>>().join(" ")
+}

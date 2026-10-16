@@ -1,0 +1,195 @@
+//! Terminal UI (2.0): the default when no flags are given (or with `--tui`).
+//!
+//! Browse every nick and post in the local database offline, open post details
+//! that cross-load linked posts, search in place, and drive scrape / export /
+//! import / maintenance from a menu bar built from the CLI flags. Anything that
+//! writes runs the headless CLI as a child process ([`jobs`]), so it can be
+//! cancelled, and keeps running in the background when you quit.
+//!
+//! Layout: `mod.rs` (event loop), [`state`] (pure state + transitions),
+//! [`input`] (keys/mouse), [`layout`] (geometry), [`widgets`] (drawing),
+//! [`modals`], [`commands`] (menu ↔ flags), [`data`] (read-only DB), [`jobs`],
+//! [`theme`].
+
+pub mod commands;
+pub mod data;
+pub mod input;
+pub mod jobs;
+pub mod layout;
+pub mod modals;
+pub mod state;
+pub mod theme;
+pub mod widgets;
+
+use crate::prelude::*;
+use state::{App, Effect, JobView};
+use std::time::{Duration, Instant};
+
+/// Messages from background tasks to the event loop.
+enum Msg {
+    SessionChecked(std::result::Result<bool, String>, Vec<String>),
+    LoginNeedCode(u64),
+    LoginDone(u64, std::result::Result<(), String>),
+}
+
+struct Terminal(ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>);
+
+fn restore_terminal() {
+    use crossterm::{event::DisableMouseCapture, execute, terminal::{LeaveAlternateScreen, disable_raw_mode}};
+    let _ = disable_raw_mode();
+    let _ = execute!(std::io::stdout(), LeaveAlternateScreen, DisableMouseCapture, crossterm::cursor::Show);
+}
+
+impl Drop for Terminal {
+    fn drop(&mut self) { restore_terminal(); }
+}
+
+/// Open the terminal UI. Needs a terminal on stdin and stdout.
+pub async fn run(args: Args) -> Result<()> {
+    use std::io::IsTerminal;
+    if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
+        bail!("the terminal UI needs a terminal; for headless use pass flags, e.g. --scrape, --nick NICK, --search TEXT, --export FILE (see --help)");
+    }
+    let db = home()?.join(DB_REL_PATH);
+    let prefs = load_prefs();
+    let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::from_prefs(prefs.theme.as_ref()),
+        session_path().map(|p| p.exists()).unwrap_or(false));
+    app.email = prefs.email.filter(|e| !e.is_empty());
+
+    let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
+    set_log_sink(Some(log_tx));
+    let r = event_loop(&mut app, log_rx).await;
+    set_log_sink(None);
+    let detached = r?;
+    if let Some((kind, pid, log)) = detached {
+        eprintln!("The {kind} keeps running in the background (pid {pid}). Follow it with:\n  tail -f {}", log.display());
+    }
+    Ok(())
+}
+
+async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) -> Result<Option<(&'static str, u32, PathBuf)>> {
+    use crossterm::{event::EnableMouseCapture, execute, terminal::{EnterAlternateScreen, enable_raw_mode}};
+    let jar = Arc::new(Jar::default());
+    if let Err(e) = load_session(&jar) { app.push_status(format!("warning: ignoring saved session: {e:#}")); }
+    let http = client(jar.clone())?;
+
+    enable_raw_mode()?;
+    execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| { restore_terminal(); prev(info); }));
+    let mut term = Terminal(ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(std::io::stdout()))?);
+
+    // Input thread → channel.
+    let (ev_tx, mut ev_rx) = tokio::sync::mpsc::unbounded_channel();
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop2 = stop.clone();
+    std::thread::spawn(move || {
+        while !stop2.load(std::sync::atomic::Ordering::Relaxed) {
+            if crossterm::event::poll(Duration::from_millis(100)).unwrap_or(false) {
+                match crossterm::event::read() { Ok(e) => { if ev_tx.send(e).is_err() { break; } } Err(_) => break }
+            }
+        }
+    });
+    let (msg_tx, mut msg_rx) = tokio::sync::mpsc::unbounded_channel::<Msg>();
+    let mut job: Option<jobs::Job> = None;
+    let mut code_tx: Option<tokio::sync::oneshot::Sender<String>> = None;
+    let mut login_task: Option<std::thread::JoinHandle<()>> = None;
+    let mut detached = None;
+    // Generation of the current login attempt; replies from abandoned ones are ignored.
+    let mut login_gen: u64 = 0;
+
+    'outer: loop {
+        let now = Instant::now();
+        app.tick(now);
+        term.0.draw(|f| widgets::draw(f, app, now))?;
+        let wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
+        tokio::select! {
+            Some(ev) = ev_rx.recv() => {
+                input::on_event(app, ev);
+                while let Ok(ev) = ev_rx.try_recv() { input::on_event(app, ev); }
+            }
+            Some(m) = msg_rx.recv() => match m {
+                Msg::SessionChecked(r, argv) => app.session_checked(r, argv),
+                Msg::LoginNeedCode(g) if g == login_gen => app.login_need_code(),
+                Msg::LoginDone(g, r) if g == login_gen => { code_tx = None; login_task = None; app.login_done(r); }
+                Msg::LoginNeedCode(_) | Msg::LoginDone(..) => {}
+            },
+            _ = tokio::time::sleep(wait) => {}
+        }
+        while let Ok(l) = log_rx.try_recv() { app.push_status(l); }
+        if let Some(j) = &mut job {
+            let (lines, status) = j.poll();
+            for l in lines { app.push_status(l); }
+            if let Some(st) = status {
+                let tail = jobs::tail(&j.log, 12);
+                app.job_finished(st.success(), st.code(), &tail);
+                job = None;
+            }
+        }
+        for eff in std::mem::take(&mut app.effects) {
+            match eff {
+                Effect::CheckSessionThenScan(argv) => {
+                    let (http, tx) = (http.clone(), msg_tx.clone());
+                    app.push_status("checking the saved session…");
+                    tokio::spawn(async move {
+                        let r = session_valid(&http).await.map_err(|e| format!("{e:#}"));
+                        let _ = tx.send(Msg::SessionChecked(r, argv));
+                    });
+                }
+                Effect::RunJob(kind, argv) => {
+                    if job.is_some() { app.error("Busy", "another job is still running"); continue; }
+                    match jobs::Job::spawn(kind, &argv) {
+                        Ok(j) => { app.job_started(JobView { kind, pid: j.pid(), log: j.log.clone() }, &j.cmd); job = Some(j); }
+                        Err(e) => app.error("Cannot start", &format!("{e:#}")),
+                    }
+                }
+                Effect::CancelJob => if let Some(mut j) = job.take() {
+                    if let Err(e) = j.cancel() { app.push_status(format!("error: cancel: {e:#}")); }
+                    app.job_cancelled();
+                },
+                Effect::LoginEmail(email) => {
+                    // The LiveView login future is not Send: run it on its own
+                    // single-threaded runtime. Dropping `code_tx` ends it.
+                    let (ctx, crx) = tokio::sync::oneshot::channel::<String>();
+                    code_tx = Some(ctx);
+                    login_gen += 1;
+                    let g = login_gen;
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    login_task = Some(std::thread::spawn(move || {
+                        let tx2 = tx.clone();
+                        let r = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+                            Ok(rt) => rt.block_on(login_flow(&http, &jar, Some(email), move || async move {
+                                let _ = tx2.send(Msg::LoginNeedCode(g));
+                                crx.await.map_err(|_| anyhow!("login cancelled"))
+                            })),
+                            Err(e) => Err(e.into()),
+                        };
+                        let _ = tx.send(Msg::LoginDone(g, r.map_err(|e| format!("{e:#}"))));
+                    }));
+                }
+                Effect::LoginCode(c) => match code_tx.take() {
+                    Some(tx) => { let _ = tx.send(c); }
+                    None => app.login_done(Err("the login expired; send a new code".into())),
+                },
+                Effect::LoginCancel => { code_tx = None; login_task = None; login_gen += 1; }
+                Effect::Logout => match logout(&jar) {
+                    Ok(removed) => app.logged_out(removed),
+                    Err(e) => app.error("Logout failed", &format!("{e:#}")),
+                },
+                Effect::Quit { cancel_job } => {
+                    if let Some(mut j) = job.take() {
+                        if cancel_job { let _ = j.cancel(); } else { detached = Some((j.kind.name(), j.pid(), j.log.clone())); }
+                    }
+                    break 'outer;
+                }
+            }
+        }
+    }
+    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    drop((code_tx, login_task));
+    drop(term);
+    Ok(detached)
+}
+
+#[cfg(test)]
+mod tests;

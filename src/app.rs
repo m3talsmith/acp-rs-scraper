@@ -59,8 +59,10 @@ pub fn run_clear_all(args: &Args) -> Result<()> {
 
 /// Run the program for the current process arguments.
 pub async fn run() -> Result<()> {
-    use clap::Parser;
-    let args = Args::parse();
+    let (args, tui) = match parse_with_mode(std::env::args_os()) {
+        Ok(v) => v,
+        Err(e) => e.exit(),
+    };
     if let Some(what) = args.generate {
         return generate(what, &mut io::stdout().lock());
     }
@@ -79,6 +81,9 @@ pub async fn run() -> Result<()> {
         init_file_logging(&ok, &bad)
             .map_err(|e| anyhow!("cannot open log files {} / {}: {e}", ok.display(), bad.display()))?;
         verbose!("logging to {} and {}", ok.display(), bad.display());
+    }
+    if tui {
+        return crate::tui::run(args).await;
     }
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let clean = |n: String| n.replace(['/', '\\'], "_");

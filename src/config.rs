@@ -145,3 +145,63 @@ pub const PROFILE_IMAGES_DIR: &str = "profiles";
 
 /// Id of the machine-readable JSON copy embedded in HTML exports.
 pub const HTML_DATA_ID: &str = "acp-data";
+
+// ---------------------------------------------------------------- terminal UI
+/// Arguments that do not count as "a flag was given" when deciding whether a bare
+/// invocation opens the terminal UI (logging only; they carry over to TUI scans).
+pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log"];
+
+/// ACP red (`#dc2626`, the HTML export's reply-link colour): the default TUI accent.
+pub const ACP_RED: (u8, u8, u8) = (0xdc, 0x26, 0x26);
+/// Default muted text colour (dates, ids, hints).
+pub const TUI_MUTED: (u8, u8, u8) = (0x9c, 0xa3, 0xaf);
+/// Default border colour of unfocused panes.
+pub const TUI_BORDER: (u8, u8, u8) = (0x4b, 0x55, 0x63);
+/// Default text colour on accent backgrounds.
+pub const TUI_ON_ACCENT: (u8, u8, u8) = (0xff, 0xff, 0xff);
+
+/// Title shown in the TUI top bar.
+pub const TUI_TITLE: &str = "ACP Red Star Scraper";
+/// Deepest stack of nested post details (linked posts opened from a detail).
+pub const MAX_DETAIL_DEPTH: usize = 8;
+/// Width of the nick bar (cells).
+pub const NICK_BAR_WIDTH: u16 = 28;
+/// Rows the post list keeps visible above and below an open detail (the "residual strip").
+pub const DETAIL_RESIDUAL_ROWS: u16 = 4;
+/// Rows each collapsed (parent) detail keeps as a header strip once a linked post opens over it.
+pub const DETAIL_HEADER_ROWS: u16 = 2;
+/// Slide/push animation length.
+pub const TUI_ANIM_MS: u64 = 180;
+/// Redraw interval while an animation runs.
+pub const TUI_FRAME_MS: u64 = 16;
+/// Idle redraw / background-job poll interval.
+pub const TUI_TICK_MS: u64 = 250;
+/// Status lines kept from scans and log output.
+pub const TUI_STATUS_KEEP: usize = 500;
+/// Smallest terminal the layout supports.
+pub const TUI_MIN_SIZE: (u16, u16) = (60, 16);
+/// Log files of scans/jobs started from the TUI (`tui-<kind>-<stamp>.log`), inside [`LOGS_REL_DIR`].
+pub const TUI_JOB_LOG_PREFIX: &str = "tui-";
+/// Key bindings shown in the Help modal (and the README).
+pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
+    ("Tab / Shift-Tab", "Focus Nicks → Body → Menu"),
+    ("↑ ↓  j k", "Move in the focused list; scroll a detail"),
+    ("Enter", "Open: nick (only it), post detail, linked post, menu item"),
+    ("Space", "Nicks: add/remove from the selection; menu: toggle checkbox"),
+    ("Shift-↑ / Shift-↓", "Nicks: extend the selection"),
+    ("Ctrl-A", "Nicks: select every nick"),
+    ("← →  [ ]", "Detail: previous / next link"),
+    ("Esc / Backspace", "Close the top detail; close menu / modal"),
+    ("<", "Back from search results"),
+    ("PgUp PgDn Home End", "Page / jump"),
+    ("m / F10 / Alt+letter", "Menu bar (underlined letter opens a command)"),
+    ("F5", "Start Scanning (Cancel while a job runs)"),
+    ("Shift-S", "Search modal: keyword, nicks, post id, dates, posts/replies"),
+    ("Ctrl-S (Ctrl-Shift-S)", "Clear the search"),
+    ("Ctrl-Space / Ctrl-P", "Command palette"),
+    ("l", "Show / hide the log panel"),
+    ("Ctrl-R", "Re-read nicks from the database"),
+    ("? / F1", "Help"),
+    ("q / Ctrl-C", "Quit (a running scan keeps going in the background)"),
+    ("Mouse", "Click anything; Ctrl/Shift-click nicks to multi-select; wheel scrolls"),
+];

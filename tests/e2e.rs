@@ -11,6 +11,7 @@ use rusqlite::Connection;
 use std::path::PathBuf;
 use support::mock::{CODE, Mock};
 use tokio::io::AsyncWriteExt;
+use acp_rs_scraper::tui::commands::{CommandId, Menu};
 
 /// Output of one run of the binary.
 #[derive(Debug, Default)]
@@ -29,6 +30,7 @@ struct E2e {
     last: Run,
     code: String,
     counters_before: (usize, usize),
+    menu: Option<Menu>,
 }
 
 impl E2e {
@@ -37,7 +39,7 @@ impl E2e {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         std::fs::create_dir_all(home.join(".acp")).unwrap();
         std::fs::write(home.join(".acp/preferences.toml"), "email = \"alice@example.test\"\n").unwrap();
-        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0) }
+        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None }
     }
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
@@ -46,8 +48,13 @@ impl E2e {
         Connection::open(self.db()).unwrap().query_row(sql, [], |r| r.get(0)).unwrap()
     }
     async fn run(&mut self, args: &str) {
+        let argv: Vec<String> = args.split_whitespace().map(String::from).collect();
+        self.run_argv(&argv).await;
+    }
+    /// Run the binary with these arguments (no `argv[0]`); `$HOME` is expanded.
+    async fn run_argv(&mut self, args: &[String]) {
         let base = self.mock.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "http://127.0.0.1:9".into());
-        let args: Vec<String> = args.split_whitespace().map(|a| a.replace("$HOME", &self.home.to_string_lossy())).collect();
+        let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &self.home.to_string_lossy())).collect();
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_acp-rs-scraper"))
             .args(&args).env("HOME", &self.home).env("ACP_BASE_URL", base).env_remove("ACP_DEBUG")
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
@@ -79,6 +86,43 @@ async fn will_enter(w: &mut E2e, code: String) { w.code = code; }
 async fn run(w: &mut E2e, args: String) {
     if let Some(m) = &w.mock { let i = m.inner.lock().unwrap(); w.counters_before = (i.page_next, i.thread_gets); }
     w.run(&args).await;
+}
+
+impl E2e {
+    fn menu(&mut self) -> &mut Menu {
+        use clap::Parser;
+        self.menu.get_or_insert_with(|| Menu::new(&acp_rs_scraper::cli::Args::parse_from(["acp-rs-scraper"])))
+    }
+}
+
+#[given(expr = "the TUI Scrape menu has {string} off")]
+async fn scrape_opt_off(w: &mut E2e, label: String) {
+    let key = w.menu().items.iter().find(|i| i.id == CommandId::Scrape).unwrap()
+        .opts.iter().find(|o| o.label == label).unwrap().key;
+    w.menu().set_check(CommandId::Scrape, key, false);
+}
+
+#[when(expr = "I start scanning from the TUI with the nicks {string} selected")]
+async fn tui_scan(w: &mut E2e, nicks: String) {
+    let sel: Vec<String> = nicks.split(',').map(String::from).collect();
+    let argv = w.menu().scrape_argv(&sel).unwrap();
+    w.run_argv(&argv[1..]).await;
+}
+
+#[when(expr = "I export the TUI selection {string} to {string} as {string}")]
+async fn tui_export(w: &mut E2e, nicks: String, path: String, format: String) {
+    let sel: Vec<String> = nicks.split(',').map(String::from).collect();
+    w.menu().set_text(CommandId::Export, "path", &path);
+    w.menu().set_choice(CommandId::Export, "format", &format);
+    let argv = w.menu().export_argv(&sel, None).unwrap();
+    w.run_argv(&argv[1..]).await;
+}
+
+#[when(expr = "I remove the TUI selection {string} from the Maintain menu")]
+async fn tui_remove(w: &mut E2e, nicks: String) {
+    let sel: Vec<String> = nicks.split(',').map(String::from).collect();
+    let argv = w.menu().remove_argv(&sel).unwrap();
+    w.run_argv(&argv[1..]).await;
 }
 
 #[then("it succeeds")]

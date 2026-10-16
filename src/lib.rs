@@ -18,6 +18,8 @@
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`maintenance`]: `--remove-nick` and `--clear-all`.
+//! - [`tui`]: the terminal UI (the default with no flags): browse nicks and posts,
+//!   drive scrape/search/export/import/maintenance from a menu bar.
 //! - [`app`]: wires the above into the command-line program.
 
 #![warn(missing_docs)]
@@ -36,6 +38,7 @@ pub mod maintenance;
 pub mod media;
 pub mod scrape;
 pub mod storage;
+pub mod tui;
 
 /// Everything most modules need, re-exported in one place: the crate's own
 /// items (so domain modules can call each other without long paths) and the
