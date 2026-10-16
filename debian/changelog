@@ -1,5 +1,8 @@
-acp-rs-scraper (1.25.0) unstable; urgency=medium
+acp-rs-scraper (1.26.0) unstable; urgency=medium
 
+  * Complete truncated post/comment bodies from thread pages, keep paragraph
+    breaks, add --refetch-truncated (1.26.0).
+  * Label posts vs replies in exports (1.25.1).
   * --format accepts several formats (json,html or repeated) in one run (1.25.0).
   * Redact CSRF/session secrets in --debug wire logs (1.24.0).
   * Fail on unknown nicks instead of scraping Trending; never write empty exports (1.23.0).

@@ -16,7 +16,8 @@ pub const POSTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS posts (
             nick TEXT NOT NULL,
             title TEXT NOT NULL,
             content TEXT NOT NULL,
-            posted_at TEXT NOT NULL
+            posted_at TEXT NOT NULL,
+            body_state TEXT NOT NULL DEFAULT 'unknown'
         );
         CREATE UNIQUE INDEX IF NOT EXISTS posts_post_id_uq ON posts(post_id);";
 
@@ -25,9 +26,16 @@ pub const POSTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS posts (
 pub const POSTS_ADD_IN_REPLY_TO: &str = "ALTER TABLE posts ADD COLUMN in_reply_to_id TEXT NOT NULL DEFAULT '';
         UPDATE posts SET in_reply_to_id = parent_post_id WHERE in_reply_to_id = '' AND parent_post_id <> '';";
 
+/// Run when `posts` lacks `body_state` (databases before 1.26.0). Values:
+/// `full` (complete body), `truncated` (only the feed's shortened preview
+/// was available) and `unknown` (stored before 1.26.0, could be either;
+/// `--refetch-truncated` checks these against their thread page).
+pub const POSTS_ADD_BODY_STATE: &str = "ALTER TABLE posts ADD COLUMN body_state TEXT NOT NULL DEFAULT 'unknown';";
+
 /// Indexes on the relationship columns (safe to re-run).
 pub const POSTS_MIGRATIONS: &str = "CREATE INDEX IF NOT EXISTS posts_parent_idx ON posts(parent_post_id);
-        CREATE INDEX IF NOT EXISTS posts_in_reply_to_idx ON posts(in_reply_to_id);";
+        CREATE INDEX IF NOT EXISTS posts_in_reply_to_idx ON posts(in_reply_to_id);
+        CREATE INDEX IF NOT EXISTS posts_body_state_idx ON posts(body_state);";
 
 /// `profiles` table: one row per scraped nick, upserted every scrape.
 pub const PROFILES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS profiles (

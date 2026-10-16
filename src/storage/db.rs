@@ -2,8 +2,9 @@
 
 use crate::prelude::*;
 
-/// Stored `post_id`s that have a body (or attachments); blank rows are left
-/// out so the next scrape re-fetches and repairs them. Empty when there is no database yet.
+/// Stored `post_id`s that have a body (or attachments); blank rows and rows
+/// whose body is known to be truncated are left out so the next scrape
+/// re-fetches and repairs them. Empty when there is no database yet.
 pub fn db_known_ids(db: &std::path::Path) -> Result<HashSet<String>> {
     let mut out = HashSet::new();
     if !db.exists() { return Ok(out); }
@@ -15,12 +16,16 @@ pub fn db_known_ids(db: &std::path::Path) -> Result<HashSet<String>> {
     let has_atts: bool = c.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='attachments'", [],
         |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
-    let sql = if has_atts {
-        "SELECT post_id FROM posts WHERE content <> '' OR title <> '' OR post_id IN (SELECT post_id FROM attachments)"
+    let has_state: bool = c.query_row(
+        "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'body_state'", [],
+        |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
+    let base = if has_atts {
+        "(content <> '' OR title <> '' OR post_id IN (SELECT post_id FROM attachments))"
     } else {
-        "SELECT post_id FROM posts WHERE content <> '' OR title <> ''"
+        "(content <> '' OR title <> '')"
     };
-    let mut st = c.prepare(sql)?;
+    let extra = if has_state { " AND body_state <> 'truncated'" } else { "" };
+    let mut st = c.prepare(&format!("SELECT post_id FROM posts WHERE {base}{extra}"))?;
     for id in st.query_map([], |r| r.get::<_, String>(0))? { out.insert(id?); }
     Ok(out)
 }
@@ -127,18 +132,21 @@ pub fn save(posts: &[Post]) -> Result<usize> {
     let mut n = 0;
     {
         let mut st = tx.prepare(
-            "INSERT INTO posts (post_id,parent_post_id,in_reply_to_id,nick,title,content,posted_at)
-             VALUES (?1,?2,?3,?4,?5,?6,?7)
+            "INSERT INTO posts (post_id,parent_post_id,in_reply_to_id,nick,title,content,posted_at,body_state)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
              ON CONFLICT(post_id) DO UPDATE SET
-               title = CASE WHEN posts.content = '' AND posts.title = '' THEN excluded.title ELSE posts.title END,
-               content = CASE WHEN posts.content = '' AND posts.title = '' THEN excluded.content ELSE posts.content END,
+               title = CASE WHEN (posts.content = '' AND posts.title = '') OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND excluded.title <> '') THEN excluded.title ELSE posts.title END,
+               content = CASE WHEN (posts.content = '' AND posts.title = '') OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND excluded.content <> '') THEN excluded.content ELSE posts.content END,
+               body_state = CASE WHEN excluded.body_state = 'full' AND (excluded.content <> '' OR posts.content = '') THEN 'full' ELSE posts.body_state END,
                in_reply_to_id = CASE WHEN excluded.in_reply_to_id <> '' AND excluded.in_reply_to_id <> excluded.parent_post_id
                                 THEN excluded.in_reply_to_id ELSE posts.in_reply_to_id END
              WHERE (posts.content = '' AND posts.title = '' AND (excluded.content <> '' OR excluded.title <> ''))
+                OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND (excluded.content <> '' OR posts.content = ''))
                 OR (excluded.in_reply_to_id <> '' AND excluded.in_reply_to_id <> excluded.parent_post_id
                     AND excluded.in_reply_to_id <> posts.in_reply_to_id)")?;
         for p in posts {
-            n += st.execute(params![p.post_id, p.parent_post_id, p.in_reply_to_id, p.nick, p.title, p.content, p.posted_at])?;
+            let state = if p.truncated { "truncated" } else { "full" };
+            n += st.execute(params![p.post_id, p.parent_post_id, p.in_reply_to_id, p.nick, p.title, p.content, p.posted_at, state])?;
         }
     }
     tx.commit()?;
@@ -154,6 +162,10 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
         "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'in_reply_to_id'", [],
         |r| r.get::<_, i64>(0))? > 0;
     if !has { c.execute_batch(&format!("BEGIN; {POSTS_ADD_IN_REPLY_TO} COMMIT;"))?; }
+    let has_state: bool = c.query_row(
+        "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'body_state'", [],
+        |r| r.get::<_, i64>(0))? > 0;
+    if !has_state { c.execute_batch(POSTS_ADD_BODY_STATE)?; }
     c.execute_batch(POSTS_MIGRATIONS)?;
     Ok(())
 }
@@ -268,10 +280,11 @@ pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Ve
     let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
     ensure_posts_schema(&c)?;
     let like = query.map(|q| format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")));
-    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id";
+    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state";
     let row = |r: &rusqlite::Row| -> rusqlite::Result<Post> {
         Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
-                  content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new() })
+                  content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new(),
+                  truncated: r.get::<_, String>(7)? == "truncated" })
     };
     let mut st = c.prepare(&format!(
         "SELECT {cols} FROM posts WHERE (?1 IS NULL OR title LIKE ?1 ESCAPE '\\' OR content LIKE ?1 ESCAPE '\\')

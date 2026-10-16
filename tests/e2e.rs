@@ -177,6 +177,26 @@ async fn content(w: &mut E2e, id: String, c: String) {
     assert_eq!(got.trim(), c);
 }
 
+#[then(expr = "post {string} has {int} paragraphs ending {string}")]
+async fn paragraphs(w: &mut E2e, id: String, n: usize, end: String) {
+    let got: String = Connection::open(w.db()).unwrap()
+        .query_row("SELECT content FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
+    assert_eq!(got.split("\n\n").count(), n, "{got:?}");
+    assert!(got.ends_with(&end), "{got:?}");
+}
+
+#[then(expr = "post {string} has body state {string}")]
+async fn body_state(w: &mut E2e, id: String, st: String) {
+    let got: String = Connection::open(w.db()).unwrap()
+        .query_row("SELECT body_state FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
+    assert_eq!(got, st);
+}
+
+#[given(expr = "post {string} was stored truncated as {string}")]
+async fn stored_truncated(w: &mut E2e, id: String, st: String) {
+    Connection::open(w.db()).unwrap().execute("UPDATE posts SET content='short…', body_state=?2 WHERE post_id=?1", [&id, &st]).unwrap();
+}
+
 #[given(expr = "post {string} was stored blank")]
 async fn blank(w: &mut E2e, id: String) {
     Connection::open(w.db()).unwrap().execute("UPDATE posts SET content='', title='' WHERE post_id=?1", [&id]).unwrap();

@@ -52,7 +52,7 @@ pub mod prelude {
     pub use crate::logging::*;
     pub use crate::maintenance::*;
     pub use crate::media::*;
-    pub use crate::scrape::{feed::*, mentions::*, profile::*, thread::*, *};
+    pub use crate::scrape::{feed::*, mentions::*, profile::*, refetch::*, thread::*, *};
     pub use crate::storage::{db::*, schema::*};
 
     pub use anyhow::{Context, Result, anyhow, bail};

@@ -25,7 +25,7 @@ pub fn build_json(nick: &str, posts: &[Post], atts: &[Attachment], profiles: &[P
         ch.sort_by(|a, b| a.posted_at.cmp(&b.posted_at));
         json!({
             "post_id": p.post_id, "kind": post_kind(p), "parent_post_id": p.parent_post_id, "in_reply_to_id": p.in_reply_to_id, "nick": p.nick,
-            "title": p.title, "content": p.content, "posted_at": p.posted_at,
+            "title": p.title, "content": p.content, "posted_at": p.posted_at, "truncated": p.truncated,
             "attachments": by.get(p.post_id.as_str()).cloned().unwrap_or_default(),
             "children": ch.iter().map(|c| node(c, kids, by)).collect::<Vec<_>>(),
         })

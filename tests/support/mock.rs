@@ -6,6 +6,8 @@
 //! - alice: root posts A1..A5 (A1 has an image), and reply AR1 in bob's thread B1
 //! - bob: root B1 ("hello @alice ..."), reply R1 in alice's thread A1
 //! - carol: root C1 (unrelated)
+//! - dave: replies DR1/DR2 in C1 (HTML body / no feed body)
+//! - erin: root E1 and reply ER1, both truncated in feeds (full on the thread page)
 
 use axum::{
     Router,
@@ -59,6 +61,10 @@ fn body(text: &str) -> Value {
     json!({"type": "doc", "content": [{"type": "paragraph", "content": [{"type": "text", "text": text}]}]})
 }
 
+fn paras(ps: &[&str]) -> Value {
+    json!({"type": "doc", "content": ps.iter().map(|t| json!({"type": "paragraph", "content": [{"type": "text", "text": t}]})).collect::<Vec<_>>()})
+}
+
 /// Every post on the mock site.
 fn posts(base: &str) -> Vec<Value> {
     let author = |n: &str| json!({"username": n, "user_id": format!("u-{n}"), "display_name": format!("{} Example", n.to_uppercase()),
@@ -89,6 +95,12 @@ fn posts(base: &str) -> Vec<Value> {
         // `postRef` node in the body; the thread itself stays flat (thread_id C1).
         { let mut r = reply("DR2", "C1", "dave", 11, "dave full reply from the thread"); r["feed_body_missing"] = json!(true);
           r["body"]["content"].as_array_mut().unwrap().insert(0, json!({"type": "postRef", "attrs": {"postId": "DR1", "threadId": "C1"}})); r },
+        // erin writes long posts: feeds send them shortened (`body_truncated`,
+        // first paragraph only plus `body_text_summary`); the thread page has it all.
+        { let mut r = root("E1", "erin", 12, "", 1); r["body"] = paras(&["Erin para one.", "Erin para two.", "Erin para three ends here."]);
+          r["feed_truncated"] = json!(true); r },
+        { let mut r = reply("ER1", "E1", "erin", 13, ""); r["body"] = paras(&["Erin reply one.", "Erin reply two ends here."]);
+          r["feed_truncated"] = json!(true); r },
     ]
 }
 
@@ -103,6 +115,15 @@ fn feed(base: &str, who: Option<&str>, replies: bool) -> Vec<Value> {
     }).collect();
     for p in &mut v {
         if p["feed_body_missing"] == true { p["body"] = Value::Null; }
+        if p["feed_truncated"] == true {
+            let first = p["body"]["content"][0].clone();
+            let summary = first["content"][0]["text"].as_str().unwrap_or("").to_string() + "…";
+            p["body"] = json!({"type": "doc", "content": [first]});
+            p["body_truncated"] = json!(true);
+            p["truncate"] = json!(true);
+            p["body_text_summary"] = json!(summary);
+        }
+        if let Some(m) = p.as_object_mut() { m.remove("feed_truncated"); m.remove("feed_body_missing"); }
     }
     v.sort_by(|a, b| b["inserted_at"].as_str().cmp(&a["inserted_at"].as_str()));
     v
@@ -159,6 +180,11 @@ async fn thread(State(m): State<Mock>, h: HeaderMap, Path(id): Path<String>) -> 
     let all = posts(&m.base);
     let Some(root) = all.iter().find(|p| p["id"] == id.as_str()).cloned() else { return StatusCode::NOT_FOUND.into_response() };
     let replies: Vec<Value> = all.iter().filter(|p| p["thread_id"] == id.as_str() && p["id"] != id.as_str()).cloned().collect();
+    let mut root = root;
+    let mut replies = replies;
+    for p in std::iter::once(&mut root).chain(replies.iter_mut()) {
+        if let Some(m) = p.as_object_mut() { m.remove("feed_truncated"); m.remove("feed_body_missing"); m.insert("body_truncated".into(), json!(false)); }
+    }
     let props = json!({"root": root, "replies": replies});
     html(lv_page(&format!(r#"<div id="forum/Thread" data-props="{}"></div>"#, esc(&props.to_string()))))
 }

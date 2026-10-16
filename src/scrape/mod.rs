@@ -4,6 +4,7 @@
 pub mod feed;
 pub mod mentions;
 pub mod profile;
+pub mod refetch;
 pub mod thread;
 
 use crate::prelude::*;
@@ -28,6 +29,31 @@ pub struct Post {
     pub posted_at: String,
     /// Media referenced by the post (url, kind).
     pub media: Vec<MediaRef>,
+    /// The body is the feed's shortened preview (`body_truncated: true`),
+    /// not the full text; stored as `body_state = 'truncated'`.
+    pub truncated: bool,
+}
+
+/// Whether a site post JSON (or its `post`/`reply` wrapper) only carries a
+/// shortened body: the feed sets `body_truncated: true` and the full text is
+/// on the thread page (`/rs/post/{thread}`), which is what "show more" opens.
+pub fn is_truncated(v: &Value) -> bool {
+    let t = |x: &Value| x.get("body_truncated").and_then(Value::as_bool).unwrap_or(false);
+    t(v) || ["post", "reply"].iter().filter_map(|k| v.get(*k)).any(t)
+}
+
+/// Normalise flattened body text: trailing spaces off every line, runs of
+/// blank lines collapsed to one blank line (the paragraph break), ends trimmed.
+pub fn tidy_text(s: &str) -> String {
+    let mut out = String::new();
+    let mut blanks = 0;
+    for line in s.lines().map(str::trim_end) {
+        if line.is_empty() { blanks += 1; continue; }
+        if !out.is_empty() { out.push_str(if blanks > 0 { "\n\n" } else { "\n" }); }
+        blanks = 0;
+        out.push_str(line);
+    }
+    out
 }
 
 /// Flatten a ProseMirror doc (`{type, text?, content:[...]}`) to plain text.
@@ -44,8 +70,10 @@ pub fn prosemirror_text(v: &Value, out: &mut String) {
             prosemirror_text(k, out);
         }
     }
+    // Block nodes end with a blank line so paragraphs stay separate
+    // ([`tidy_text`] collapses the extra ones from nested blocks).
     if matches!(ty, "paragraph" | "heading" | "blockquote" | "list_item" | "listItem" | "code_block" | "codeBlock") {
-        out.push('\n');
+        out.push_str("\n\n");
     }
 }
 
@@ -63,8 +91,10 @@ pub fn html_to_text(s: &str) -> String {
         let Some(j) = rest[i..].find('>') else { out.push_str(&rest[i..]); rest = ""; break };
         let tag = rest[i + 1..i + j].trim_start_matches('/').to_ascii_lowercase();
         let name = tag.split(|c: char| !c.is_ascii_alphanumeric()).next().unwrap_or("");
-        if matches!(name, "br" | "p" | "div" | "li" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "pre") && !out.ends_with('\n') {
+        if name == "br" {
             out.push('\n');
+        } else if matches!(name, "p" | "div" | "li" | "blockquote" | "h1" | "h2" | "h3" | "h4" | "pre") && !out.ends_with("\n\n") {
+            out.push_str("\n\n");
         }
         rest = &rest[i + j + 1..];
     }
@@ -106,7 +136,7 @@ pub fn body_text(v: &Value) -> String {
     }
     for k in ["body", "body_html", "body_text", "body_text_summary", "text", "content", "html"] {
         if let Some(b) = v.get(k) {
-            let t = from_body(b).trim().to_string();
+            let t = tidy_text(&from_body(b));
             if !t.is_empty() { return t; }
         }
     }
@@ -156,6 +186,7 @@ pub fn to_post(v: &Value, parent: &str, fallback_nick: &str) -> Post {
         content,
         posted_at: s(v, "inserted_at"),
         media: { let mut m = Vec::new(); collect_media(v, &mut m); m },
+        truncated: is_truncated(v),
     }
 }
 
@@ -179,6 +210,10 @@ pub struct ScrapeStats {
     pub skipped_other: usize,
     /// Posts whose body had to be read from their thread page.
     pub bodies_from_thread: usize,
+    /// Feed items that only carried a shortened body (`body_truncated`).
+    pub truncated_in_feed: usize,
+    /// Of those, how many got their full text from the thread page.
+    pub truncated_completed: usize,
 }
 
 /// Scrape a nick: the Posts feed and the "Posts and replies" filter (merged by id), then replies in every thread the nick started that changed since the last run. Returns the posts, the profile HTML and counts.
@@ -226,10 +261,12 @@ pub async fn scrape(
             out.push(to_post(it, &thread, nick));
         }
     }
-    // Fill posts whose feed item had no readable body from their thread page,
-    // where the full reply is always rendered (one fetch per thread).
+    // Fill posts whose feed item had no readable body, or only a shortened
+    // one (`body_truncated`), from their thread page, where the root and every
+    // reply are rendered in full (one fetch per thread, shared by its posts).
     let mut thread_cache: HashMap<String, Vec<Value>> = HashMap::new();
-    for p in out.iter_mut().filter(|p| p.content.is_empty() && p.media.is_empty()) {
+    stats.truncated_in_feed = out.iter().filter(|p| p.truncated).count();
+    for p in out.iter_mut().filter(|p| p.truncated || (p.content.is_empty() && p.media.is_empty())) {
         let tid = if p.parent_post_id.is_empty() { p.post_id.clone() } else { p.parent_post_id.clone() };
         if !thread_cache.contains_key(&tid) {
             let got = match fetch_thread(http, jar, &tid).await {
@@ -237,9 +274,13 @@ pub async fn scrape(
                 Err(e) => { verbose!("thread {tid}: {e:#}"); Vec::new() }
             };
             thread_cache.insert(tid.clone(), got);
+            polite_pause().await;
         }
         if let Some(full) = thread_cache[&tid].iter().find(|x| s(x, "id") == p.post_id) {
             let fp = to_post(full, &p.parent_post_id, nick);
+            if fp.content.is_empty() && p.truncated { continue; }
+            if p.truncated && !fp.truncated { stats.truncated_completed += 1; }
+            p.truncated = fp.truncated;
             p.content = fp.content;
             if p.in_reply_to_id == p.parent_post_id { p.in_reply_to_id = fp.in_reply_to_id; }
             if p.title.is_empty() { p.title = fp.title; }
@@ -259,7 +300,9 @@ pub async fn scrape(
             continue;
         }
         stats.threads_fetched += 1;
-        let (_, replies) = match fetch_thread(http, jar, &tid).await {
+        let cached = thread_cache.remove(&tid);
+        let fetched = match cached { Some(r) => Ok((Value::Null, r)), None => fetch_thread(http, jar, &tid).await };
+        let (_, replies) = match fetched {
             Ok(x) => x,
             Err(e) => { err!("warning: {e:#}"); continue; }
         };
@@ -292,6 +335,13 @@ pub fn said_by_nick(v: &Value, nick: &str) -> bool {
         }
     }
     true
+}
+
+
+/// Pause between thread-page fetches made only to complete bodies
+/// ([`THREAD_FETCH_PAUSE_MS`]), so a large backfill stays gentle on the site.
+pub async fn polite_pause() {
+    tokio::time::sleep(std::time::Duration::from_millis(THREAD_FETCH_PAUSE_MS)).await;
 }
 
 #[cfg(test)]

@@ -6,6 +6,30 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.26.0] - 2026-10-16
+
+One feature/fix since 1.25.1 (minor 25 → 26).
+
+### Fixed
+1. **Truncated post and comment text.** Feeds send long posts and replies shortened
+   (`body_truncated: true`, a cut `body` doc and `body_text_summary`: the site's "show more"), and the
+   scraper stored that preview. Every truncated feed item is now completed from its thread page
+   (`/rs/post/{thread}`), which has the full body of the root and every reply; one fetch per thread,
+   shared with the reply crawl, with a 250 ms pause after each fill-in fetch.
+2. **Paragraph breaks.** Bodies keep a blank line between paragraphs (ProseMirror blocks and HTML
+   `<p>`/`<div>`; `<br>`/hard breaks stay single newlines). HTML exports render each paragraph as `<p>`.
+
+### Added
+- `--refetch-truncated`: backfill stored rows whose body isn't known to be complete, for the given nicks
+  or (with no nick) every nick and nothing else. Prints rows checked / completed / already full / not found.
+- `posts.body_state` column (`full` / `truncated` / `unknown`), added in place to older databases
+  (existing rows become `unknown`). A row stored `truncated` is re-read on the next scrape that sees it,
+  and saving a full body over a non-`full` row replaces its text.
+- JSON exports carry `"truncated"` per post; scrape summaries report truncated feed bodies and how many
+  were completed.
+- Tests: unit tests for paragraphs, truncation flags, the migration and backfill selection; e2e
+  `truncated.feature` (mock feed with truncated post + reply, backfill, re-scrape repair).
+
 ## [1.25.1] - 2026-10-16
 
 Bug fix since 1.25.0 (patch).

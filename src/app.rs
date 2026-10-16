@@ -150,6 +150,12 @@ pub async fn run() -> Result<()> {
     let http = client(jar.clone())?;
     login(&http, &jar).await?;
     let mut nicks = args.nick_list()?;
+    if args.refetch_truncated {
+        let st = refetch_truncated(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;
+        info!("== refetch-truncated: {} rows checked, {} completed, {} already full, {} not found ({} thread pages)",
+            st.candidates, st.fixed, st.already_full, st.missing, st.threads);
+        if nicks.is_empty() { return Ok(()); }
+    }
     if nicks.is_empty() {
         nicks = parse_nicks(&prompt("Nick(s) to scrape (comma-separated): ")?).map_err(|e| anyhow!(e))?.0;
     }
@@ -184,6 +190,10 @@ pub async fn run() -> Result<()> {
             Ok((ps, html, st)) => {
                 info!("  @{nick}: feed {} items ({} from posts and replies), ~{} new, {} skipped known, threads fetched {} / skipped {}",
                     st.feed_items, st.replies_tab_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);
+                if st.truncated_in_feed > 0 {
+                    info!("  @{nick}: {} truncated feed bodies, {} completed from thread pages",
+                        st.truncated_in_feed, st.truncated_completed);
+                }
                 let mut profile = Profile {
                     nick: nick.clone(),
                     scraped_at: chrono::Local::now().to_rfc3339(),

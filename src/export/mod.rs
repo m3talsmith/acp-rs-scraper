@@ -198,7 +198,7 @@ mod tests {
 
     fn post() -> Post {
         Post { post_id: "p1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: "hazaldin".into(),
-            title: "t".into(), content: "hello multi".into(), posted_at: "2026-10-15T00:00:00Z".into(), media: vec![] }
+            title: "t".into(), content: "hello multi".into(), posted_at: "2026-10-15T00:00:00Z".into(), media: vec![], truncated: false }
     }
 
     #[test]

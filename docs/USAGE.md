@@ -75,6 +75,7 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 | `--nicks <LIST>` | A comma-separated list, e.g. `@hazaldin,@m3talsmith`. Spaces are trimmed, `@` is optional, and repeats are removed (ignoring case). |
 | `--no-mentions` | Skip the mentions crawl, which is on by default. |
 | `--said-by` | Only what the nick said: their own top-level posts **and** their own replies/comments, from the Posts and "Posts and replies" feeds. Other people's replies in the nick's threads aren't fetched and the mentions crawl is skipped (implies `--no-mentions`). A thread page is read only when one of the nick's own items has a blank body in the feed. Exports list the posts first and the replies after, each marked `"kind": "post"`/`"reply"` (JSON) and with a Post/Reply badge (HTML). |
+| `--refetch-truncated` | Complete bodies that were stored shortened. Feeds send long posts and comments truncated (`body_truncated: true`, the "show more" case); the scraper now reads the full text from the thread page during every scrape, and this flag backfills rows already in the DB: every row whose `body_state` isn't `full` (rows saved truncated, and every row stored before 1.26.0, `unknown`) for the given nicks — or all nicks when none is given, in which case nothing else is scraped. One thread page per thread, fetched one at a time with a short pause. Needs a login. |
 | `--crawl-limit <N>` | The most site-feed posts to scan when looking for mentions (default 500). |
 | `--no-attachments` | Don't download media, avatars or banners. Profile images are otherwise saved to `~/.acp/ai/data/attachments/profiles/<nick>.<ext>` and shown in HTML exports. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
@@ -192,6 +193,10 @@ acp-rs-scraper --nick alice --said-by
 acp-rs-scraper --nicks @hazaldin --latest
 acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 300
 
+# Complete posts/comments stored with truncated ("show more") text
+acp-rs-scraper --refetch-truncated                     # every nick in the DB, nothing else
+acp-rs-scraper --nick alice --said-by --refetch-truncated   # backfill alice, then scrape as usual
+
 # Incremental re-run (default) vs full re-crawl
 acp-rs-scraper --nick alice          # stops paging at known posts, skips unchanged threads
 acp-rs-scraper --nick alice --full   # refetches everything
@@ -246,9 +251,16 @@ CREATE TABLE posts (
                                   -- else the thread root; '' for thread roots
   nick TEXT NOT NULL,             -- author username
   title TEXT NOT NULL,            -- '' for replies
-  content TEXT NOT NULL,          -- ProseMirror body flattened to text
-  posted_at TEXT NOT NULL         -- inserted_at (ISO 8601)
+  content TEXT NOT NULL,          -- ProseMirror body flattened to text; paragraphs
+                                  -- separated by a blank line (1.26.0)
+  posted_at TEXT NOT NULL,        -- inserted_at (ISO 8601)
+  body_state TEXT NOT NULL DEFAULT 'unknown'  -- 'full' | 'truncated' | 'unknown' (1.26.0)
 );
+
+-- body_state (1.26.0, index posts_body_state_idx): 'full' = complete body;
+-- 'truncated' = only the feed's shortened preview could be read (the thread page
+-- failed), re-read on the next scrape that sees it; 'unknown' = stored before 1.26.0.
+-- --refetch-truncated re-reads the thread page of every row that isn't 'full'.
 
 -- How nesting works on the site: threads are flat (every reply carries only
 -- thread_id). Replying to a comment puts a postRef node {postId, threadId} at the
@@ -309,7 +321,7 @@ A nick's own posts can also be recorded as mentions of that nick.
   "mentions": [ { "post_id": "...", "mentioned_nick": "alice", "match_type": "mention" } ],
   "posts": [ {
       "post_id": "...", "kind": "post", "parent_post_id": "", "in_reply_to_id": "", "nick": "alice", "title": "...",
-      "content": "...", "posted_at": "...",
+      "content": "...", "posted_at": "...", "truncated": false,
       "attachments": [ { "url": "...", "kind": "image", "mime_type": "image/png",
                          "local_path": "attachments/abc123.png" } ],
       "children": [ /* replies, same shape; nested under their thread root */ ]
@@ -354,6 +366,7 @@ A nick's own posts can also be recorded as mentions of that nick.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
 - **Logins:** each scrape run needs a fresh email code.
+- **Truncated bodies:** feeds shorten long posts and comments (`body_truncated: true`, cut `body` plus `body_text_summary`). Checked on the live site: the thread page (`/rs/post/{thread}`) carries every item's full body with `body_truncated: false`, so the scraper reads it (once per thread) instead of pushing the "show more" action over LiveView.
 
 ## Contributing
 
@@ -369,7 +382,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/features/*.feature` and the steps in `tests/e2e.rs`. It runs the real binary against a **mock acp.us** (`tests/support/mock.rs`: HTTP pages, the LiveView websocket, OTP sign-in, threads and media) with a temporary `HOME`. It covers:
 - login (right and wrong code);
@@ -377,6 +390,7 @@ The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/featur
 - incremental runs and `--full`;
 - mentions;
 - the "Posts and replies" URL and its form fallback;
+- truncated feed bodies completed from the thread page, and `--refetch-truncated`;
 - search, export/import round trip, `--remove-nick` and `--clear-all`.
 
 It never contacts the real site.

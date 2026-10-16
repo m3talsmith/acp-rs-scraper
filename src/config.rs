@@ -109,6 +109,9 @@ pub const THREAD_NEXT_EVENT: &str = "next-page";
 
 /// Safety cap on pages fetched from any one feed or thread.
 pub const MAX_PAGES: u32 = 10_000;
+/// Milliseconds to wait after each thread page fetched only to complete a
+/// truncated or missing body (scrape fill-in and `--refetch-truncated`).
+pub const THREAD_FETCH_PAUSE_MS: u64 = 250;
 
 /// GUESSED (ForumProfileInfo hook): hover-card event, unused for scraping.
 pub const PROFILE_SHOW_INFO_EVENT: &str = "show-info";

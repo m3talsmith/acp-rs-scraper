@@ -54,7 +54,7 @@ pub fn html_post(v: &Value, out: &mut String, depth: usize, ids: &HashSet<String
     if !g("title").is_empty() { out.push_str(&format!("<h2>{}</h2>", esc(&g("title")))); }
     out.push_str(&format!("<div class=\"meta\"><span class=\"badge {kind}\">{}</span> <b>@{}</b> · <time>{}</time></div>", if kind == "post" { "Post" } else { "Reply" }, esc(&g("nick")), esc(&g("posted_at"))));
     out.push_str(&reply_links(&g("parent_post_id"), &g("in_reply_to_id"), ids));
-    out.push_str(&format!("<div class=\"body\">{}</div>", esc(&g("content")).replace('\n', "<br>")));
+    out.push_str(&format!("<div class=\"body\">{}</div>", paragraphs_html(&g("content"))));
     for a in v["attachments"].as_array().into_iter().flatten() {
         let p = esc(a["local_path"].as_str().unwrap_or_default());
         let m = a["mime_type"].as_str().unwrap_or_default();
@@ -124,7 +124,7 @@ pub fn build_html(doc: &Value) -> String {
 body{{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:2em auto;padding:0 1em;color:#18181b;background:#fafafa}}
 .post{{background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:.8em 1em;margin:.8em 0}}
 .post .post{{margin-left:1.2em;border-left:3px solid #dc2626;border-radius:0 8px 8px 0}}
-h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .body{{margin:.5em 0;white-space:normal}}
+h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .body{{margin:.5em 0;white-space:normal}} .body p{{margin:0 0 .7em}}
 .att img,.att video{{max-width:100%;border-radius:6px}} .att{{margin:.4em 0}}
 .profile{{display:flex;gap:1em;align-items:flex-start;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:1em;margin:1em 0}}
 .profile .avatar{{width:72px;height:72px;border-radius:50%;object-fit:cover}}
@@ -135,6 +135,14 @@ h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .bod
         esc(doc["exported_at"].as_str().unwrap_or_default()),
         data_id = HTML_DATA_ID,
         data = doc.to_string().replace('<', "\\u003c"))
+}
+
+/// Body text as HTML paragraphs: blank lines split `<p>`s, single newlines
+/// inside a paragraph become `<br>`.
+pub fn paragraphs_html(text: &str) -> String {
+    text.split("\n\n").map(str::trim).filter(|p| !p.is_empty())
+        .map(|p| format!("<p>{}</p>", esc(p).replace('\n', "<br>")))
+        .collect()
 }
 
 #[cfg(test)]

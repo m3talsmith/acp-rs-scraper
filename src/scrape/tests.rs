@@ -11,7 +11,7 @@ fn prosemirror_object_and_string_bodies() {
 
 #[test]
 fn html_and_plain_string_bodies() {
-    assert_eq!(body_text(&json!({"body": "<p>a &amp; <b>b</b></p><p>c</p>"})), "a & b\nc");
+    assert_eq!(body_text(&json!({"body": "<p>a &amp; <b>b</b></p><p>c</p>"})), "a & b\n\nc");
     assert_eq!(body_text(&json!({"body": "just text"})), "just text");
 }
 
@@ -67,4 +67,31 @@ fn profile_landing_ok_and_flash() {
     assert!(check_profile_landing("https://acp.us/rs/@x", "https://acp.us/rs/@x",
         "No profile exists with the username @x").is_err());
     assert_eq!(profile_nick_of("https://acp.us/rs/@Haz/posts"), Some("Haz".into()));
+}
+
+#[test]
+fn paragraphs_are_separated_by_blank_lines() {
+    let p = |t: &str| json!({"type": "paragraph", "content": [{"type": "text", "text": t}]});
+    let doc = json!({"type": "doc", "content": [p("one. "), p("two"), {"type": "bulletList", "content": [
+        {"type": "listItem", "content": [p("item")]}]}]});
+    assert_eq!(body_text(&json!({"body": doc})), "one.\n\ntwo\n\nitem");
+    let br = json!({"type": "doc", "content": [{"type": "paragraph", "content": [
+        {"type": "text", "text": "a"}, {"type": "hard_break"}, {"type": "text", "text": "b"}]}]});
+    assert_eq!(body_text(&json!({"body": br})), "a\nb");
+    assert_eq!(body_text(&json!({"body": "<p>x<br>y</p><p>z</p>"})), "x\ny\n\nz");
+}
+
+#[test]
+fn tidy_text_collapses_blank_runs() {
+    assert_eq!(tidy_text("  \na  \n\n\n\nb\n\n"), "a\n\nb");
+}
+
+#[test]
+fn truncated_feed_items_are_flagged() {
+    assert!(is_truncated(&json!({"body_truncated": true})));
+    assert!(is_truncated(&json!({"reply": {"body_truncated": true}})));
+    assert!(!is_truncated(&json!({"body_truncated": false, "truncate": true})));
+    let p = to_post(&json!({"id": "x", "body_truncated": true, "body": "short"}), "", "n");
+    assert!(p.truncated);
+    assert!(!to_post(&json!({"id": "x", "body": "full"}), "", "n").truncated);
 }

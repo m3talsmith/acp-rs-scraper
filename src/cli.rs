@@ -67,6 +67,10 @@ pub struct Args {
     /// Only what the nick said: their own top-level posts AND their replies/comments (Posts + "Posts and replies" feeds). Exports list the posts first, then replies, each marked as Post/Reply. Skips other people's replies in the nick's threads and the mentions crawl; a thread page is read only to recover a blank body of the nick's own post.
     #[arg(long, help_heading = "Scraping")]
     pub said_by: bool,
+    /// Complete bodies stored shortened: re-read the thread page (the full text "show more" opens) of every stored row not marked complete — rows saved from a truncated feed item, and rows stored before 1.26.0 — for the given nicks (or every nick when none is given; then nothing else is scraped). New scrapes complete truncated items on their own.
+    #[arg(long, help_heading = "Scraping",
+          conflicts_with_all = ["import", "export", "search", "list_nicks", "remove_nick", "clear_all", "logout"])]
+    pub refetch_truncated: bool,
     /// Max site-feed posts to scan when hunting mentions (default 500).
     #[arg(long, default_value_t = DEFAULT_CRAWL_LIMIT, help_heading = "Scraping")]
     pub crawl_limit: usize,
