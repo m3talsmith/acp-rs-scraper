@@ -58,6 +58,9 @@ pub const EXPORTS_REL_PATH: &str = ".acp/ai/data/exports";
 /// Preferences file (the login email), relative to `$HOME`.
 pub const PREFS_REL_PATH: &str = ".acp/preferences.toml";
 
+/// Saved login session cookies (JSON, mode `0600`), relative to `$HOME`. Removed by `--logout`.
+pub const SESSION_REL_PATH: &str = ".acp/session.json";
+
 // ---------------------------------------------------------------- browser identity
 /// User-Agent sent on every request (desktop Firefox).
 pub const FIREFOX_UA: &str =

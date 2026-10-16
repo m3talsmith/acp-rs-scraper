@@ -142,6 +142,7 @@ scripts/uninstall.sh --yes        # no prompt (required when stdin isn't a termi
 - `~/.acp/ai/data/attachments/`;
 - `~/.acp/ai/data/exports/`;
 - `~/.acp/preferences.toml` (your saved email).
+- `~/.acp/session.json` (your saved login session; `--logout` removes it).
 
 Empty `~/.acp/ai/data`, `~/.acp/ai` and `~/.acp` directories are removed afterwards. Any other files under `~/.acp` are left alone.
 

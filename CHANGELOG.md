@@ -6,6 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.21.0] - 2026-10-15
+
+One new feature since 1.20.0 (minor 20 → 21).
+
+### Added
+1. **Remembered login**: after a successful login the session cookies are saved to
+   `~/.acp/session.json` (owner-only, mode `0600`). The next run loads them, and if `/rs` no
+   longer redirects to `/auth` it prints "Already logged in." and skips the one-time code.
+   **`--logout`** (offline) clears the session and deletes the file; the next scrape asks for a
+   code again. Cookie values are never logged. `logout`, `save_session` and `load_session` are
+   exported from `auth::session` for the coming TUI.
+
 ## [1.20.0] - 2026-10-15
 
 Three changes since 1.17.0 (minor 17 → 20).

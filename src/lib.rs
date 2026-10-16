@@ -42,7 +42,7 @@ pub mod storage;
 /// external types used throughout.
 pub mod prelude {
     pub use crate::app::*;
-    pub use crate::auth::{prefs::*, *};
+    pub use crate::auth::{prefs::*, session::*, *};
     pub use crate::cli::*;
     pub use crate::config::*;
     pub use crate::export::{archive::*, html::*, json::*, *};

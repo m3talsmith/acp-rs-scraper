@@ -82,6 +82,14 @@ pub async fn run() -> Result<()> {
     if args.clear_all {
         return run_clear_all(&args);
     }
+    if args.logout {
+        let jar = Jar::default();
+        load_session(&jar).ok();
+        let removed = logout(&jar)?;
+        if removed { info!("Logged out: removed {}.", session_path()?.display()); }
+        else { info!("Not logged in: no saved session at {}.", session_path()?.display()); }
+        return Ok(());
+    }
     if args.list_nicks {
         let infos = list_nicks_db(&home()?.join(DB_REL_PATH))?;
         let argv: Vec<String> = std::env::args().collect();
@@ -132,6 +140,7 @@ pub async fn run() -> Result<()> {
         return export(&a, &name, &label, &posts, &atts, &profiles, &hits, &home()?.join(EXPORTS_REL_PATH));
     }
     let jar = Arc::new(Jar::default());
+    if let Err(e) = load_session(&jar) { err!("warning: ignoring saved session: {e:#}"); }
     let http = client(jar.clone())?;
     login(&http, &jar).await?;
     let mut nicks = args.nick_list()?;

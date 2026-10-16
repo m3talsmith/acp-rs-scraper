@@ -2,6 +2,7 @@
 //! `phx-trigger-action` sign-in POST that sets the session cookie.
 
 pub mod prefs;
+pub mod session;
 
 use crate::prelude::*;
 
@@ -73,13 +74,14 @@ pub async fn trigger_action_post(
     Ok(())
 }
 
-/// Log in: open `/rs` (redirects to `/auth` when logged out), submit the saved email over the LiveView, prompt for the one-time code (or login link), submit it and finish with the sign-in POST. Fails if `/rs` still redirects to `/auth`.
+/// Log in: open `/rs` (redirects to `/auth` when logged out), submit the saved email over the LiveView, prompt for the one-time code (or login link), submit it and finish with the sign-in POST. Fails if `/rs` still redirects to `/auth`. A saved session in the jar (see [`session`]) skips the code; the session is saved again on success.
 pub async fn login(http: &reqwest::Client, jar: &Arc<Jar>) -> Result<()> {
     let resp = http.get(start_url()).send().await?;
     let url = resp.url().to_string();
     let html = resp.text().await?;
     if !url.contains("/auth") {
         info!("Already logged in.");
+        save_session(jar)?;
         return Ok(());
     }
     let page = parse_lv(&url, &html)?;
@@ -107,5 +109,6 @@ pub async fn login(http: &reqwest::Client, jar: &Arc<Jar>) -> Result<()> {
         bail!("still not logged in after verification");
     }
     info!("Logged in.");
+    save_session(jar)?;
     Ok(())
 }

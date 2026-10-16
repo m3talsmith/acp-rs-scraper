@@ -117,6 +117,10 @@ Maintenance:
   -y, --yes
           With --remove-nick / --clear-all: skip the confirmation prompt (required when stdin is not a terminal)
 
+Session:
+      --logout
+          Offline: forget the saved login (delete ~/.acp/session.json); the next scrape asks for a code again
+
 Debug:
   -q, --quiet
           Suppress progress/summary on stderr (prompts and errors still show)
@@ -150,7 +154,7 @@ Examples:
 
     cargo run --release
 
-Flow: reads `email` from `~/.acp/preferences.toml` (prompts and creates it if missing) -> LiveView `send-login-email` -> prompts for the code -> LiveView `submit-code` -> HTTP POST of the `phx-trigger-action` form to `/auth/user/otp/sign_in` -> checks that `/rs` no longer redirects to `/auth` -> prompts for a nick -> scrapes -> writes `~/.acp/ai/data/rs.database` (set by `DB_REL_PATH`).
+Flow: loads saved cookies from `~/.acp/session.json` (if `/rs` doesn't redirect to `/auth`, login is skipped) -> reads `email` from `~/.acp/preferences.toml` (prompts and creates it if missing) -> LiveView `send-login-email` -> prompts for the code -> LiveView `submit-code` -> HTTP POST of the `phx-trigger-action` form to `/auth/user/otp/sign_in` -> checks that `/rs` no longer redirects to `/auth` -> saves the session to `~/.acp/session.json` (mode `0600`; `--logout` deletes it) -> prompts for a nick -> scrapes -> writes `~/.acp/ai/data/rs.database` (set by `DB_REL_PATH`).
 
 ## How it works
 - **Login:** the site is Phoenix LiveView. The client keeps the rendered tree (join `rendered` merged with each reply's `diff`) and turns it back into HTML. From that HTML it reads the code form's event, field and `phx-target`, and the hidden inputs of the `phx-trigger-action` form. It then POSTs those inputs plus `_csrf_token` as a normal form, using the same cookie jar.

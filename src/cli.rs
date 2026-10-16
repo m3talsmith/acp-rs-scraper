@@ -118,6 +118,9 @@ pub struct Args {
     /// Offline: delete the whole database and the attachments directory (preferences.toml and exports are kept).
     #[arg(long, help_heading = "Maintenance", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
     pub clear_all: bool,
+    /// Offline: forget the saved login (delete ~/.acp/session.json); the next scrape asks for a code again.
+    #[arg(long, help_heading = "Session", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz", "remove_nick", "clear_all"])]
+    pub logout: bool,
     /// With --remove-nick / --clear-all: show what would be removed and change nothing.
     #[arg(long, requires = "maint", help_heading = "Maintenance")]
     pub dry_run: bool,

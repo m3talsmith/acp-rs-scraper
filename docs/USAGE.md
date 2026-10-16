@@ -47,6 +47,7 @@ The session lasts for one run only (an in-memory cookie jar), so each scrape log
 | What | Path |
 |---|---|
 | Preferences | `~/.acp/preferences.toml` |
+| Saved login session (mode `0600`) | `~/.acp/session.json` |
 | Database | `~/.acp/ai/data/rs.database` |
 | Attachments (persistent copies) | `~/.acp/ai/data/attachments/<hash>.<ext>` |
 | Default export / archive location | `~/.acp/ai/data/exports/` |
@@ -315,6 +316,7 @@ A nick's own posts can also be recorded as mentions of that nick.
 - **Login errors:**
   - Run with `--debug` and look at the `submit-code` reply and the sign-in POST (its field names are printed with `-v`).
   - Remove `~/.acp/preferences.toml` to enter a different email.
+  - Run `acp-rs-scraper --logout` to forget the saved session (`~/.acp/session.json`) and log in again.
 - **"feed paging stopped before at_end":**
   - Rerun with `--debug`.
   - Check the `page-next` replies: posts should be in `response.diff.r`, or in a rebuilt `forum/Feed` data-props.
