@@ -10,6 +10,7 @@ mod modals;
 mod render;
 mod state;
 mod sync;
+mod views;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

@@ -3,7 +3,7 @@
 use crate::tui::commands::{Action, Widget};
 use crate::tui::layout::contains;
 use crate::tui::modals::*;
-use crate::tui::state::{App, Effect, Focus, Hit};
+use crate::tui::state::{App, Effect, Focus, Hit, ViewMode};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
 /// Handle one terminal event.
@@ -74,6 +74,8 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('m') => app.focus = Focus::Menu,
         KeyCode::Char('<') => { app.search_back(); }
         KeyCode::Char('b') => app.act(Action::ToggleBookmark),
+        KeyCode::Char('v') => app.act(Action::CycleView),
+        KeyCode::Char('V') => { let m = app.view_mode.cycle(-1); app.set_view_mode(m); }
         _ => return false,
     }
     true
@@ -99,6 +101,15 @@ fn nicks_key(app: &mut App, k: KeyEvent) {
 
 fn body_key(app: &mut App, k: KeyEvent) {
     let detail = !app.view().stack.is_empty();
+    let mode = app.view_mode;
+    if detail && mode == ViewMode::Pane {
+        // The list stays live above the pane: ↑/↓ pick the post the pane shows.
+        match k.code {
+            KeyCode::Up | KeyCode::Char('k') => { app.move_post_cursor(-1); app.preview_cursor(); return; }
+            KeyCode::Down | KeyCode::Char('j') => { app.move_post_cursor(1); app.preview_cursor(); return; }
+            _ => {}
+        }
+    }
     if detail {
         match k.code {
             KeyCode::Up | KeyCode::Char('k') => app.scroll_detail(-1),
@@ -113,6 +124,16 @@ fn body_key(app: &mut App, k: KeyEvent) {
             _ => { common_key(app, k); }
         }
         return;
+    }
+    if mode.horizontal() {
+        let row = if mode == ViewMode::Grid { app.grid_cols.max(1) as i32 } else { 1 };
+        match k.code {
+            KeyCode::Left => { app.step_post(-1); return; }
+            KeyCode::Right => { app.step_post(1); return; }
+            KeyCode::Up | KeyCode::Char('k') => { app.step_post(-row); return; }
+            KeyCode::Down | KeyCode::Char('j') => { app.step_post(row); return; }
+            _ => {}
+        }
     }
     match k.code {
         KeyCode::Up | KeyCode::Char('k') => app.move_post_cursor(-1),
@@ -212,6 +233,8 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::Nick(i)) => { app.focus = Focus::Nicks; if multi { app.toggle_nick(i) } else { app.select_only(i) } }
         Some(Hit::Post(i)) => app.open_post(i),
         Some(Hit::Bookmarks) => app.open_bookmarks(),
+        Some(Hit::ViewMode) => app.act(Action::CycleView),
+        Some(Hit::CloseDetail) => app.close_details(),
         Some(Hit::Star(i)) => { if let Some(id) = app.view().posts.get(i).map(|p| p.post_id.clone()) { app.focus = Focus::Body; app.toggle_mark(&id); } }
         Some(Hit::StarTop) => { if let Some(id) = app.top().map(|f| f.post.post_id.clone()) { app.toggle_mark(&id); } }
         Some(Hit::MenuItem(i)) => app.open_menu(i),

@@ -182,3 +182,54 @@ pub fn ellipsize(s: &str, width: usize) -> String {
 
 /// Whether `(x, y)` is inside `r`.
 pub fn contains(r: Rect, x: u16, y: u16) -> bool { x >= r.x && x < r.x + r.width && y >= r.y && y < r.y + r.height }
+
+/// Minimum width of a grid cell.
+pub const GRID_CELL_MIN_W: u16 = 34;
+/// Height of a grid cell.
+pub const GRID_CELL_H: u16 = 8;
+
+/// Grid view: columns that fit `r`, and the rect of each visible cell for posts
+/// `first..` (row-major), with `n` posts in total.
+pub fn grid_cells(r: Rect, n: usize, first: usize) -> (usize, Vec<(usize, Rect)>) {
+    let cols = (r.width / GRID_CELL_MIN_W).max(1);
+    let cw = r.width / cols;
+    let rows = (r.height / GRID_CELL_H).max(1);
+    let mut v = Vec::new();
+    for k in 0..(cols * rows) as usize {
+        let i = first + k;
+        if i >= n { break; }
+        let (row, col) = ((k / cols as usize) as u16, (k % cols as usize) as u16);
+        let w = if col + 1 == cols { r.width - cw * col } else { cw };
+        let h = GRID_CELL_H.min(r.height.saturating_sub(row * GRID_CELL_H));
+        if h == 0 { break; }
+        v.push((i, Rect { x: r.x + col * cw, y: r.y + row * GRID_CELL_H, width: w, height: h }));
+    }
+    (cols as usize, v)
+}
+
+/// Grid rows that fit `r`.
+pub fn grid_rows(r: Rect) -> usize { (r.height / GRID_CELL_H).max(1) as usize }
+
+/// Carousel view: the centre card and the strips of the previous / next posts peeking at its sides.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Carousel {
+    /// Previous post's strip.
+    pub prev: Rect,
+    /// The current post.
+    pub center: Rect,
+    /// Next post's strip.
+    pub next: Rect,
+}
+
+/// Lay out a carousel in `r` (side strips ≈ 1/8 of the width, at least 6 cells when it fits).
+pub fn carousel(r: Rect) -> Carousel {
+    let side = (r.width / 8).max(6).min(r.width / 4);
+    let cw = r.width.saturating_sub(2 * side);
+    Carousel { prev: Rect { width: side, ..r }, center: Rect { x: r.x + side, width: cw, ..r }, next: Rect { x: r.x + side + cw, width: r.width - side - cw, ..r } }
+}
+
+/// Rows a full card for `text` takes at `width` (borders included), at most `max`.
+pub fn card_height(text: &str, width: u16, max: u16) -> u16 {
+    let n = wrap(text.trim(), width.saturating_sub(2) as usize).iter().filter(|l| !l.trim().is_empty()).count() as u16;
+    (n + 2).clamp(3, max.max(3))
+}

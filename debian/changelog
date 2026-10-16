@@ -1,3 +1,10 @@
+acp-rs-scraper (2.3.0) unstable; urgency=medium
+
+  * TUI view modes: nested, stack, stack with content pane, infinite and
+   fixed carousels, grid with a post modal.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Fri, 16 Oct 2026 11:43:53 -0400
+
 acp-rs-scraper (2.2.0) unstable; urgency=medium
 
   * --sync: bookmarks both ways plus an incremental scrape, no export.

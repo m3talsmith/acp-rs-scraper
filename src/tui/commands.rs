@@ -7,6 +7,7 @@
 
 use crate::prelude::*;
 use crate::tui::data::SearchFilter;
+use crate::tui::state::ViewMode;
 use crate::tui::widgets::text::TextField;
 
 /// Program name used as `argv[0]` for validation.
@@ -33,6 +34,8 @@ pub enum CommandId {
     Bookmarks,
     /// Periodic sync with the site.
     Sync,
+    /// Body layout.
+    View,
     /// Log level for jobs started from the TUI.
     Debug,
     /// Usage modal.
@@ -44,6 +47,10 @@ pub enum CommandId {
 /// Something a button, key or palette entry does.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Action {
+    /// Next view mode (`v`).
+    CycleView,
+    /// Switch to this view mode.
+    SetView(crate::tui::state::ViewMode),
     /// Start Scanning (or Cancel while a job runs).
     StartScan,
     /// Kill the running job.
@@ -222,6 +229,14 @@ impl Menu {
                 opt("bookmarks", "Bookmarks", "--no-bookmarks when off", false, check(true)),
                 opt("now", "Sync now", "--sync", false, button(Action::SyncNow)),
                 opt("save", "Save as default", "~/.acp/preferences.toml [sync]", false, button(Action::SaveSyncPrefs)),
+            ]},
+            MenuCommand { id: View, label: "View", hint: 'v', action: None, opts: vec![
+                opt("nested", "Nested", "v cycles", false, button(Action::SetView(ViewMode::Nested))),
+                opt("stack", "Stack", "", false, button(Action::SetView(ViewMode::Stack))),
+                opt("pane", "Stack + content pane", "", false, button(Action::SetView(ViewMode::Pane))),
+                opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
+                opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
+                opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
             ]},
             MenuCommand { id: Debug, label: "Debug", hint: 'd', action: None, opts: vec![
                 opt("verbose", "Verbose", "-v", false, check(args.verbose)),

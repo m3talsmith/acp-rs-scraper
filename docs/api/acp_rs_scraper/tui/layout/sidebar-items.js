@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["CARD_ROWS"],"fn":["areas","contains","detail_split","ellipsize","lerp","modal_rect","stack_layout","wrap"],"struct":["Areas","DetailSplit","StackLayout"]};
+window.SIDEBAR_ITEMS = {"constant":["CARD_ROWS","GRID_CELL_H","GRID_CELL_MIN_W"],"fn":["areas","card_height","carousel","contains","detail_split","ellipsize","grid_cells","grid_rows","lerp","modal_rect","stack_layout","wrap"],"struct":["Areas","Carousel","DetailSplit","StackLayout"]};

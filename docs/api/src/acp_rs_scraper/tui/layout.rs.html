@@ -182,4 +182,55 @@
 <a href=#182 id=182 data-nosnippet>182</a>
 <a href=#183 id=183 data-nosnippet>183</a><span class="doccomment">/// Whether `(x, y)` is inside `r`.
 <a href=#184 id=184 data-nosnippet>184</a></span><span class="kw">pub fn </span>contains(r: Rect, x: u16, y: u16) -&gt; bool { x &gt;= r.x &amp;&amp; x &lt; r.x + r.width &amp;&amp; y &gt;= r.y &amp;&amp; y &lt; r.y + r.height }
+<a href=#185 id=185 data-nosnippet>185</a>
+<a href=#186 id=186 data-nosnippet>186</a><span class="doccomment">/// Minimum width of a grid cell.
+<a href=#187 id=187 data-nosnippet>187</a></span><span class="kw">pub const </span>GRID_CELL_MIN_W: u16 = <span class="number">34</span>;
+<a href=#188 id=188 data-nosnippet>188</a><span class="doccomment">/// Height of a grid cell.
+<a href=#189 id=189 data-nosnippet>189</a></span><span class="kw">pub const </span>GRID_CELL_H: u16 = <span class="number">8</span>;
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a><span class="doccomment">/// Grid view: columns that fit `r`, and the rect of each visible cell for posts
+<a href=#192 id=192 data-nosnippet>192</a>/// `first..` (row-major), with `n` posts in total.
+<a href=#193 id=193 data-nosnippet>193</a></span><span class="kw">pub fn </span>grid_cells(r: Rect, n: usize, first: usize) -&gt; (usize, Vec&lt;(usize, Rect)&gt;) {
+<a href=#194 id=194 data-nosnippet>194</a>    <span class="kw">let </span>cols = (r.width / GRID_CELL_MIN_W).max(<span class="number">1</span>);
+<a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">let </span>cw = r.width / cols;
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">let </span>rows = (r.height / GRID_CELL_H).max(<span class="number">1</span>);
+<a href=#197 id=197 data-nosnippet>197</a>    <span class="kw">let </span><span class="kw-2">mut </span>v = Vec::new();
+<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">for </span>k <span class="kw">in </span><span class="number">0</span>..(cols * rows) <span class="kw">as </span>usize {
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">let </span>i = first + k;
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">if </span>i &gt;= n { <span class="kw">break</span>; }
+<a href=#201 id=201 data-nosnippet>201</a>        <span class="kw">let </span>(row, col) = ((k / cols <span class="kw">as </span>usize) <span class="kw">as </span>u16, (k % cols <span class="kw">as </span>usize) <span class="kw">as </span>u16);
+<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">let </span>w = <span class="kw">if </span>col + <span class="number">1 </span>== cols { r.width - cw * col } <span class="kw">else </span>{ cw };
+<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">let </span>h = GRID_CELL_H.min(r.height.saturating_sub(row * GRID_CELL_H));
+<a href=#204 id=204 data-nosnippet>204</a>        <span class="kw">if </span>h == <span class="number">0 </span>{ <span class="kw">break</span>; }
+<a href=#205 id=205 data-nosnippet>205</a>        v.push((i, Rect { x: r.x + col * cw, y: r.y + row * GRID_CELL_H, width: w, height: h }));
+<a href=#206 id=206 data-nosnippet>206</a>    }
+<a href=#207 id=207 data-nosnippet>207</a>    (cols <span class="kw">as </span>usize, v)
+<a href=#208 id=208 data-nosnippet>208</a>}
+<a href=#209 id=209 data-nosnippet>209</a>
+<a href=#210 id=210 data-nosnippet>210</a><span class="doccomment">/// Grid rows that fit `r`.
+<a href=#211 id=211 data-nosnippet>211</a></span><span class="kw">pub fn </span>grid_rows(r: Rect) -&gt; usize { (r.height / GRID_CELL_H).max(<span class="number">1</span>) <span class="kw">as </span>usize }
+<a href=#212 id=212 data-nosnippet>212</a>
+<a href=#213 id=213 data-nosnippet>213</a><span class="doccomment">/// Carousel view: the centre card and the strips of the previous / next posts peeking at its sides.
+<a href=#214 id=214 data-nosnippet>214</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href=#215 id=215 data-nosnippet>215</a></span><span class="kw">pub struct </span>Carousel {
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="doccomment">/// Previous post's strip.
+<a href=#217 id=217 data-nosnippet>217</a>    </span><span class="kw">pub </span>prev: Rect,
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// The current post.
+<a href=#219 id=219 data-nosnippet>219</a>    </span><span class="kw">pub </span>center: Rect,
+<a href=#220 id=220 data-nosnippet>220</a>    <span class="doccomment">/// Next post's strip.
+<a href=#221 id=221 data-nosnippet>221</a>    </span><span class="kw">pub </span>next: Rect,
+<a href=#222 id=222 data-nosnippet>222</a>}
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a><span class="doccomment">/// Lay out a carousel in `r` (side strips ≈ 1/8 of the width, at least 6 cells when it fits).
+<a href=#225 id=225 data-nosnippet>225</a></span><span class="kw">pub fn </span>carousel(r: Rect) -&gt; Carousel {
+<a href=#226 id=226 data-nosnippet>226</a>    <span class="kw">let </span>side = (r.width / <span class="number">8</span>).max(<span class="number">6</span>).min(r.width / <span class="number">4</span>);
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="kw">let </span>cw = r.width.saturating_sub(<span class="number">2 </span>* side);
+<a href=#228 id=228 data-nosnippet>228</a>    Carousel { prev: Rect { width: side, ..r }, center: Rect { x: r.x + side, width: cw, ..r }, next: Rect { x: r.x + side + cw, width: r.width - side - cw, ..r } }
+<a href=#229 id=229 data-nosnippet>229</a>}
+<a href=#230 id=230 data-nosnippet>230</a>
+<a href=#231 id=231 data-nosnippet>231</a><span class="doccomment">/// Rows a full card for `text` takes at `width` (borders included), at most `max`.
+<a href=#232 id=232 data-nosnippet>232</a></span><span class="kw">pub fn </span>card_height(text: <span class="kw-2">&amp;</span>str, width: u16, max: u16) -&gt; u16 {
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="kw">let </span>n = wrap(text.trim(), width.saturating_sub(<span class="number">2</span>) <span class="kw">as </span>usize).iter().filter(|l| !l.trim().is_empty()).count() <span class="kw">as </span>u16;
+<a href=#234 id=234 data-nosnippet>234</a>    (n + <span class="number">2</span>).clamp(<span class="number">3</span>, max.max(<span class="number">3</span>))
+<a href=#235 id=235 data-nosnippet>235</a>}
 </code></pre></div></section></main></body></html>

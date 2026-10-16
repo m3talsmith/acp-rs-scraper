@@ -176,4 +176,15 @@ fn smoke_real_db() {
     a.open_post(0);
     if !a.top().map(|f| f.links.is_empty()).unwrap_or(true) { a.open_link(0); }
     println!("{}", render(&mut a, 140, 45));
+    // Every view mode, list and detail (ACP_SMOKE_ALL=1 prints them all).
+    for m in crate::tui::state::ViewMode::ALL {
+        a.set_view_mode(m);
+        a.close_details();
+        let list = render(&mut a, 140, 45);
+        a.open_post(0);
+        let detail = render(&mut a, 140, 45);
+        if std::env::var("ACP_SMOKE_ALL").is_ok() { println!("== {m:?}\n{list}\n{detail}"); }
+    }
+    a.open_bookmarks();
+    println!("{}", render(&mut a, 140, 45));
 }

@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.2.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.3.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -245,6 +245,18 @@ headless scrape is now `--scrape`.
   out the Login modal opens (email, then the one-time code or the login link from the email) and
   the scan starts as soon as you're in. Session › Log in / Log out do the same by hand; logging out
   deletes `~/.acp/session.json` and returns to the Login modal.
+- **View modes.** The `[View: …]` switch at the right of the Body's navigation bar (click it, press
+  `v` / `V`, or use the View menu) changes how posts are laid out:
+  - **Nested** (default): cards; a detail slides in and linked posts nest inside it.
+  - **Stack**: one endless column of full posts; a detail replaces the list, and links open flat
+    (no nesting; `Esc` goes back one).
+  - **Stack + pane**: the stack on top, the clicked post in a content pane below; `↑`/`↓` move
+    through the list and the pane follows.
+  - **Carousel ∞** / **Carousel**: one post at a time with its neighbours peeking at the sides;
+    `←`/`→` (or a click on a side) flip through. The infinite carousel wraps around; the fixed one
+    stops at the ends.
+  - **Grid**: cards in columns that fit the window; arrows move, `Enter`/click opens the post in a
+    modal with a **Close** button (`Esc` also closes).
 - **Bookmarks.** Every card and detail has a star: `☆` click (or `b`) to bookmark it, `★` click
   again to remove it. It shows at once and is stored by a small background job, so it works
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows

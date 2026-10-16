@@ -196,6 +196,8 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
+    ("v / V", "Next / previous view mode: Nested, Stack, Stack + pane, Carousel ∞, Carousel, Grid"),
+    ("← →  (Carousel, Grid)", "Previous / next post; ↑ ↓ move a row in the Grid"),
     ("B", "Show bookmarks (the ★ Bookmarks row on the nick bar)"),
     ("PgUp PgDn Home End", "Page / jump"),
     ("m / F10 / Alt+letter", "Menu bar (underlined letter opens a command)"),

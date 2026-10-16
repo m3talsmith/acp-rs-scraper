@@ -57,12 +57,17 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
+  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid (TUI only) |
   | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
   process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
   quitting asks whether to keep it running in the background (default) or cancel it.
+- **View modes** (`v`/`V`, the nav bar's `[View: …]`, or the View menu): Nested (default), Stack
+  (full posts in one column, flat details), Stack + pane (list above, content pane below that
+  follows `↑`/`↓`), Carousel ∞ (wraps) and Carousel (stops at the ends) with `←`/`→`, and Grid
+  (arrows move; the post opens in a modal with a Close button).
 - **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;

@@ -113,6 +113,43 @@ impl Anim {
     pub fn done(&self, now: Instant) -> bool { now.saturating_duration_since(self.start) >= Duration::from_millis(TUI_ANIM_MS) }
 }
 
+/// How the Body lays out posts (View menu, `v`, or the nav bar's `[View: …]`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ViewMode {
+    /// Cards; a detail slides in and linked posts nest inside it.
+    #[default]
+    Nested,
+    /// One endless column of full posts; a detail replaces the list (no nesting).
+    Stack,
+    /// The stack on top and the clicked post in a content pane below.
+    Pane,
+    /// One post at a time, side to side; wraps around at the ends.
+    CarouselInfinite,
+    /// One post at a time, side to side; stops at the ends.
+    CarouselFixed,
+    /// A grid of cards; a post opens in a modal with a Close button.
+    Grid,
+}
+
+impl ViewMode {
+    /// Every mode, in `v` order.
+    pub const ALL: [ViewMode; 6] = [ViewMode::Nested, ViewMode::Stack, ViewMode::Pane, ViewMode::CarouselInfinite, ViewMode::CarouselFixed, ViewMode::Grid];
+    /// Label.
+    pub fn label(self) -> &'static str {
+        match self {
+            ViewMode::Nested => "Nested", ViewMode::Stack => "Stack", ViewMode::Pane => "Stack + pane",
+            ViewMode::CarouselInfinite => "Carousel ∞", ViewMode::CarouselFixed => "Carousel", ViewMode::Grid => "Grid",
+        }
+    }
+    /// The next mode (`d` = ±1).
+    pub fn cycle(self, d: i32) -> ViewMode {
+        let i = Self::ALL.iter().position(|m| *m == self).unwrap_or(0);
+        Self::ALL[cycle(i, Self::ALL.len(), d)]
+    }
+    /// Posts move with ←/→.
+    pub fn horizontal(self) -> bool { matches!(self, ViewMode::CarouselInfinite | ViewMode::CarouselFixed | ViewMode::Grid) }
+}
+
 /// Login state as far as the TUI knows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum SessionState {
@@ -192,6 +229,10 @@ pub enum Hit {
     ListPane,
     /// The top detail (wheel).
     DetailPane,
+    /// The nav bar's `[View: …]` switch.
+    ViewMode,
+    /// The Grid modal's Close button.
+    CloseDetail,
     /// Inside the modal.
     Modal(ModalHit),
     /// Modal backdrop (swallows clicks).
@@ -253,6 +294,10 @@ pub struct App {
     pub pending_job: Option<(JobKind, Vec<String>)>,
     /// Bookmarked post ids (local changes show at once; a side job stores them).
     pub marks: HashSet<String>,
+    /// Body layout.
+    pub view_mode: ViewMode,
+    /// Grid columns at the last draw (↑/↓ move a row).
+    pub grid_cols: usize,
     /// When the next automatic sync is due (None: as soon as Auto sync is on).
     pub sync_next: Option<Instant>,
     /// The running job is an automatic sync (failures go to the status line, not a modal).
@@ -280,7 +325,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(),
+            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(),
             page_rows: 5, email: None,
         };
         app.refresh_nicks();
@@ -450,6 +495,33 @@ impl App {
             Err(e) => self.push_status(format!("auto sync skipped: offline ({})", e.lines().next().unwrap_or(""))),
         }
     }
+
+    // ------------------------------------------------------------ view modes
+    /// Switch the Body layout (keeps the selection and any open detail).
+    pub fn set_view_mode(&mut self, m: ViewMode) {
+        self.view_mode = m;
+        self.anim = None;
+        self.push_status(format!("view: {}", m.label()));
+    }
+    /// Move to the previous / next post in the current layout: carousels and the
+    /// grid go side to side (the infinite carousel wraps around).
+    pub fn step_post(&mut self, d: i32) {
+        let n = self.view().posts.len();
+        if n == 0 { return; }
+        if self.view_mode == ViewMode::CarouselInfinite {
+            let v = self.view_mut();
+            v.cursor = cycle(v.cursor, n, d);
+            v.offset = v.cursor;
+        } else {
+            self.move_post_cursor(d);
+        }
+    }
+    /// Stack + pane: show the highlighted post in the pane (replacing what it showed).
+    pub fn preview_cursor(&mut self) {
+        if self.view_mode == ViewMode::Pane { let i = self.view().cursor; self.open_post(i); self.anim = None; }
+    }
+    /// Close every open detail (the Grid modal's Close).
+    pub fn close_details(&mut self) { self.view_mut().stack.clear(); self.anim = None; }
 
     // ------------------------------------------------------------ body views
     /// The view on screen (search results replace the nick posts in place).
@@ -649,6 +721,8 @@ impl App {
             Action::Logout => { self.close_menu(); self.effects.push(Effect::Logout); }
             Action::Help => { self.close_menu(); self.modal = Some(Modal::Help(HelpModal::new())); }
             Action::ToggleLog => { self.show_log = !self.show_log; }
+            Action::CycleView => { self.close_menu(); let m = self.view_mode.cycle(1); self.set_view_mode(m); }
+            Action::SetView(m) => { self.close_menu(); self.set_view_mode(m); }
             Action::ShowBookmarks => { self.close_menu(); self.open_bookmarks(); }
             Action::ToggleBookmark => {
                 self.close_menu();
@@ -823,6 +897,7 @@ impl App {
             ("Search… (Shift-S)".into(), PaletteCmd::Action(Action::OpenSearchModal)),
             ("Clear search (Ctrl-S)".into(), PaletteCmd::Action(Action::ClearSearch)),
             ("Toggle log panel (l)".into(), PaletteCmd::Action(Action::ToggleLog)),
+            ("Next view mode (v)".into(), PaletteCmd::Action(Action::CycleView)),
             ("Show bookmarks (B)".into(), PaletteCmd::Action(Action::ShowBookmarks)),
             ("Bookmark current post (b)".into(), PaletteCmd::Action(Action::ToggleBookmark)),
         ];

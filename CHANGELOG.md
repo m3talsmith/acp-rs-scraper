@@ -6,6 +6,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-16
+
+### Added
+- TUI **view modes**, switched with the `[View: …]` button on the Body's navigation bar, `v` / `V`,
+  or the new View menu:
+  - **Nested** (the 2.0 layout, still the default).
+  - **Stack**: one endless column of full-height posts; details open flat, without nesting.
+  - **Stack + pane**: the stack above a content pane showing the clicked post; `↑`/`↓` move the
+    list and the pane follows.
+  - **Carousel ∞** (wraps around) and **Carousel** (stops at the ends): one post at a time with
+    its neighbours peeking at the sides; `←`/`→` or a click on a side flips.
+  - **Grid**: cards in as many columns as fit; arrows move by cell and row; a post opens in a
+    modal with a **Close** button.
+- The read-only real-database smoke render now draws every view mode and the bookmarks view.
+
 ## [2.2.0] - 2026-10-16
 
 ### Added

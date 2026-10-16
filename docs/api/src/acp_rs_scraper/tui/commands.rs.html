@@ -7,442 +7,457 @@
 <a href=#7 id=7 data-nosnippet>7</a>
 <a href=#8 id=8 data-nosnippet>8</a></span><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::tui::data::SearchFilter;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span><span class="kw">crate</span>::tui::widgets::text::TextField;
-<a href=#11 id=11 data-nosnippet>11</a>
-<a href=#12 id=12 data-nosnippet>12</a><span class="doccomment">/// Program name used as `argv[0]` for validation.
-<a href=#13 id=13 data-nosnippet>13</a></span><span class="kw">pub const </span>ARGV0: <span class="kw-2">&amp;</span>str = <span class="string">"acp-rs-scraper"</span>;
-<a href=#14 id=14 data-nosnippet>14</a>
-<a href=#15 id=15 data-nosnippet>15</a><span class="doccomment">/// Menu bar items, left to right.
-<a href=#16 id=16 data-nosnippet>16</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-<a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">pub enum </span>CommandId {
-<a href=#18 id=18 data-nosnippet>18</a>    <span class="doccomment">/// Scrape options (Start Scanning runs it).
-<a href=#19 id=19 data-nosnippet>19</a>    </span>Scrape,
-<a href=#20 id=20 data-nosnippet>20</a>    <span class="doccomment">/// Offline search into the Body.
-<a href=#21 id=21 data-nosnippet>21</a>    </span>Search,
-<a href=#22 id=22 data-nosnippet>22</a>    <span class="doccomment">/// Dump the DB / selection to a file.
-<a href=#23 id=23 data-nosnippet>23</a>    </span>Export,
-<a href=#24 id=24 data-nosnippet>24</a>    <span class="doccomment">/// Import an export into the DB.
-<a href=#25 id=25 data-nosnippet>25</a>    </span>Import,
-<a href=#26 id=26 data-nosnippet>26</a>    <span class="doccomment">/// Refresh the nick bar.
-<a href=#27 id=27 data-nosnippet>27</a>    </span>List,
-<a href=#28 id=28 data-nosnippet>28</a>    <span class="doccomment">/// Remove nicks / clear everything.
-<a href=#29 id=29 data-nosnippet>29</a>    </span>Maintain,
-<a href=#30 id=30 data-nosnippet>30</a>    <span class="doccomment">/// Login / logout.
-<a href=#31 id=31 data-nosnippet>31</a>    </span>Session,
-<a href=#32 id=32 data-nosnippet>32</a>    <span class="doccomment">/// Bookmarks: show, toggle, sync.
-<a href=#33 id=33 data-nosnippet>33</a>    </span>Bookmarks,
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="doccomment">/// Periodic sync with the site.
-<a href=#35 id=35 data-nosnippet>35</a>    </span>Sync,
-<a href=#36 id=36 data-nosnippet>36</a>    <span class="doccomment">/// Log level for jobs started from the TUI.
-<a href=#37 id=37 data-nosnippet>37</a>    </span>Debug,
-<a href=#38 id=38 data-nosnippet>38</a>    <span class="doccomment">/// Usage modal.
-<a href=#39 id=39 data-nosnippet>39</a>    </span>Help,
-<a href=#40 id=40 data-nosnippet>40</a>    <span class="doccomment">/// Leave the TUI.
-<a href=#41 id=41 data-nosnippet>41</a>    </span>Quit,
-<a href=#42 id=42 data-nosnippet>42</a>}
-<a href=#43 id=43 data-nosnippet>43</a>
-<a href=#44 id=44 data-nosnippet>44</a><span class="doccomment">/// Something a button, key or palette entry does.
-<a href=#45 id=45 data-nosnippet>45</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-<a href=#46 id=46 data-nosnippet>46</a></span><span class="kw">pub enum </span>Action {
-<a href=#47 id=47 data-nosnippet>47</a>    <span class="doccomment">/// Start Scanning (or Cancel while a job runs).
-<a href=#48 id=48 data-nosnippet>48</a>    </span>StartScan,
-<a href=#49 id=49 data-nosnippet>49</a>    <span class="doccomment">/// Kill the running job.
-<a href=#50 id=50 data-nosnippet>50</a>    </span>CancelJob,
-<a href=#51 id=51 data-nosnippet>51</a>    <span class="doccomment">/// Search with the Search menu's fields.
-<a href=#52 id=52 data-nosnippet>52</a>    </span>RunSearch,
-<a href=#53 id=53 data-nosnippet>53</a>    <span class="doccomment">/// Open the Shift-S search modal.
-<a href=#54 id=54 data-nosnippet>54</a>    </span>OpenSearchModal,
-<a href=#55 id=55 data-nosnippet>55</a>    <span class="doccomment">/// Leave the search view.
-<a href=#56 id=56 data-nosnippet>56</a>    </span>ClearSearch,
-<a href=#57 id=57 data-nosnippet>57</a>    <span class="doccomment">/// Export with the Export menu's fields.
-<a href=#58 id=58 data-nosnippet>58</a>    </span>RunExport,
-<a href=#59 id=59 data-nosnippet>59</a>    <span class="doccomment">/// Import with the Import menu's fields.
-<a href=#60 id=60 data-nosnippet>60</a>    </span>RunImport,
-<a href=#61 id=61 data-nosnippet>61</a>    <span class="doccomment">/// Re-read the nick bar from the DB.
-<a href=#62 id=62 data-nosnippet>62</a>    </span>RefreshNicks,
-<a href=#63 id=63 data-nosnippet>63</a>    <span class="doccomment">/// `--remove-nick` (after a confirm modal).
-<a href=#64 id=64 data-nosnippet>64</a>    </span>RemoveNicks,
-<a href=#65 id=65 data-nosnippet>65</a>    <span class="doccomment">/// `--clear-all` (after a confirm modal).
-<a href=#66 id=66 data-nosnippet>66</a>    </span>ClearAll,
-<a href=#67 id=67 data-nosnippet>67</a>    <span class="doccomment">/// Open the Login modal.
-<a href=#68 id=68 data-nosnippet>68</a>    </span>Login,
-<a href=#69 id=69 data-nosnippet>69</a>    <span class="doccomment">/// Forget the saved session, then route to Login.
-<a href=#70 id=70 data-nosnippet>70</a>    </span>Logout,
-<a href=#71 id=71 data-nosnippet>71</a>    <span class="doccomment">/// Help modal.
-<a href=#72 id=72 data-nosnippet>72</a>    </span>Help,
-<a href=#73 id=73 data-nosnippet>73</a>    <span class="doccomment">/// Toggle the log panel.
-<a href=#74 id=74 data-nosnippet>74</a>    </span>ToggleLog,
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="doccomment">/// Quit (detaching a running job).
-<a href=#76 id=76 data-nosnippet>76</a>    </span>Quit,
-<a href=#77 id=77 data-nosnippet>77</a>    <span class="doccomment">/// Show the bookmarks view.
-<a href=#78 id=78 data-nosnippet>78</a>    </span>ShowBookmarks,
-<a href=#79 id=79 data-nosnippet>79</a>    <span class="doccomment">/// Bookmark / unbookmark the current post.
-<a href=#80 id=80 data-nosnippet>80</a>    </span>ToggleBookmark,
-<a href=#81 id=81 data-nosnippet>81</a>    <span class="doccomment">/// `--sync-bookmarks` with the site.
-<a href=#82 id=82 data-nosnippet>82</a>    </span>SyncBookmarks,
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="doccomment">/// Sync › Sync now.
-<a href=#84 id=84 data-nosnippet>84</a>    </span>SyncNow,
-<a href=#85 id=85 data-nosnippet>85</a>    <span class="doccomment">/// Sync › Save as default.
-<a href=#86 id=86 data-nosnippet>86</a>    </span>SaveSyncPrefs,
-<a href=#87 id=87 data-nosnippet>87</a>}
-<a href=#88 id=88 data-nosnippet>88</a>
-<a href=#89 id=89 data-nosnippet>89</a><span class="doccomment">/// The input type shown right of an option's label.
-<a href=#90 id=90 data-nosnippet>90</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
-<a href=#91 id=91 data-nosnippet>91</a></span><span class="kw">pub enum </span>Widget {
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="doccomment">/// Boolean flag.
-<a href=#93 id=93 data-nosnippet>93</a>    </span>Check(bool),
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="doccomment">/// Known values.
-<a href=#95 id=95 data-nosnippet>95</a>    </span>Choice {
-<a href=#96 id=96 data-nosnippet>96</a>        <span class="doccomment">/// Values.
-<a href=#97 id=97 data-nosnippet>97</a>        </span>choices: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str],
-<a href=#98 id=98 data-nosnippet>98</a>        <span class="doccomment">/// Selected index.
-<a href=#99 id=99 data-nosnippet>99</a>        </span>idx: usize,
-<a href=#100 id=100 data-nosnippet>100</a>    },
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="doccomment">/// Open-ended value.
-<a href=#102 id=102 data-nosnippet>102</a>    </span>Text(TextField),
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="doccomment">/// Direct action.
-<a href=#104 id=104 data-nosnippet>104</a>    </span>Button(Action),
-<a href=#105 id=105 data-nosnippet>105</a>}
-<a href=#106 id=106 data-nosnippet>106</a>
-<a href=#107 id=107 data-nosnippet>107</a><span class="doccomment">/// One option under a menu command.
-<a href=#108 id=108 data-nosnippet>108</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
-<a href=#109 id=109 data-nosnippet>109</a></span><span class="kw">pub struct </span>Opt {
-<a href=#110 id=110 data-nosnippet>110</a>    <span class="doccomment">/// Stable key used by the argv builders.
-<a href=#111 id=111 data-nosnippet>111</a>    </span><span class="kw">pub </span>key: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
-<a href=#112 id=112 data-nosnippet>112</a>    <span class="doccomment">/// Label.
-<a href=#113 id=113 data-nosnippet>113</a>    </span><span class="kw">pub </span>label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="doccomment">/// CLI flag(s) it maps to (shown as a hint).
-<a href=#115 id=115 data-nosnippet>115</a>    </span><span class="kw">pub </span>flag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
-<a href=#116 id=116 data-nosnippet>116</a>    <span class="doccomment">/// Marked `*`: must be set for the command's action.
-<a href=#117 id=117 data-nosnippet>117</a>    </span><span class="kw">pub </span>required: bool,
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="doccomment">/// Input type.
-<a href=#119 id=119 data-nosnippet>119</a>    </span><span class="kw">pub </span>widget: Widget,
-<a href=#120 id=120 data-nosnippet>120</a>}
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a><span class="doccomment">/// One menu bar item.
-<a href=#123 id=123 data-nosnippet>123</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
-<a href=#124 id=124 data-nosnippet>124</a></span><span class="kw">pub struct </span>MenuCommand {
-<a href=#125 id=125 data-nosnippet>125</a>    <span class="doccomment">/// Which command.
-<a href=#126 id=126 data-nosnippet>126</a>    </span><span class="kw">pub </span>id: CommandId,
-<a href=#127 id=127 data-nosnippet>127</a>    <span class="doccomment">/// Label in the bar.
-<a href=#128 id=128 data-nosnippet>128</a>    </span><span class="kw">pub </span>label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
-<a href=#129 id=129 data-nosnippet>129</a>    <span class="doccomment">/// Hotkey letter (underlined; Alt+letter or the letter while the menu is focused).
-<a href=#130 id=130 data-nosnippet>130</a>    </span><span class="kw">pub </span>hint: char,
-<a href=#131 id=131 data-nosnippet>131</a>    <span class="doccomment">/// Options in its dropdown (empty: activating runs `action`).
-<a href=#132 id=132 data-nosnippet>132</a>    </span><span class="kw">pub </span>opts: Vec&lt;Opt&gt;,
-<a href=#133 id=133 data-nosnippet>133</a>    <span class="doccomment">/// Action of an option-less item.
-<a href=#134 id=134 data-nosnippet>134</a>    </span><span class="kw">pub </span>action: <span class="prelude-ty">Option</span>&lt;Action&gt;,
-<a href=#135 id=135 data-nosnippet>135</a>}
-<a href=#136 id=136 data-nosnippet>136</a>
-<a href=#137 id=137 data-nosnippet>137</a><span class="kw">fn </span>opt(key: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, flag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, required: bool, widget: Widget) -&gt; Opt {
-<a href=#138 id=138 data-nosnippet>138</a>    Opt { key, label, flag, required, widget }
-<a href=#139 id=139 data-nosnippet>139</a>}
-<a href=#140 id=140 data-nosnippet>140</a><span class="kw">fn </span>check(v: bool) -&gt; Widget { Widget::Check(v) }
-<a href=#141 id=141 data-nosnippet>141</a><span class="kw">fn </span>text(v: <span class="kw-2">&amp;</span>str) -&gt; Widget { Widget::Text(TextField::new(v)) }
-<a href=#142 id=142 data-nosnippet>142</a><span class="kw">fn </span>choice(choices: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str]) -&gt; Widget { Widget::Choice { choices, idx: <span class="number">0 </span>} }
-<a href=#143 id=143 data-nosnippet>143</a><span class="kw">fn </span>button(a: Action) -&gt; Widget { Widget::Button(a) }
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a><span class="doccomment">/// Scrape feed choices.
-<a href=#146 id=146 data-nosnippet>146</a></span><span class="kw">pub const </span>MODE_CHOICES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"Latest"</span>, <span class="string">"Trending"</span>];
-<a href=#147 id=147 data-nosnippet>147</a><span class="doccomment">/// Export format choices.
-<a href=#148 id=148 data-nosnippet>148</a></span><span class="kw">pub const </span>FORMAT_CHOICES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"json"</span>, <span class="string">"html"</span>, <span class="string">"json,html"</span>];
-<a href=#149 id=149 data-nosnippet>149</a><span class="doccomment">/// Export scope choices.
-<a href=#150 id=150 data-nosnippet>150</a></span><span class="kw">pub const </span>SCOPE_CHOICES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"Selected nicks"</span>, <span class="string">"Current view"</span>, <span class="string">"Everything"</span>];
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span><span class="kw">crate</span>::tui::state::ViewMode;
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span><span class="kw">crate</span>::tui::widgets::text::TextField;
+<a href=#12 id=12 data-nosnippet>12</a>
+<a href=#13 id=13 data-nosnippet>13</a><span class="doccomment">/// Program name used as `argv[0]` for validation.
+<a href=#14 id=14 data-nosnippet>14</a></span><span class="kw">pub const </span>ARGV0: <span class="kw-2">&amp;</span>str = <span class="string">"acp-rs-scraper"</span>;
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a><span class="doccomment">/// Menu bar items, left to right.
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="kw">pub enum </span>CommandId {
+<a href=#19 id=19 data-nosnippet>19</a>    <span class="doccomment">/// Scrape options (Start Scanning runs it).
+<a href=#20 id=20 data-nosnippet>20</a>    </span>Scrape,
+<a href=#21 id=21 data-nosnippet>21</a>    <span class="doccomment">/// Offline search into the Body.
+<a href=#22 id=22 data-nosnippet>22</a>    </span>Search,
+<a href=#23 id=23 data-nosnippet>23</a>    <span class="doccomment">/// Dump the DB / selection to a file.
+<a href=#24 id=24 data-nosnippet>24</a>    </span>Export,
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="doccomment">/// Import an export into the DB.
+<a href=#26 id=26 data-nosnippet>26</a>    </span>Import,
+<a href=#27 id=27 data-nosnippet>27</a>    <span class="doccomment">/// Refresh the nick bar.
+<a href=#28 id=28 data-nosnippet>28</a>    </span>List,
+<a href=#29 id=29 data-nosnippet>29</a>    <span class="doccomment">/// Remove nicks / clear everything.
+<a href=#30 id=30 data-nosnippet>30</a>    </span>Maintain,
+<a href=#31 id=31 data-nosnippet>31</a>    <span class="doccomment">/// Login / logout.
+<a href=#32 id=32 data-nosnippet>32</a>    </span>Session,
+<a href=#33 id=33 data-nosnippet>33</a>    <span class="doccomment">/// Bookmarks: show, toggle, sync.
+<a href=#34 id=34 data-nosnippet>34</a>    </span>Bookmarks,
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="doccomment">/// Periodic sync with the site.
+<a href=#36 id=36 data-nosnippet>36</a>    </span>Sync,
+<a href=#37 id=37 data-nosnippet>37</a>    <span class="doccomment">/// Body layout.
+<a href=#38 id=38 data-nosnippet>38</a>    </span>View,
+<a href=#39 id=39 data-nosnippet>39</a>    <span class="doccomment">/// Log level for jobs started from the TUI.
+<a href=#40 id=40 data-nosnippet>40</a>    </span>Debug,
+<a href=#41 id=41 data-nosnippet>41</a>    <span class="doccomment">/// Usage modal.
+<a href=#42 id=42 data-nosnippet>42</a>    </span>Help,
+<a href=#43 id=43 data-nosnippet>43</a>    <span class="doccomment">/// Leave the TUI.
+<a href=#44 id=44 data-nosnippet>44</a>    </span>Quit,
+<a href=#45 id=45 data-nosnippet>45</a>}
+<a href=#46 id=46 data-nosnippet>46</a>
+<a href=#47 id=47 data-nosnippet>47</a><span class="doccomment">/// Something a button, key or palette entry does.
+<a href=#48 id=48 data-nosnippet>48</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href=#49 id=49 data-nosnippet>49</a></span><span class="kw">pub enum </span>Action {
+<a href=#50 id=50 data-nosnippet>50</a>    <span class="doccomment">/// Next view mode (`v`).
+<a href=#51 id=51 data-nosnippet>51</a>    </span>CycleView,
+<a href=#52 id=52 data-nosnippet>52</a>    <span class="doccomment">/// Switch to this view mode.
+<a href=#53 id=53 data-nosnippet>53</a>    </span>SetView(<span class="kw">crate</span>::tui::state::ViewMode),
+<a href=#54 id=54 data-nosnippet>54</a>    <span class="doccomment">/// Start Scanning (or Cancel while a job runs).
+<a href=#55 id=55 data-nosnippet>55</a>    </span>StartScan,
+<a href=#56 id=56 data-nosnippet>56</a>    <span class="doccomment">/// Kill the running job.
+<a href=#57 id=57 data-nosnippet>57</a>    </span>CancelJob,
+<a href=#58 id=58 data-nosnippet>58</a>    <span class="doccomment">/// Search with the Search menu's fields.
+<a href=#59 id=59 data-nosnippet>59</a>    </span>RunSearch,
+<a href=#60 id=60 data-nosnippet>60</a>    <span class="doccomment">/// Open the Shift-S search modal.
+<a href=#61 id=61 data-nosnippet>61</a>    </span>OpenSearchModal,
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="doccomment">/// Leave the search view.
+<a href=#63 id=63 data-nosnippet>63</a>    </span>ClearSearch,
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="doccomment">/// Export with the Export menu's fields.
+<a href=#65 id=65 data-nosnippet>65</a>    </span>RunExport,
+<a href=#66 id=66 data-nosnippet>66</a>    <span class="doccomment">/// Import with the Import menu's fields.
+<a href=#67 id=67 data-nosnippet>67</a>    </span>RunImport,
+<a href=#68 id=68 data-nosnippet>68</a>    <span class="doccomment">/// Re-read the nick bar from the DB.
+<a href=#69 id=69 data-nosnippet>69</a>    </span>RefreshNicks,
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="doccomment">/// `--remove-nick` (after a confirm modal).
+<a href=#71 id=71 data-nosnippet>71</a>    </span>RemoveNicks,
+<a href=#72 id=72 data-nosnippet>72</a>    <span class="doccomment">/// `--clear-all` (after a confirm modal).
+<a href=#73 id=73 data-nosnippet>73</a>    </span>ClearAll,
+<a href=#74 id=74 data-nosnippet>74</a>    <span class="doccomment">/// Open the Login modal.
+<a href=#75 id=75 data-nosnippet>75</a>    </span>Login,
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="doccomment">/// Forget the saved session, then route to Login.
+<a href=#77 id=77 data-nosnippet>77</a>    </span>Logout,
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="doccomment">/// Help modal.
+<a href=#79 id=79 data-nosnippet>79</a>    </span>Help,
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="doccomment">/// Toggle the log panel.
+<a href=#81 id=81 data-nosnippet>81</a>    </span>ToggleLog,
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// Quit (detaching a running job).
+<a href=#83 id=83 data-nosnippet>83</a>    </span>Quit,
+<a href=#84 id=84 data-nosnippet>84</a>    <span class="doccomment">/// Show the bookmarks view.
+<a href=#85 id=85 data-nosnippet>85</a>    </span>ShowBookmarks,
+<a href=#86 id=86 data-nosnippet>86</a>    <span class="doccomment">/// Bookmark / unbookmark the current post.
+<a href=#87 id=87 data-nosnippet>87</a>    </span>ToggleBookmark,
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="doccomment">/// `--sync-bookmarks` with the site.
+<a href=#89 id=89 data-nosnippet>89</a>    </span>SyncBookmarks,
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="doccomment">/// Sync › Sync now.
+<a href=#91 id=91 data-nosnippet>91</a>    </span>SyncNow,
+<a href=#92 id=92 data-nosnippet>92</a>    <span class="doccomment">/// Sync › Save as default.
+<a href=#93 id=93 data-nosnippet>93</a>    </span>SaveSyncPrefs,
+<a href=#94 id=94 data-nosnippet>94</a>}
+<a href=#95 id=95 data-nosnippet>95</a>
+<a href=#96 id=96 data-nosnippet>96</a><span class="doccomment">/// The input type shown right of an option's label.
+<a href=#97 id=97 data-nosnippet>97</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href=#98 id=98 data-nosnippet>98</a></span><span class="kw">pub enum </span>Widget {
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="doccomment">/// Boolean flag.
+<a href=#100 id=100 data-nosnippet>100</a>    </span>Check(bool),
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="doccomment">/// Known values.
+<a href=#102 id=102 data-nosnippet>102</a>    </span>Choice {
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="doccomment">/// Values.
+<a href=#104 id=104 data-nosnippet>104</a>        </span>choices: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str],
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="doccomment">/// Selected index.
+<a href=#106 id=106 data-nosnippet>106</a>        </span>idx: usize,
+<a href=#107 id=107 data-nosnippet>107</a>    },
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="doccomment">/// Open-ended value.
+<a href=#109 id=109 data-nosnippet>109</a>    </span>Text(TextField),
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="doccomment">/// Direct action.
+<a href=#111 id=111 data-nosnippet>111</a>    </span>Button(Action),
+<a href=#112 id=112 data-nosnippet>112</a>}
+<a href=#113 id=113 data-nosnippet>113</a>
+<a href=#114 id=114 data-nosnippet>114</a><span class="doccomment">/// One option under a menu command.
+<a href=#115 id=115 data-nosnippet>115</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href=#116 id=116 data-nosnippet>116</a></span><span class="kw">pub struct </span>Opt {
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="doccomment">/// Stable key used by the argv builders.
+<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="kw">pub </span>key: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#119 id=119 data-nosnippet>119</a>    <span class="doccomment">/// Label.
+<a href=#120 id=120 data-nosnippet>120</a>    </span><span class="kw">pub </span>label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="doccomment">/// CLI flag(s) it maps to (shown as a hint).
+<a href=#122 id=122 data-nosnippet>122</a>    </span><span class="kw">pub </span>flag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#123 id=123 data-nosnippet>123</a>    <span class="doccomment">/// Marked `*`: must be set for the command's action.
+<a href=#124 id=124 data-nosnippet>124</a>    </span><span class="kw">pub </span>required: bool,
+<a href=#125 id=125 data-nosnippet>125</a>    <span class="doccomment">/// Input type.
+<a href=#126 id=126 data-nosnippet>126</a>    </span><span class="kw">pub </span>widget: Widget,
+<a href=#127 id=127 data-nosnippet>127</a>}
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a><span class="doccomment">/// One menu bar item.
+<a href=#130 id=130 data-nosnippet>130</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href=#131 id=131 data-nosnippet>131</a></span><span class="kw">pub struct </span>MenuCommand {
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="doccomment">/// Which command.
+<a href=#133 id=133 data-nosnippet>133</a>    </span><span class="kw">pub </span>id: CommandId,
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="doccomment">/// Label in the bar.
+<a href=#135 id=135 data-nosnippet>135</a>    </span><span class="kw">pub </span>label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str,
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="doccomment">/// Hotkey letter (underlined; Alt+letter or the letter while the menu is focused).
+<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">pub </span>hint: char,
+<a href=#138 id=138 data-nosnippet>138</a>    <span class="doccomment">/// Options in its dropdown (empty: activating runs `action`).
+<a href=#139 id=139 data-nosnippet>139</a>    </span><span class="kw">pub </span>opts: Vec&lt;Opt&gt;,
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="doccomment">/// Action of an option-less item.
+<a href=#141 id=141 data-nosnippet>141</a>    </span><span class="kw">pub </span>action: <span class="prelude-ty">Option</span>&lt;Action&gt;,
+<a href=#142 id=142 data-nosnippet>142</a>}
+<a href=#143 id=143 data-nosnippet>143</a>
+<a href=#144 id=144 data-nosnippet>144</a><span class="kw">fn </span>opt(key: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, label: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, flag: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, required: bool, widget: Widget) -&gt; Opt {
+<a href=#145 id=145 data-nosnippet>145</a>    Opt { key, label, flag, required, widget }
+<a href=#146 id=146 data-nosnippet>146</a>}
+<a href=#147 id=147 data-nosnippet>147</a><span class="kw">fn </span>check(v: bool) -&gt; Widget { Widget::Check(v) }
+<a href=#148 id=148 data-nosnippet>148</a><span class="kw">fn </span>text(v: <span class="kw-2">&amp;</span>str) -&gt; Widget { Widget::Text(TextField::new(v)) }
+<a href=#149 id=149 data-nosnippet>149</a><span class="kw">fn </span>choice(choices: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str]) -&gt; Widget { Widget::Choice { choices, idx: <span class="number">0 </span>} }
+<a href=#150 id=150 data-nosnippet>150</a><span class="kw">fn </span>button(a: Action) -&gt; Widget { Widget::Button(a) }
 <a href=#151 id=151 data-nosnippet>151</a>
-<a href=#152 id=152 data-nosnippet>152</a><span class="doccomment">/// The whole menu bar, with every option's current value.
-<a href=#153 id=153 data-nosnippet>153</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
-<a href=#154 id=154 data-nosnippet>154</a></span><span class="kw">pub struct </span>Menu {
-<a href=#155 id=155 data-nosnippet>155</a>    <span class="doccomment">/// Items left to right.
-<a href=#156 id=156 data-nosnippet>156</a>    </span><span class="kw">pub </span>items: Vec&lt;MenuCommand&gt;,
-<a href=#157 id=157 data-nosnippet>157</a>}
+<a href=#152 id=152 data-nosnippet>152</a><span class="doccomment">/// Scrape feed choices.
+<a href=#153 id=153 data-nosnippet>153</a></span><span class="kw">pub const </span>MODE_CHOICES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"Latest"</span>, <span class="string">"Trending"</span>];
+<a href=#154 id=154 data-nosnippet>154</a><span class="doccomment">/// Export format choices.
+<a href=#155 id=155 data-nosnippet>155</a></span><span class="kw">pub const </span>FORMAT_CHOICES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"json"</span>, <span class="string">"html"</span>, <span class="string">"json,html"</span>];
+<a href=#156 id=156 data-nosnippet>156</a><span class="doccomment">/// Export scope choices.
+<a href=#157 id=157 data-nosnippet>157</a></span><span class="kw">pub const </span>SCOPE_CHOICES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str] = <span class="kw-2">&amp;</span>[<span class="string">"Selected nicks"</span>, <span class="string">"Current view"</span>, <span class="string">"Everything"</span>];
 <a href=#158 id=158 data-nosnippet>158</a>
-<a href=#159 id=159 data-nosnippet>159</a><span class="kw">impl </span>Menu {
-<a href=#160 id=160 data-nosnippet>160</a>    <span class="doccomment">/// Default catalog. `args` seeds the Debug options (from `-v`/`--debug`/`--enable-logging`).
-<a href=#161 id=161 data-nosnippet>161</a>    </span><span class="kw">pub fn </span>new(args: <span class="kw-2">&amp;</span>Args) -&gt; <span class="self">Self </span>{
-<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">use </span>CommandId::<span class="kw-2">*</span>;
-<a href=#163 id=163 data-nosnippet>163</a>        <span class="kw">let </span>items = <span class="macro">vec!</span>[
-<a href=#164 id=164 data-nosnippet>164</a>            MenuCommand { id: Scrape, label: <span class="string">"Scrape"</span>, hint: <span class="string">'s'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#165 id=165 data-nosnippet>165</a>                opt(<span class="string">"mode"</span>, <span class="string">"Mode"</span>, <span class="string">"--latest / --trending"</span>, <span class="bool-val">false</span>, choice(MODE_CHOICES)),
-<a href=#166 id=166 data-nosnippet>166</a>                opt(<span class="string">"nicks"</span>, <span class="string">"Nicks"</span>, <span class="string">"--nicks (blank: selected nicks)"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
-<a href=#167 id=167 data-nosnippet>167</a>                opt(<span class="string">"mentions"</span>, <span class="string">"Mentions"</span>, <span class="string">"--no-mentions when off"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">true</span>)),
-<a href=#168 id=168 data-nosnippet>168</a>                opt(<span class="string">"said_by"</span>, <span class="string">"Said by"</span>, <span class="string">"--said-by"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#169 id=169 data-nosnippet>169</a>                opt(<span class="string">"crawl_limit"</span>, <span class="string">"Crawl limit"</span>, <span class="string">"--crawl-limit"</span>, <span class="bool-val">false</span>, text(<span class="kw-2">&amp;</span>DEFAULT_CRAWL_LIMIT.to_string())),
-<a href=#170 id=170 data-nosnippet>170</a>                opt(<span class="string">"attachments"</span>, <span class="string">"Attachments"</span>, <span class="string">"--no-attachments when off"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">true</span>)),
-<a href=#171 id=171 data-nosnippet>171</a>                opt(<span class="string">"full"</span>, <span class="string">"Full"</span>, <span class="string">"--full"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#172 id=172 data-nosnippet>172</a>                opt(<span class="string">"refetch"</span>, <span class="string">"Refetch truncated"</span>, <span class="string">"--refetch-truncated"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#173 id=173 data-nosnippet>173</a>                opt(<span class="string">"output"</span>, <span class="string">"Output file"</span>, <span class="string">"--output (blank: database only)"</span>, <span class="bool-val">false</span>, text(<span class="string">""</span>)),
-<a href=#174 id=174 data-nosnippet>174</a>                opt(<span class="string">"format"</span>, <span class="string">"Format"</span>, <span class="string">"--format"</span>, <span class="bool-val">false</span>, choice(FORMAT_CHOICES)),
-<a href=#175 id=175 data-nosnippet>175</a>                opt(<span class="string">"start"</span>, <span class="string">"Start Scanning"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::StartScan)),
-<a href=#176 id=176 data-nosnippet>176</a>            ]},
-<a href=#177 id=177 data-nosnippet>177</a>            MenuCommand { id: Search, label: <span class="string">"Search"</span>, hint: <span class="string">'e'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#178 id=178 data-nosnippet>178</a>                opt(<span class="string">"query"</span>, <span class="string">"Query"</span>, <span class="string">"--search"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
-<a href=#179 id=179 data-nosnippet>179</a>                opt(<span class="string">"nick"</span>, <span class="string">"Nick filter"</span>, <span class="string">"--nicks"</span>, <span class="bool-val">false</span>, text(<span class="string">""</span>)),
-<a href=#180 id=180 data-nosnippet>180</a>                opt(<span class="string">"run"</span>, <span class="string">"Search"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::RunSearch)),
-<a href=#181 id=181 data-nosnippet>181</a>                opt(<span class="string">"advanced"</span>, <span class="string">"Advanced…"</span>, <span class="string">"Shift-S"</span>, <span class="bool-val">false</span>, button(Action::OpenSearchModal)),
-<a href=#182 id=182 data-nosnippet>182</a>                opt(<span class="string">"clear"</span>, <span class="string">"Clear search"</span>, <span class="string">"Ctrl-S"</span>, <span class="bool-val">false</span>, button(Action::ClearSearch)),
+<a href=#159 id=159 data-nosnippet>159</a><span class="doccomment">/// The whole menu bar, with every option's current value.
+<a href=#160 id=160 data-nosnippet>160</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href=#161 id=161 data-nosnippet>161</a></span><span class="kw">pub struct </span>Menu {
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="doccomment">/// Items left to right.
+<a href=#163 id=163 data-nosnippet>163</a>    </span><span class="kw">pub </span>items: Vec&lt;MenuCommand&gt;,
+<a href=#164 id=164 data-nosnippet>164</a>}
+<a href=#165 id=165 data-nosnippet>165</a>
+<a href=#166 id=166 data-nosnippet>166</a><span class="kw">impl </span>Menu {
+<a href=#167 id=167 data-nosnippet>167</a>    <span class="doccomment">/// Default catalog. `args` seeds the Debug options (from `-v`/`--debug`/`--enable-logging`).
+<a href=#168 id=168 data-nosnippet>168</a>    </span><span class="kw">pub fn </span>new(args: <span class="kw-2">&amp;</span>Args) -&gt; <span class="self">Self </span>{
+<a href=#169 id=169 data-nosnippet>169</a>        <span class="kw">use </span>CommandId::<span class="kw-2">*</span>;
+<a href=#170 id=170 data-nosnippet>170</a>        <span class="kw">let </span>items = <span class="macro">vec!</span>[
+<a href=#171 id=171 data-nosnippet>171</a>            MenuCommand { id: Scrape, label: <span class="string">"Scrape"</span>, hint: <span class="string">'s'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#172 id=172 data-nosnippet>172</a>                opt(<span class="string">"mode"</span>, <span class="string">"Mode"</span>, <span class="string">"--latest / --trending"</span>, <span class="bool-val">false</span>, choice(MODE_CHOICES)),
+<a href=#173 id=173 data-nosnippet>173</a>                opt(<span class="string">"nicks"</span>, <span class="string">"Nicks"</span>, <span class="string">"--nicks (blank: selected nicks)"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
+<a href=#174 id=174 data-nosnippet>174</a>                opt(<span class="string">"mentions"</span>, <span class="string">"Mentions"</span>, <span class="string">"--no-mentions when off"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">true</span>)),
+<a href=#175 id=175 data-nosnippet>175</a>                opt(<span class="string">"said_by"</span>, <span class="string">"Said by"</span>, <span class="string">"--said-by"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#176 id=176 data-nosnippet>176</a>                opt(<span class="string">"crawl_limit"</span>, <span class="string">"Crawl limit"</span>, <span class="string">"--crawl-limit"</span>, <span class="bool-val">false</span>, text(<span class="kw-2">&amp;</span>DEFAULT_CRAWL_LIMIT.to_string())),
+<a href=#177 id=177 data-nosnippet>177</a>                opt(<span class="string">"attachments"</span>, <span class="string">"Attachments"</span>, <span class="string">"--no-attachments when off"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">true</span>)),
+<a href=#178 id=178 data-nosnippet>178</a>                opt(<span class="string">"full"</span>, <span class="string">"Full"</span>, <span class="string">"--full"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#179 id=179 data-nosnippet>179</a>                opt(<span class="string">"refetch"</span>, <span class="string">"Refetch truncated"</span>, <span class="string">"--refetch-truncated"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#180 id=180 data-nosnippet>180</a>                opt(<span class="string">"output"</span>, <span class="string">"Output file"</span>, <span class="string">"--output (blank: database only)"</span>, <span class="bool-val">false</span>, text(<span class="string">""</span>)),
+<a href=#181 id=181 data-nosnippet>181</a>                opt(<span class="string">"format"</span>, <span class="string">"Format"</span>, <span class="string">"--format"</span>, <span class="bool-val">false</span>, choice(FORMAT_CHOICES)),
+<a href=#182 id=182 data-nosnippet>182</a>                opt(<span class="string">"start"</span>, <span class="string">"Start Scanning"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::StartScan)),
 <a href=#183 id=183 data-nosnippet>183</a>            ]},
-<a href=#184 id=184 data-nosnippet>184</a>            MenuCommand { id: Export, label: <span class="string">"Export"</span>, hint: <span class="string">'x'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#185 id=185 data-nosnippet>185</a>                opt(<span class="string">"path"</span>, <span class="string">"Path"</span>, <span class="string">"--export"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
-<a href=#186 id=186 data-nosnippet>186</a>                opt(<span class="string">"scope"</span>, <span class="string">"From"</span>, <span class="string">"--nicks / --search"</span>, <span class="bool-val">false</span>, choice(SCOPE_CHOICES)),
-<a href=#187 id=187 data-nosnippet>187</a>                opt(<span class="string">"format"</span>, <span class="string">"Format"</span>, <span class="string">"--format"</span>, <span class="bool-val">false</span>, choice(FORMAT_CHOICES)),
-<a href=#188 id=188 data-nosnippet>188</a>                opt(<span class="string">"name"</span>, <span class="string">"Name"</span>, <span class="string">"--name"</span>, <span class="bool-val">false</span>, text(<span class="string">""</span>)),
-<a href=#189 id=189 data-nosnippet>189</a>                opt(<span class="string">"compress"</span>, <span class="string">"Compress tar.gz"</span>, <span class="string">"--compress --tar-gz"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#190 id=190 data-nosnippet>190</a>                opt(<span class="string">"run"</span>, <span class="string">"Export"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::RunExport)),
-<a href=#191 id=191 data-nosnippet>191</a>            ]},
-<a href=#192 id=192 data-nosnippet>192</a>            MenuCommand { id: Import, label: <span class="string">"Import"</span>, hint: <span class="string">'i'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#193 id=193 data-nosnippet>193</a>                opt(<span class="string">"path"</span>, <span class="string">"Path"</span>, <span class="string">"--import"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
-<a href=#194 id=194 data-nosnippet>194</a>                opt(<span class="string">"compress"</span>, <span class="string">"Compressed tar.gz"</span>, <span class="string">"--compress --tar-gz"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#195 id=195 data-nosnippet>195</a>                opt(<span class="string">"run"</span>, <span class="string">"Import"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::RunImport)),
-<a href=#196 id=196 data-nosnippet>196</a>            ]},
-<a href=#197 id=197 data-nosnippet>197</a>            MenuCommand { id: List, label: <span class="string">"List"</span>, hint: <span class="string">'l'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#198 id=198 data-nosnippet>198</a>                opt(<span class="string">"refresh"</span>, <span class="string">"Refresh nicks"</span>, <span class="string">"--list-nicks"</span>, <span class="bool-val">false</span>, button(Action::RefreshNicks)),
-<a href=#199 id=199 data-nosnippet>199</a>            ]},
-<a href=#200 id=200 data-nosnippet>200</a>            MenuCommand { id: Maintain, label: <span class="string">"Maintain"</span>, hint: <span class="string">'a'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#201 id=201 data-nosnippet>201</a>                opt(<span class="string">"nicks"</span>, <span class="string">"Remove nicks"</span>, <span class="string">"--remove-nick (blank: selected nicks)"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
-<a href=#202 id=202 data-nosnippet>202</a>                opt(<span class="string">"keep_replies"</span>, <span class="string">"Keep replies"</span>, <span class="string">"--keep-replies"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#203 id=203 data-nosnippet>203</a>                opt(<span class="string">"dry_run"</span>, <span class="string">"Dry run"</span>, <span class="string">"--dry-run"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#204 id=204 data-nosnippet>204</a>                opt(<span class="string">"yes"</span>, <span class="string">"Skip confirmation"</span>, <span class="string">"--yes (dangerous)"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#205 id=205 data-nosnippet>205</a>                opt(<span class="string">"remove"</span>, <span class="string">"Remove"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::RemoveNicks)),
-<a href=#206 id=206 data-nosnippet>206</a>                opt(<span class="string">"clear"</span>, <span class="string">"Clear all"</span>, <span class="string">"--clear-all"</span>, <span class="bool-val">false</span>, button(Action::ClearAll)),
-<a href=#207 id=207 data-nosnippet>207</a>            ]},
-<a href=#208 id=208 data-nosnippet>208</a>            MenuCommand { id: Session, label: <span class="string">"Session"</span>, hint: <span class="string">'n'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#209 id=209 data-nosnippet>209</a>                opt(<span class="string">"login"</span>, <span class="string">"Log in"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::Login)),
-<a href=#210 id=210 data-nosnippet>210</a>                opt(<span class="string">"logout"</span>, <span class="string">"Log out"</span>, <span class="string">"--logout"</span>, <span class="bool-val">false</span>, button(Action::Logout)),
-<a href=#211 id=211 data-nosnippet>211</a>            ]},
-<a href=#212 id=212 data-nosnippet>212</a>            MenuCommand { id: Bookmarks, label: <span class="string">"Bookmarks"</span>, hint: <span class="string">'b'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#213 id=213 data-nosnippet>213</a>                opt(<span class="string">"show"</span>, <span class="string">"Show bookmarks"</span>, <span class="string">"B · --list-bookmarks"</span>, <span class="bool-val">false</span>, button(Action::ShowBookmarks)),
-<a href=#214 id=214 data-nosnippet>214</a>                opt(<span class="string">"toggle"</span>, <span class="string">"Bookmark current post"</span>, <span class="string">"b · --bookmark / --unbookmark"</span>, <span class="bool-val">false</span>, button(Action::ToggleBookmark)),
-<a href=#215 id=215 data-nosnippet>215</a>                opt(<span class="string">"sync"</span>, <span class="string">"Sync with acp.us"</span>, <span class="string">"--sync-bookmarks"</span>, <span class="bool-val">false</span>, button(Action::SyncBookmarks)),
-<a href=#216 id=216 data-nosnippet>216</a>            ]},
-<a href=#217 id=217 data-nosnippet>217</a>            MenuCommand { id: Sync, label: <span class="string">"Sync"</span>, hint: <span class="string">'y'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#218 id=218 data-nosnippet>218</a>                opt(<span class="string">"auto"</span>, <span class="string">"Auto sync"</span>, <span class="string">"while the TUI is open"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#219 id=219 data-nosnippet>219</a>                opt(<span class="string">"interval"</span>, <span class="string">"Interval (minutes)"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, text(<span class="kw-2">&amp;</span>TUI_SYNC_DEFAULT_MINUTES.to_string())),
-<a href=#220 id=220 data-nosnippet>220</a>                opt(<span class="string">"nicks"</span>, <span class="string">"Nicks"</span>, <span class="string">"--sync --nicks (blank: selected nicks)"</span>, <span class="bool-val">false</span>, text(<span class="string">""</span>)),
-<a href=#221 id=221 data-nosnippet>221</a>                opt(<span class="string">"mentions"</span>, <span class="string">"Mentions"</span>, <span class="string">"--no-mentions when off"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
-<a href=#222 id=222 data-nosnippet>222</a>                opt(<span class="string">"bookmarks"</span>, <span class="string">"Bookmarks"</span>, <span class="string">"--no-bookmarks when off"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">true</span>)),
-<a href=#223 id=223 data-nosnippet>223</a>                opt(<span class="string">"now"</span>, <span class="string">"Sync now"</span>, <span class="string">"--sync"</span>, <span class="bool-val">false</span>, button(Action::SyncNow)),
-<a href=#224 id=224 data-nosnippet>224</a>                opt(<span class="string">"save"</span>, <span class="string">"Save as default"</span>, <span class="string">"~/.acp/preferences.toml [sync]"</span>, <span class="bool-val">false</span>, button(Action::SaveSyncPrefs)),
-<a href=#225 id=225 data-nosnippet>225</a>            ]},
-<a href=#226 id=226 data-nosnippet>226</a>            MenuCommand { id: Debug, label: <span class="string">"Debug"</span>, hint: <span class="string">'d'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
-<a href=#227 id=227 data-nosnippet>227</a>                opt(<span class="string">"verbose"</span>, <span class="string">"Verbose"</span>, <span class="string">"-v"</span>, <span class="bool-val">false</span>, check(args.verbose)),
-<a href=#228 id=228 data-nosnippet>228</a>                opt(<span class="string">"debug"</span>, <span class="string">"Debug wire log"</span>, <span class="string">"--debug"</span>, <span class="bool-val">false</span>, check(args.debug)),
-<a href=#229 id=229 data-nosnippet>229</a>                opt(<span class="string">"logging"</span>, <span class="string">"Log to files"</span>, <span class="string">"--enable-logging"</span>, <span class="bool-val">false</span>, check(args.enable_logging)),
-<a href=#230 id=230 data-nosnippet>230</a>                opt(<span class="string">"show_log"</span>, <span class="string">"Show log panel"</span>, <span class="string">"l"</span>, <span class="bool-val">false</span>, button(Action::ToggleLog)),
-<a href=#231 id=231 data-nosnippet>231</a>            ]},
-<a href=#232 id=232 data-nosnippet>232</a>            MenuCommand { id: Help, label: <span class="string">"Help"</span>, hint: <span class="string">'h'</span>, opts: <span class="macro">vec!</span>[], action: <span class="prelude-val">Some</span>(Action::Help) },
-<a href=#233 id=233 data-nosnippet>233</a>            MenuCommand { id: Quit, label: <span class="string">"Quit"</span>, hint: <span class="string">'q'</span>, opts: <span class="macro">vec!</span>[], action: <span class="prelude-val">Some</span>(Action::Quit) },
-<a href=#234 id=234 data-nosnippet>234</a>        ];
-<a href=#235 id=235 data-nosnippet>235</a>        Menu { items }
-<a href=#236 id=236 data-nosnippet>236</a>    }
-<a href=#237 id=237 data-nosnippet>237</a>    <span class="doccomment">/// Item by id.
-<a href=#238 id=238 data-nosnippet>238</a>    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId) -&gt; <span class="kw-2">&amp;</span>MenuCommand { <span class="self">self</span>.items.iter().find(|c| c.id == id).expect(<span class="string">"menu id"</span>) }
-<a href=#239 id=239 data-nosnippet>239</a>    <span class="doccomment">/// Option by command and key.
-<a href=#240 id=240 data-nosnippet>240</a>    </span><span class="kw">pub fn </span>opt_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;mut </span>Opt {
-<a href=#241 id=241 data-nosnippet>241</a>        <span class="self">self</span>.items.iter_mut().find(|c| c.id == id).expect(<span class="string">"menu id"</span>).opts.iter_mut().find(|o| o.key == key).expect(<span class="string">"opt key"</span>)
-<a href=#242 id=242 data-nosnippet>242</a>    }
-<a href=#243 id=243 data-nosnippet>243</a>    <span class="kw">fn </span>opt(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span>Opt { <span class="self">self</span>.get(id).opts.iter().find(|o| o.key == key).expect(<span class="string">"opt key"</span>) }
-<a href=#244 id=244 data-nosnippet>244</a>    <span class="doccomment">/// Checkbox value.
-<a href=#245 id=245 data-nosnippet>245</a>    </span><span class="kw">pub fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; bool { <span class="macro">matches!</span>(<span class="self">self</span>.opt(id, key).widget, Widget::Check(<span class="bool-val">true</span>)) }
-<a href=#246 id=246 data-nosnippet>246</a>    <span class="doccomment">/// Text value, trimmed.
-<a href=#247 id=247 data-nosnippet>247</a>    </span><span class="kw">pub fn </span>text(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; String {
-<a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.opt(id, key).widget { Widget::Text(t) =&gt; t.value.trim().to_string(), <span class="kw">_ </span>=&gt; String::new() }
-<a href=#249 id=249 data-nosnippet>249</a>    }
-<a href=#250 id=250 data-nosnippet>250</a>    <span class="doccomment">/// Selected choice.
-<a href=#251 id=251 data-nosnippet>251</a>    </span><span class="kw">pub fn </span>choice(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
-<a href=#252 id=252 data-nosnippet>252</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.opt(id, key).widget { Widget::Choice { choices, idx } =&gt; choices[<span class="kw-2">*</span>idx], <span class="kw">_ </span>=&gt; <span class="string">"" </span>}
-<a href=#253 id=253 data-nosnippet>253</a>    }
-<a href=#254 id=254 data-nosnippet>254</a>    <span class="doccomment">/// Set a checkbox.
-<a href=#255 id=255 data-nosnippet>255</a>    </span><span class="kw">pub fn </span>set_check(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str, v: bool) { <span class="self">self</span>.opt_mut(id, key).widget = Widget::Check(v); }
-<a href=#256 id=256 data-nosnippet>256</a>    <span class="doccomment">/// Set a text field.
-<a href=#257 id=257 data-nosnippet>257</a>    </span><span class="kw">pub fn </span>set_text(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str, v: <span class="kw-2">&amp;</span>str) {
-<a href=#258 id=258 data-nosnippet>258</a>        <span class="kw">if let </span>Widget::Text(t) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.opt_mut(id, key).widget { t.set(v); }
-<a href=#259 id=259 data-nosnippet>259</a>    }
-<a href=#260 id=260 data-nosnippet>260</a>    <span class="doccomment">/// Select a choice by value (ignored when unknown).
-<a href=#261 id=261 data-nosnippet>261</a>    </span><span class="kw">pub fn </span>set_choice(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str, v: <span class="kw-2">&amp;</span>str) {
-<a href=#262 id=262 data-nosnippet>262</a>        <span class="kw">if let </span>Widget::Choice { choices, idx } = <span class="kw-2">&amp;mut </span><span class="self">self</span>.opt_mut(id, key).widget
-<a href=#263 id=263 data-nosnippet>263</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(i) = choices.iter().position(|c| <span class="kw-2">*</span>c == v) { <span class="kw-2">*</span>idx = i; }
+<a href=#184 id=184 data-nosnippet>184</a>            MenuCommand { id: Search, label: <span class="string">"Search"</span>, hint: <span class="string">'e'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#185 id=185 data-nosnippet>185</a>                opt(<span class="string">"query"</span>, <span class="string">"Query"</span>, <span class="string">"--search"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
+<a href=#186 id=186 data-nosnippet>186</a>                opt(<span class="string">"nick"</span>, <span class="string">"Nick filter"</span>, <span class="string">"--nicks"</span>, <span class="bool-val">false</span>, text(<span class="string">""</span>)),
+<a href=#187 id=187 data-nosnippet>187</a>                opt(<span class="string">"run"</span>, <span class="string">"Search"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::RunSearch)),
+<a href=#188 id=188 data-nosnippet>188</a>                opt(<span class="string">"advanced"</span>, <span class="string">"Advanced…"</span>, <span class="string">"Shift-S"</span>, <span class="bool-val">false</span>, button(Action::OpenSearchModal)),
+<a href=#189 id=189 data-nosnippet>189</a>                opt(<span class="string">"clear"</span>, <span class="string">"Clear search"</span>, <span class="string">"Ctrl-S"</span>, <span class="bool-val">false</span>, button(Action::ClearSearch)),
+<a href=#190 id=190 data-nosnippet>190</a>            ]},
+<a href=#191 id=191 data-nosnippet>191</a>            MenuCommand { id: Export, label: <span class="string">"Export"</span>, hint: <span class="string">'x'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#192 id=192 data-nosnippet>192</a>                opt(<span class="string">"path"</span>, <span class="string">"Path"</span>, <span class="string">"--export"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
+<a href=#193 id=193 data-nosnippet>193</a>                opt(<span class="string">"scope"</span>, <span class="string">"From"</span>, <span class="string">"--nicks / --search"</span>, <span class="bool-val">false</span>, choice(SCOPE_CHOICES)),
+<a href=#194 id=194 data-nosnippet>194</a>                opt(<span class="string">"format"</span>, <span class="string">"Format"</span>, <span class="string">"--format"</span>, <span class="bool-val">false</span>, choice(FORMAT_CHOICES)),
+<a href=#195 id=195 data-nosnippet>195</a>                opt(<span class="string">"name"</span>, <span class="string">"Name"</span>, <span class="string">"--name"</span>, <span class="bool-val">false</span>, text(<span class="string">""</span>)),
+<a href=#196 id=196 data-nosnippet>196</a>                opt(<span class="string">"compress"</span>, <span class="string">"Compress tar.gz"</span>, <span class="string">"--compress --tar-gz"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#197 id=197 data-nosnippet>197</a>                opt(<span class="string">"run"</span>, <span class="string">"Export"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::RunExport)),
+<a href=#198 id=198 data-nosnippet>198</a>            ]},
+<a href=#199 id=199 data-nosnippet>199</a>            MenuCommand { id: Import, label: <span class="string">"Import"</span>, hint: <span class="string">'i'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#200 id=200 data-nosnippet>200</a>                opt(<span class="string">"path"</span>, <span class="string">"Path"</span>, <span class="string">"--import"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
+<a href=#201 id=201 data-nosnippet>201</a>                opt(<span class="string">"compress"</span>, <span class="string">"Compressed tar.gz"</span>, <span class="string">"--compress --tar-gz"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#202 id=202 data-nosnippet>202</a>                opt(<span class="string">"run"</span>, <span class="string">"Import"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::RunImport)),
+<a href=#203 id=203 data-nosnippet>203</a>            ]},
+<a href=#204 id=204 data-nosnippet>204</a>            MenuCommand { id: List, label: <span class="string">"List"</span>, hint: <span class="string">'l'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#205 id=205 data-nosnippet>205</a>                opt(<span class="string">"refresh"</span>, <span class="string">"Refresh nicks"</span>, <span class="string">"--list-nicks"</span>, <span class="bool-val">false</span>, button(Action::RefreshNicks)),
+<a href=#206 id=206 data-nosnippet>206</a>            ]},
+<a href=#207 id=207 data-nosnippet>207</a>            MenuCommand { id: Maintain, label: <span class="string">"Maintain"</span>, hint: <span class="string">'a'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#208 id=208 data-nosnippet>208</a>                opt(<span class="string">"nicks"</span>, <span class="string">"Remove nicks"</span>, <span class="string">"--remove-nick (blank: selected nicks)"</span>, <span class="bool-val">true</span>, text(<span class="string">""</span>)),
+<a href=#209 id=209 data-nosnippet>209</a>                opt(<span class="string">"keep_replies"</span>, <span class="string">"Keep replies"</span>, <span class="string">"--keep-replies"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#210 id=210 data-nosnippet>210</a>                opt(<span class="string">"dry_run"</span>, <span class="string">"Dry run"</span>, <span class="string">"--dry-run"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#211 id=211 data-nosnippet>211</a>                opt(<span class="string">"yes"</span>, <span class="string">"Skip confirmation"</span>, <span class="string">"--yes (dangerous)"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#212 id=212 data-nosnippet>212</a>                opt(<span class="string">"remove"</span>, <span class="string">"Remove"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::RemoveNicks)),
+<a href=#213 id=213 data-nosnippet>213</a>                opt(<span class="string">"clear"</span>, <span class="string">"Clear all"</span>, <span class="string">"--clear-all"</span>, <span class="bool-val">false</span>, button(Action::ClearAll)),
+<a href=#214 id=214 data-nosnippet>214</a>            ]},
+<a href=#215 id=215 data-nosnippet>215</a>            MenuCommand { id: Session, label: <span class="string">"Session"</span>, hint: <span class="string">'n'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#216 id=216 data-nosnippet>216</a>                opt(<span class="string">"login"</span>, <span class="string">"Log in"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::Login)),
+<a href=#217 id=217 data-nosnippet>217</a>                opt(<span class="string">"logout"</span>, <span class="string">"Log out"</span>, <span class="string">"--logout"</span>, <span class="bool-val">false</span>, button(Action::Logout)),
+<a href=#218 id=218 data-nosnippet>218</a>            ]},
+<a href=#219 id=219 data-nosnippet>219</a>            MenuCommand { id: Bookmarks, label: <span class="string">"Bookmarks"</span>, hint: <span class="string">'b'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#220 id=220 data-nosnippet>220</a>                opt(<span class="string">"show"</span>, <span class="string">"Show bookmarks"</span>, <span class="string">"B · --list-bookmarks"</span>, <span class="bool-val">false</span>, button(Action::ShowBookmarks)),
+<a href=#221 id=221 data-nosnippet>221</a>                opt(<span class="string">"toggle"</span>, <span class="string">"Bookmark current post"</span>, <span class="string">"b · --bookmark / --unbookmark"</span>, <span class="bool-val">false</span>, button(Action::ToggleBookmark)),
+<a href=#222 id=222 data-nosnippet>222</a>                opt(<span class="string">"sync"</span>, <span class="string">"Sync with acp.us"</span>, <span class="string">"--sync-bookmarks"</span>, <span class="bool-val">false</span>, button(Action::SyncBookmarks)),
+<a href=#223 id=223 data-nosnippet>223</a>            ]},
+<a href=#224 id=224 data-nosnippet>224</a>            MenuCommand { id: Sync, label: <span class="string">"Sync"</span>, hint: <span class="string">'y'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#225 id=225 data-nosnippet>225</a>                opt(<span class="string">"auto"</span>, <span class="string">"Auto sync"</span>, <span class="string">"while the TUI is open"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#226 id=226 data-nosnippet>226</a>                opt(<span class="string">"interval"</span>, <span class="string">"Interval (minutes)"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, text(<span class="kw-2">&amp;</span>TUI_SYNC_DEFAULT_MINUTES.to_string())),
+<a href=#227 id=227 data-nosnippet>227</a>                opt(<span class="string">"nicks"</span>, <span class="string">"Nicks"</span>, <span class="string">"--sync --nicks (blank: selected nicks)"</span>, <span class="bool-val">false</span>, text(<span class="string">""</span>)),
+<a href=#228 id=228 data-nosnippet>228</a>                opt(<span class="string">"mentions"</span>, <span class="string">"Mentions"</span>, <span class="string">"--no-mentions when off"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">false</span>)),
+<a href=#229 id=229 data-nosnippet>229</a>                opt(<span class="string">"bookmarks"</span>, <span class="string">"Bookmarks"</span>, <span class="string">"--no-bookmarks when off"</span>, <span class="bool-val">false</span>, check(<span class="bool-val">true</span>)),
+<a href=#230 id=230 data-nosnippet>230</a>                opt(<span class="string">"now"</span>, <span class="string">"Sync now"</span>, <span class="string">"--sync"</span>, <span class="bool-val">false</span>, button(Action::SyncNow)),
+<a href=#231 id=231 data-nosnippet>231</a>                opt(<span class="string">"save"</span>, <span class="string">"Save as default"</span>, <span class="string">"~/.acp/preferences.toml [sync]"</span>, <span class="bool-val">false</span>, button(Action::SaveSyncPrefs)),
+<a href=#232 id=232 data-nosnippet>232</a>            ]},
+<a href=#233 id=233 data-nosnippet>233</a>            MenuCommand { id: View, label: <span class="string">"View"</span>, hint: <span class="string">'v'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#234 id=234 data-nosnippet>234</a>                opt(<span class="string">"nested"</span>, <span class="string">"Nested"</span>, <span class="string">"v cycles"</span>, <span class="bool-val">false</span>, button(Action::SetView(ViewMode::Nested))),
+<a href=#235 id=235 data-nosnippet>235</a>                opt(<span class="string">"stack"</span>, <span class="string">"Stack"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::SetView(ViewMode::Stack))),
+<a href=#236 id=236 data-nosnippet>236</a>                opt(<span class="string">"pane"</span>, <span class="string">"Stack + content pane"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::SetView(ViewMode::Pane))),
+<a href=#237 id=237 data-nosnippet>237</a>                opt(<span class="string">"carousel_inf"</span>, <span class="string">"Carousel (infinite)"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::SetView(ViewMode::CarouselInfinite))),
+<a href=#238 id=238 data-nosnippet>238</a>                opt(<span class="string">"carousel"</span>, <span class="string">"Carousel (fixed)"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::SetView(ViewMode::CarouselFixed))),
+<a href=#239 id=239 data-nosnippet>239</a>                opt(<span class="string">"grid"</span>, <span class="string">"Grid"</span>, <span class="string">""</span>, <span class="bool-val">false</span>, button(Action::SetView(ViewMode::Grid))),
+<a href=#240 id=240 data-nosnippet>240</a>            ]},
+<a href=#241 id=241 data-nosnippet>241</a>            MenuCommand { id: Debug, label: <span class="string">"Debug"</span>, hint: <span class="string">'d'</span>, action: <span class="prelude-val">None</span>, opts: <span class="macro">vec!</span>[
+<a href=#242 id=242 data-nosnippet>242</a>                opt(<span class="string">"verbose"</span>, <span class="string">"Verbose"</span>, <span class="string">"-v"</span>, <span class="bool-val">false</span>, check(args.verbose)),
+<a href=#243 id=243 data-nosnippet>243</a>                opt(<span class="string">"debug"</span>, <span class="string">"Debug wire log"</span>, <span class="string">"--debug"</span>, <span class="bool-val">false</span>, check(args.debug)),
+<a href=#244 id=244 data-nosnippet>244</a>                opt(<span class="string">"logging"</span>, <span class="string">"Log to files"</span>, <span class="string">"--enable-logging"</span>, <span class="bool-val">false</span>, check(args.enable_logging)),
+<a href=#245 id=245 data-nosnippet>245</a>                opt(<span class="string">"show_log"</span>, <span class="string">"Show log panel"</span>, <span class="string">"l"</span>, <span class="bool-val">false</span>, button(Action::ToggleLog)),
+<a href=#246 id=246 data-nosnippet>246</a>            ]},
+<a href=#247 id=247 data-nosnippet>247</a>            MenuCommand { id: Help, label: <span class="string">"Help"</span>, hint: <span class="string">'h'</span>, opts: <span class="macro">vec!</span>[], action: <span class="prelude-val">Some</span>(Action::Help) },
+<a href=#248 id=248 data-nosnippet>248</a>            MenuCommand { id: Quit, label: <span class="string">"Quit"</span>, hint: <span class="string">'q'</span>, opts: <span class="macro">vec!</span>[], action: <span class="prelude-val">Some</span>(Action::Quit) },
+<a href=#249 id=249 data-nosnippet>249</a>        ];
+<a href=#250 id=250 data-nosnippet>250</a>        Menu { items }
+<a href=#251 id=251 data-nosnippet>251</a>    }
+<a href=#252 id=252 data-nosnippet>252</a>    <span class="doccomment">/// Item by id.
+<a href=#253 id=253 data-nosnippet>253</a>    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId) -&gt; <span class="kw-2">&amp;</span>MenuCommand { <span class="self">self</span>.items.iter().find(|c| c.id == id).expect(<span class="string">"menu id"</span>) }
+<a href=#254 id=254 data-nosnippet>254</a>    <span class="doccomment">/// Option by command and key.
+<a href=#255 id=255 data-nosnippet>255</a>    </span><span class="kw">pub fn </span>opt_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;mut </span>Opt {
+<a href=#256 id=256 data-nosnippet>256</a>        <span class="self">self</span>.items.iter_mut().find(|c| c.id == id).expect(<span class="string">"menu id"</span>).opts.iter_mut().find(|o| o.key == key).expect(<span class="string">"opt key"</span>)
+<a href=#257 id=257 data-nosnippet>257</a>    }
+<a href=#258 id=258 data-nosnippet>258</a>    <span class="kw">fn </span>opt(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span>Opt { <span class="self">self</span>.get(id).opts.iter().find(|o| o.key == key).expect(<span class="string">"opt key"</span>) }
+<a href=#259 id=259 data-nosnippet>259</a>    <span class="doccomment">/// Checkbox value.
+<a href=#260 id=260 data-nosnippet>260</a>    </span><span class="kw">pub fn </span>check(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; bool { <span class="macro">matches!</span>(<span class="self">self</span>.opt(id, key).widget, Widget::Check(<span class="bool-val">true</span>)) }
+<a href=#261 id=261 data-nosnippet>261</a>    <span class="doccomment">/// Text value, trimmed.
+<a href=#262 id=262 data-nosnippet>262</a>    </span><span class="kw">pub fn </span>text(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#263 id=263 data-nosnippet>263</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.opt(id, key).widget { Widget::Text(t) =&gt; t.value.trim().to_string(), <span class="kw">_ </span>=&gt; String::new() }
 <a href=#264 id=264 data-nosnippet>264</a>    }
-<a href=#265 id=265 data-nosnippet>265</a>
-<a href=#266 id=266 data-nosnippet>266</a>    <span class="doccomment">/// `-v` / `--debug` / `--enable-logging` from the Debug menu, for every job.
-<a href=#267 id=267 data-nosnippet>267</a>    </span><span class="kw">pub fn </span>debug_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
-<a href=#268 id=268 data-nosnippet>268</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = Vec::new();
-<a href=#269 id=269 data-nosnippet>269</a>        <span class="kw">if </span><span class="self">self</span>.check(CommandId::Debug, <span class="string">"debug"</span>) { v.push(<span class="string">"--debug"</span>.into()); }
-<a href=#270 id=270 data-nosnippet>270</a>        <span class="kw">else if </span><span class="self">self</span>.check(CommandId::Debug, <span class="string">"verbose"</span>) { v.push(<span class="string">"-v"</span>.into()); }
-<a href=#271 id=271 data-nosnippet>271</a>        <span class="kw">if </span><span class="self">self</span>.check(CommandId::Debug, <span class="string">"logging"</span>) { v.push(<span class="string">"--enable-logging"</span>.into()); }
-<a href=#272 id=272 data-nosnippet>272</a>        v
-<a href=#273 id=273 data-nosnippet>273</a>    }
-<a href=#274 id=274 data-nosnippet>274</a>
-<a href=#275 id=275 data-nosnippet>275</a>    <span class="doccomment">/// Nicks to scrape: the Nicks field, else the selected nicks.
-<a href=#276 id=276 data-nosnippet>276</a>    </span><span class="kw">pub fn </span>scrape_nicks(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; Vec&lt;String&gt; {
-<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(CommandId::Scrape, <span class="string">"nicks"</span>);
-<a href=#278 id=278 data-nosnippet>278</a>        <span class="kw">if </span>t.is_empty() { selected.to_vec() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>t).map(|n| n.<span class="number">0</span>).unwrap_or_default() }
+<a href=#265 id=265 data-nosnippet>265</a>    <span class="doccomment">/// Selected choice.
+<a href=#266 id=266 data-nosnippet>266</a>    </span><span class="kw">pub fn </span>choice(<span class="kw-2">&amp;</span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href=#267 id=267 data-nosnippet>267</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.opt(id, key).widget { Widget::Choice { choices, idx } =&gt; choices[<span class="kw-2">*</span>idx], <span class="kw">_ </span>=&gt; <span class="string">"" </span>}
+<a href=#268 id=268 data-nosnippet>268</a>    }
+<a href=#269 id=269 data-nosnippet>269</a>    <span class="doccomment">/// Set a checkbox.
+<a href=#270 id=270 data-nosnippet>270</a>    </span><span class="kw">pub fn </span>set_check(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str, v: bool) { <span class="self">self</span>.opt_mut(id, key).widget = Widget::Check(v); }
+<a href=#271 id=271 data-nosnippet>271</a>    <span class="doccomment">/// Set a text field.
+<a href=#272 id=272 data-nosnippet>272</a>    </span><span class="kw">pub fn </span>set_text(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str, v: <span class="kw-2">&amp;</span>str) {
+<a href=#273 id=273 data-nosnippet>273</a>        <span class="kw">if let </span>Widget::Text(t) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.opt_mut(id, key).widget { t.set(v); }
+<a href=#274 id=274 data-nosnippet>274</a>    }
+<a href=#275 id=275 data-nosnippet>275</a>    <span class="doccomment">/// Select a choice by value (ignored when unknown).
+<a href=#276 id=276 data-nosnippet>276</a>    </span><span class="kw">pub fn </span>set_choice(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: CommandId, key: <span class="kw-2">&amp;</span>str, v: <span class="kw-2">&amp;</span>str) {
+<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">if let </span>Widget::Choice { choices, idx } = <span class="kw-2">&amp;mut </span><span class="self">self</span>.opt_mut(id, key).widget
+<a href=#278 id=278 data-nosnippet>278</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(i) = choices.iter().position(|c| <span class="kw-2">*</span>c == v) { <span class="kw-2">*</span>idx = i; }
 <a href=#279 id=279 data-nosnippet>279</a>    }
 <a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>    <span class="doccomment">/// argv for Start Scanning (headless scrape of the chosen nicks).
-<a href=#282 id=282 data-nosnippet>282</a>    </span><span class="kw">pub fn </span>scrape_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">use </span>CommandId::Scrape <span class="kw">as </span>S;
-<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(S, <span class="string">"nicks"</span>);
-<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">let </span>nicks = <span class="kw">if </span>t.is_empty() { selected.to_vec() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>t)<span class="question-mark">?</span>.<span class="number">0 </span>};
-<a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">if </span>nicks.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Scrape needs at least one nick: type them in Scrape › Nicks or select nicks on the left"</span>.into()); }
-<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--nicks"</span>.into(), nicks.join(<span class="string">","</span>)];
-<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">if </span><span class="self">self</span>.choice(S, <span class="string">"mode"</span>) == <span class="string">"Trending" </span>{ v.push(<span class="string">"--trending"</span>.into()); } <span class="kw">else </span>{ v.push(<span class="string">"--latest"</span>.into()); }
-<a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">if </span>!<span class="self">self</span>.check(S, <span class="string">"mentions"</span>) { v.push(<span class="string">"--no-mentions"</span>.into()); }
-<a href=#290 id=290 data-nosnippet>290</a>        <span class="kw">if </span><span class="self">self</span>.check(S, <span class="string">"said_by"</span>) { v.push(<span class="string">"--said-by"</span>.into()); }
-<a href=#291 id=291 data-nosnippet>291</a>        <span class="kw">let </span>cl = <span class="self">self</span>.text(S, <span class="string">"crawl_limit"</span>);
-<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">if </span>!cl.is_empty() {
-<a href=#293 id=293 data-nosnippet>293</a>            <span class="kw">let </span>n: usize = cl.parse().map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">"Crawl limit must be a number, not {cl:?}"</span>))<span class="question-mark">?</span>;
-<a href=#294 id=294 data-nosnippet>294</a>            <span class="kw">if </span>n != DEFAULT_CRAWL_LIMIT { v.extend([<span class="string">"--crawl-limit"</span>.into(), n.to_string()]); }
-<a href=#295 id=295 data-nosnippet>295</a>        }
-<a href=#296 id=296 data-nosnippet>296</a>        <span class="kw">if </span>!<span class="self">self</span>.check(S, <span class="string">"attachments"</span>) { v.push(<span class="string">"--no-attachments"</span>.into()); }
-<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">if </span><span class="self">self</span>.check(S, <span class="string">"full"</span>) { v.push(<span class="string">"--full"</span>.into()); }
-<a href=#298 id=298 data-nosnippet>298</a>        <span class="kw">if </span><span class="self">self</span>.check(S, <span class="string">"refetch"</span>) { v.push(<span class="string">"--refetch-truncated"</span>.into()); }
-<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">let </span>out = <span class="self">self</span>.text(S, <span class="string">"output"</span>);
-<a href=#300 id=300 data-nosnippet>300</a>        <span class="kw">if </span>!out.is_empty() { v.extend([<span class="string">"--format"</span>.into(), <span class="self">self</span>.choice(S, <span class="string">"format"</span>).into(), <span class="string">"--output"</span>.into(), out]); }
-<a href=#301 id=301 data-nosnippet>301</a>        v.extend(<span class="self">self</span>.debug_args());
-<a href=#302 id=302 data-nosnippet>302</a>        validate(v)
-<a href=#303 id=303 data-nosnippet>303</a>    }
-<a href=#304 id=304 data-nosnippet>304</a>
-<a href=#305 id=305 data-nosnippet>305</a>    <span class="doccomment">/// argv for Export. `selected` = selected nicks; `view` = the current search, if any.
-<a href=#306 id=306 data-nosnippet>306</a>    </span><span class="kw">pub fn </span>export_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String], view: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>SearchFilter&gt;) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">use </span>CommandId::Export <span class="kw">as </span>E;
-<a href=#308 id=308 data-nosnippet>308</a>        <span class="kw">let </span>path = <span class="self">self</span>.text(E, <span class="string">"path"</span>);
-<a href=#309 id=309 data-nosnippet>309</a>        <span class="kw">if </span>path.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Export needs a Path"</span>.into()); }
-<a href=#310 id=310 data-nosnippet>310</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--export"</span>.into(), path];
-<a href=#311 id=311 data-nosnippet>311</a>        <span class="kw">let </span>nicks_arg = |v: <span class="kw-2">&amp;mut </span>Vec&lt;String&gt;, n: <span class="kw-2">&amp;</span>[String]| <span class="kw">if </span>!n.is_empty() { v.extend([<span class="string">"--nicks"</span>.into(), n.join(<span class="string">","</span>)]); };
-<a href=#312 id=312 data-nosnippet>312</a>        <span class="kw">match </span><span class="self">self</span>.choice(E, <span class="string">"scope"</span>) {
-<a href=#313 id=313 data-nosnippet>313</a>            <span class="string">"Selected nicks" </span>=&gt; {
-<a href=#314 id=314 data-nosnippet>314</a>                <span class="kw">if </span>selected.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Export › From is \"Selected nicks\" but no nick is selected"</span>.into()); }
-<a href=#315 id=315 data-nosnippet>315</a>                nicks_arg(<span class="kw-2">&amp;mut </span>v, selected);
-<a href=#316 id=316 data-nosnippet>316</a>            }
-<a href=#317 id=317 data-nosnippet>317</a>            <span class="string">"Current view" </span>=&gt; <span class="kw">match </span>view {
-<a href=#318 id=318 data-nosnippet>318</a>                <span class="prelude-val">Some</span>(f) =&gt; {
-<a href=#319 id=319 data-nosnippet>319</a>                    <span class="kw">if </span>!f.keyword.trim().is_empty() { v.extend([<span class="string">"--search"</span>.into(), f.keyword.trim().into()]); }
-<a href=#320 id=320 data-nosnippet>320</a>                    nicks_arg(<span class="kw-2">&amp;mut </span>v, <span class="kw-2">&amp;</span>f.nicks);
-<a href=#321 id=321 data-nosnippet>321</a>                }
-<a href=#322 id=322 data-nosnippet>322</a>                <span class="prelude-val">None </span>=&gt; nicks_arg(<span class="kw-2">&amp;mut </span>v, selected),
-<a href=#323 id=323 data-nosnippet>323</a>            },
-<a href=#324 id=324 data-nosnippet>324</a>            <span class="kw">_ </span>=&gt; {}
-<a href=#325 id=325 data-nosnippet>325</a>        }
-<a href=#326 id=326 data-nosnippet>326</a>        v.extend([<span class="string">"--format"</span>.into(), <span class="self">self</span>.choice(E, <span class="string">"format"</span>).into()]);
-<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">let </span>name = <span class="self">self</span>.text(E, <span class="string">"name"</span>);
-<a href=#328 id=328 data-nosnippet>328</a>        <span class="kw">if </span>!name.is_empty() { v.extend([<span class="string">"--name"</span>.into(), name]); }
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="kw">if </span><span class="self">self</span>.check(E, <span class="string">"compress"</span>) { v.extend([<span class="string">"--compress"</span>.into(), <span class="string">"--tar-gz"</span>.into()]); }
-<a href=#330 id=330 data-nosnippet>330</a>        v.extend(<span class="self">self</span>.debug_args());
-<a href=#331 id=331 data-nosnippet>331</a>        validate(v)
-<a href=#332 id=332 data-nosnippet>332</a>    }
-<a href=#333 id=333 data-nosnippet>333</a>
-<a href=#334 id=334 data-nosnippet>334</a>    <span class="doccomment">/// argv for Import.
-<a href=#335 id=335 data-nosnippet>335</a>    </span><span class="kw">pub fn </span>import_argv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#336 id=336 data-nosnippet>336</a>        <span class="kw">use </span>CommandId::Import <span class="kw">as </span>I;
-<a href=#337 id=337 data-nosnippet>337</a>        <span class="kw">let </span>path = <span class="self">self</span>.text(I, <span class="string">"path"</span>);
-<a href=#338 id=338 data-nosnippet>338</a>        <span class="kw">if </span>path.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Import needs a Path"</span>.into()); }
-<a href=#339 id=339 data-nosnippet>339</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--import"</span>.into(), path];
-<a href=#340 id=340 data-nosnippet>340</a>        <span class="kw">if </span><span class="self">self</span>.check(I, <span class="string">"compress"</span>) { v.extend([<span class="string">"--compress"</span>.into(), <span class="string">"--tar-gz"</span>.into()]); }
-<a href=#341 id=341 data-nosnippet>341</a>        v.extend(<span class="self">self</span>.debug_args());
-<a href=#342 id=342 data-nosnippet>342</a>        validate(v)
-<a href=#343 id=343 data-nosnippet>343</a>    }
-<a href=#344 id=344 data-nosnippet>344</a>
-<a href=#345 id=345 data-nosnippet>345</a>    <span class="doccomment">/// Nicks Maintain › Remove would delete: the field, else the selection.
-<a href=#346 id=346 data-nosnippet>346</a>    </span><span class="kw">pub fn </span>remove_nicks(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#347 id=347 data-nosnippet>347</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(CommandId::Maintain, <span class="string">"nicks"</span>);
-<a href=#348 id=348 data-nosnippet>348</a>        <span class="kw">let </span>n = <span class="kw">if </span>t.is_empty() { selected.to_vec() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>t)<span class="question-mark">?</span>.<span class="number">0 </span>};
-<a href=#349 id=349 data-nosnippet>349</a>        <span class="kw">if </span>n.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Remove needs nicks: type them in Maintain › Remove nicks or select nicks on the left"</span>.into()); }
-<a href=#350 id=350 data-nosnippet>350</a>        <span class="prelude-val">Ok</span>(n)
-<a href=#351 id=351 data-nosnippet>351</a>    }
-<a href=#352 id=352 data-nosnippet>352</a>
-<a href=#353 id=353 data-nosnippet>353</a>    <span class="doccomment">/// argv for `--remove-nick` (always `--yes`: the TUI confirms first, or Skip confirmation was ticked).
-<a href=#354 id=354 data-nosnippet>354</a>    </span><span class="kw">pub fn </span>remove_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#355 id=355 data-nosnippet>355</a>        <span class="kw">use </span>CommandId::Maintain <span class="kw">as </span>M;
-<a href=#356 id=356 data-nosnippet>356</a>        <span class="kw">let </span>n = <span class="self">self</span>.remove_nicks(selected)<span class="question-mark">?</span>;
-<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--remove-nick"</span>.into(), n.join(<span class="string">","</span>), <span class="string">"--yes"</span>.into()];
-<a href=#358 id=358 data-nosnippet>358</a>        <span class="kw">if </span><span class="self">self</span>.check(M, <span class="string">"keep_replies"</span>) { v.push(<span class="string">"--keep-replies"</span>.into()); }
-<a href=#359 id=359 data-nosnippet>359</a>        <span class="kw">if </span><span class="self">self</span>.check(M, <span class="string">"dry_run"</span>) { v.push(<span class="string">"--dry-run"</span>.into()); }
-<a href=#360 id=360 data-nosnippet>360</a>        v.extend(<span class="self">self</span>.debug_args());
-<a href=#361 id=361 data-nosnippet>361</a>        validate(v)
-<a href=#362 id=362 data-nosnippet>362</a>    }
-<a href=#363 id=363 data-nosnippet>363</a>
-<a href=#364 id=364 data-nosnippet>364</a>    <span class="doccomment">/// argv for `--clear-all` (always `--yes`, see [`Menu::remove_argv`]).
-<a href=#365 id=365 data-nosnippet>365</a>    </span><span class="kw">pub fn </span>clear_all_argv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#366 id=366 data-nosnippet>366</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--clear-all"</span>.into(), <span class="string">"--yes"</span>.into()];
-<a href=#367 id=367 data-nosnippet>367</a>        <span class="kw">if </span><span class="self">self</span>.check(CommandId::Maintain, <span class="string">"dry_run"</span>) { v.push(<span class="string">"--dry-run"</span>.into()); }
-<a href=#368 id=368 data-nosnippet>368</a>        v.extend(<span class="self">self</span>.debug_args());
-<a href=#369 id=369 data-nosnippet>369</a>        validate(v)
-<a href=#370 id=370 data-nosnippet>370</a>    }
-<a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a>    <span class="doccomment">/// argv for one local bookmark change.
-<a href=#373 id=373 data-nosnippet>373</a>    </span><span class="kw">pub fn </span>bookmark_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str, on: bool) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#374 id=374 data-nosnippet>374</a>        validate(<span class="macro">vec!</span>[ARGV0.to_string(), <span class="kw">if </span>on { <span class="string">"--bookmark" </span>} <span class="kw">else </span>{ <span class="string">"--unbookmark" </span>}.into(), id.to_string()])
-<a href=#375 id=375 data-nosnippet>375</a>    }
-<a href=#376 id=376 data-nosnippet>376</a>
-<a href=#377 id=377 data-nosnippet>377</a>    <span class="doccomment">/// argv for Bookmarks › Sync.
-<a href=#378 id=378 data-nosnippet>378</a>    </span><span class="kw">pub fn </span>sync_bookmarks_argv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#379 id=379 data-nosnippet>379</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--sync-bookmarks"</span>.into()];
-<a href=#380 id=380 data-nosnippet>380</a>        v.extend(<span class="self">self</span>.debug_args());
-<a href=#381 id=381 data-nosnippet>381</a>        validate(v)
-<a href=#382 id=382 data-nosnippet>382</a>    }
-<a href=#383 id=383 data-nosnippet>383</a>
-<a href=#384 id=384 data-nosnippet>384</a>    <span class="doccomment">/// argv for a sync (Sync now / auto sync): `--sync` with the nicks (field, else `selected`).
-<a href=#385 id=385 data-nosnippet>385</a>    </span><span class="kw">pub fn </span>sync_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#386 id=386 data-nosnippet>386</a>        <span class="kw">use </span>CommandId::Sync <span class="kw">as </span>Y;
-<a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(Y, <span class="string">"nicks"</span>);
-<a href=#388 id=388 data-nosnippet>388</a>        <span class="kw">let </span>nicks = <span class="kw">if </span>t.is_empty() { selected.to_vec() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>t)<span class="question-mark">?</span>.<span class="number">0 </span>};
-<a href=#389 id=389 data-nosnippet>389</a>        <span class="kw">let </span>bm = <span class="self">self</span>.check(Y, <span class="string">"bookmarks"</span>);
-<a href=#390 id=390 data-nosnippet>390</a>        <span class="kw">if </span>nicks.is_empty() &amp;&amp; !bm { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"nothing to sync: tick Sync › Bookmarks, or type nicks in Sync › Nicks / select nicks"</span>.into()); }
-<a href=#391 id=391 data-nosnippet>391</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--sync"</span>.into()];
-<a href=#392 id=392 data-nosnippet>392</a>        <span class="kw">if </span>!nicks.is_empty() { v.extend([<span class="string">"--nicks"</span>.into(), nicks.join(<span class="string">","</span>)]); <span class="kw">if </span>!<span class="self">self</span>.check(Y, <span class="string">"mentions"</span>) { v.push(<span class="string">"--no-mentions"</span>.into()); } }
-<a href=#393 id=393 data-nosnippet>393</a>        <span class="kw">if </span>!bm { v.push(<span class="string">"--no-bookmarks"</span>.into()); }
-<a href=#394 id=394 data-nosnippet>394</a>        v.extend(<span class="self">self</span>.debug_args());
-<a href=#395 id=395 data-nosnippet>395</a>        validate(v)
-<a href=#396 id=396 data-nosnippet>396</a>    }
-<a href=#397 id=397 data-nosnippet>397</a>    <span class="doccomment">/// Sync › Interval as a duration (at least a minute).
-<a href=#398 id=398 data-nosnippet>398</a>    </span><span class="kw">pub fn </span>sync_interval(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;std::time::Duration, String&gt; {
-<a href=#399 id=399 data-nosnippet>399</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(CommandId::Sync, <span class="string">"interval"</span>);
-<a href=#400 id=400 data-nosnippet>400</a>        <span class="kw">if </span>t.is_empty() { <span class="kw">return </span><span class="prelude-val">Ok</span>(std::time::Duration::from_secs(TUI_SYNC_DEFAULT_MINUTES * <span class="number">60</span>)); }
-<a href=#401 id=401 data-nosnippet>401</a>        <span class="kw">match </span>t.parse::&lt;u64&gt;() {
-<a href=#402 id=402 data-nosnippet>402</a>            <span class="prelude-val">Ok</span>(m) <span class="kw">if </span>m &gt;= <span class="number">1 </span>=&gt; <span class="prelude-val">Ok</span>(std::time::Duration::from_secs(m * <span class="number">60</span>)),
-<a href=#403 id=403 data-nosnippet>403</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Sync › Interval must be a whole number of minutes (1 or more), not {t:?}"</span>)),
-<a href=#404 id=404 data-nosnippet>404</a>        }
-<a href=#405 id=405 data-nosnippet>405</a>    }
-<a href=#406 id=406 data-nosnippet>406</a>    <span class="doccomment">/// The Sync menu as `[sync]` preferences.
-<a href=#407 id=407 data-nosnippet>407</a>    </span><span class="kw">pub fn </span>sync_prefs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SyncPrefs {
-<a href=#408 id=408 data-nosnippet>408</a>        <span class="kw">use </span>CommandId::Sync <span class="kw">as </span>Y;
-<a href=#409 id=409 data-nosnippet>409</a>        SyncPrefs { auto: <span class="prelude-val">Some</span>(<span class="self">self</span>.check(Y, <span class="string">"auto"</span>)), interval_minutes: <span class="self">self</span>.sync_interval().ok().map(|d| d.as_secs() / <span class="number">60</span>),
-<a href=#410 id=410 data-nosnippet>410</a>            nicks: <span class="prelude-val">Some</span>(<span class="self">self</span>.text(Y, <span class="string">"nicks"</span>)), mentions: <span class="prelude-val">Some</span>(<span class="self">self</span>.check(Y, <span class="string">"mentions"</span>)), bookmarks: <span class="prelude-val">Some</span>(<span class="self">self</span>.check(Y, <span class="string">"bookmarks"</span>)) }
+<a href=#281 id=281 data-nosnippet>281</a>    <span class="doccomment">/// `-v` / `--debug` / `--enable-logging` from the Debug menu, for every job.
+<a href=#282 id=282 data-nosnippet>282</a>    </span><span class="kw">pub fn </span>debug_args(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;String&gt; {
+<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = Vec::new();
+<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">if </span><span class="self">self</span>.check(CommandId::Debug, <span class="string">"debug"</span>) { v.push(<span class="string">"--debug"</span>.into()); }
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">else if </span><span class="self">self</span>.check(CommandId::Debug, <span class="string">"verbose"</span>) { v.push(<span class="string">"-v"</span>.into()); }
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="kw">if </span><span class="self">self</span>.check(CommandId::Debug, <span class="string">"logging"</span>) { v.push(<span class="string">"--enable-logging"</span>.into()); }
+<a href=#287 id=287 data-nosnippet>287</a>        v
+<a href=#288 id=288 data-nosnippet>288</a>    }
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a>    <span class="doccomment">/// Nicks to scrape: the Nicks field, else the selected nicks.
+<a href=#291 id=291 data-nosnippet>291</a>    </span><span class="kw">pub fn </span>scrape_nicks(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; Vec&lt;String&gt; {
+<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(CommandId::Scrape, <span class="string">"nicks"</span>);
+<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">if </span>t.is_empty() { selected.to_vec() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>t).map(|n| n.<span class="number">0</span>).unwrap_or_default() }
+<a href=#294 id=294 data-nosnippet>294</a>    }
+<a href=#295 id=295 data-nosnippet>295</a>
+<a href=#296 id=296 data-nosnippet>296</a>    <span class="doccomment">/// argv for Start Scanning (headless scrape of the chosen nicks).
+<a href=#297 id=297 data-nosnippet>297</a>    </span><span class="kw">pub fn </span>scrape_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#298 id=298 data-nosnippet>298</a>        <span class="kw">use </span>CommandId::Scrape <span class="kw">as </span>S;
+<a href=#299 id=299 data-nosnippet>299</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(S, <span class="string">"nicks"</span>);
+<a href=#300 id=300 data-nosnippet>300</a>        <span class="kw">let </span>nicks = <span class="kw">if </span>t.is_empty() { selected.to_vec() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>t)<span class="question-mark">?</span>.<span class="number">0 </span>};
+<a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">if </span>nicks.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Scrape needs at least one nick: type them in Scrape › Nicks or select nicks on the left"</span>.into()); }
+<a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--nicks"</span>.into(), nicks.join(<span class="string">","</span>)];
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">if </span><span class="self">self</span>.choice(S, <span class="string">"mode"</span>) == <span class="string">"Trending" </span>{ v.push(<span class="string">"--trending"</span>.into()); } <span class="kw">else </span>{ v.push(<span class="string">"--latest"</span>.into()); }
+<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">if </span>!<span class="self">self</span>.check(S, <span class="string">"mentions"</span>) { v.push(<span class="string">"--no-mentions"</span>.into()); }
+<a href=#305 id=305 data-nosnippet>305</a>        <span class="kw">if </span><span class="self">self</span>.check(S, <span class="string">"said_by"</span>) { v.push(<span class="string">"--said-by"</span>.into()); }
+<a href=#306 id=306 data-nosnippet>306</a>        <span class="kw">let </span>cl = <span class="self">self</span>.text(S, <span class="string">"crawl_limit"</span>);
+<a href=#307 id=307 data-nosnippet>307</a>        <span class="kw">if </span>!cl.is_empty() {
+<a href=#308 id=308 data-nosnippet>308</a>            <span class="kw">let </span>n: usize = cl.parse().map_err(|<span class="kw">_</span>| <span class="macro">format!</span>(<span class="string">"Crawl limit must be a number, not {cl:?}"</span>))<span class="question-mark">?</span>;
+<a href=#309 id=309 data-nosnippet>309</a>            <span class="kw">if </span>n != DEFAULT_CRAWL_LIMIT { v.extend([<span class="string">"--crawl-limit"</span>.into(), n.to_string()]); }
+<a href=#310 id=310 data-nosnippet>310</a>        }
+<a href=#311 id=311 data-nosnippet>311</a>        <span class="kw">if </span>!<span class="self">self</span>.check(S, <span class="string">"attachments"</span>) { v.push(<span class="string">"--no-attachments"</span>.into()); }
+<a href=#312 id=312 data-nosnippet>312</a>        <span class="kw">if </span><span class="self">self</span>.check(S, <span class="string">"full"</span>) { v.push(<span class="string">"--full"</span>.into()); }
+<a href=#313 id=313 data-nosnippet>313</a>        <span class="kw">if </span><span class="self">self</span>.check(S, <span class="string">"refetch"</span>) { v.push(<span class="string">"--refetch-truncated"</span>.into()); }
+<a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">let </span>out = <span class="self">self</span>.text(S, <span class="string">"output"</span>);
+<a href=#315 id=315 data-nosnippet>315</a>        <span class="kw">if </span>!out.is_empty() { v.extend([<span class="string">"--format"</span>.into(), <span class="self">self</span>.choice(S, <span class="string">"format"</span>).into(), <span class="string">"--output"</span>.into(), out]); }
+<a href=#316 id=316 data-nosnippet>316</a>        v.extend(<span class="self">self</span>.debug_args());
+<a href=#317 id=317 data-nosnippet>317</a>        validate(v)
+<a href=#318 id=318 data-nosnippet>318</a>    }
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="doccomment">/// argv for Export. `selected` = selected nicks; `view` = the current search, if any.
+<a href=#321 id=321 data-nosnippet>321</a>    </span><span class="kw">pub fn </span>export_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String], view: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>SearchFilter&gt;) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#322 id=322 data-nosnippet>322</a>        <span class="kw">use </span>CommandId::Export <span class="kw">as </span>E;
+<a href=#323 id=323 data-nosnippet>323</a>        <span class="kw">let </span>path = <span class="self">self</span>.text(E, <span class="string">"path"</span>);
+<a href=#324 id=324 data-nosnippet>324</a>        <span class="kw">if </span>path.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Export needs a Path"</span>.into()); }
+<a href=#325 id=325 data-nosnippet>325</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--export"</span>.into(), path];
+<a href=#326 id=326 data-nosnippet>326</a>        <span class="kw">let </span>nicks_arg = |v: <span class="kw-2">&amp;mut </span>Vec&lt;String&gt;, n: <span class="kw-2">&amp;</span>[String]| <span class="kw">if </span>!n.is_empty() { v.extend([<span class="string">"--nicks"</span>.into(), n.join(<span class="string">","</span>)]); };
+<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">match </span><span class="self">self</span>.choice(E, <span class="string">"scope"</span>) {
+<a href=#328 id=328 data-nosnippet>328</a>            <span class="string">"Selected nicks" </span>=&gt; {
+<a href=#329 id=329 data-nosnippet>329</a>                <span class="kw">if </span>selected.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Export › From is \"Selected nicks\" but no nick is selected"</span>.into()); }
+<a href=#330 id=330 data-nosnippet>330</a>                nicks_arg(<span class="kw-2">&amp;mut </span>v, selected);
+<a href=#331 id=331 data-nosnippet>331</a>            }
+<a href=#332 id=332 data-nosnippet>332</a>            <span class="string">"Current view" </span>=&gt; <span class="kw">match </span>view {
+<a href=#333 id=333 data-nosnippet>333</a>                <span class="prelude-val">Some</span>(f) =&gt; {
+<a href=#334 id=334 data-nosnippet>334</a>                    <span class="kw">if </span>!f.keyword.trim().is_empty() { v.extend([<span class="string">"--search"</span>.into(), f.keyword.trim().into()]); }
+<a href=#335 id=335 data-nosnippet>335</a>                    nicks_arg(<span class="kw-2">&amp;mut </span>v, <span class="kw-2">&amp;</span>f.nicks);
+<a href=#336 id=336 data-nosnippet>336</a>                }
+<a href=#337 id=337 data-nosnippet>337</a>                <span class="prelude-val">None </span>=&gt; nicks_arg(<span class="kw-2">&amp;mut </span>v, selected),
+<a href=#338 id=338 data-nosnippet>338</a>            },
+<a href=#339 id=339 data-nosnippet>339</a>            <span class="kw">_ </span>=&gt; {}
+<a href=#340 id=340 data-nosnippet>340</a>        }
+<a href=#341 id=341 data-nosnippet>341</a>        v.extend([<span class="string">"--format"</span>.into(), <span class="self">self</span>.choice(E, <span class="string">"format"</span>).into()]);
+<a href=#342 id=342 data-nosnippet>342</a>        <span class="kw">let </span>name = <span class="self">self</span>.text(E, <span class="string">"name"</span>);
+<a href=#343 id=343 data-nosnippet>343</a>        <span class="kw">if </span>!name.is_empty() { v.extend([<span class="string">"--name"</span>.into(), name]); }
+<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">if </span><span class="self">self</span>.check(E, <span class="string">"compress"</span>) { v.extend([<span class="string">"--compress"</span>.into(), <span class="string">"--tar-gz"</span>.into()]); }
+<a href=#345 id=345 data-nosnippet>345</a>        v.extend(<span class="self">self</span>.debug_args());
+<a href=#346 id=346 data-nosnippet>346</a>        validate(v)
+<a href=#347 id=347 data-nosnippet>347</a>    }
+<a href=#348 id=348 data-nosnippet>348</a>
+<a href=#349 id=349 data-nosnippet>349</a>    <span class="doccomment">/// argv for Import.
+<a href=#350 id=350 data-nosnippet>350</a>    </span><span class="kw">pub fn </span>import_argv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">use </span>CommandId::Import <span class="kw">as </span>I;
+<a href=#352 id=352 data-nosnippet>352</a>        <span class="kw">let </span>path = <span class="self">self</span>.text(I, <span class="string">"path"</span>);
+<a href=#353 id=353 data-nosnippet>353</a>        <span class="kw">if </span>path.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Import needs a Path"</span>.into()); }
+<a href=#354 id=354 data-nosnippet>354</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--import"</span>.into(), path];
+<a href=#355 id=355 data-nosnippet>355</a>        <span class="kw">if </span><span class="self">self</span>.check(I, <span class="string">"compress"</span>) { v.extend([<span class="string">"--compress"</span>.into(), <span class="string">"--tar-gz"</span>.into()]); }
+<a href=#356 id=356 data-nosnippet>356</a>        v.extend(<span class="self">self</span>.debug_args());
+<a href=#357 id=357 data-nosnippet>357</a>        validate(v)
+<a href=#358 id=358 data-nosnippet>358</a>    }
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a>    <span class="doccomment">/// Nicks Maintain › Remove would delete: the field, else the selection.
+<a href=#361 id=361 data-nosnippet>361</a>    </span><span class="kw">pub fn </span>remove_nicks(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#362 id=362 data-nosnippet>362</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(CommandId::Maintain, <span class="string">"nicks"</span>);
+<a href=#363 id=363 data-nosnippet>363</a>        <span class="kw">let </span>n = <span class="kw">if </span>t.is_empty() { selected.to_vec() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>t)<span class="question-mark">?</span>.<span class="number">0 </span>};
+<a href=#364 id=364 data-nosnippet>364</a>        <span class="kw">if </span>n.is_empty() { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Remove needs nicks: type them in Maintain › Remove nicks or select nicks on the left"</span>.into()); }
+<a href=#365 id=365 data-nosnippet>365</a>        <span class="prelude-val">Ok</span>(n)
+<a href=#366 id=366 data-nosnippet>366</a>    }
+<a href=#367 id=367 data-nosnippet>367</a>
+<a href=#368 id=368 data-nosnippet>368</a>    <span class="doccomment">/// argv for `--remove-nick` (always `--yes`: the TUI confirms first, or Skip confirmation was ticked).
+<a href=#369 id=369 data-nosnippet>369</a>    </span><span class="kw">pub fn </span>remove_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#370 id=370 data-nosnippet>370</a>        <span class="kw">use </span>CommandId::Maintain <span class="kw">as </span>M;
+<a href=#371 id=371 data-nosnippet>371</a>        <span class="kw">let </span>n = <span class="self">self</span>.remove_nicks(selected)<span class="question-mark">?</span>;
+<a href=#372 id=372 data-nosnippet>372</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--remove-nick"</span>.into(), n.join(<span class="string">","</span>), <span class="string">"--yes"</span>.into()];
+<a href=#373 id=373 data-nosnippet>373</a>        <span class="kw">if </span><span class="self">self</span>.check(M, <span class="string">"keep_replies"</span>) { v.push(<span class="string">"--keep-replies"</span>.into()); }
+<a href=#374 id=374 data-nosnippet>374</a>        <span class="kw">if </span><span class="self">self</span>.check(M, <span class="string">"dry_run"</span>) { v.push(<span class="string">"--dry-run"</span>.into()); }
+<a href=#375 id=375 data-nosnippet>375</a>        v.extend(<span class="self">self</span>.debug_args());
+<a href=#376 id=376 data-nosnippet>376</a>        validate(v)
+<a href=#377 id=377 data-nosnippet>377</a>    }
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a>    <span class="doccomment">/// argv for `--clear-all` (always `--yes`, see [`Menu::remove_argv`]).
+<a href=#380 id=380 data-nosnippet>380</a>    </span><span class="kw">pub fn </span>clear_all_argv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#381 id=381 data-nosnippet>381</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--clear-all"</span>.into(), <span class="string">"--yes"</span>.into()];
+<a href=#382 id=382 data-nosnippet>382</a>        <span class="kw">if </span><span class="self">self</span>.check(CommandId::Maintain, <span class="string">"dry_run"</span>) { v.push(<span class="string">"--dry-run"</span>.into()); }
+<a href=#383 id=383 data-nosnippet>383</a>        v.extend(<span class="self">self</span>.debug_args());
+<a href=#384 id=384 data-nosnippet>384</a>        validate(v)
+<a href=#385 id=385 data-nosnippet>385</a>    }
+<a href=#386 id=386 data-nosnippet>386</a>
+<a href=#387 id=387 data-nosnippet>387</a>    <span class="doccomment">/// argv for one local bookmark change.
+<a href=#388 id=388 data-nosnippet>388</a>    </span><span class="kw">pub fn </span>bookmark_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str, on: bool) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#389 id=389 data-nosnippet>389</a>        validate(<span class="macro">vec!</span>[ARGV0.to_string(), <span class="kw">if </span>on { <span class="string">"--bookmark" </span>} <span class="kw">else </span>{ <span class="string">"--unbookmark" </span>}.into(), id.to_string()])
+<a href=#390 id=390 data-nosnippet>390</a>    }
+<a href=#391 id=391 data-nosnippet>391</a>
+<a href=#392 id=392 data-nosnippet>392</a>    <span class="doccomment">/// argv for Bookmarks › Sync.
+<a href=#393 id=393 data-nosnippet>393</a>    </span><span class="kw">pub fn </span>sync_bookmarks_argv(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#394 id=394 data-nosnippet>394</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--sync-bookmarks"</span>.into()];
+<a href=#395 id=395 data-nosnippet>395</a>        v.extend(<span class="self">self</span>.debug_args());
+<a href=#396 id=396 data-nosnippet>396</a>        validate(v)
+<a href=#397 id=397 data-nosnippet>397</a>    }
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a>    <span class="doccomment">/// argv for a sync (Sync now / auto sync): `--sync` with the nicks (field, else `selected`).
+<a href=#400 id=400 data-nosnippet>400</a>    </span><span class="kw">pub fn </span>sync_argv(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: <span class="kw-2">&amp;</span>[String]) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#401 id=401 data-nosnippet>401</a>        <span class="kw">use </span>CommandId::Sync <span class="kw">as </span>Y;
+<a href=#402 id=402 data-nosnippet>402</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(Y, <span class="string">"nicks"</span>);
+<a href=#403 id=403 data-nosnippet>403</a>        <span class="kw">let </span>nicks = <span class="kw">if </span>t.is_empty() { selected.to_vec() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>t)<span class="question-mark">?</span>.<span class="number">0 </span>};
+<a href=#404 id=404 data-nosnippet>404</a>        <span class="kw">let </span>bm = <span class="self">self</span>.check(Y, <span class="string">"bookmarks"</span>);
+<a href=#405 id=405 data-nosnippet>405</a>        <span class="kw">if </span>nicks.is_empty() &amp;&amp; !bm { <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"nothing to sync: tick Sync › Bookmarks, or type nicks in Sync › Nicks / select nicks"</span>.into()); }
+<a href=#406 id=406 data-nosnippet>406</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[ARGV0.to_string(), <span class="string">"--sync"</span>.into()];
+<a href=#407 id=407 data-nosnippet>407</a>        <span class="kw">if </span>!nicks.is_empty() { v.extend([<span class="string">"--nicks"</span>.into(), nicks.join(<span class="string">","</span>)]); <span class="kw">if </span>!<span class="self">self</span>.check(Y, <span class="string">"mentions"</span>) { v.push(<span class="string">"--no-mentions"</span>.into()); } }
+<a href=#408 id=408 data-nosnippet>408</a>        <span class="kw">if </span>!bm { v.push(<span class="string">"--no-bookmarks"</span>.into()); }
+<a href=#409 id=409 data-nosnippet>409</a>        v.extend(<span class="self">self</span>.debug_args());
+<a href=#410 id=410 data-nosnippet>410</a>        validate(v)
 <a href=#411 id=411 data-nosnippet>411</a>    }
-<a href=#412 id=412 data-nosnippet>412</a>    <span class="doccomment">/// Fill the Sync menu from `[sync]` preferences.
-<a href=#413 id=413 data-nosnippet>413</a>    </span><span class="kw">pub fn </span>apply_sync_prefs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, p: <span class="kw-2">&amp;</span>SyncPrefs) {
-<a href=#414 id=414 data-nosnippet>414</a>        <span class="kw">use </span>CommandId::Sync <span class="kw">as </span>Y;
-<a href=#415 id=415 data-nosnippet>415</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = p.auto { <span class="self">self</span>.set_check(Y, <span class="string">"auto"</span>, v); }
-<a href=#416 id=416 data-nosnippet>416</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = p.interval_minutes { <span class="self">self</span>.set_text(Y, <span class="string">"interval"</span>, <span class="kw-2">&amp;</span>v.to_string()); }
-<a href=#417 id=417 data-nosnippet>417</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = <span class="kw-2">&amp;</span>p.nicks { <span class="self">self</span>.set_text(Y, <span class="string">"nicks"</span>, v); }
-<a href=#418 id=418 data-nosnippet>418</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = p.mentions { <span class="self">self</span>.set_check(Y, <span class="string">"mentions"</span>, v); }
-<a href=#419 id=419 data-nosnippet>419</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = p.bookmarks { <span class="self">self</span>.set_check(Y, <span class="string">"bookmarks"</span>, v); }
+<a href=#412 id=412 data-nosnippet>412</a>    <span class="doccomment">/// Sync › Interval as a duration (at least a minute).
+<a href=#413 id=413 data-nosnippet>413</a>    </span><span class="kw">pub fn </span>sync_interval(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;std::time::Duration, String&gt; {
+<a href=#414 id=414 data-nosnippet>414</a>        <span class="kw">let </span>t = <span class="self">self</span>.text(CommandId::Sync, <span class="string">"interval"</span>);
+<a href=#415 id=415 data-nosnippet>415</a>        <span class="kw">if </span>t.is_empty() { <span class="kw">return </span><span class="prelude-val">Ok</span>(std::time::Duration::from_secs(TUI_SYNC_DEFAULT_MINUTES * <span class="number">60</span>)); }
+<a href=#416 id=416 data-nosnippet>416</a>        <span class="kw">match </span>t.parse::&lt;u64&gt;() {
+<a href=#417 id=417 data-nosnippet>417</a>            <span class="prelude-val">Ok</span>(m) <span class="kw">if </span>m &gt;= <span class="number">1 </span>=&gt; <span class="prelude-val">Ok</span>(std::time::Duration::from_secs(m * <span class="number">60</span>)),
+<a href=#418 id=418 data-nosnippet>418</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"Sync › Interval must be a whole number of minutes (1 or more), not {t:?}"</span>)),
+<a href=#419 id=419 data-nosnippet>419</a>        }
 <a href=#420 id=420 data-nosnippet>420</a>    }
-<a href=#421 id=421 data-nosnippet>421</a>
-<a href=#422 id=422 data-nosnippet>422</a>    <span class="doccomment">/// Search menu fields as a filter.
-<a href=#423 id=423 data-nosnippet>423</a>    </span><span class="kw">pub fn </span>search_filter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;SearchFilter, String&gt; {
-<a href=#424 id=424 data-nosnippet>424</a>        <span class="kw">let </span>nick = <span class="self">self</span>.text(CommandId::Search, <span class="string">"nick"</span>);
-<a href=#425 id=425 data-nosnippet>425</a>        <span class="prelude-val">Ok</span>(SearchFilter {
-<a href=#426 id=426 data-nosnippet>426</a>            keyword: <span class="self">self</span>.text(CommandId::Search, <span class="string">"query"</span>),
-<a href=#427 id=427 data-nosnippet>427</a>            nicks: <span class="kw">if </span>nick.is_empty() { Vec::new() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>nick)<span class="question-mark">?</span>.<span class="number">0 </span>},
-<a href=#428 id=428 data-nosnippet>428</a>            ..SearchFilter::default()
-<a href=#429 id=429 data-nosnippet>429</a>        })
-<a href=#430 id=430 data-nosnippet>430</a>    }
-<a href=#431 id=431 data-nosnippet>431</a>}
-<a href=#432 id=432 data-nosnippet>432</a>
-<a href=#433 id=433 data-nosnippet>433</a><span class="doccomment">/// Check `argv` with clap exactly as the CLI would and make sure it runs headless.
-<a href=#434 id=434 data-nosnippet>434</a></span><span class="kw">pub fn </span>validate(argv: Vec&lt;String&gt;) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
-<a href=#435 id=435 data-nosnippet>435</a>    <span class="kw">match </span>parse_with_mode(<span class="kw-2">&amp;</span>argv) {
-<a href=#436 id=436 data-nosnippet>436</a>        <span class="prelude-val">Ok</span>((<span class="kw">_</span>, <span class="bool-val">false</span>)) =&gt; <span class="prelude-val">Ok</span>(argv),
-<a href=#437 id=437 data-nosnippet>437</a>        <span class="prelude-val">Ok</span>((<span class="kw">_</span>, <span class="bool-val">true</span>)) =&gt; <span class="prelude-val">Err</span>(<span class="string">"these options would open the terminal UI instead of running"</span>.into()),
-<a href=#438 id=438 data-nosnippet>438</a>        <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.to_string().lines().next().unwrap_or(<span class="string">"invalid options"</span>).trim_start_matches(<span class="string">"error: "</span>).to_string()),
-<a href=#439 id=439 data-nosnippet>439</a>    }
-<a href=#440 id=440 data-nosnippet>440</a>}
-<a href=#441 id=441 data-nosnippet>441</a>
-<a href=#442 id=442 data-nosnippet>442</a><span class="doccomment">/// Shell-style rendering of an argv (for the status line and Help).
-<a href=#443 id=443 data-nosnippet>443</a></span><span class="kw">pub fn </span>shell_line(argv: <span class="kw-2">&amp;</span>[String]) -&gt; String {
-<a href=#444 id=444 data-nosnippet>444</a>    argv.iter().map(|a| <span class="kw">if </span>a.is_empty() || a.contains(|c: char| c.is_whitespace() || <span class="string">"\"'$\\"</span>.contains(c)) {
-<a href=#445 id=445 data-nosnippet>445</a>        <span class="macro">format!</span>(<span class="string">"'{}'"</span>, a.replace(<span class="string">'\''</span>, <span class="string">"'\\''"</span>))
-<a href=#446 id=446 data-nosnippet>446</a>    } <span class="kw">else </span>{ a.clone() }).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">" "</span>)
-<a href=#447 id=447 data-nosnippet>447</a>}
+<a href=#421 id=421 data-nosnippet>421</a>    <span class="doccomment">/// The Sync menu as `[sync]` preferences.
+<a href=#422 id=422 data-nosnippet>422</a>    </span><span class="kw">pub fn </span>sync_prefs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; SyncPrefs {
+<a href=#423 id=423 data-nosnippet>423</a>        <span class="kw">use </span>CommandId::Sync <span class="kw">as </span>Y;
+<a href=#424 id=424 data-nosnippet>424</a>        SyncPrefs { auto: <span class="prelude-val">Some</span>(<span class="self">self</span>.check(Y, <span class="string">"auto"</span>)), interval_minutes: <span class="self">self</span>.sync_interval().ok().map(|d| d.as_secs() / <span class="number">60</span>),
+<a href=#425 id=425 data-nosnippet>425</a>            nicks: <span class="prelude-val">Some</span>(<span class="self">self</span>.text(Y, <span class="string">"nicks"</span>)), mentions: <span class="prelude-val">Some</span>(<span class="self">self</span>.check(Y, <span class="string">"mentions"</span>)), bookmarks: <span class="prelude-val">Some</span>(<span class="self">self</span>.check(Y, <span class="string">"bookmarks"</span>)) }
+<a href=#426 id=426 data-nosnippet>426</a>    }
+<a href=#427 id=427 data-nosnippet>427</a>    <span class="doccomment">/// Fill the Sync menu from `[sync]` preferences.
+<a href=#428 id=428 data-nosnippet>428</a>    </span><span class="kw">pub fn </span>apply_sync_prefs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, p: <span class="kw-2">&amp;</span>SyncPrefs) {
+<a href=#429 id=429 data-nosnippet>429</a>        <span class="kw">use </span>CommandId::Sync <span class="kw">as </span>Y;
+<a href=#430 id=430 data-nosnippet>430</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = p.auto { <span class="self">self</span>.set_check(Y, <span class="string">"auto"</span>, v); }
+<a href=#431 id=431 data-nosnippet>431</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = p.interval_minutes { <span class="self">self</span>.set_text(Y, <span class="string">"interval"</span>, <span class="kw-2">&amp;</span>v.to_string()); }
+<a href=#432 id=432 data-nosnippet>432</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = <span class="kw-2">&amp;</span>p.nicks { <span class="self">self</span>.set_text(Y, <span class="string">"nicks"</span>, v); }
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = p.mentions { <span class="self">self</span>.set_check(Y, <span class="string">"mentions"</span>, v); }
+<a href=#434 id=434 data-nosnippet>434</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = p.bookmarks { <span class="self">self</span>.set_check(Y, <span class="string">"bookmarks"</span>, v); }
+<a href=#435 id=435 data-nosnippet>435</a>    }
+<a href=#436 id=436 data-nosnippet>436</a>
+<a href=#437 id=437 data-nosnippet>437</a>    <span class="doccomment">/// Search menu fields as a filter.
+<a href=#438 id=438 data-nosnippet>438</a>    </span><span class="kw">pub fn </span>search_filter(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; std::result::Result&lt;SearchFilter, String&gt; {
+<a href=#439 id=439 data-nosnippet>439</a>        <span class="kw">let </span>nick = <span class="self">self</span>.text(CommandId::Search, <span class="string">"nick"</span>);
+<a href=#440 id=440 data-nosnippet>440</a>        <span class="prelude-val">Ok</span>(SearchFilter {
+<a href=#441 id=441 data-nosnippet>441</a>            keyword: <span class="self">self</span>.text(CommandId::Search, <span class="string">"query"</span>),
+<a href=#442 id=442 data-nosnippet>442</a>            nicks: <span class="kw">if </span>nick.is_empty() { Vec::new() } <span class="kw">else </span>{ parse_nicks(<span class="kw-2">&amp;</span>nick)<span class="question-mark">?</span>.<span class="number">0 </span>},
+<a href=#443 id=443 data-nosnippet>443</a>            ..SearchFilter::default()
+<a href=#444 id=444 data-nosnippet>444</a>        })
+<a href=#445 id=445 data-nosnippet>445</a>    }
+<a href=#446 id=446 data-nosnippet>446</a>}
+<a href=#447 id=447 data-nosnippet>447</a>
+<a href=#448 id=448 data-nosnippet>448</a><span class="doccomment">/// Check `argv` with clap exactly as the CLI would and make sure it runs headless.
+<a href=#449 id=449 data-nosnippet>449</a></span><span class="kw">pub fn </span>validate(argv: Vec&lt;String&gt;) -&gt; std::result::Result&lt;Vec&lt;String&gt;, String&gt; {
+<a href=#450 id=450 data-nosnippet>450</a>    <span class="kw">match </span>parse_with_mode(<span class="kw-2">&amp;</span>argv) {
+<a href=#451 id=451 data-nosnippet>451</a>        <span class="prelude-val">Ok</span>((<span class="kw">_</span>, <span class="bool-val">false</span>)) =&gt; <span class="prelude-val">Ok</span>(argv),
+<a href=#452 id=452 data-nosnippet>452</a>        <span class="prelude-val">Ok</span>((<span class="kw">_</span>, <span class="bool-val">true</span>)) =&gt; <span class="prelude-val">Err</span>(<span class="string">"these options would open the terminal UI instead of running"</span>.into()),
+<a href=#453 id=453 data-nosnippet>453</a>        <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e.to_string().lines().next().unwrap_or(<span class="string">"invalid options"</span>).trim_start_matches(<span class="string">"error: "</span>).to_string()),
+<a href=#454 id=454 data-nosnippet>454</a>    }
+<a href=#455 id=455 data-nosnippet>455</a>}
+<a href=#456 id=456 data-nosnippet>456</a>
+<a href=#457 id=457 data-nosnippet>457</a><span class="doccomment">/// Shell-style rendering of an argv (for the status line and Help).
+<a href=#458 id=458 data-nosnippet>458</a></span><span class="kw">pub fn </span>shell_line(argv: <span class="kw-2">&amp;</span>[String]) -&gt; String {
+<a href=#459 id=459 data-nosnippet>459</a>    argv.iter().map(|a| <span class="kw">if </span>a.is_empty() || a.contains(|c: char| c.is_whitespace() || <span class="string">"\"'$\\"</span>.contains(c)) {
+<a href=#460 id=460 data-nosnippet>460</a>        <span class="macro">format!</span>(<span class="string">"'{}'"</span>, a.replace(<span class="string">'\''</span>, <span class="string">"'\\''"</span>))
+<a href=#461 id=461 data-nosnippet>461</a>    } <span class="kw">else </span>{ a.clone() }).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().join(<span class="string">" "</span>)
+<a href=#462 id=462 data-nosnippet>462</a>}
 </code></pre></div></section></main></body></html>
