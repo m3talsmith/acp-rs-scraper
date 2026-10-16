@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.1.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.2.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -146,6 +146,13 @@ Bookmarks:
       --sync-bookmarks
           Log in, read the site's bookmarks (storing their posts) and push local bookmark changes to the site
 
+Sync:
+      --sync
+          Log in and bring the database up to date with the site: sync bookmarks (unless --no-bookmarks), then an incremental scrape of --nick/--nicks if given. Writes no export unless --output is set; never prompts for nicks
+
+      --no-bookmarks
+          With --sync: skip the bookmark sync
+
 Debug:
   -q, --quiet
           Suppress progress/summary on stderr (prompts and errors still show)
@@ -243,6 +250,22 @@ headless scrape is now `--scrape`.
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows
   only your bookmarked posts and comments; `<` goes back. Bookmarks › Sync with acp.us pulls the
   site's bookmarks (and stores those posts) and pushes your local changes (`--sync-bookmarks`).
+- **Sync.** The Sync menu (`Alt-y`) keeps the database current while the TUI is open. Tick
+  **Auto sync** and every **Interval** minutes (default 15) it runs `--sync` in the background:
+  bookmarks both ways, then an incremental scrape of **Nicks** (blank: the selected nicks; mentions
+  off unless ticked). It needs the saved session: when you're offline or logged out it skips
+  quietly and tries again next interval (no login prompt); a failed automatic sync is reported
+  in the status line. **Sync now** runs one at once (and asks you to log in if needed); **Save as
+  default** stores the menu in `[sync]` of `~/.acp/preferences.toml`:
+
+  ```toml
+  [sync]
+  auto = true
+  interval_minutes = 15
+  nicks = ""          # blank: the selected nicks
+  mentions = false
+  bookmarks = true
+  ```
 - **Quit** (`q`) while a scan runs asks whether to keep it running in the background (the default:
   it is its own process, so it carries on after the TUI exits and prints the `tail -f` line for its
   log) or to cancel it first.
@@ -282,6 +305,18 @@ last sync win.
 The site's bookmark page (`/rs/bookmarks`) and its `toggle-bookmark` event are inferred from the
 site's naming, not confirmed against the live site yet; set `ACP_BOOKMARKS_PATH=/rs/…` if the page
 lives elsewhere.
+
+## Sync
+
+`--sync` brings the database up to date in one go: it logs in, syncs bookmarks (skip with
+`--no-bookmarks`), then incrementally scrapes `--nick`/`--nicks` if you gave any. Unlike a scrape
+it prints no export (add `--output` for one) and never prompts for nicks, so it suits cron:
+
+```sh
+acp-rs-scraper --sync --nicks alice,bob --no-mentions
+```
+
+The TUI's Sync menu runs the same command on a timer.
 
 ## Running from a checkout
 

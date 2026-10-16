@@ -150,6 +150,12 @@ pub struct Args {
     /// Log in, read the site's bookmarks (storing their posts) and push local bookmark changes to the site.
     #[arg(long, help_heading = "Bookmarks", conflicts_with_all = ["search", "export", "import", "list_nicks", "remove_nick", "clear_all", "logout"])]
     pub sync_bookmarks: bool,
+    /// Log in and bring the database up to date with the site: sync bookmarks (unless --no-bookmarks), then an incremental scrape of --nick/--nicks if given. Writes no export unless --output is set; never prompts for nicks.
+    #[arg(long, help_heading = "Sync", conflicts_with_all = ["search", "export", "import", "list_nicks", "remove_nick", "clear_all", "logout", "list_bookmarks", "bookmark", "unbookmark"])]
+    pub sync: bool,
+    /// With --sync: skip the bookmark sync.
+    #[arg(long, help_heading = "Sync", requires = "sync")]
+    pub no_bookmarks: bool,
     /// With --remove-nick / --clear-all: show what would be removed and change nothing.
     #[arg(long, requires = "maint", help_heading = "Maintenance")]
     pub dry_run: bool,

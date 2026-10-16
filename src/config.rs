@@ -178,6 +178,8 @@ pub const TUI_FRAME_MS: u64 = 16;
 pub const TUI_TICK_MS: u64 = 250;
 /// Status lines kept from scans and log output.
 pub const TUI_STATUS_KEEP: usize = 500;
+/// Default minutes between automatic TUI syncs (Sync › Interval).
+pub const TUI_SYNC_DEFAULT_MINUTES: u64 = 15;
 /// Smallest terminal the layout supports.
 pub const TUI_MIN_SIZE: (u16, u16) = (60, 16);
 /// Log files of scans/jobs started from the TUI (`tui-<kind>-<stamp>.log`), inside [`LOGS_REL_DIR`].

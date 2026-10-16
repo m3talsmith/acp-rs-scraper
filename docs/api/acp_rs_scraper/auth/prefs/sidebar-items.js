@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["load_email","load_prefs","save_email","saved_email"],"struct":["Prefs","ThemePrefs"]};
+window.SIDEBAR_ITEMS = {"fn":["load_email","load_prefs","save_email","save_sync_prefs","saved_email"],"struct":["Prefs","SyncPrefs","ThemePrefs"]};

@@ -10,6 +10,34 @@ pub struct Prefs {
     /// Terminal UI colours (`[theme]` table); every key is optional.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<ThemePrefs>,
+    /// Terminal UI sync defaults (`[sync]` table).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sync: Option<SyncPrefs>,
+}
+
+/// `[sync]` in `~/.acp/preferences.toml`: the TUI's Sync menu defaults (Sync › Save as default).
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
+pub struct SyncPrefs {
+    /// Sync automatically while the TUI is open.
+    pub auto: Option<bool>,
+    /// Minutes between automatic syncs (default 15).
+    pub interval_minutes: Option<u64>,
+    /// Nicks to re-scrape (blank: the selected nicks).
+    pub nicks: Option<String>,
+    /// Also scan mentions (off by default: syncs stay quick).
+    pub mentions: Option<bool>,
+    /// Sync bookmarks (default on).
+    pub bookmarks: Option<bool>,
+}
+
+/// Store the `[sync]` table, keeping the file's other settings.
+pub fn save_sync_prefs(s: &SyncPrefs) -> Result<()> {
+    let path = home()?.join(PREFS_REL_PATH);
+    let mut p = load_prefs();
+    p.sync = Some(s.clone());
+    std::fs::create_dir_all(path.parent().unwrap())?;
+    std::fs::write(&path, toml::to_string(&p)?)?;
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]

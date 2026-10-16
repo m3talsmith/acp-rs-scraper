@@ -131,6 +131,16 @@ async fn tui_bookmark(w: &mut E2e, id: String) {
     w.run_argv(&argv[1..]).await;
 }
 
+#[when(expr = "I sync from the TUI with the nicks {string} selected")]
+async fn tui_sync(w: &mut E2e, nicks: String) {
+    let sel: Vec<String> = nicks.split(',').map(String::from).collect();
+    let argv = w.menu().sync_argv(&sel).unwrap();
+    w.run_argv(&argv[1..]).await;
+}
+
+#[then(expr = "stdout does not contain {string}")]
+async fn stdout_lacks(w: &mut E2e, s: String) { assert!(!w.last.stdout.contains(&s), "stdout has {s:?}:\n{}", w.last.stdout); }
+
 #[then("it succeeds")]
 async fn succeeds(w: &mut E2e) { assert_eq!(w.last.code, 0, "stderr:\n{}", w.last.stderr); }
 

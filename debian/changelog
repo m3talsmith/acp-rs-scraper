@@ -1,3 +1,10 @@
+acp-rs-scraper (2.2.0) unstable; urgency=medium
+
+  * --sync: bookmarks both ways plus an incremental scrape, no export.
+  * TUI Sync menu with automatic sync on a timer.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Fri, 16 Oct 2026 11:39:51 -0400
+
 acp-rs-scraper (2.1.0) unstable; urgency=medium
 
   * Bookmarks: --bookmark, --unbookmark, --list-bookmarks (offline) and

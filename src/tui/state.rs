@@ -144,6 +144,10 @@ pub enum Effect {
     CheckSessionThen(JobKind, Vec<String>),
     /// Start a headless job.
     RunJob(JobKind, Vec<String>),
+    /// Automatic sync: check the session quietly, then run (skip when offline / logged out).
+    AutoSync(Vec<String>),
+    /// Write the `[sync]` preferences.
+    SaveSyncPrefs(SyncPrefs),
     /// Start a small headless job next to the main one (bookmark writes).
     RunSideJob(JobKind, Vec<String>),
     /// Kill the running job.
@@ -249,6 +253,10 @@ pub struct App {
     pub pending_job: Option<(JobKind, Vec<String>)>,
     /// Bookmarked post ids (local changes show at once; a side job stores them).
     pub marks: HashSet<String>,
+    /// When the next automatic sync is due (None: as soon as Auto sync is on).
+    pub sync_next: Option<Instant>,
+    /// The running job is an automatic sync (failures go to the status line, not a modal).
+    pub auto_running: bool,
     /// Running animation.
     pub anim: Option<Anim>,
     /// Clickable regions from the last draw.
@@ -272,7 +280,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), anim: None, hits: Vec::new(), theme, effects: Vec::new(),
+            job: None, pending_job: None, marks: HashSet::new(), sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(),
             page_rows: 5, email: None,
         };
         app.refresh_nicks();
@@ -413,6 +421,34 @@ impl App {
         self.close_menu();
         if self.session == SessionState::Valid { self.effects.push(Effect::RunJob(kind, argv)); }
         else { self.session = SessionState::Checking; self.effects.push(Effect::CheckSessionThen(kind, argv)); }
+    }
+
+    // ------------------------------------------------------------ sync
+    /// Start an automatic sync when Sync › Auto sync is on and one is due. Skips (and
+    /// reschedules) while a job runs or when logged out; never opens a modal.
+    pub fn sync_tick(&mut self, now: Instant) {
+        if !self.menu.menu.check(CommandId::Sync, "auto") { self.sync_next = None; return; }
+        if self.sync_next.is_some_and(|t| now < t) { return; }
+        let every = match self.menu.menu.sync_interval() {
+            Ok(d) => d,
+            Err(e) => { self.menu.menu.set_check(CommandId::Sync, "auto", false); self.push_status(format!("auto sync off: {e}")); return; }
+        };
+        self.sync_next = Some(now + every);
+        if self.job.is_some() { self.push_status("auto sync skipped: a job is running"); return; }
+        if self.session == SessionState::LoggedOut { self.push_status("auto sync skipped: logged out (Session › Log in)"); return; }
+        match self.menu.menu.sync_argv(&self.selected.clone()) {
+            Ok(argv) => { self.push_status("auto sync…"); self.effects.push(Effect::AutoSync(argv)); }
+            Err(e) => self.push_status(format!("auto sync skipped: {e}")),
+        }
+    }
+    /// The quiet session check of an automatic sync came back.
+    pub fn auto_sync_checked(&mut self, r: std::result::Result<bool, String>, argv: Vec<String>) {
+        match r {
+            Ok(true) if self.job.is_none() => { self.session = SessionState::Valid; self.auto_running = true; self.effects.push(Effect::RunJob(JobKind::Sync, argv)); }
+            Ok(true) => self.push_status("auto sync skipped: a job is running"),
+            Ok(false) => { self.session = SessionState::LoggedOut; self.push_status("auto sync skipped: logged out (Session › Log in)"); }
+            Err(e) => self.push_status(format!("auto sync skipped: offline ({})", e.lines().next().unwrap_or(""))),
+        }
     }
 
     // ------------------------------------------------------------ body views
@@ -618,6 +654,11 @@ impl App {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_mark(&id), None => self.push_status("no post to bookmark: open or highlight one first") }
             }
+            Action::SyncNow => match self.menu.menu.sync_argv(&sel) {
+                Ok(argv) => { self.sync_next = None; self.start_online_job(JobKind::Sync, argv); }
+                Err(e) => self.error("Cannot sync", &e),
+            },
+            Action::SaveSyncPrefs => { self.close_menu(); self.effects.push(Effect::SaveSyncPrefs(self.menu.menu.sync_prefs())); }
             Action::SyncBookmarks => match self.menu.menu.sync_bookmarks_argv() {
                 Ok(argv) => self.start_online_job(JobKind::Sync, argv),
                 Err(e) => self.error("Cannot sync", &e),
@@ -692,11 +733,14 @@ impl App {
     /// The job ended (`ok` = exit 0); `tail` = its last log lines.
     pub fn job_finished(&mut self, ok: bool, code: Option<i32>, tail: &[String]) {
         let Some(j) = self.job.take() else { return };
+        let auto = std::mem::take(&mut self.auto_running);
         self.refresh_nicks();
         self.load_base_keep();
         self.reload_marks();
         if ok {
             self.push_status(format!("{} finished", j.kind.name()));
+        } else if auto {
+            self.push_status(format!("error: auto sync failed (exit {}); see {}", code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into()), j.log.display()));
         } else {
             let code = code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into());
             let mut text = format!("The {} stopped (exit {code}). Last lines of {}:\n", j.kind.name(), j.log.display());
@@ -706,6 +750,7 @@ impl App {
     }
     /// The job was cancelled.
     pub fn job_cancelled(&mut self) {
+        self.auto_running = false;
         if let Some(j) = self.job.take() { self.push_status(format!("{} cancelled (pid {})", j.kind.name(), j.pid)); }
         self.refresh_nicks();
         self.load_base_keep();

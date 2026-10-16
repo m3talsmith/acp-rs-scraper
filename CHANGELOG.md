@@ -6,6 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.2.0] - 2026-10-16
+
+### Added
+- **Sync.** `--sync` logs in, syncs bookmarks both ways (skip with `--no-bookmarks`) and
+  incrementally scrapes `--nick`/`--nicks` if given; it writes no export unless `--output` is set
+  and never prompts, so it suits cron.
+- TUI **Sync menu**: Auto sync on a timer (Interval, default 15 minutes), Nicks (blank: the
+  selection), Mentions (off), Bookmarks (on), Sync now, and Save as default (`[sync]` in
+  `~/.acp/preferences.toml`, loaded at start). Automatic syncs run as background jobs only when
+  nothing else runs, check the session first, and skip quietly when offline or logged out; their
+  failures go to the status line instead of a modal.
+
 ## [2.1.0] - 2026-10-16
 
 ### Added

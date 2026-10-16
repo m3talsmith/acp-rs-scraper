@@ -196,12 +196,16 @@ pub async fn run() -> Result<()> {
     let http = client(jar.clone())?;
     login(&http, &jar).await?;
     let mut nicks = args.nick_list()?;
-    if args.sync_bookmarks {
+    if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
         let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;
         info!("== bookmarks: {} on the site, {} new posts stored, {} pulled, {} added and {} removed on the site, {} dropped{}",
             st.site, st.posts_saved, st.pulled, st.pushed.0, st.pushed.1, st.dropped,
             if st.failed > 0 { format!(", {} refused", st.failed) } else { String::new() });
         if nicks.is_empty() && !args.refetch_truncated { return Ok(()); }
+    }
+    if args.sync && nicks.is_empty() && !args.refetch_truncated {
+        info!("sync: no nicks given, nothing to scrape");
+        return Ok(());
     }
     if args.refetch_truncated {
         let st = refetch_truncated(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;
@@ -343,6 +347,11 @@ pub async fn run() -> Result<()> {
     };
     let name = clean(args.name.clone().unwrap_or_else(|| nicks_name(&ok_nicks, &stamp)));
     let label = ok_nicks.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
+    // A sync only updates the database, unless an output was asked for.
+    if args.sync && args.output.is_none() && args.compression().is_none() {
+        info!("sync: {} nicks up to date", ok_nicks.len());
+        return Ok(());
+    }
     export(&args, &name, &label, &posts, &atts, &profiles, &mention_hits, &home()?.join(EXPORTS_REL_PATH))?;
 
     Ok(())

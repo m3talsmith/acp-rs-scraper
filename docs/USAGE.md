@@ -57,6 +57,7 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
+  | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
@@ -66,6 +67,10 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
   Bookmarks › Sync with acp.us runs `--sync-bookmarks`.
+- **Sync:** Sync menu: Auto sync, Interval (minutes, default 15), Nicks (blank: selected), Mentions
+  (off), Bookmarks (on), Sync now, Save as default (`[sync]` in `preferences.toml`). An automatic
+  sync runs `--sync` as a background job when it's due and nothing else runs; it checks the saved
+  session first and skips quietly when offline or logged out.
 - **Login** happens only when needed: Start Scanning checks `~/.acp/session.json` against the site
   and, when logged out, opens the Login modal (email, then the code or login link), then starts the
   scan.
@@ -193,6 +198,13 @@ Sync rules: a site bookmark missing locally is added; a local one the site lacks
 local removal is pushed and the row dropped; a bookmark that vanished from a fully read site list
 is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) and the
 LiveView event (`toggle-bookmark`) are inferred, not yet confirmed against the live site.
+
+### Sync
+
+| Flag | What it does |
+|---|---|
+| `--sync` | Log in, sync bookmarks, then incrementally scrape `--nick`/`--nicks` if given. No export unless `--output`; never prompts. |
+| `--no-bookmarks` | With `--sync`: skip the bookmark sync. |
 
 ### Import (offline)
 

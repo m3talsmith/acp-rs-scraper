@@ -31,6 +31,8 @@ pub enum CommandId {
     Session,
     /// Bookmarks: show, toggle, sync.
     Bookmarks,
+    /// Periodic sync with the site.
+    Sync,
     /// Log level for jobs started from the TUI.
     Debug,
     /// Usage modal.
@@ -78,6 +80,10 @@ pub enum Action {
     ToggleBookmark,
     /// `--sync-bookmarks` with the site.
     SyncBookmarks,
+    /// Sync › Sync now.
+    SyncNow,
+    /// Sync › Save as default.
+    SaveSyncPrefs,
 }
 
 /// The input type shown right of an option's label.
@@ -207,6 +213,15 @@ impl Menu {
                 opt("show", "Show bookmarks", "B · --list-bookmarks", false, button(Action::ShowBookmarks)),
                 opt("toggle", "Bookmark current post", "b · --bookmark / --unbookmark", false, button(Action::ToggleBookmark)),
                 opt("sync", "Sync with acp.us", "--sync-bookmarks", false, button(Action::SyncBookmarks)),
+            ]},
+            MenuCommand { id: Sync, label: "Sync", hint: 'y', action: None, opts: vec![
+                opt("auto", "Auto sync", "while the TUI is open", false, check(false)),
+                opt("interval", "Interval (minutes)", "", false, text(&TUI_SYNC_DEFAULT_MINUTES.to_string())),
+                opt("nicks", "Nicks", "--sync --nicks (blank: selected nicks)", false, text("")),
+                opt("mentions", "Mentions", "--no-mentions when off", false, check(false)),
+                opt("bookmarks", "Bookmarks", "--no-bookmarks when off", false, check(true)),
+                opt("now", "Sync now", "--sync", false, button(Action::SyncNow)),
+                opt("save", "Save as default", "~/.acp/preferences.toml [sync]", false, button(Action::SaveSyncPrefs)),
             ]},
             MenuCommand { id: Debug, label: "Debug", hint: 'd', action: None, opts: vec![
                 opt("verbose", "Verbose", "-v", false, check(args.verbose)),
@@ -364,6 +379,44 @@ impl Menu {
         let mut v = vec![ARGV0.to_string(), "--sync-bookmarks".into()];
         v.extend(self.debug_args());
         validate(v)
+    }
+
+    /// argv for a sync (Sync now / auto sync): `--sync` with the nicks (field, else `selected`).
+    pub fn sync_argv(&self, selected: &[String]) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Sync as Y;
+        let t = self.text(Y, "nicks");
+        let nicks = if t.is_empty() { selected.to_vec() } else { parse_nicks(&t)?.0 };
+        let bm = self.check(Y, "bookmarks");
+        if nicks.is_empty() && !bm { return Err("nothing to sync: tick Sync › Bookmarks, or type nicks in Sync › Nicks / select nicks".into()); }
+        let mut v = vec![ARGV0.to_string(), "--sync".into()];
+        if !nicks.is_empty() { v.extend(["--nicks".into(), nicks.join(",")]); if !self.check(Y, "mentions") { v.push("--no-mentions".into()); } }
+        if !bm { v.push("--no-bookmarks".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+    /// Sync › Interval as a duration (at least a minute).
+    pub fn sync_interval(&self) -> std::result::Result<std::time::Duration, String> {
+        let t = self.text(CommandId::Sync, "interval");
+        if t.is_empty() { return Ok(std::time::Duration::from_secs(TUI_SYNC_DEFAULT_MINUTES * 60)); }
+        match t.parse::<u64>() {
+            Ok(m) if m >= 1 => Ok(std::time::Duration::from_secs(m * 60)),
+            _ => Err(format!("Sync › Interval must be a whole number of minutes (1 or more), not {t:?}")),
+        }
+    }
+    /// The Sync menu as `[sync]` preferences.
+    pub fn sync_prefs(&self) -> SyncPrefs {
+        use CommandId::Sync as Y;
+        SyncPrefs { auto: Some(self.check(Y, "auto")), interval_minutes: self.sync_interval().ok().map(|d| d.as_secs() / 60),
+            nicks: Some(self.text(Y, "nicks")), mentions: Some(self.check(Y, "mentions")), bookmarks: Some(self.check(Y, "bookmarks")) }
+    }
+    /// Fill the Sync menu from `[sync]` preferences.
+    pub fn apply_sync_prefs(&mut self, p: &SyncPrefs) {
+        use CommandId::Sync as Y;
+        if let Some(v) = p.auto { self.set_check(Y, "auto", v); }
+        if let Some(v) = p.interval_minutes { self.set_text(Y, "interval", &v.to_string()); }
+        if let Some(v) = &p.nicks { self.set_text(Y, "nicks", v); }
+        if let Some(v) = p.mentions { self.set_check(Y, "mentions", v); }
+        if let Some(v) = p.bookmarks { self.set_check(Y, "bookmarks", v); }
     }
 
     /// Search menu fields as a filter.

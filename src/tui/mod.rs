@@ -30,6 +30,7 @@ enum Msg {
     SessionChecked(std::result::Result<bool, String>, jobs::JobKind, Vec<String>),
     LoginNeedCode(u64),
     LoginDone(u64, std::result::Result<(), String>),
+    AutoSyncChecked(std::result::Result<bool, String>, Vec<String>),
 }
 
 struct Terminal(ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>);
@@ -55,6 +56,7 @@ pub async fn run(args: Args) -> Result<()> {
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::from_prefs(prefs.theme.as_ref()),
         session_path().map(|p| p.exists()).unwrap_or(false));
     app.email = prefs.email.filter(|e| !e.is_empty());
+    if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
     set_log_sink(Some(log_tx));
@@ -103,6 +105,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     'outer: loop {
         let now = Instant::now();
         app.tick(now);
+        app.sync_tick(now);
         term.0.draw(|f| widgets::draw(f, app, now))?;
         let wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
         tokio::select! {
@@ -114,6 +117,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 Msg::SessionChecked(r, k, argv) => app.session_checked(r, k, argv),
                 Msg::LoginNeedCode(g) if g == login_gen => app.login_need_code(),
                 Msg::LoginDone(g, r) if g == login_gen => { code_tx = None; login_task = None; app.login_done(r); }
+                Msg::AutoSyncChecked(r, argv) => app.auto_sync_checked(r, argv),
                 Msg::LoginNeedCode(_) | Msg::LoginDone(..) => {}
             },
             _ = tokio::time::sleep(wait) => {}
@@ -154,6 +158,17 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                         Err(e) => app.error("Cannot start", &format!("{e:#}")),
                     }
                 }
+                Effect::AutoSync(argv) => {
+                    let (http, tx) = (http.clone(), msg_tx.clone());
+                    tokio::spawn(async move {
+                        let r = session_valid(&http).await.map_err(|e| format!("{e:#}"));
+                        let _ = tx.send(Msg::AutoSyncChecked(r, argv));
+                    });
+                }
+                Effect::SaveSyncPrefs(p) => match save_sync_prefs(&p) {
+                    Ok(()) => app.push_status("sync defaults saved to ~/.acp/preferences.toml"),
+                    Err(e) => app.error("Cannot save", &format!("{e:#}")),
+                },
                 Effect::RunSideJob(kind, argv) => match jobs::Job::spawn(kind, &argv) {
                     Ok(j) => side.push(j),
                     Err(e) => app.error("Cannot start", &format!("{e:#}")),
