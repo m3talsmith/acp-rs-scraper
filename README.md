@@ -131,6 +131,15 @@ Debug:
       --debug
           Raw LiveView wire log (implies --verbose). Also ACP_DEBUG=1
 
+      --enable-logging
+          Also append progress and errors, timestamped, to ~/.acp/logs/success.log and error.log (on with --debug)
+
+      --log <PATH>
+          Success/progress log file (default ~/.acp/logs/success.log); implies --enable-logging
+
+      --error-log <PATH>
+          Error log file (default ~/.acp/logs/error.log); implies --enable-logging
+
 Examples:
   acp-rs-scraper --nicks @haz,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
@@ -271,7 +280,12 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 
 - **`--quiet` / `-q`:** suppress progress and summaries on stderr. Prompts and errors still show. Conflicts with `-v` / `--debug`.
 - **`--verbose` / `-v`:** extra detail (new posts per page, thread reply counts, skipped known items).
-- **`--debug`:** raw LiveView frames (also `ACP_DEBUG=1`); implies verbose.
+- **`--debug`:** raw LiveView frames (also `ACP_DEBUG=1`); implies verbose and `--enable-logging`.
+- **`--enable-logging`:** also append every message, timestamped, to log files. Progress, verbose
+  detail and debug wire frames go to `~/.acp/logs/success.log`; errors and warnings go to
+  `~/.acp/logs/error.log`. Files always get the full verbose record even when stderr is `-q`;
+  debug frames are written only with `--debug`. The directory is created as needed; files are appended.
+- **`--log <PATH>` / `--error-log <PATH>`:** override either file; giving one turns logging on.
 
 ## License
 

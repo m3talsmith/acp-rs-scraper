@@ -141,6 +141,15 @@ pub struct Args {
     /// Raw LiveView wire log (implies --verbose). Also ACP_DEBUG=1.
     #[arg(long, help_heading = "Debug", conflicts_with = "quiet")]
     pub debug: bool,
+    /// Also append progress and errors, timestamped, to ~/.acp/logs/success.log and error.log (on with --debug).
+    #[arg(long, help_heading = "Debug")]
+    pub enable_logging: bool,
+    /// Success/progress log file (default ~/.acp/logs/success.log); implies --enable-logging.
+    #[arg(long, value_name = "PATH", help_heading = "Debug")]
+    pub log: Option<PathBuf>,
+    /// Error log file (default ~/.acp/logs/error.log); implies --enable-logging.
+    #[arg(long, value_name = "PATH", help_heading = "Debug")]
+    pub error_log: Option<PathBuf>,
 }
 
 /// Targets for the hidden `--generate` packaging flag.

@@ -74,6 +74,12 @@ pub async fn run() -> Result<()> {
         LogLevel::Normal
     };
     set_log_level(level);
+    if let Some((ok, bad)) = resolve_log_paths(args.enable_logging, level == LogLevel::Debug,
+        args.log.as_deref(), args.error_log.as_deref(), &home()?) {
+        init_file_logging(&ok, &bad)
+            .map_err(|e| anyhow!("cannot open log files {} / {}: {e}", ok.display(), bad.display()))?;
+        verbose!("logging to {} and {}", ok.display(), bad.display());
+    }
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let clean = |n: String| n.replace(['/', '\\'], "_");
     if let Some(list) = &args.remove_nick {

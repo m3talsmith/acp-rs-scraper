@@ -61,6 +61,15 @@ pub const PREFS_REL_PATH: &str = ".acp/preferences.toml";
 /// Saved login session cookies (JSON, mode `0600`), relative to `$HOME`. Removed by `--logout`.
 pub const SESSION_REL_PATH: &str = ".acp/session.json";
 
+/// Log directory (for `--enable-logging` / `--debug`), relative to `$HOME`.
+pub const LOGS_REL_DIR: &str = ".acp/logs";
+
+/// Default success/access log file name inside [`LOGS_REL_DIR`] (override with `--log`).
+pub const SUCCESS_LOG_NAME: &str = "success.log";
+
+/// Default error log file name inside [`LOGS_REL_DIR`] (override with `--error-log`).
+pub const ERROR_LOG_NAME: &str = "error.log";
+
 // ---------------------------------------------------------------- browser identity
 /// User-Agent sent on every request (desktop Firefox).
 pub const FIREFOX_UA: &str =

@@ -6,6 +6,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.22.0] - 2026-10-15
+
+One new feature since 1.21.0 (minor 21 → 22).
+
+### Added
+1. **File logging**: `--enable-logging` appends every message from the logging macros, one
+   timestamped line each, to `~/.acp/logs/success.log` (progress, verbose detail, debug wire
+   frames) and `~/.acp/logs/error.log` (errors and warnings). `--log <PATH>` and
+   `--error-log <PATH>` override either file and turn logging on by themselves. `--debug`
+   (or `ACP_DEBUG=1`) turns logging on too. The log directory is created as needed and files are
+   opened in append mode. Stderr still follows `-q` / `-v` / `--debug` as before; files always get
+   the verbose record. Paths live in `config.rs` (`LOGS_REL_DIR`, `SUCCESS_LOG_NAME`, `ERROR_LOG_NAME`).
+
 ## [1.21.0] - 2026-10-15
 
 One new feature since 1.20.0 (minor 20 → 21).
