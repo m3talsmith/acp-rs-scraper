@@ -44,6 +44,10 @@ pub struct Inner {
     pub replies_url_broken: bool,
     /// Emails a login code was "sent" to.
     pub login_emails: Vec<String>,
+    /// Posts bookmarked on the site (starts with `C1`).
+    pub site_bookmarks: Vec<String>,
+    /// `toggle-bookmark` events received.
+    pub bookmark_toggles: usize,
 }
 
 /// Shared mock state.
@@ -162,6 +166,19 @@ async fn site_feed(State(m): State<Mock>, h: HeaderMap) -> Response {
     html(lv_page(&format!(r#"<div id="forum/Feed" data-props="{}"></div>"#, esc(&props.to_string()))))
 }
 
+fn bookmark_feed(m: &Mock) -> Vec<Value> {
+    let marks = m.inner.lock().unwrap().site_bookmarks.clone();
+    let mut v: Vec<Value> = posts(&m.base).into_iter().filter(|p| marks.iter().any(|b| p["id"] == b.as_str())).collect();
+    for p in &mut v { if let Some(o) = p.as_object_mut() { o.remove("feed_truncated"); o.remove("feed_body_missing"); } }
+    v
+}
+
+async fn bookmarks_page(State(m): State<Mock>, h: HeaderMap) -> Response {
+    if !logged_in(&h) { return to_auth("/rs/bookmarks"); }
+    let props = page_of(&bookmark_feed(&m), 0);
+    html(lv_page(&format!(r#"<div id="forum/Feed" data-props="{}"></div>"#, esc(&props.to_string()))))
+}
+
 async fn profile(State(m): State<Mock>, h: HeaderMap, Path(at): Path<String>, Query(q): Query<HashMap<String, String>>) -> Response {
     let Some(nick) = at.strip_prefix('@') else { return StatusCode::NOT_FOUND.into_response() };
     if !logged_in(&h) { return to_auth(&format!("/rs/{at}")); }
@@ -211,14 +228,14 @@ async fn media(Path(name): Path<String>) -> Response {
 async fn live(State(m): State<Mock>, ws: WebSocketUpgrade) -> Response { ws.on_upgrade(move |s| lv_conn(m, s)) }
 
 /// Which feed a joined LiveView pages: from its join URL and any `configure-feed`.
-struct Conn { nick: Option<String>, replies: bool, auth: bool }
+struct Conn { nick: Option<String>, replies: bool, auth: bool, bookmarks: bool }
 
 fn reply(msg: &Value, response: Value) -> Message {
     Message::Text(json!([msg[0], msg[1], msg[2], "phx_reply", {"status": "ok", "response": response}]).to_string().into())
 }
 
 async fn lv_conn(m: Mock, mut ws: WebSocket) {
-    let mut c = Conn { nick: None, replies: false, auth: false };
+    let mut c = Conn { nick: None, replies: false, auth: false, bookmarks: false };
     while let Some(Ok(Message::Text(t))) = ws.next().await {
         let Ok(msg) = serde_json::from_str::<Value>(&t) else { continue };
         let (event, payload) = (msg[3].as_str().unwrap_or(""), &msg[4]);
@@ -227,6 +244,7 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                 let url = payload["url"].as_str().unwrap_or("");
                 c.auth = url.contains("/auth");
                 c.replies = url.contains("replies=1");
+                c.bookmarks = url.contains("/rs/bookmarks");
                 c.nick = url.split("/rs/@").nth(1).map(|r| r.split(['?', '/']).next().unwrap_or("").to_string());
                 let s = if c.auth { r#"<form phx-submit="send-login-email" phx-target="1"><input type="email" name="user[email]"></form>"# } else { "<div></div>" };
                 reply(&msg, json!({"rendered": {"s": [s]}}))
@@ -248,8 +266,15 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                 (Some("hook"), Some("page-next")) => {
                     m.inner.lock().unwrap().page_next += 1;
                     let from = payload["value"]["cursor"].as_str().and_then(|s| s.parse().ok()).unwrap_or(0);
-                    let items = feed(&m.base, c.nick.as_deref(), c.replies);
+                    let items = if c.bookmarks { bookmark_feed(&m) } else { feed(&m.base, c.nick.as_deref(), c.replies) };
                     reply(&msg, json!({"diff": {"r": page_of(&items, from)}}))
+                }
+                (Some("click"), Some("toggle-bookmark")) => {
+                    let id = payload["value"]["id"].as_str().unwrap_or("").to_string();
+                    let mut i = m.inner.lock().unwrap();
+                    i.bookmark_toggles += 1;
+                    if let Some(at) = i.site_bookmarks.iter().position(|b| *b == id) { i.site_bookmarks.remove(at); } else { i.site_bookmarks.push(id); }
+                    reply(&msg, json!({"diff": {}}))
                 }
                 _ => reply(&msg, json!({"diff": {}})),
             },
@@ -264,10 +289,11 @@ impl Mock {
     pub async fn start() -> Mock {
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let mut m = Mock { base: format!("http://{}", listener.local_addr().unwrap()), ..Default::default() };
-        m.inner = Arc::new(Mutex::new(Inner::default()));
+        m.inner = Arc::new(Mutex::new(Inner { site_bookmarks: vec!["C1".into()], ..Default::default() }));
         let app = Router::new()
             .route("/rs", get(site_feed))
             .route("/rs/latest", get(site_feed))
+            .route("/rs/bookmarks", get(bookmarks_page))
             .route("/rs/{at}", get(profile))
             .route("/rs/post/{id}", get(thread))
             .route("/auth", get(auth_page))

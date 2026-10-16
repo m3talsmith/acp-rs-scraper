@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["run","run_clear_all","run_remove_nick"]};
+window.SIDEBAR_ITEMS = {"fn":["run","run_bookmarks","run_clear_all","run_remove_nick"]};

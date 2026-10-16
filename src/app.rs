@@ -57,6 +57,44 @@ pub fn run_clear_all(args: &Args) -> Result<()> {
     Ok(())
 }
 
+/// `--bookmark` / `--unbookmark` / `--list-bookmarks` (offline).
+pub fn run_bookmarks(args: &Args) -> Result<()> {
+    let db = home()?.join(DB_REL_PATH);
+    let c = bookmarks_conn(&db)?;
+    let now = chrono::Local::now().to_rfc3339();
+    if let Some(ids) = &args.bookmark { info!("bookmarked {} of {} posts", add_bookmarks(&c, ids, &now)?, ids.len()); }
+    if let Some(ids) = &args.unbookmark { info!("removed {} of {} bookmarks", remove_bookmarks(&c, ids)?, ids.len()); }
+    if args.list_bookmarks {
+        let v = load_bookmarks(&c)?;
+        let argv: Vec<String> = std::env::args().collect();
+        let json_out = argv.iter().any(|a| a == "--format" || a.starts_with("--format=")) && args.formats().contains(&Format::Json);
+        let mut st = if crate::maintenance::table_exists(&c, "posts")? {
+            Some(c.prepare("SELECT nick, posted_at, substr(replace(content, char(10), ' '), 1, 60) FROM posts WHERE post_id = ?1")?)
+        } else { None };
+        let mut rows = Vec::new();
+        for b in v.iter().filter(|b| !b.deleted) {
+            let p: Option<(String, String, String)> = match st.as_mut() {
+                Some(st) => st.query_row(params![b.post_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?,
+                None => None,
+            };
+            rows.push((b, p));
+        }
+        if json_out {
+            let j: Vec<_> = rows.iter().map(|(b, p)| json!({"post_id": b.post_id, "created_at": b.created_at, "on_site": b.remote,
+                "nick": p.as_ref().map(|p| p.0.clone()), "posted_at": p.as_ref().map(|p| p.1.clone())})).collect();
+            println!("{}", serde_json::to_string_pretty(&j)?);
+        } else {
+            for (b, p) in &rows {
+                let (n, at, t) = p.clone().unwrap_or_else(|| ("?".into(), "-".into(), "(not in database)".into()));
+                println!("{}  {:<24} @{n:<20} {at:<26} {t}", if b.remote { "★" } else { "☆" }, b.post_id);
+            }
+            let pending = v.iter().filter(|b| b.deleted).count();
+            eprintln!("{} bookmarks (★ also on the site){}", rows.len(), if pending > 0 { format!("; {pending} removals waiting for --sync-bookmarks") } else { String::new() });
+        }
+    }
+    Ok(())
+}
+
 /// Run the program for the current process arguments.
 pub async fn run() -> Result<()> {
     let (args, tui) = match parse_with_mode(std::env::args_os()) {
@@ -100,6 +138,9 @@ pub async fn run() -> Result<()> {
         if removed { info!("Logged out: removed {}.", session_path()?.display()); }
         else { info!("Not logged in: no saved session at {}.", session_path()?.display()); }
         return Ok(());
+    }
+    if args.bookmark.is_some() || args.unbookmark.is_some() || args.list_bookmarks {
+        return run_bookmarks(&args);
     }
     if args.list_nicks {
         let infos = list_nicks_db(&home()?.join(DB_REL_PATH))?;
@@ -155,6 +196,13 @@ pub async fn run() -> Result<()> {
     let http = client(jar.clone())?;
     login(&http, &jar).await?;
     let mut nicks = args.nick_list()?;
+    if args.sync_bookmarks {
+        let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;
+        info!("== bookmarks: {} on the site, {} new posts stored, {} pulled, {} added and {} removed on the site, {} dropped{}",
+            st.site, st.posts_saved, st.pulled, st.pushed.0, st.pushed.1, st.dropped,
+            if st.failed > 0 { format!(", {} refused", st.failed) } else { String::new() });
+        if nicks.is_empty() && !args.refetch_truncated { return Ok(()); }
+    }
     if args.refetch_truncated {
         let st = refetch_truncated(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;
         info!("== refetch-truncated: {} rows checked, {} completed, {} already full, {} not found ({} thread pages)",

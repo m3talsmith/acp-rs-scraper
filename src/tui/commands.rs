@@ -29,6 +29,8 @@ pub enum CommandId {
     Maintain,
     /// Login / logout.
     Session,
+    /// Bookmarks: show, toggle, sync.
+    Bookmarks,
     /// Log level for jobs started from the TUI.
     Debug,
     /// Usage modal.
@@ -70,6 +72,12 @@ pub enum Action {
     ToggleLog,
     /// Quit (detaching a running job).
     Quit,
+    /// Show the bookmarks view.
+    ShowBookmarks,
+    /// Bookmark / unbookmark the current post.
+    ToggleBookmark,
+    /// `--sync-bookmarks` with the site.
+    SyncBookmarks,
 }
 
 /// The input type shown right of an option's label.
@@ -194,6 +202,11 @@ impl Menu {
             MenuCommand { id: Session, label: "Session", hint: 'n', action: None, opts: vec![
                 opt("login", "Log in", "", false, button(Action::Login)),
                 opt("logout", "Log out", "--logout", false, button(Action::Logout)),
+            ]},
+            MenuCommand { id: Bookmarks, label: "Bookmarks", hint: 'b', action: None, opts: vec![
+                opt("show", "Show bookmarks", "B · --list-bookmarks", false, button(Action::ShowBookmarks)),
+                opt("toggle", "Bookmark current post", "b · --bookmark / --unbookmark", false, button(Action::ToggleBookmark)),
+                opt("sync", "Sync with acp.us", "--sync-bookmarks", false, button(Action::SyncBookmarks)),
             ]},
             MenuCommand { id: Debug, label: "Debug", hint: 'd', action: None, opts: vec![
                 opt("verbose", "Verbose", "-v", false, check(args.verbose)),
@@ -337,6 +350,18 @@ impl Menu {
     pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
         if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for one local bookmark change.
+    pub fn bookmark_argv(&self, id: &str, on: bool) -> std::result::Result<Vec<String>, String> {
+        validate(vec![ARGV0.to_string(), if on { "--bookmark" } else { "--unbookmark" }.into(), id.to_string()])
+    }
+
+    /// argv for Bookmarks › Sync.
+    pub fn sync_bookmarks_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--sync-bookmarks".into()];
         v.extend(self.debug_args());
         validate(v)
     }

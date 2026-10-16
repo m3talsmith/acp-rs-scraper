@@ -12,9 +12,18 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
     let title = if app.selected.len() > 1 { format!(" Nicks · {} selected ", app.selected.len()) } else { format!(" Nicks ({}) ", app.nicks.len()) };
     let b = Block::default().borders(Borders::ALL).title(title).border_style(t.border(app.focus == Focus::Nicks));
-    let inner = b.inner(r);
+    let mut inner = b.inner(r);
     f.render_widget(b, r);
     app.hits.push((r, Hit::NickPane));
+    // "★ Bookmarks (n)" row on top: opens the bookmarks view.
+    if inner.height > 1 {
+        let br = Rect { height: 1, ..inner };
+        let on = app.search.as_ref().is_some_and(|v| v.bookmarks);
+        let st = if on { t.selected() } else { t.accent_bold() };
+        f.render_widget(Paragraph::new(Line::from(vec![Span::styled(format!(" ★ Bookmarks ({})", app.marks.len()), st)])), br);
+        app.hits.push((br, Hit::Bookmarks));
+        inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
+    }
     if app.nicks.is_empty() {
         f.render_widget(Paragraph::new(vec![Line::raw("No nicks yet —"), Line::raw("use Scrape or Import.")]).style(t.muted()), inner);
         return;

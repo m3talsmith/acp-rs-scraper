@@ -68,13 +68,22 @@ fn draw_cards(f: &mut Frame, app: &mut App, r: Rect) {
             .border_style(if sel && focused { t.accent() } else if sel { Style::default() } else { t.border(false) });
         let inner = b.inner(cr);
         f.render_widget(b, cr);
+        let marked = app.is_marked(&p.post_id);
+        if cr.width > 8 {
+            let sr = Rect { x: cr.x + cr.width - 5, y: cr.y, width: 3, height: 1 };
+            f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
+            app.hits.push((sr, Hit::Star(i)));
+        }
         let text = if p.title.trim().is_empty() { p.content.clone() } else { format!("{}\n{}", p.title.trim(), p.content) };
         let lines: Vec<Line> = wrap(text.trim(), inner.width as usize).into_iter().filter(|l| !l.trim().is_empty())
             .take(inner.height as usize).map(Line::raw).collect();
         f.render_widget(Paragraph::new(lines), inner);
-        app.hits.push((cr, Hit::Post(i)));
+        app.hits.insert(app.hits.len() - usize::from(cr.width > 8), (cr, Hit::Post(i)));
     }
 }
+
+/// Bookmark star: `★` bookmarked, `☆` not (click toggles).
+pub fn star(on: bool) -> &'static str { if on { " ★ " } else { " ☆ " } }
 
 fn compact(f: &mut Frame, app: &mut App, i: usize, r: Rect) {
     let t = app.theme;
@@ -82,7 +91,8 @@ fn compact(f: &mut Frame, app: &mut App, i: usize, r: Rect) {
     let w = r.width as usize;
     let head = format!(" @{} · {} ", p.nick, p.posted_at.get(..16).unwrap_or(&p.posted_at));
     let rest = ellipsize(&snippet(&p), w.saturating_sub(head.len() + 8));
-    f.render_widget(Paragraph::new(Line::from(vec![badge(&p, &t), Span::styled(head, t.muted()), Span::raw(rest)])), r);
+    let mark = if app.is_marked(&p.post_id) { "★" } else { " " };
+    f.render_widget(Paragraph::new(Line::from(vec![Span::styled(mark, t.accent_bold()), badge(&p, &t), Span::styled(head, t.muted()), Span::raw(rest)])), r);
     app.hits.push((r, Hit::Post(i)));
 }
 
@@ -132,6 +142,12 @@ fn draw_with_detail(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
         f.render_widget(Paragraph::new(lines).scroll((scroll, 0)), fr);
         if top {
             app.hits.push((fr, Hit::DetailPane));
+            if fr.width > 6 {
+                let marked = app.is_marked(&app.view().stack[d].post.post_id);
+                let sr = Rect { x: fr.x + fr.width - 4, y: fr.y, width: 3, height: 1 };
+                f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
+                app.hits.push((sr, Hit::StarTop));
+            }
             for (li, k) in links {
                 let y = li as i64 - scroll as i64;
                 if y >= 0 && (y as usize) < h {

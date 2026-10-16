@@ -137,12 +137,12 @@ fn start_scan_needs_nicks_then_checks_session_then_logs_in() {
     a.modal = None;
     a.select_only(nick_idx(&a, "alice"));
     a.act(Action::StartScan);
-    let Some(Effect::CheckSessionThenScan(argv)) = a.effects.pop() else { panic!("{:?}", a.effects) };
+    let Some(Effect::CheckSessionThen(JobKind::Scan, argv)) = a.effects.pop() else { panic!("{:?}", a.effects) };
     assert_eq!(a.session, SessionState::Checking);
     // Logged out: Login modal, scan pending.
-    a.session_checked(Ok(false), argv.clone());
+    a.session_checked(Ok(false), JobKind::Scan, argv.clone());
     assert!(matches!(a.modal, Some(Modal::Login(_))));
-    assert_eq!(a.pending_scan.as_ref(), Some(&argv));
+    assert_eq!(a.pending_job.as_ref(), Some(&(JobKind::Scan, argv.clone())));
     a.login_need_code();
     let Some(Modal::Login(m)) = &a.modal else { panic!() };
     assert_eq!(m.step, LoginStep::Code);
@@ -171,9 +171,9 @@ fn start_scan_with_valid_session_runs_and_cancel_while_running() {
 #[test]
 fn login_cancel_drops_pending_scan() {
     let mut a = app();
-    a.open_login(Some(vec!["x".into()]));
+    a.open_login(Some((JobKind::Scan, vec!["x".into()])));
     a.close_modal(ModalResult::ClosedCancelled);
-    assert!(a.pending_scan.is_none());
+    assert!(a.pending_job.is_none());
     assert_eq!(a.effects, [Effect::LoginCancel]);
 }
 

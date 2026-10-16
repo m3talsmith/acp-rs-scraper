@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_bookmarks","bookmarks_conn","check_post_id","feed_item_post","load_bookmarks","parse_post_id_arg","parse_post_ids","plan_sync","remove_bookmarks","sync_bookmarks"],"struct":["Bookmark","PostIds","SyncPlan","SyncStats"]};

@@ -92,6 +92,8 @@ pub trait Store {
     fn replies(&self, id: &str) -> Result<Vec<Post>>;
     /// Attachments stored for `id` (one per file).
     fn attachments(&self, id: &str) -> Result<Vec<Attachment>>;
+    /// Bookmarked post ids (pending removals excluded).
+    fn bookmarks(&self) -> Result<HashSet<String>>;
 }
 
 const COLS: &str = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state";
@@ -180,6 +182,13 @@ impl Store for SqliteStore {
         out.reverse();
         Ok(out)
     }
+    fn bookmarks(&self) -> Result<HashSet<String>> {
+        let Some(c) = self.conn()? else { return Ok(HashSet::new()) };
+        if !crate::maintenance::table_exists(&c, "bookmarks")? { return Ok(HashSet::new()); }
+        let mut st = c.prepare("SELECT post_id FROM bookmarks WHERE deleted = 0")?;
+        let v = st.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<HashSet<String>>>()?;
+        Ok(v)
+    }
 }
 
 /// In-memory store (tests, headless renders).
@@ -189,6 +198,8 @@ pub struct MemStore {
     pub posts: Vec<Post>,
     /// Every attachment.
     pub atts: Vec<Attachment>,
+    /// Bookmarked post ids.
+    pub marks: Vec<String>,
 }
 
 impl Store for MemStore {
@@ -222,6 +233,7 @@ impl Store for MemStore {
     fn attachments(&self, id: &str) -> Result<Vec<Attachment>> {
         Ok(self.atts.iter().filter(|a| a.post_id == id).cloned().collect())
     }
+    fn bookmarks(&self) -> Result<HashSet<String>> { Ok(self.marks.iter().cloned().collect()) }
 }
 
 /// Post ids linked from a body: `/rs/post/{root}` and `/rs/post/{root}/{reply}` URLs

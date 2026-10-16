@@ -19,14 +19,19 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
     let scan = scan_label(app);
     let scan_w = scan.chars().count() as u16;
     let limit = r.x + r.width.saturating_sub(scan_w + 1);
+    // Wide: " Label " │ " Label "; narrow: drop the separators, then the padding.
+    let labels: u16 = app.menu.menu.items.iter().map(|c| c.label.chars().count() as u16).sum();
+    let n = app.menu.menu.items.len() as u16;
+    let room = limit.saturating_sub(r.x);
+    let (pad, sep) = if labels + 3 * n <= room { (1, true) } else if labels + 2 * n <= room { (1, false) } else { (0, false) };
     for (i, c) in app.menu.menu.items.iter().enumerate() {
         let label = c.label;
-        let w = label.chars().count() as u16 + 2;
+        let w = label.chars().count() as u16 + 2 * pad + u16::from(pad == 0);
         if x + w > limit { break; }
         let active = app.menu.open == Some(i) || (app.focus == Focus::Menu && app.menu.item == i);
         let base = if active { t.selected() } else { Style::default() };
         let hint = label.chars().position(|ch| ch.to_ascii_lowercase() == c.hint).unwrap_or(0);
-        let mut spans = vec![Span::styled(" ", base)];
+        let mut spans = vec![Span::styled(if pad == 1 { " " } else { "" }, base)];
         for (k, ch) in label.chars().enumerate() {
             let st = if k == hint { base.add_modifier(Modifier::UNDERLINED) } else { base };
             spans.push(Span::styled(ch.to_string(), st));
@@ -36,7 +41,7 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
         f.render_widget(Paragraph::new(Line::from(spans)), rr);
         app.hits.push((rr, Hit::MenuItem(i)));
         x += w;
-        if x < limit { f.render_widget(Paragraph::new(Span::styled("│", t.muted())), Rect { x, y: r.y, width: 1, height: 1 }); x += 1; }
+        if sep && x < limit { f.render_widget(Paragraph::new(Span::styled("│", t.muted())), Rect { x, y: r.y, width: 1, height: 1 }); x += 1; }
     }
     let sr = Rect { x: r.x + r.width.saturating_sub(scan_w), y: r.y, width: scan_w.min(r.width), height: 1 };
     let st = Style::default().bg(t.accent).fg(t.on_accent).add_modifier(Modifier::BOLD);

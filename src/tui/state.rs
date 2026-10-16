@@ -81,6 +81,8 @@ pub struct BodyView {
     pub stack: Vec<DetailFrame>,
     /// The search that produced it (search views only).
     pub filter: Option<SearchFilter>,
+    /// The bookmarks view.
+    pub bookmarks: bool,
 }
 
 /// Which animation runs.
@@ -138,10 +140,12 @@ pub struct JobView {
 /// Something only the event loop can do (processes, network, quitting).
 #[derive(Clone, Debug, PartialEq)]
 pub enum Effect {
-    /// Check the session, then scan (or open Login first).
-    CheckSessionThenScan(Vec<String>),
+    /// Check the session, then run this job (or open Login first).
+    CheckSessionThen(JobKind, Vec<String>),
     /// Start a headless job.
     RunJob(JobKind, Vec<String>),
+    /// Start a small headless job next to the main one (bookmark writes).
+    RunSideJob(JobKind, Vec<String>),
     /// Kill the running job.
     CancelJob,
     /// Start logging in with this email.
@@ -188,6 +192,12 @@ pub enum Hit {
     Modal(ModalHit),
     /// Modal backdrop (swallows clicks).
     Backdrop,
+    /// The "★ Bookmarks" row of the nick bar.
+    Bookmarks,
+    /// The bookmark star of the n-th post card.
+    Star(usize),
+    /// The bookmark star of the top detail.
+    StarTop,
 }
 
 /// Menu bar state.
@@ -235,8 +245,10 @@ pub struct App {
     pub session: SessionState,
     /// Running job.
     pub job: Option<JobView>,
-    /// Scan waiting for a login.
-    pub pending_scan: Option<Vec<String>>,
+    /// Job (scan / sync) waiting for a login.
+    pub pending_job: Option<(JobKind, Vec<String>)>,
+    /// Bookmarked post ids (local changes show at once; a side job stores them).
+    pub marks: HashSet<String>,
     /// Running animation.
     pub anim: Option<Anim>,
     /// Clickable regions from the last draw.
@@ -260,10 +272,11 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_scan: None, anim: None, hits: Vec::new(), theme, effects: Vec::new(),
+            job: None, pending_job: None, marks: HashSet::new(), anim: None, hits: Vec::new(), theme, effects: Vec::new(),
             page_rows: 5, email: None,
         };
         app.refresh_nicks();
+        app.reload_marks();
         let want = args.nick_list().unwrap_or_default();
         if !want.is_empty() {
             app.selected = want.iter().filter_map(|w| app.nicks.iter().find(|n| n.nick.eq_ignore_ascii_case(w)).map(|n| n.nick.clone())).collect();
@@ -348,6 +361,58 @@ impl App {
         let who = self.selected.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
         self.base = BodyView { title: who, posts, ..BodyView::default() };
         self.anim = None;
+    }
+
+    // ------------------------------------------------------------ bookmarks
+    /// Re-read the bookmarks from the store.
+    pub fn reload_marks(&mut self) {
+        match self.store.bookmarks() {
+            Ok(m) => self.marks = m,
+            Err(e) => self.push_status(format!("error: reading bookmarks: {e:#}")),
+        }
+    }
+    /// Whether `id` is bookmarked.
+    pub fn is_marked(&self, id: &str) -> bool { self.marks.contains(id) }
+    /// Show only bookmarked posts and comments (replaces the Body like a search; `<` goes back).
+    pub fn open_bookmarks(&mut self) {
+        let mut posts: Vec<Post> = self.marks.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
+        posts.sort_by(|a, b| b.posted_at.cmp(&a.posted_at));
+        let missing = self.marks.len() - posts.len();
+        if missing > 0 { self.push_status(format!("{missing} bookmarked posts are not in the database (Bookmarks › Sync stores them)")); }
+        self.search = Some(BodyView { title: "★ Bookmarks".into(), posts, bookmarks: true, ..BodyView::default() });
+        self.focus = Focus::Body;
+        self.anim = None;
+    }
+    /// The post `b` / the menu toggles: the top detail, else the highlighted card.
+    pub fn current_post_id(&self) -> Option<String> {
+        if let Some(f) = self.top() { return Some(f.post.post_id.clone()); }
+        let v = self.view();
+        v.posts.get(v.cursor).map(|p| p.post_id.clone())
+    }
+    /// Bookmark / unbookmark `id`: shown at once, stored by a side job (works offline).
+    pub fn toggle_mark(&mut self, id: &str) {
+        let on = !self.marks.contains(id);
+        match self.menu.menu.bookmark_argv(id, on) {
+            Ok(argv) => {
+                if on { self.marks.insert(id.to_string()); } else { self.marks.remove(id); }
+                self.push_status(format!("{} {id}", if on { "★ bookmarked" } else { "☆ unbookmarked" }));
+                self.effects.push(Effect::RunSideJob(JobKind::Bookmark, argv));
+            }
+            Err(e) => self.error("Cannot bookmark", &e),
+        }
+    }
+    /// A side job ended; `pending` = side jobs still running.
+    pub fn side_job_finished(&mut self, ok: bool, tail: &[String], pending: usize) {
+        if !ok { self.push_status(format!("error: bookmark not saved: {}", tail.last().map(String::as_str).unwrap_or("?"))); }
+        // Re-read only once every write landed, so quick toggles don't flicker back.
+        if pending == 0 { self.reload_marks(); }
+    }
+    /// Run `argv` (a network job) after making sure we're logged in.
+    fn start_online_job(&mut self, kind: JobKind, argv: Vec<String>) {
+        if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F5)"); return; }
+        self.close_menu();
+        if self.session == SessionState::Valid { self.effects.push(Effect::RunJob(kind, argv)); }
+        else { self.session = SessionState::Checking; self.effects.push(Effect::CheckSessionThen(kind, argv)); }
     }
 
     // ------------------------------------------------------------ body views
@@ -491,11 +556,7 @@ impl App {
                 if self.job.is_some() { self.effects.push(Effect::CancelJob); return; }
                 match self.menu.menu.scrape_argv(&sel) {
                     Err(e) => self.error("Cannot start scanning", &e),
-                    Ok(argv) => {
-                        self.close_menu();
-                        if self.session == SessionState::Valid { self.effects.push(Effect::RunJob(JobKind::Scan, argv)); }
-                        else { self.session = SessionState::Checking; self.effects.push(Effect::CheckSessionThenScan(argv)); }
-                    }
+                    Ok(argv) => self.start_online_job(JobKind::Scan, argv),
                 }
             }
             Action::CancelJob => if self.job.is_some() { self.effects.push(Effect::CancelJob); },
@@ -552,6 +613,15 @@ impl App {
             Action::Logout => { self.close_menu(); self.effects.push(Effect::Logout); }
             Action::Help => { self.close_menu(); self.modal = Some(Modal::Help(HelpModal::new())); }
             Action::ToggleLog => { self.show_log = !self.show_log; }
+            Action::ShowBookmarks => { self.close_menu(); self.open_bookmarks(); }
+            Action::ToggleBookmark => {
+                self.close_menu();
+                match self.current_post_id() { Some(id) => self.toggle_mark(&id), None => self.push_status("no post to bookmark: open or highlight one first") }
+            }
+            Action::SyncBookmarks => match self.menu.menu.sync_bookmarks_argv() {
+                Ok(argv) => self.start_online_job(JobKind::Sync, argv),
+                Err(e) => self.error("Cannot sync", &e),
+            },
             Action::Quit => {
                 self.close_menu();
                 if let Some(j) = &self.job {
@@ -578,17 +648,17 @@ impl App {
         if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F5)"); return; }
         self.effects.push(Effect::RunJob(kind, argv));
     }
-    /// Open the Login modal; `then_scan` runs after a successful login.
-    pub fn open_login(&mut self, then_scan: Option<Vec<String>>) {
-        let reason = then_scan.as_ref().map(|_| "Log in to start the scan.".to_string());
-        self.pending_scan = then_scan;
+    /// Open the Login modal; `then` runs after a successful login.
+    pub fn open_login(&mut self, then: Option<(JobKind, Vec<String>)>) {
+        let reason = then.as_ref().map(|(k, _)| format!("Log in to start the {}.", k.name()));
+        self.pending_job = then;
         self.modal = Some(Modal::Login(LoginModal::new(self.email.clone(), reason)));
     }
-    /// The session check before a scan came back.
-    pub fn session_checked(&mut self, r: std::result::Result<bool, String>, argv: Vec<String>) {
+    /// The session check before a scan / sync came back.
+    pub fn session_checked(&mut self, r: std::result::Result<bool, String>, kind: JobKind, argv: Vec<String>) {
         match r {
-            Ok(true) => { self.session = SessionState::Valid; self.effects.push(Effect::RunJob(JobKind::Scan, argv)); }
-            Ok(false) => { self.session = SessionState::LoggedOut; self.open_login(Some(argv)); }
+            Ok(true) => { self.session = SessionState::Valid; self.effects.push(Effect::RunJob(kind, argv)); }
+            Ok(false) => { self.session = SessionState::LoggedOut; self.open_login(Some((kind, argv))); }
             Err(e) => { self.session = SessionState::Saved; self.error("Cannot reach acp.us", &e); }
         }
     }
@@ -624,6 +694,7 @@ impl App {
         let Some(j) = self.job.take() else { return };
         self.refresh_nicks();
         self.load_base_keep();
+        self.reload_marks();
         if ok {
             self.push_status(format!("{} finished", j.kind.name()));
         } else {
@@ -675,10 +746,10 @@ impl App {
         match (m, r) {
             (Modal::Login(_), ModalResult::ClosedSubmitted) => {
                 self.push_status("logged in");
-                if let Some(argv) = self.pending_scan.take() { self.effects.push(Effect::RunJob(JobKind::Scan, argv)); }
+                if let Some((k, argv)) = self.pending_job.take() { self.effects.push(Effect::RunJob(k, argv)); }
             }
             (Modal::Login(m), ModalResult::ClosedCancelled) => {
-                self.pending_scan = None;
+                self.pending_job = None;
                 if self.session == SessionState::Checking { self.session = SessionState::LoggedOut; }
                 let _ = m;
                 self.effects.push(Effect::LoginCancel);
@@ -707,6 +778,8 @@ impl App {
             ("Search… (Shift-S)".into(), PaletteCmd::Action(Action::OpenSearchModal)),
             ("Clear search (Ctrl-S)".into(), PaletteCmd::Action(Action::ClearSearch)),
             ("Toggle log panel (l)".into(), PaletteCmd::Action(Action::ToggleLog)),
+            ("Show bookmarks (B)".into(), PaletteCmd::Action(Action::ShowBookmarks)),
+            ("Bookmark current post (b)".into(), PaletteCmd::Action(Action::ToggleBookmark)),
         ];
         for (i, c) in self.menu.menu.items.iter().enumerate() {
             if c.opts.is_empty() { v.push((c.label.to_string(), PaletteCmd::OpenMenu(i))); continue; }

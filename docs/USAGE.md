@@ -56,11 +56,16 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   | List | re-reads the nick bar (`--list-nicks` data) |
   | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
+  | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
   process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
   quitting asks whether to keep it running in the background (default) or cancel it.
+- **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
+  (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
+  **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
+  Bookmarks › Sync with acp.us runs `--sync-bookmarks`.
 - **Login** happens only when needed: Start Scanning checks `~/.acp/session.json` against the site
   and, when logged out, opens the Login modal (email, then the code or login link), then starts the
   scan.
@@ -174,6 +179,20 @@ After the commit, attachment, avatar and banner files are deleted from disk **on
 - Prompts go to stderr. `--yes` skips them.
 - If stdin is not a terminal (a pipe, cron, CI), the command refuses to run unless `--yes` is given.
 - `--dry-run` prints the same preview (and, for `--remove-nick`, the files it would delete) and exits without changing anything.
+
+### Bookmarks
+
+| Flag | What it does |
+|---|---|
+| `--bookmark IDS` | Offline. Bookmark these posts (comma-separated post ids). |
+| `--unbookmark IDS` | Offline. Remove these bookmarks; ones the site has are removed there at the next sync. |
+| `--list-bookmarks` | Offline. List bookmarks (`★` = also on the site); `--format json` prints JSON. |
+| `--sync-bookmarks` | Log in, read the site's bookmarks (storing their posts), push local additions and removals. With `--nicks` it then scrapes them too. |
+
+Sync rules: a site bookmark missing locally is added; a local one the site lacks is pushed; a
+local removal is pushed and the row dropped; a bookmark that vanished from a fully read site list
+is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) and the
+LiveView event (`toggle-bookmark`) are inferred, not yet confirmed against the live site.
 
 ### Import (offline)
 
@@ -337,6 +356,12 @@ CREATE TABLE mentions (           -- unique (post_id, mentioned_nick, match_type
   match_type TEXT NOT NULL        -- 'mention' | 'nick' | 'display_name'
 );
 
+CREATE TABLE bookmarks (          -- 2.1.0; created on first use
+  post_id TEXT PRIMARY KEY,
+  created_at TEXT NOT NULL,
+  remote INTEGER NOT NULL DEFAULT 0,   -- the site has it too
+  deleted INTEGER NOT NULL DEFAULT 0   -- removed locally, still to be removed on the site
+);
 CREATE TABLE profiles (           -- upserted on every scrape
   nick TEXT PRIMARY KEY,
   user_id TEXT, display_name TEXT, bio TEXT,

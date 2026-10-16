@@ -17,6 +17,7 @@
 //! - [`media`]: attachment discovery and download.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
+//! - [`bookmarks`]: local bookmarks and `--sync-bookmarks` with the site.
 //! - [`maintenance`]: `--remove-nick` and `--clear-all`.
 //! - [`tui`]: the terminal UI (the default with no flags): browse nicks and posts,
 //!   drive scrape/search/export/import/maintenance from a menu bar.
@@ -28,6 +29,7 @@
 pub mod logging;
 pub mod app;
 pub mod auth;
+pub mod bookmarks;
 pub mod cli;
 pub mod config;
 pub mod export;
@@ -46,6 +48,7 @@ pub mod tui;
 pub mod prelude {
     pub use crate::app::*;
     pub use crate::auth::{prefs::*, session::*, *};
+    pub use crate::bookmarks::*;
     pub use crate::cli::*;
     pub use crate::config::*;
     pub use crate::export::{archive::*, html::*, json::*, *};

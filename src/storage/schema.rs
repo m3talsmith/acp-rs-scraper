@@ -75,3 +75,17 @@ pub const ATTACHMENTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS attachments (
             mime_type TEXT NOT NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS attachments_post_url_uq ON attachments(post_id, url);";
+
+/// `bookmarks` table (2.1.0). One row per bookmarked post:
+/// - `remote`: the site has it bookmarked too (seen in its bookmarks feed, or pushed).
+/// - `deleted`: removed locally but still bookmarked on the site; the next
+///   `--sync-bookmarks` removes it there and drops the row.
+///
+/// Rows are added by `--bookmark` / the TUI (local, `remote = 0`) and by
+/// `--sync-bookmarks` (from the site, `remote = 1`). Created on first use.
+pub const BOOKMARKS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
+            post_id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            remote INTEGER NOT NULL DEFAULT 0,
+            deleted INTEGER NOT NULL DEFAULT 0
+        );";

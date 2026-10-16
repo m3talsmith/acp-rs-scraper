@@ -68,79 +68,95 @@
 <a href=#68 id=68 data-nosnippet>68</a>            .border_style(<span class="kw">if </span>sel &amp;&amp; focused { t.accent() } <span class="kw">else if </span>sel { Style::default() } <span class="kw">else </span>{ t.border(<span class="bool-val">false</span>) });
 <a href=#69 id=69 data-nosnippet>69</a>        <span class="kw">let </span>inner = b.inner(cr);
 <a href=#70 id=70 data-nosnippet>70</a>        f.render_widget(b, cr);
-<a href=#71 id=71 data-nosnippet>71</a>        <span class="kw">let </span>text = <span class="kw">if </span>p.title.trim().is_empty() { p.content.clone() } <span class="kw">else </span>{ <span class="macro">format!</span>(<span class="string">"{}\n{}"</span>, p.title.trim(), p.content) };
-<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">let </span>lines: Vec&lt;Line&gt; = wrap(text.trim(), inner.width <span class="kw">as </span>usize).into_iter().filter(|l| !l.trim().is_empty())
-<a href=#73 id=73 data-nosnippet>73</a>            .take(inner.height <span class="kw">as </span>usize).map(Line::raw).collect();
-<a href=#74 id=74 data-nosnippet>74</a>        f.render_widget(Paragraph::new(lines), inner);
-<a href=#75 id=75 data-nosnippet>75</a>        app.hits.push((cr, Hit::Post(i)));
-<a href=#76 id=76 data-nosnippet>76</a>    }
-<a href=#77 id=77 data-nosnippet>77</a>}
-<a href=#78 id=78 data-nosnippet>78</a>
-<a href=#79 id=79 data-nosnippet>79</a><span class="kw">fn </span>compact(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;mut </span>App, i: usize, r: Rect) {
-<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span>t = app.theme;
-<a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(p) = app.view().posts.get(i).cloned() <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">let </span>w = r.width <span class="kw">as </span>usize;
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">let </span>head = <span class="macro">format!</span>(<span class="string">" @{} · {} "</span>, p.nick, p.posted_at.get(..<span class="number">16</span>).unwrap_or(<span class="kw-2">&amp;</span>p.posted_at));
-<a href=#84 id=84 data-nosnippet>84</a>    <span class="kw">let </span>rest = ellipsize(<span class="kw-2">&amp;</span>snippet(<span class="kw-2">&amp;</span>p), w.saturating_sub(head.len() + <span class="number">8</span>));
-<a href=#85 id=85 data-nosnippet>85</a>    f.render_widget(Paragraph::new(Line::from(<span class="macro">vec!</span>[badge(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>t), Span::styled(head, t.muted()), Span::raw(rest)])), r);
-<a href=#86 id=86 data-nosnippet>86</a>    app.hits.push((r, Hit::Post(i)));
-<a href=#87 id=87 data-nosnippet>87</a>}
-<a href=#88 id=88 data-nosnippet>88</a>
-<a href=#89 id=89 data-nosnippet>89</a><span class="kw">fn </span>draw_with_detail(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;mut </span>App, r: Rect, now: Instant) {
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">let </span>t = app.theme;
-<a href=#91 id=91 data-nosnippet>91</a>    <span class="kw">let </span>(kind, p) = app.anim_progress(now);
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="kw">let </span>open_p = <span class="kw">if </span>kind == <span class="prelude-val">Some</span>(AnimKind::Open) { p } <span class="kw">else </span>{ <span class="number">1.0 </span>};
-<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span>push_p = <span class="kw">if </span>kind == <span class="prelude-val">Some</span>(AnimKind::Push) { p } <span class="kw">else </span>{ <span class="number">1.0 </span>};
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">let </span>(n, cur) = (app.view().posts.len(), app.view().cursor);
-<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">let </span>split = detail_split(r, n, cur, open_p);
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">for </span>(i, rr) <span class="kw">in </span>split.above.clone() { compact(f, app, i, rr); }
-<a href=#97 id=97 data-nosnippet>97</a>    <span class="kw">for </span>(i, rr) <span class="kw">in </span>split.below.clone() { compact(f, app, i, rr); }
-<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">let </span>focused = app.focus == Focus::Body;
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">let </span>b = Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(<span class="kw">if </span>focused { t.accent() } <span class="kw">else </span>{ t.border(<span class="bool-val">false</span>) });
-<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">let </span>inner = b.inner(split.detail);
-<a href=#101 id=101 data-nosnippet>101</a>    f.render_widget(b, split.detail);
-<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">let </span>depth = app.view().stack.len();
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">let </span>sl = stack_layout(inner, depth, push_p);
-<a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(nb) = sl.nested {
-<a href=#105 id=105 data-nosnippet>105</a>        f.render_widget(Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(t.accent()), nb);
-<a href=#106 id=106 data-nosnippet>106</a>    }
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">for </span>(d, fr, collapsed) <span class="kw">in </span>sl.frames {
-<a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">if </span>fr.height == <span class="number">0 </span>|| fr.width &lt; <span class="number">3 </span>{ <span class="kw">continue</span>; }
-<a href=#109 id=109 data-nosnippet>109</a>        <span class="kw">let </span>fr = Rect { x: fr.x + <span class="number">1</span>, width: fr.width - <span class="number">1</span>, ..fr };
-<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">if </span>collapsed &amp;&amp; fr.height &lt;= DETAIL_HEADER_ROWS + <span class="number">1 </span>{
-<a href=#111 id=111 data-nosnippet>111</a>            <span class="kw">let </span>lines = header_lines(<span class="kw-2">&amp;</span>app.view().stack[d], fr.width <span class="kw">as </span>usize, <span class="kw-2">&amp;</span>t);
-<a href=#112 id=112 data-nosnippet>112</a>            f.render_widget(Paragraph::new(lines), fr);
-<a href=#113 id=113 data-nosnippet>113</a>            app.hits.push((fr, Hit::Frame(d)));
-<a href=#114 id=114 data-nosnippet>114</a>            <span class="kw">continue</span>;
-<a href=#115 id=115 data-nosnippet>115</a>        }
-<a href=#116 id=116 data-nosnippet>116</a>        <span class="comment">// Full content (the top frame, or the previous one while it is being pushed up).
-<a href=#117 id=117 data-nosnippet>117</a>        </span><span class="kw">let </span>w = fr.width.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>usize;
-<a href=#118 id=118 data-nosnippet>118</a>        <span class="kw">let </span>(lines, links) = detail_lines(<span class="kw-2">&amp;</span>app.view().stack[d], w, <span class="kw-2">&amp;</span>t);
-<a href=#119 id=119 data-nosnippet>119</a>        <span class="kw">let </span>h = fr.height <span class="kw">as </span>usize;
-<a href=#120 id=120 data-nosnippet>120</a>        <span class="kw">let </span>top = d + <span class="number">1 </span>== depth;
-<a href=#121 id=121 data-nosnippet>121</a>        <span class="kw">let </span>fm = <span class="kw-2">&amp;mut </span>app.view_mut().stack[d];
-<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">if </span>top &amp;&amp; fm.follow_link
-<a href=#123 id=123 data-nosnippet>123</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>((li, <span class="kw">_</span>)) = links.iter().find(|(<span class="kw">_</span>, k)| <span class="kw-2">*</span>k == fm.link_cursor) {
-<a href=#124 id=124 data-nosnippet>124</a>                <span class="kw">let </span>li = <span class="kw-2">*</span>li <span class="kw">as </span>u16;
-<a href=#125 id=125 data-nosnippet>125</a>                <span class="kw">if </span>li &lt; fm.scroll { fm.scroll = li; }
-<a href=#126 id=126 data-nosnippet>126</a>                <span class="kw">if </span>li <span class="kw">as </span>usize &gt;= fm.scroll <span class="kw">as </span>usize + h { fm.scroll = (li <span class="kw">as </span>usize + <span class="number">1 </span>- h) <span class="kw">as </span>u16; }
-<a href=#127 id=127 data-nosnippet>127</a>                fm.follow_link = <span class="bool-val">false</span>;
-<a href=#128 id=128 data-nosnippet>128</a>            }
-<a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">let </span>max = lines.len().saturating_sub(h) <span class="kw">as </span>u16;
-<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">if </span>fm.scroll &gt; max { fm.scroll = max; }
-<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">let </span>scroll = fm.scroll;
-<a href=#132 id=132 data-nosnippet>132</a>        f.render_widget(Paragraph::new(lines).scroll((scroll, <span class="number">0</span>)), fr);
-<a href=#133 id=133 data-nosnippet>133</a>        <span class="kw">if </span>top {
-<a href=#134 id=134 data-nosnippet>134</a>            app.hits.push((fr, Hit::DetailPane));
-<a href=#135 id=135 data-nosnippet>135</a>            <span class="kw">for </span>(li, k) <span class="kw">in </span>links {
-<a href=#136 id=136 data-nosnippet>136</a>                <span class="kw">let </span>y = li <span class="kw">as </span>i64 - scroll <span class="kw">as </span>i64;
-<a href=#137 id=137 data-nosnippet>137</a>                <span class="kw">if </span>y &gt;= <span class="number">0 </span>&amp;&amp; (y <span class="kw">as </span>usize) &lt; h {
-<a href=#138 id=138 data-nosnippet>138</a>                    app.hits.push((Rect { x: fr.x, y: fr.y + y <span class="kw">as </span>u16, width: fr.width, height: <span class="number">1 </span>}, Hit::Link(k)));
-<a href=#139 id=139 data-nosnippet>139</a>                }
-<a href=#140 id=140 data-nosnippet>140</a>            }
-<a href=#141 id=141 data-nosnippet>141</a>        } <span class="kw">else </span>{
-<a href=#142 id=142 data-nosnippet>142</a>            app.hits.push((fr, Hit::Frame(d)));
-<a href=#143 id=143 data-nosnippet>143</a>        }
-<a href=#144 id=144 data-nosnippet>144</a>    }
-<a href=#145 id=145 data-nosnippet>145</a>}
+<a href=#71 id=71 data-nosnippet>71</a>        <span class="kw">let </span>marked = app.is_marked(<span class="kw-2">&amp;</span>p.post_id);
+<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">if </span>cr.width &gt; <span class="number">8 </span>{
+<a href=#73 id=73 data-nosnippet>73</a>            <span class="kw">let </span>sr = Rect { x: cr.x + cr.width - <span class="number">5</span>, y: cr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
+<a href=#74 id=74 data-nosnippet>74</a>            f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
+<a href=#75 id=75 data-nosnippet>75</a>            app.hits.push((sr, Hit::Star(i)));
+<a href=#76 id=76 data-nosnippet>76</a>        }
+<a href=#77 id=77 data-nosnippet>77</a>        <span class="kw">let </span>text = <span class="kw">if </span>p.title.trim().is_empty() { p.content.clone() } <span class="kw">else </span>{ <span class="macro">format!</span>(<span class="string">"{}\n{}"</span>, p.title.trim(), p.content) };
+<a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">let </span>lines: Vec&lt;Line&gt; = wrap(text.trim(), inner.width <span class="kw">as </span>usize).into_iter().filter(|l| !l.trim().is_empty())
+<a href=#79 id=79 data-nosnippet>79</a>            .take(inner.height <span class="kw">as </span>usize).map(Line::raw).collect();
+<a href=#80 id=80 data-nosnippet>80</a>        f.render_widget(Paragraph::new(lines), inner);
+<a href=#81 id=81 data-nosnippet>81</a>        app.hits.insert(app.hits.len() - usize::from(cr.width &gt; <span class="number">8</span>), (cr, Hit::Post(i)));
+<a href=#82 id=82 data-nosnippet>82</a>    }
+<a href=#83 id=83 data-nosnippet>83</a>}
+<a href=#84 id=84 data-nosnippet>84</a>
+<a href=#85 id=85 data-nosnippet>85</a><span class="doccomment">/// Bookmark star: `★` bookmarked, `☆` not (click toggles).
+<a href=#86 id=86 data-nosnippet>86</a></span><span class="kw">pub fn </span>star(on: bool) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str { <span class="kw">if </span>on { <span class="string">" ★ " </span>} <span class="kw">else </span>{ <span class="string">" ☆ " </span>} }
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a><span class="kw">fn </span>compact(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;mut </span>App, i: usize, r: Rect) {
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">let </span>t = app.theme;
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(p) = app.view().posts.get(i).cloned() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#91 id=91 data-nosnippet>91</a>    <span class="kw">let </span>w = r.width <span class="kw">as </span>usize;
+<a href=#92 id=92 data-nosnippet>92</a>    <span class="kw">let </span>head = <span class="macro">format!</span>(<span class="string">" @{} · {} "</span>, p.nick, p.posted_at.get(..<span class="number">16</span>).unwrap_or(<span class="kw-2">&amp;</span>p.posted_at));
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span>rest = ellipsize(<span class="kw-2">&amp;</span>snippet(<span class="kw-2">&amp;</span>p), w.saturating_sub(head.len() + <span class="number">8</span>));
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">let </span>mark = <span class="kw">if </span>app.is_marked(<span class="kw-2">&amp;</span>p.post_id) { <span class="string">"★" </span>} <span class="kw">else </span>{ <span class="string">" " </span>};
+<a href=#95 id=95 data-nosnippet>95</a>    f.render_widget(Paragraph::new(Line::from(<span class="macro">vec!</span>[Span::styled(mark, t.accent_bold()), badge(<span class="kw-2">&amp;</span>p, <span class="kw-2">&amp;</span>t), Span::styled(head, t.muted()), Span::raw(rest)])), r);
+<a href=#96 id=96 data-nosnippet>96</a>    app.hits.push((r, Hit::Post(i)));
+<a href=#97 id=97 data-nosnippet>97</a>}
+<a href=#98 id=98 data-nosnippet>98</a>
+<a href=#99 id=99 data-nosnippet>99</a><span class="kw">fn </span>draw_with_detail(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;mut </span>App, r: Rect, now: Instant) {
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">let </span>t = app.theme;
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">let </span>(kind, p) = app.anim_progress(now);
+<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">let </span>open_p = <span class="kw">if </span>kind == <span class="prelude-val">Some</span>(AnimKind::Open) { p } <span class="kw">else </span>{ <span class="number">1.0 </span>};
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">let </span>push_p = <span class="kw">if </span>kind == <span class="prelude-val">Some</span>(AnimKind::Push) { p } <span class="kw">else </span>{ <span class="number">1.0 </span>};
+<a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">let </span>(n, cur) = (app.view().posts.len(), app.view().cursor);
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="kw">let </span>split = detail_split(r, n, cur, open_p);
+<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">for </span>(i, rr) <span class="kw">in </span>split.above.clone() { compact(f, app, i, rr); }
+<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">for </span>(i, rr) <span class="kw">in </span>split.below.clone() { compact(f, app, i, rr); }
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">let </span>focused = app.focus == Focus::Body;
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">let </span>b = Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(<span class="kw">if </span>focused { t.accent() } <span class="kw">else </span>{ t.border(<span class="bool-val">false</span>) });
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">let </span>inner = b.inner(split.detail);
+<a href=#111 id=111 data-nosnippet>111</a>    f.render_widget(b, split.detail);
+<a href=#112 id=112 data-nosnippet>112</a>    <span class="kw">let </span>depth = app.view().stack.len();
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="kw">let </span>sl = stack_layout(inner, depth, push_p);
+<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(nb) = sl.nested {
+<a href=#115 id=115 data-nosnippet>115</a>        f.render_widget(Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(t.accent()), nb);
+<a href=#116 id=116 data-nosnippet>116</a>    }
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">for </span>(d, fr, collapsed) <span class="kw">in </span>sl.frames {
+<a href=#118 id=118 data-nosnippet>118</a>        <span class="kw">if </span>fr.height == <span class="number">0 </span>|| fr.width &lt; <span class="number">3 </span>{ <span class="kw">continue</span>; }
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="kw">let </span>fr = Rect { x: fr.x + <span class="number">1</span>, width: fr.width - <span class="number">1</span>, ..fr };
+<a href=#120 id=120 data-nosnippet>120</a>        <span class="kw">if </span>collapsed &amp;&amp; fr.height &lt;= DETAIL_HEADER_ROWS + <span class="number">1 </span>{
+<a href=#121 id=121 data-nosnippet>121</a>            <span class="kw">let </span>lines = header_lines(<span class="kw-2">&amp;</span>app.view().stack[d], fr.width <span class="kw">as </span>usize, <span class="kw-2">&amp;</span>t);
+<a href=#122 id=122 data-nosnippet>122</a>            f.render_widget(Paragraph::new(lines), fr);
+<a href=#123 id=123 data-nosnippet>123</a>            app.hits.push((fr, Hit::Frame(d)));
+<a href=#124 id=124 data-nosnippet>124</a>            <span class="kw">continue</span>;
+<a href=#125 id=125 data-nosnippet>125</a>        }
+<a href=#126 id=126 data-nosnippet>126</a>        <span class="comment">// Full content (the top frame, or the previous one while it is being pushed up).
+<a href=#127 id=127 data-nosnippet>127</a>        </span><span class="kw">let </span>w = fr.width.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>usize;
+<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">let </span>(lines, links) = detail_lines(<span class="kw-2">&amp;</span>app.view().stack[d], w, <span class="kw-2">&amp;</span>t);
+<a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">let </span>h = fr.height <span class="kw">as </span>usize;
+<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">let </span>top = d + <span class="number">1 </span>== depth;
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">let </span>fm = <span class="kw-2">&amp;mut </span>app.view_mut().stack[d];
+<a href=#132 id=132 data-nosnippet>132</a>        <span class="kw">if </span>top &amp;&amp; fm.follow_link
+<a href=#133 id=133 data-nosnippet>133</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>((li, <span class="kw">_</span>)) = links.iter().find(|(<span class="kw">_</span>, k)| <span class="kw-2">*</span>k == fm.link_cursor) {
+<a href=#134 id=134 data-nosnippet>134</a>                <span class="kw">let </span>li = <span class="kw-2">*</span>li <span class="kw">as </span>u16;
+<a href=#135 id=135 data-nosnippet>135</a>                <span class="kw">if </span>li &lt; fm.scroll { fm.scroll = li; }
+<a href=#136 id=136 data-nosnippet>136</a>                <span class="kw">if </span>li <span class="kw">as </span>usize &gt;= fm.scroll <span class="kw">as </span>usize + h { fm.scroll = (li <span class="kw">as </span>usize + <span class="number">1 </span>- h) <span class="kw">as </span>u16; }
+<a href=#137 id=137 data-nosnippet>137</a>                fm.follow_link = <span class="bool-val">false</span>;
+<a href=#138 id=138 data-nosnippet>138</a>            }
+<a href=#139 id=139 data-nosnippet>139</a>        <span class="kw">let </span>max = lines.len().saturating_sub(h) <span class="kw">as </span>u16;
+<a href=#140 id=140 data-nosnippet>140</a>        <span class="kw">if </span>fm.scroll &gt; max { fm.scroll = max; }
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="kw">let </span>scroll = fm.scroll;
+<a href=#142 id=142 data-nosnippet>142</a>        f.render_widget(Paragraph::new(lines).scroll((scroll, <span class="number">0</span>)), fr);
+<a href=#143 id=143 data-nosnippet>143</a>        <span class="kw">if </span>top {
+<a href=#144 id=144 data-nosnippet>144</a>            app.hits.push((fr, Hit::DetailPane));
+<a href=#145 id=145 data-nosnippet>145</a>            <span class="kw">if </span>fr.width &gt; <span class="number">6 </span>{
+<a href=#146 id=146 data-nosnippet>146</a>                <span class="kw">let </span>marked = app.is_marked(<span class="kw-2">&amp;</span>app.view().stack[d].post.post_id);
+<a href=#147 id=147 data-nosnippet>147</a>                <span class="kw">let </span>sr = Rect { x: fr.x + fr.width - <span class="number">4</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
+<a href=#148 id=148 data-nosnippet>148</a>                f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
+<a href=#149 id=149 data-nosnippet>149</a>                app.hits.push((sr, Hit::StarTop));
+<a href=#150 id=150 data-nosnippet>150</a>            }
+<a href=#151 id=151 data-nosnippet>151</a>            <span class="kw">for </span>(li, k) <span class="kw">in </span>links {
+<a href=#152 id=152 data-nosnippet>152</a>                <span class="kw">let </span>y = li <span class="kw">as </span>i64 - scroll <span class="kw">as </span>i64;
+<a href=#153 id=153 data-nosnippet>153</a>                <span class="kw">if </span>y &gt;= <span class="number">0 </span>&amp;&amp; (y <span class="kw">as </span>usize) &lt; h {
+<a href=#154 id=154 data-nosnippet>154</a>                    app.hits.push((Rect { x: fr.x, y: fr.y + y <span class="kw">as </span>u16, width: fr.width, height: <span class="number">1 </span>}, Hit::Link(k)));
+<a href=#155 id=155 data-nosnippet>155</a>                }
+<a href=#156 id=156 data-nosnippet>156</a>            }
+<a href=#157 id=157 data-nosnippet>157</a>        } <span class="kw">else </span>{
+<a href=#158 id=158 data-nosnippet>158</a>            app.hits.push((fr, Hit::Frame(d)));
+<a href=#159 id=159 data-nosnippet>159</a>        }
+<a href=#160 id=160 data-nosnippet>160</a>    }
+<a href=#161 id=161 data-nosnippet>161</a>}
 </code></pre></div></section></main></body></html>

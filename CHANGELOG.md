@@ -6,6 +6,26 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-10-16
+
+### Added
+- **Bookmarks**, local first and synced with the site:
+  - `--bookmark IDS` / `--unbookmark IDS` / `--list-bookmarks` (offline) keep them in a new
+    `bookmarks` table (created on first use; removed by `--clear-all`).
+  - `--sync-bookmarks` logs in, reads the site's bookmarks (`/rs/bookmarks`, storing their posts),
+    and pushes local additions and removals (`toggle-bookmark`). Local changes win; bookmarks
+    removed on the site are dropped. The page path and event are inferred (override the path with
+    `ACP_BOOKMARKS_PATH`).
+  - TUI: a clickable `☆`/`★` star on every card and detail (or `b`), stored by a background side
+    job that runs offline and next to a scan; a **★ Bookmarks (n)** row on the nick bar (or `B`)
+    shows only bookmarked posts and comments; a Bookmarks menu (Show / Bookmark current post /
+    Sync with acp.us).
+
+### Changed
+- The menu bar drops its separators (then its padding) when the terminal is too narrow.
+- Database writers wait up to 10 s for a lock instead of failing, so TUI bookmark writes and a
+  running scan don't collide.
+
 ## [2.0.0] - 2026-10-16
 
 Major release: a bare `acp-rs-scraper` now opens a terminal UI instead of prompting for nicks and

@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.0.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.1.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -133,6 +133,19 @@ Session:
       --logout
           Offline: forget the saved login (delete ~/.acp/session.json); the next scrape asks for a code again
 
+Bookmarks:
+      --bookmark <IDS>
+          Offline: bookmark these posts locally (comma-separated post ids). --sync-bookmarks pushes them to the site
+
+      --unbookmark <IDS>
+          Offline: remove these bookmarks (comma-separated post ids); ones the site has are removed there by the next --sync-bookmarks
+
+      --list-bookmarks
+          Offline: list bookmarks (add --format json for JSON)
+
+      --sync-bookmarks
+          Log in, read the site's bookmarks (storing their posts) and push local bookmark changes to the site
+
 Debug:
   -q, --quiet
           Suppress progress/summary on stderr (prompts and errors still show)
@@ -225,6 +238,11 @@ headless scrape is now `--scrape`.
   out the Login modal opens (email, then the one-time code or the login link from the email) and
   the scan starts as soon as you're in. Session › Log in / Log out do the same by hand; logging out
   deletes `~/.acp/session.json` and returns to the Login modal.
+- **Bookmarks.** Every card and detail has a star: `☆` click (or `b`) to bookmark it, `★` click
+  again to remove it. It shows at once and is stored by a small background job, so it works
+  offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows
+  only your bookmarked posts and comments; `<` goes back. Bookmarks › Sync with acp.us pulls the
+  site's bookmarks (and stores those posts) and pushes your local changes (`--sync-bookmarks`).
 - **Quit** (`q`) while a scan runs asks whether to keep it running in the background (the default:
   it is its own process, so it carries on after the TUI exits and prints the `tail -f` line for its
   log) or to cancel it first.
@@ -243,6 +261,27 @@ Keys: `?`/`F1` help (the full `--help` plus every key), `Tab` cycles Nicks → B
 `↑↓`/`jk`, `PgUp`/`PgDn`, `Home`/`End`, `Ctrl-R` re-reads nicks, `q` or `Ctrl-C` quits.
 The TUI needs at least 60×16 cells and a terminal on stdin/stdout; without one it tells you which
 headless flags to use.
+
+## Bookmarks
+
+Bookmarks live in the database's `bookmarks` table, so they work offline, are visible in the TUI,
+and go away with `--clear-all`.
+
+```sh
+acp-rs-scraper --bookmark POSTID1,POSTID2   # offline
+acp-rs-scraper --unbookmark POSTID1         # offline; removed on the site at the next sync
+acp-rs-scraper --list-bookmarks             # ★ = also bookmarked on the site; --format json for JSON
+acp-rs-scraper --sync-bookmarks             # log in, pull the site's bookmarks (and their posts), push local changes
+```
+
+A sync merges both sides: site bookmarks you don't have are added (and their posts stored), local
+ones the site lacks are bookmarked there, local removals are removed there, and a bookmark that
+disappeared from the site (removed in the browser) is dropped locally. Local changes made since the
+last sync win.
+
+The site's bookmark page (`/rs/bookmarks`) and its `toggle-bookmark` event are inferred from the
+site's naming, not confirmed against the live site yet; set `ACP_BOOKMARKS_PATH=/rs/…` if the page
+lives elsewhere.
 
 ## Running from a checkout
 

@@ -75,4 +75,18 @@
 <a href=#75 id=75 data-nosnippet>75</a>            mime_type TEXT NOT NULL
 <a href=#76 id=76 data-nosnippet>76</a>        );
 <a href=#77 id=77 data-nosnippet>77</a>        CREATE UNIQUE INDEX IF NOT EXISTS attachments_post_url_uq ON attachments(post_id, url);"</span>;
+<a href=#78 id=78 data-nosnippet>78</a>
+<a href=#79 id=79 data-nosnippet>79</a><span class="doccomment">/// `bookmarks` table (2.1.0). One row per bookmarked post:
+<a href=#80 id=80 data-nosnippet>80</a>/// - `remote`: the site has it bookmarked too (seen in its bookmarks feed, or pushed).
+<a href=#81 id=81 data-nosnippet>81</a>/// - `deleted`: removed locally but still bookmarked on the site; the next
+<a href=#82 id=82 data-nosnippet>82</a>///   `--sync-bookmarks` removes it there and drops the row.
+<a href=#83 id=83 data-nosnippet>83</a>///
+<a href=#84 id=84 data-nosnippet>84</a>/// Rows are added by `--bookmark` / the TUI (local, `remote = 0`) and by
+<a href=#85 id=85 data-nosnippet>85</a>/// `--sync-bookmarks` (from the site, `remote = 1`). Created on first use.
+<a href=#86 id=86 data-nosnippet>86</a></span><span class="kw">pub const </span>BOOKMARKS_SCHEMA: <span class="kw-2">&amp;</span>str = <span class="string">"CREATE TABLE IF NOT EXISTS bookmarks (
+<a href=#87 id=87 data-nosnippet>87</a>            post_id TEXT PRIMARY KEY,
+<a href=#88 id=88 data-nosnippet>88</a>            created_at TEXT NOT NULL,
+<a href=#89 id=89 data-nosnippet>89</a>            remote INTEGER NOT NULL DEFAULT 0,
+<a href=#90 id=90 data-nosnippet>90</a>            deleted INTEGER NOT NULL DEFAULT 0
+<a href=#91 id=91 data-nosnippet>91</a>        );"</span>;
 </code></pre></div></section></main></body></html>

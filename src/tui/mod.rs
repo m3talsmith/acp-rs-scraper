@@ -27,7 +27,7 @@ use std::time::{Duration, Instant};
 
 /// Messages from background tasks to the event loop.
 enum Msg {
-    SessionChecked(std::result::Result<bool, String>, Vec<String>),
+    SessionChecked(std::result::Result<bool, String>, jobs::JobKind, Vec<String>),
     LoginNeedCode(u64),
     LoginDone(u64, std::result::Result<(), String>),
 }
@@ -92,6 +92,8 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     });
     let (msg_tx, mut msg_rx) = tokio::sync::mpsc::unbounded_channel::<Msg>();
     let mut job: Option<jobs::Job> = None;
+    // Small writes (bookmarks) that run next to the main job.
+    let mut side: Vec<jobs::Job> = Vec::new();
     let mut code_tx: Option<tokio::sync::oneshot::Sender<String>> = None;
     let mut login_task: Option<std::thread::JoinHandle<()>> = None;
     let mut detached = None;
@@ -109,7 +111,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 while let Ok(ev) = ev_rx.try_recv() { input::on_event(app, ev); }
             }
             Some(m) = msg_rx.recv() => match m {
-                Msg::SessionChecked(r, argv) => app.session_checked(r, argv),
+                Msg::SessionChecked(r, k, argv) => app.session_checked(r, k, argv),
                 Msg::LoginNeedCode(g) if g == login_gen => app.login_need_code(),
                 Msg::LoginDone(g, r) if g == login_gen => { code_tx = None; login_task = None; app.login_done(r); }
                 Msg::LoginNeedCode(_) | Msg::LoginDone(..) => {}
@@ -126,14 +128,23 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 job = None;
             }
         }
+        let mut k = 0;
+        while k < side.len() {
+            let (_, status) = side[k].poll();
+            if let Some(st) = status {
+                let j = side.remove(k);
+                app.side_job_finished(st.success(), &jobs::tail(&j.log, 3), side.len());
+                if st.success() { let _ = std::fs::remove_file(&j.log); }
+            } else { k += 1; }
+        }
         for eff in std::mem::take(&mut app.effects) {
             match eff {
-                Effect::CheckSessionThenScan(argv) => {
+                Effect::CheckSessionThen(kind, argv) => {
                     let (http, tx) = (http.clone(), msg_tx.clone());
                     app.push_status("checking the saved session…");
                     tokio::spawn(async move {
                         let r = session_valid(&http).await.map_err(|e| format!("{e:#}"));
-                        let _ = tx.send(Msg::SessionChecked(r, argv));
+                        let _ = tx.send(Msg::SessionChecked(r, kind, argv));
                     });
                 }
                 Effect::RunJob(kind, argv) => {
@@ -143,6 +154,10 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                         Err(e) => app.error("Cannot start", &format!("{e:#}")),
                     }
                 }
+                Effect::RunSideJob(kind, argv) => match jobs::Job::spawn(kind, &argv) {
+                    Ok(j) => side.push(j),
+                    Err(e) => app.error("Cannot start", &format!("{e:#}")),
+                },
                 Effect::CancelJob => if let Some(mut j) = job.take() {
                     if let Err(e) = j.cancel() { app.push_status(format!("error: cancel: {e:#}")); }
                     app.job_cancelled();

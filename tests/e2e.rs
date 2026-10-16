@@ -125,6 +125,12 @@ async fn tui_remove(w: &mut E2e, nicks: String) {
     w.run_argv(&argv[1..]).await;
 }
 
+#[when(expr = "I bookmark {string} from the TUI")]
+async fn tui_bookmark(w: &mut E2e, id: String) {
+    let argv = w.menu().bookmark_argv(&id, true).unwrap();
+    w.run_argv(&argv[1..]).await;
+}
+
 #[then("it succeeds")]
 async fn succeeds(w: &mut E2e) { assert_eq!(w.last.code, 0, "stderr:\n{}", w.last.stderr); }
 
@@ -136,6 +142,25 @@ async fn stderr_has(w: &mut E2e, s: String) { assert!(w.last.stderr.contains(&s)
 
 #[then(expr = "stdout contains {string}")]
 async fn stdout_has(w: &mut E2e, s: String) { assert!(w.last.stdout.contains(&s), "stdout lacks {s:?}:\n{}", w.last.stdout); }
+
+#[then(expr = "the site has bookmarks {string}")]
+async fn site_marks(w: &mut E2e, list: String) {
+    let mut got = w.mock().inner.lock().unwrap().site_bookmarks.clone();
+    got.sort();
+    let mut want: Vec<String> = list.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+    want.sort();
+    assert_eq!(got, want);
+}
+
+#[then(expr = "my bookmarks are {string}")]
+async fn local_marks(w: &mut E2e, list: String) {
+    let c = Connection::open(w.db()).unwrap();
+    let mut st = c.prepare("SELECT post_id FROM bookmarks WHERE deleted = 0 ORDER BY post_id").unwrap();
+    let got: Vec<String> = st.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
+    let mut want: Vec<String> = list.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
+    want.sort();
+    assert_eq!(got, want);
+}
 
 #[then(expr = "the site sent a login code to {string}")]
 async fn code_sent(w: &mut E2e, e: String) { assert!(w.mock().inner.lock().unwrap().login_emails.contains(&e)); }

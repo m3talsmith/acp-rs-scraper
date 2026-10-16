@@ -344,5 +344,8 @@ pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Ve
 /// very first write on a fresh `$HOME` works whichever table is written first.
 pub fn open_db(db: &Path) -> Result<Connection> {
     if let Some(dir) = db.parent() { std::fs::create_dir_all(dir)?; }
-    Ok(Connection::open(db)?)
+    let c = Connection::open(db)?;
+    // The TUI can write bookmarks while a scan runs: wait for the lock instead of failing.
+    c.busy_timeout(std::time::Duration::from_secs(10))?;
+    Ok(c)
 }

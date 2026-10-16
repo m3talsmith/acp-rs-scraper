@@ -46,6 +46,7 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
             return;
         }
         KeyCode::Char('S') => { app.act(Action::OpenSearchModal); return; }
+        KeyCode::Char('B') => { app.act(Action::ShowBookmarks); return; }
         KeyCode::Char('?') | KeyCode::F(1) => { app.act(Action::Help); return; }
         KeyCode::F(5) => { app.act(Action::StartScan); return; }
         KeyCode::F(10) => { app.focus = Focus::Menu; return; }
@@ -72,6 +73,7 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('l') => app.act(Action::ToggleLog),
         KeyCode::Char('m') => app.focus = Focus::Menu,
         KeyCode::Char('<') => { app.search_back(); }
+        KeyCode::Char('b') => app.act(Action::ToggleBookmark),
         _ => return false,
     }
     true
@@ -195,9 +197,9 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     }
     if wheel != 0 {
         match hit {
-            Some(Hit::Nick(_) | Hit::NickPane) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
-            Some(Hit::DetailPane | Hit::Link(_)) => app.scroll_detail(wheel * 3),
-            Some(Hit::Post(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
+            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
+            Some(Hit::DetailPane | Hit::Link(_) | Hit::StarTop) => app.scroll_detail(wheel * 3),
+            Some(Hit::Post(_) | Hit::Star(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
             _ => {}
         }
         return;
@@ -209,6 +211,9 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     match hit {
         Some(Hit::Nick(i)) => { app.focus = Focus::Nicks; if multi { app.toggle_nick(i) } else { app.select_only(i) } }
         Some(Hit::Post(i)) => app.open_post(i),
+        Some(Hit::Bookmarks) => app.open_bookmarks(),
+        Some(Hit::Star(i)) => { if let Some(id) = app.view().posts.get(i).map(|p| p.post_id.clone()) { app.focus = Focus::Body; app.toggle_mark(&id); } }
+        Some(Hit::StarTop) => { if let Some(id) = app.top().map(|f| f.post.post_id.clone()) { app.toggle_mark(&id); } }
         Some(Hit::MenuItem(i)) => app.open_menu(i),
         Some(Hit::MenuOpt(i)) => { app.menu.editing = false; app.activate_opt(i); }
         Some(Hit::StartScan) => app.act(Action::StartScan),

@@ -136,6 +136,20 @@ pub struct Args {
     /// Offline: forget the saved login (delete ~/.acp/session.json); the next scrape asks for a code again.
     #[arg(long, help_heading = "Session", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz", "remove_nick", "clear_all"])]
     pub logout: bool,
+    /// Offline: bookmark these posts locally (comma-separated post ids). --sync-bookmarks pushes them to the site.
+    #[arg(long, value_name = "IDS", value_parser = parse_post_id_arg, help_heading = "Bookmarks",
+          conflicts_with_all = ["unbookmark", "nick", "nicks", "search", "export", "import", "list_nicks", "remove_nick", "clear_all", "logout", "refetch_truncated"])]
+    pub bookmark: Option<PostIds>,
+    /// Offline: remove these bookmarks (comma-separated post ids); ones the site has are removed there by the next --sync-bookmarks.
+    #[arg(long, value_name = "IDS", value_parser = parse_post_id_arg, help_heading = "Bookmarks",
+          conflicts_with_all = ["nick", "nicks", "search", "export", "import", "list_nicks", "remove_nick", "clear_all", "logout", "refetch_truncated"])]
+    pub unbookmark: Option<PostIds>,
+    /// Offline: list bookmarks (add --format json for JSON).
+    #[arg(long, help_heading = "Bookmarks", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "list_nicks", "remove_nick", "clear_all"])]
+    pub list_bookmarks: bool,
+    /// Log in, read the site's bookmarks (storing their posts) and push local bookmark changes to the site.
+    #[arg(long, help_heading = "Bookmarks", conflicts_with_all = ["search", "export", "import", "list_nicks", "remove_nick", "clear_all", "logout"])]
+    pub sync_bookmarks: bool,
     /// With --remove-nick / --clear-all: show what would be removed and change nothing.
     #[arg(long, requires = "maint", help_heading = "Maintenance")]
     pub dry_run: bool,

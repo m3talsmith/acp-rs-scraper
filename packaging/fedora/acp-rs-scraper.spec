@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.0.0
+Version:        2.1.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -46,6 +46,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Fri Oct 16 2026 m3talsmith <m3talsmith@gmail.com> - 2.1.0-1
+- Bookmarks (local and synced with the site), TUI stars and bookmarks view
+
 * Fri Oct 16 2026 m3talsmith <m3talsmith@gmail.com> - 2.0.0-1
 - Terminal UI by default (no flags or --tui); --scrape for the old bare scrape
 

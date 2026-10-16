@@ -16,12 +16,17 @@ pub enum JobKind {
     Import,
     /// `--remove-nick` / `--clear-all`.
     Maintain,
+    /// `--bookmark` / `--unbookmark` (a side job: runs next to the main job).
+    Bookmark,
+    /// `--sync` / `--sync-bookmarks` with the site.
+    Sync,
 }
 
 impl JobKind {
     /// Lower-case name (log file names, status).
     pub fn name(self) -> &'static str {
-        match self { JobKind::Scan => "scan", JobKind::Export => "export", JobKind::Import => "import", JobKind::Maintain => "maintain" }
+        match self { JobKind::Scan => "scan", JobKind::Export => "export", JobKind::Import => "import", JobKind::Maintain => "maintain",
+            JobKind::Bookmark => "bookmark", JobKind::Sync => "sync" }
     }
 }
 

@@ -344,6 +344,9 @@
 <a href=#344 id=344 data-nosnippet>344</a>/// very first write on a fresh `$HOME` works whichever table is written first.
 <a href=#345 id=345 data-nosnippet>345</a></span><span class="kw">pub fn </span>open_db(db: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;Connection&gt; {
 <a href=#346 id=346 data-nosnippet>346</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = db.parent() { std::fs::create_dir_all(dir)<span class="question-mark">?</span>; }
-<a href=#347 id=347 data-nosnippet>347</a>    <span class="prelude-val">Ok</span>(Connection::open(db)<span class="question-mark">?</span>)
-<a href=#348 id=348 data-nosnippet>348</a>}
+<a href=#347 id=347 data-nosnippet>347</a>    <span class="kw">let </span>c = Connection::open(db)<span class="question-mark">?</span>;
+<a href=#348 id=348 data-nosnippet>348</a>    <span class="comment">// The TUI can write bookmarks while a scan runs: wait for the lock instead of failing.
+<a href=#349 id=349 data-nosnippet>349</a>    </span>c.busy_timeout(std::time::Duration::from_secs(<span class="number">10</span>))<span class="question-mark">?</span>;
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="prelude-val">Ok</span>(c)
+<a href=#351 id=351 data-nosnippet>351</a>}
 </code></pre></div></section></main></body></html>
