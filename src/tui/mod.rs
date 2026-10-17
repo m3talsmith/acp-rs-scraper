@@ -13,6 +13,7 @@
 
 pub mod commands;
 pub mod data;
+pub mod empty_anim;
 pub mod images;
 pub mod input;
 pub mod jobs;
@@ -59,6 +60,7 @@ pub async fn run(args: Args) -> Result<()> {
         session_path().map(|p| p.exists()).unwrap_or(false));
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
+    (app.empty_anim, app.empty_anim_accent) = empty_anim::from_prefs(prefs.ui.as_ref());
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
     set_log_sink(Some(log_tx));
@@ -122,7 +124,11 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 if osc8 { emit_osc8(&app.osc_links); }
                 if let Some(im) = app.images.as_mut() { im.flush(&mut std::io::stdout()); }
             }
-        let wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
+        let mut wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
+        // The empty-Body animation: wake exactly when its next frame is due (one draw per frame).
+        if app.empty_anim_frame.is_some() && let Some(fr) = &app.empty_anim {
+            wait = wait.min(fr.until_next(Instant::now().saturating_duration_since(app.empty_anim_start)));
+        }
         tokio::select! {
             Some(ev) = ev_rx.recv() => {
                 if matches!(ev, crossterm::event::Event::Resize(..)) && let Some(im) = app.images.as_mut() { im.invalidate(); }

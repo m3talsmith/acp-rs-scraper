@@ -7,3 +7,12 @@ Copyright: 2026 m3talsmith <m3talsmith@gmail.com>
 License: GPL-3.0-or-later
  On Debian systems, the full text of the GNU General Public License version 3
  can be found in /usr/share/common-licenses/GPL-3.
+
+Files: assets/empty-body.acpanim.gz
+Copyright: IGG | Qizilbash; used with permission of the ACP
+License: other
+ Text-art frames from the first 10 seconds of "Debating Is Man the Measure of
+ All Things?" by the YouTube channel IGG | Qizilbash
+ (https://youtu.be/iK-_kgVuv6Y), whose speaker is the executive chair of the
+ ACP. Used with permission of the ACP in ACP apps such as this reader. Not
+ covered by the GPL; see /usr/share/doc/acp-rs-scraper/empty-body.NOTICE.md.

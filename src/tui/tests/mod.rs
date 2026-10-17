@@ -4,6 +4,7 @@
 mod commands;
 mod bookmarks;
 mod data;
+mod empty_anim;
 mod jobs;
 mod layout;
 mod markdown;

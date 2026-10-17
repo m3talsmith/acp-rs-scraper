@@ -337,6 +337,14 @@ pub struct App {
     pub auto_running: bool,
     /// Running animation.
     pub anim: Option<Anim>,
+    /// The empty-Body animation (None: off).
+    pub empty_anim: Option<crate::tui::empty_anim::Frames>,
+    /// Draw it in the accent colour instead of muted.
+    pub empty_anim_accent: bool,
+    /// When it started (frame 0).
+    pub empty_anim_start: Instant,
+    /// The frame drawn last, while it is on screen (None: not shown or paused).
+    pub empty_anim_frame: Option<usize>,
     /// Clickable regions from the last draw.
     pub hits: Vec<(Rect, Hit)>,
     /// Colours.
@@ -366,7 +374,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
+            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None,
         };
         app.refresh_nicks();

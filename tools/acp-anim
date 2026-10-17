@@ -1,0 +1,110 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: GPL-3.0-or-later
+"""Turn the first N seconds of a video into acp-rs-scraper's text animation.
+
+    tools/acp-anim SOURCE [--seconds 10] [--start 0] [--fps 12] [--cols 120] [--rows 34]
+                          [--out ~/.acp/animations/empty-body.acpanim.gz]
+
+SOURCE is a local video file or a URL (fetched with yt-dlp, only the part needed).
+Frames are pulled with ffmpeg as grayscale, contrast-stretched over the whole clip
+and mapped to a 10-step character ramp. Output format (gzip, or plain text when
+--out does not end in .gz):
+
+    ACPANIM 1
+    fps 12
+    size 120 34
+    %%
+    <rows lines of cols characters>
+    %%
+    ...
+
+The TUI shows ~/.acp/animations/empty-body.acpanim(.gz) in the empty Body when it
+exists, instead of the built-in animation. Needs ffmpeg (and yt-dlp for URLs).
+"""
+import argparse, gzip, os, shutil, subprocess, sys, tempfile
+
+RAMP = " .:-=+*#%@"
+
+
+def fetch(src, start, seconds, tmp):
+    if os.path.exists(src):
+        return src
+    ytdlp = shutil.which("yt-dlp") or os.path.expanduser("~/.local/bin/yt-dlp")
+    if not os.path.exists(ytdlp):
+        sys.exit("acp-anim: yt-dlp is needed for URLs (or pass a local file)")
+    out = os.path.join(tmp, "clip.%(ext)s")
+    cmd = [ytdlp, "-q", "--no-playlist", "-f", "bv*[height<=480]/b[height<=480]/bv*/b",
+           "--download-sections", f"*{start}-{start + seconds}", "-o", out, src]
+    subprocess.run(cmd, check=True)
+    files = [f for f in os.listdir(tmp) if f.startswith("clip.")]
+    if not files:
+        sys.exit("acp-anim: yt-dlp produced no file")
+    return os.path.join(tmp, files[0])
+
+
+def frames(path, start, seconds, fps, cols, rows, from_start):
+    seek = [] if from_start else ["-ss", str(start)]
+    cmd = ["ffmpeg", "-v", "error", *seek, "-i", path, "-t", str(seconds),
+           "-vf", f"fps={fps},scale={cols}:{rows}:flags=area,format=gray",
+           "-f", "rawvideo", "-"]
+    raw = subprocess.run(cmd, check=True, capture_output=True).stdout
+    n = cols * rows
+    return [raw[i:i + n] for i in range(0, len(raw) - n + 1, n)]
+
+
+def to_text(fs, cols, rows, invert):
+    vals = sorted(b for f in fs for b in f[::7])
+    lo = vals[len(vals) * 2 // 100] if vals else 0
+    hi = vals[len(vals) * 98 // 100] if vals else 255
+    span = max(hi - lo, 1)
+    out = []
+    for f in fs:
+        lines = []
+        for y in range(rows):
+            row = f[y * cols:(y + 1) * cols]
+            s = []
+            for b in row:
+                v = min(max((b - lo) / span, 0.0), 1.0)
+                if invert:
+                    v = 1.0 - v
+                s.append(RAMP[min(int(v * len(RAMP)), len(RAMP) - 1)])
+            lines.append("".join(s).rstrip())
+        out.append(lines)
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("source")
+    ap.add_argument("--seconds", type=float, default=10)
+    ap.add_argument("--start", type=float, default=0)
+    ap.add_argument("--fps", type=int, default=12)
+    ap.add_argument("--cols", type=int, default=120)
+    ap.add_argument("--rows", type=int, default=34, help="34 rows at 120 cols is 16:9 with 1:2 cells")
+    ap.add_argument("--invert", action="store_true", help="dark areas become dense characters")
+    ap.add_argument("--out", default="~/.acp/animations/empty-body.acpanim.gz")
+    a = ap.parse_args()
+    if not shutil.which("ffmpeg"):
+        sys.exit("acp-anim: ffmpeg is needed")
+    if not (1 <= a.fps <= 30 and 8 <= a.cols <= 400 and 4 <= a.rows <= 200):
+        sys.exit("acp-anim: --fps 1-30, --cols 8-400, --rows 4-200")
+    with tempfile.TemporaryDirectory(prefix="acp-anim-") as tmp:
+        path = fetch(a.source, a.start, a.seconds, tmp)
+        fs = frames(path, a.start, a.seconds, a.fps, a.cols, a.rows, path.startswith(tmp))
+    if not fs:
+        sys.exit("acp-anim: ffmpeg produced no frames")
+    text = to_text(fs, a.cols, a.rows, a.invert)
+    body = f"ACPANIM 1\nfps {a.fps}\nsize {a.cols} {a.rows}\n" + "".join(
+        "%%\n" + "\n".join(f) + "\n" for f in text)
+    out = os.path.expanduser(a.out)
+    os.makedirs(os.path.dirname(out) or ".", exist_ok=True)
+    data = body.encode()
+    if out.endswith(".gz"):
+        data = gzip.compress(data, 9, mtime=0)
+    with open(out, "wb") as fh:
+        fh.write(data)
+    print(f"{out}: {len(text)} frames, {a.fps} fps, {a.cols}x{a.rows}, {len(data)} bytes")
+
+
+if __name__ == "__main__":
+    main()

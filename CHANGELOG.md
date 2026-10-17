@@ -6,6 +6,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.11.0] - 2026-10-17
+
+### Added
+- **Empty-Body animation** in the TUI: while the Body is empty a text animation loops under the
+  hint, shrunk to fit and centred in the muted colour (`[ui] empty_animation_color = "accent"` for
+  the accent). It pauses when the Body is smaller than 24×8 and redraws only when the frame
+  changes. The built-in clip is the first 10 seconds of "Debating Is Man the Measure of All
+  Things?" (IGG | Qizilbash) as 120×34 text art at 12 fps, used with permission of the ACP
+  (`assets/empty-body.NOTICE.md`, 35 KB, embedded in the binary); a procedural turning red star
+  with an ACP wordmark is the fallback. `[ui] empty_animation = false|"off"|"star"`,
+  `[ui] empty_animation_path`, and `ACP_EMPTY_ANIMATION=off|star|on`.
+- `tools/acp-anim`: turns the first N seconds of a local video or a URL (via yt-dlp) into a frames
+  file, by default `~/.acp/animations/empty-body.acpanim.gz`, which the TUI plays instead of the
+  built-in clip. Packages install it as `/usr/share/acp-rs-scraper/tools/acp-anim`.
+
 ## [2.10.0] - 2026-10-17
 
 ### Changed

@@ -192,6 +192,10 @@ pub const TUI_HEADER_ROWS: u16 = 3;
 pub const RESEARCH_REL_DIR: &str = ".acp/research";
 /// Converted image cache (AVIF → PNG), under `$HOME`.
 pub const THUMBS_REL_DIR: &str = ".acp/cache/thumbs";
+/// Your own empty-Body animation (`tools/acp-anim` writes it), relative to `$HOME`; `.acpanim.gz` or `.acpanim`.
+pub const ANIMATION_REL_PATH: &str = ".acp/animations/empty-body.acpanim";
+/// Smallest Body area (columns, rows) the empty-Body animation plays in; smaller pauses it.
+pub const EMPTY_ANIM_MIN: (u16, u16) = (24, 8);
 /// Log files of scans/jobs started from the TUI (`tui-<kind>-<stamp>.log`), inside [`LOGS_REL_DIR`].
 pub const TUI_JOB_LOG_PREFIX: &str = "tui-";
 /// Key bindings shown in the Help modal (and the README).

@@ -117,6 +117,18 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 - **Login** happens only when needed: Start Scanning checks `~/.acp/session.json` against the site
   and, when logged out, opens the Login modal (email, then the code or login link), then starts the
   scan.
+- **Empty-Body animation:** text frames loop under the hint while the Body is empty, shrunk to fit
+  (never enlarged) and centred; paused below 24×8; one redraw per frame. Source, first match wins:
+  `[ui] empty_animation_path`, `~/.acp/animations/empty-body.acpanim.gz` (or `.acpanim`), the
+  built-in clip (first 10 s of "Debating Is Man the Measure of All Things?", IGG | Qizilbash,
+  used with permission of the ACP; `assets/empty-body.NOTICE.md`), then the procedural red star. A
+  file that fails to parse is skipped with a warning. `[ui] empty_animation = false` / `"off"`
+  turns it off, `"star"` / `"minimal"` plays only the star; `ACP_EMPTY_ANIMATION=off|star|on`
+  overrides the setting; `[ui] empty_animation_color = "accent"` colours it with the accent.
+  `tools/acp-anim SOURCE [--seconds 10] [--start 0] [--fps 12] [--cols 120] [--rows 34] [--invert]
+  [--out PATH]` makes a frames file from a local video or a URL (yt-dlp downloads only the
+  section needed into a temporary directory, which is deleted); the format is gzip'd text:
+  `ACPANIM 1`, `fps N`, `size COLS ROWS`, then each frame after a `%%` line.
 - **Theme:** `[theme]` in `~/.acp/preferences.toml` (`accent`, `muted`, `border`, `on_accent`,
   `#rrggbb`); the default accent is ACP red `#dc2626`. Every style and box comes from
   `src/tui/theme.rs`, built with [ratatui-lipgloss](https://crates.io/crates/ratatui-lipgloss).
@@ -149,6 +161,7 @@ The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip 
 | Default export / archive location | `~/.acp/ai/data/exports/` |
 | Research files (copies) and web page snapshots | `~/.acp/research/<project>/files/`, `…/web/` |
 | Picture cache (AVIF/HEIC converted to PNG) | `~/.acp/cache/thumbs/` |
+| Your empty-Body animation (`tools/acp-anim`) | `~/.acp/animations/empty-body.acpanim.gz` |
 
 Every scrape is saved to the database. Exports are written on top of that.
 

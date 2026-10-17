@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BUILTIN"],"enum":["Choice"],"fn":["builtin","choice","from_prefs","load","parse","star"],"struct":["Frames"]};

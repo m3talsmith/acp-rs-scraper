@@ -63,6 +63,20 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
             else if app.nicks.is_empty() { "The database is empty. Open Scrape (or Import) in the menu bar to fill it." }
             else { "Click a nick (Space / Ctrl-click to select several) to read their posts and replies." };
         f.render_widget(Paragraph::new(msg).style(t.muted()), Rect { y: content.y + 1, height: content.height.saturating_sub(1), ..content });
+        // Below the hint, the empty-Body animation (paused when there's no room).
+        let area = Rect { y: content.y + 3, height: content.height.saturating_sub(3), ..content };
+        app.empty_anim_frame = None;
+        if let Some(fr) = &app.empty_anim {
+            let i = fr.index(now.saturating_duration_since(app.empty_anim_start));
+            if let Some(lines) = fr.fit(i, area.width, area.height) {
+                let (w, h) = (lines.iter().map(|l| l.chars().count()).max().unwrap_or(0) as u16, lines.len() as u16);
+                let r = Rect { x: area.x + (area.width - w.min(area.width)) / 2, y: area.y + (area.height - h.min(area.height)) / 2,
+                    width: w.min(area.width), height: h.min(area.height) };
+                let st = if app.empty_anim_accent { t.accent() } else { t.muted() };
+                f.render_widget(Paragraph::new(lines.into_iter().map(Line::raw).collect::<Vec<_>>()).style(st), r);
+                app.empty_anim_frame = Some(i);
+            }
+        }
         return;
     }
     let open = !app.view().stack.is_empty();

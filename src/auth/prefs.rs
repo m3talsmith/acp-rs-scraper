@@ -13,7 +13,23 @@ pub struct Prefs {
     /// Terminal UI sync defaults (`[sync]` table).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sync: Option<SyncPrefs>,
+    /// Terminal UI behaviour (`[ui]` table).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ui: Option<UiPrefs>,
 }
+
+/// `[ui]` in `~/.acp/preferences.toml`.
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
+pub struct UiPrefs {
+    /// The empty-Body animation: `true` / `"on"` (default: your local file, else the built-in
+    /// clip), `"star"` / `"minimal"` (the procedural red star), `false` / `"off"` (none).
+    pub empty_animation: Option<toml::Value>,
+    /// A frames file to play instead of `~/.acp/animations/empty-body.acpanim(.gz)`.
+    pub empty_animation_path: Option<String>,
+    /// `"muted"` (default) or `"accent"`.
+    pub empty_animation_color: Option<String>,
+}
+
 
 /// `[sync]` in `~/.acp/preferences.toml`: the TUI's Sync menu defaults (Sync › Save as default).
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]

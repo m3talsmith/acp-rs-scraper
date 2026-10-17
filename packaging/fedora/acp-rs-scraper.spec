@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.10.0
+Version:        2.11.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -19,6 +19,7 @@ BuildRequires:  rust >= 1.88
 BuildRequires:  gcc
 Recommends:     (libavif-tools or ImageMagick or ffmpeg-free)
 Recommends:     xdg-utils
+Suggests:       python3, yt-dlp
 
 %description
 Logs in to https://acp.us/rs, scrapes posts, mentions and profiles for one or
@@ -42,12 +43,16 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %license %{_datadir}/licenses/%{name}/LICENSE
 %doc %{_docdir}/%{name}/
 %{_bindir}/%{name}
+%{_datadir}/%{name}/
 %{_mandir}/man1/%{name}.1*
 %{_datadir}/bash-completion/completions/%{name}
 %{_datadir}/zsh/site-functions/_%{name}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sat Oct 17 2026 m3talsmith <m3talsmith@gmail.com> - 2.11.0-1
+- Empty-Body TUI animation and tools/acp-anim
+
 * Sat Oct 17 2026 m3talsmith <m3talsmith@gmail.com> - 2.10.0-1
 - TUI styling moved to ratatui-lipgloss
 

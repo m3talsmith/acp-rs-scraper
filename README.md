@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.10.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.11.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -365,6 +365,30 @@ headless scrape is now `--scrape`.
 - **Quit** (`q`) while a scan runs asks whether to keep it running in the background (the default:
   it is its own process, so it carries on after the TUI exits and prints the `tail -f` line for its
   log) or to cancel it first.
+- **Empty-Body animation.** While the Body is empty (no nick selected, nothing to show) a text
+  animation loops under the hint, scaled down to fit and centred, in the muted colour. It is the
+  first 10 seconds of "Debating Is Man the Measure of All Things?" (YouTube channel IGG |
+  Qizilbash, <https://youtu.be/iK-_kgVuv6Y>) as text art, **used with permission of the ACP**
+  (see `assets/empty-body.NOTICE.md`; the frames are not under the GPL). If those frames can't be
+  read, a procedurally drawn turning red star with an ACP wordmark plays instead. It pauses when
+  the Body is smaller than 24×8 and redraws only when the frame changes. Settings:
+
+  ```toml
+  [ui]
+  empty_animation = true          # false / "off": none; "star" / "minimal": the red star only
+  empty_animation_color = "muted" # or "accent"
+  # empty_animation_path = "~/clips/mine.acpanim.gz"
+  ```
+
+  `ACP_EMPTY_ANIMATION=off|star|on` overrides the setting. Your own clip: `tools/acp-anim`
+  (installed as `/usr/share/acp-rs-scraper/tools/acp-anim`; needs python3 and ffmpeg, plus yt-dlp
+  for URLs) turns the first N seconds of a video into frames at
+  `~/.acp/animations/empty-body.acpanim.gz`, which the TUI then plays instead:
+
+  ```sh
+  tools/acp-anim ~/Videos/clip.mp4                      # first 10 s, 12 fps, 120x34
+  tools/acp-anim https://youtu.be/VIDEO --seconds 6 --start 30 --cols 100 --rows 28
+  ```
 - **Theme.** All TUI styling (text styles, borders, border colours, padding) is defined once in
   `src/tui/theme.rs` with [ratatui-lipgloss](https://crates.io/crates/ratatui-lipgloss), a Lip
   Gloss port for ratatui. The accent is ACP red `#dc2626`, as in the HTML export. Override any
@@ -572,3 +596,7 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 ## License
 
 Licensed under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
+
+The text-art frames in `assets/empty-body.acpanim.gz` come from the first 10 seconds of
+"Debating Is Man the Measure of All Things?" by the YouTube channel IGG | Qizilbash, used with
+permission of the ACP; they are not covered by the GPL (see `assets/empty-body.NOTICE.md`).
