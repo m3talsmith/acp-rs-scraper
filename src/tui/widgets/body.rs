@@ -9,7 +9,7 @@ use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
+use ratatui::widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph};
 use crate::prelude::Post;
 use std::time::Instant;
 
@@ -91,13 +91,13 @@ fn card(f: &mut Frame, app: &mut App, i: usize, cr: Rect, sel: bool) {
     let t = app.theme;
     let Some(p) = app.view().posts.get(i).cloned() else { return };
     let focused = app.focus == Focus::Body;
-    let b = Block::default().borders(Borders::ALL).title(meta_line(&p, &t))
+    let b = Block::default().borders(Borders::ALL).title(meta_line(&p, &t)).padding(Padding::horizontal(1))
         .border_type(if sel { BorderType::Thick } else { BorderType::Plain })
         .border_style(if sel && focused { t.accent() } else if sel { Style::default() } else { t.border(false) });
     let inner = b.inner(cr);
     f.render_widget(b, cr);
-    let lines: Vec<Line> = wrap(post_text(&p).trim(), inner.width as usize).into_iter().filter(|l| !l.trim().is_empty())
-        .take(inner.height as usize).map(Line::raw).collect();
+    let lines: Vec<Line> = crate::tui::markdown::render(post_text(&p).trim(), inner.width as usize, &t).into_iter()
+        .filter(|l| l.width() > 0).take(inner.height as usize).collect();
     f.render_widget(Paragraph::new(lines), inner);
     app.hits.push((cr, Hit::Post(i)));
     if cr.width > 8 {
@@ -111,7 +111,7 @@ fn card(f: &mut Frame, app: &mut App, i: usize, cr: Rect, sel: bool) {
 fn draw_stack(f: &mut Frame, app: &mut App, r: Rect) {
     app.hits.push((r, Hit::ListPane));
     let w = r.width;
-    let heights: Vec<u16> = app.view().posts.iter().map(|p| card_height(&post_text(p), w, r.height)).collect();
+    let heights: Vec<u16> = app.view().posts.iter().map(|p| card_height(&post_text(p), w.saturating_sub(2), r.height)).collect();
     let v = app.view_mut();
     if v.cursor < v.offset { v.offset = v.cursor; }
     // Keep the cursor's card fully on screen.
@@ -224,6 +224,12 @@ fn draw_cards(f: &mut Frame, app: &mut App, r: Rect) {
     }
 }
 
+/// Columns before the file name on an attachment row ("▣ Open mime  ").
+fn lines_label_width(atts: &[crate::prelude::Attachment], id: &str) -> usize {
+    let mime = atts.iter().find(|a| a.local_path.display().to_string() == id).map(|a| a.mime_type.as_str()).unwrap_or("file");
+    unicode_width::UnicodeWidthStr::width(format!("▣ Open {mime}  ").as_str())
+}
+
 /// Bookmark star: `★` bookmarked, `☆` not (click toggles).
 pub fn star(on: bool) -> &'static str { if on { " ★ " } else { " ☆ " } }
 
@@ -273,6 +279,8 @@ fn draw_with_detail(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
 /// Draw frame `d` of the detail stack in full into `fr`; the top one gets its link, star and wheel hits.
 fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
     let t = app.theme;
+    // One more column of padding on each side of the text.
+    let fr = if fr.width > 6 { Rect { x: fr.x + 1, width: fr.width - 2, ..fr } } else { fr };
     let w = fr.width.saturating_sub(1) as usize;
     let (lines, links) = detail_lines(&app.view().stack[d], w, &t);
     let h = fr.height as usize;
@@ -294,6 +302,17 @@ fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
         let y = li as i64 - scroll as i64;
         if y >= 0 && (y as usize) < h {
             app.hits.push((Rect { x: fr.x, y: fr.y + y as u16, width: fr.width, height: 1 }, Hit::Link(k)));
+            // Attachment rows also become OSC 8 hyperlinks (file://) where the terminal supports them.
+            let l = &app.view().stack[d].links[k];
+            if l.kind == crate::tui::state::LinkKind::Attachment && std::path::Path::new(&l.id).exists() {
+                let label_w = lines_label_width(&app.view().stack[d].attachments, &l.id);
+                let name = std::path::Path::new(&l.id).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                let x = fr.x + label_w as u16;
+                if x < fr.x + fr.width {
+                    let shown = ellipsize(&name, (fr.x + fr.width - x) as usize);
+                    app.osc_links.push((x, fr.y + y as u16, shown, format!("file://{}", l.id)));
+                }
+            }
         }
     }
     if fr.width > 6 {

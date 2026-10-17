@@ -6,6 +6,8 @@ mod bookmarks;
 mod data;
 mod jobs;
 mod layout;
+mod markdown;
+mod content;
 mod modals;
 mod render;
 mod state;

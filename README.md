@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.5.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.6.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -226,8 +226,12 @@ headless scrape is now `--scrape`.
   browsing changes it.
 - **Post details.** Click a post (or `Enter`): the detail slides in and the list slides up to a
   thin strip. A detail shows what the HTML export shows: Post/Reply badge, `@nick · posted_at ·
-  post_id`, "Replying to … · thread …", the title and body with its paragraphs, attachments (path
-  and an `xdg-open` hint), linked posts (ids in the body) and replies. Click a link (or `←`/`→`
+  post_id`, "Replying to … · thread …", the title and body, attachments, linked posts (ids in the
+  body) and replies. Bodies are rendered as **Markdown** (headings, bold/italic, `code`, lists,
+  quotes, links; line breaks and paragraphs kept), with a column of padding inside every border.
+  **Attachments are links**: click one (or `←`/`→` then `Enter`) to open the stored file with your
+  desktop's default app (`xdg-open`; set `ACP_OPENER` to use another command). Terminals that
+  support OSC 8 also get them as `file://` hyperlinks (`ACP_NO_OSC8=1` turns that off). Click a link (or `←`/`→`
   then `Enter`) to cross-load that post: it opens on top and pushes the previous detail up into a
   header strip. Up to 8 nest; `Esc` closes the top one, a click on a header goes back to it.
 - **Search** replaces the Body in place; `<` (or the `< Back` button) returns to the nick view

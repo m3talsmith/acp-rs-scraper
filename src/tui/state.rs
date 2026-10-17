@@ -34,6 +34,8 @@ pub enum LinkKind {
     Mentioned,
     /// A direct reply to this post.
     Reply,
+    /// A stored attachment file (`id` is its local path); opens with the desktop's opener.
+    Attachment,
 }
 
 /// One cross-link inside a detail.
@@ -191,6 +193,8 @@ pub enum Effect {
     RunSideJob(JobKind, Vec<String>),
     /// Kill the running job.
     CancelJob,
+    /// Open a file with the desktop's default app (`xdg-open`).
+    OpenFile(PathBuf),
     /// Start logging in with this email.
     LoginEmail(String),
     /// Submit the code to the running login.
@@ -326,6 +330,8 @@ pub struct App {
     pub theme: Theme,
     /// Side effects for the event loop.
     pub effects: Vec<Effect>,
+    /// Hyperlinks drawn this frame (x, y, text, target URL), re-emitted as OSC 8 after the draw.
+    pub osc_links: Vec<(u16, u16, String, String)>,
     /// Post cards that fit the list (set while drawing).
     pub page_rows: usize,
     /// Login email pre-fill.
@@ -341,7 +347,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(),
+            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(),
             page_rows: 5, email: None,
         };
         app.refresh_nicks();
@@ -634,7 +640,11 @@ impl App {
         for r in s.replies(&post.post_id).unwrap_or_default() {
             if seen.insert(r.post_id.clone()) { links.push(Link { kind: LinkKind::Reply, id: r.post_id.clone(), target: Some(r) }); }
         }
-        DetailFrame { attachments: s.attachments(&post.post_id).unwrap_or_default(), post, links,
+        let attachments = s.attachments(&post.post_id).unwrap_or_default();
+        for a in &attachments {
+            links.push(Link { kind: LinkKind::Attachment, id: a.local_path.display().to_string(), target: None });
+        }
+        DetailFrame { attachments, post, links,
             link_cursor: 0, scroll: 0, follow_link: false, notice: None }
     }
     /// Open the n-th post of the view as the root detail (replacing any open stack).
@@ -657,6 +667,15 @@ impl App {
         let depth = self.view().stack.len();
         let Some(link) = self.top().and_then(|f| f.links.get(i)).cloned() else { return };
         if let Some(f) = self.top_mut() { f.link_cursor = i; }
+        if link.kind == LinkKind::Attachment {
+            let p = PathBuf::from(&link.id);
+            if p.exists() { self.push_status(format!("opening {}", p.display())); self.effects.push(Effect::OpenFile(p)); }
+            else {
+                if let Some(f) = self.top_mut() { f.notice = Some(format!("{} is missing (re-scrape to download it)", link.id)); }
+                self.push_status(format!("{} is missing", link.id));
+            }
+            return;
+        }
         let Some(target) = link.target else {
             if let Some(f) = self.top_mut() { f.notice = Some(format!("{} is not in the database", link.id)); }
             self.push_status(format!("{} is not in the database (scrape its thread to read it)", link.id));

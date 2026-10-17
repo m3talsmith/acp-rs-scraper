@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["plain","render","wrap_parts"],"struct":["Block"]};

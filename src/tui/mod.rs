@@ -16,6 +16,7 @@ pub mod data;
 pub mod input;
 pub mod jobs;
 pub mod layout;
+pub mod markdown;
 pub mod modals;
 pub mod state;
 pub mod theme;
@@ -79,6 +80,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
     let prev = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| { restore_terminal(); prev(info); }));
+    let osc8 = osc8_supported();
     let mut term = Terminal(ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(std::io::stdout()))?);
 
     // Input thread → channel.
@@ -107,6 +109,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         app.tick(now);
         app.sync_tick(now);
         term.0.draw(|f| widgets::draw(f, app, now))?;
+        if osc8 { emit_osc8(&app.osc_links); }
         let wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
         tokio::select! {
             Some(ev) = ev_rx.recv() => {
@@ -173,6 +176,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Ok(j) => side.push(j),
                     Err(e) => app.error("Cannot start", &format!("{e:#}")),
                 },
+                Effect::OpenFile(p) => if let Err(e) = open_file(&p) { app.error("Cannot open", &format!("{e:#}")); },
                 Effect::CancelJob => if let Some(mut j) = job.take() {
                     if let Err(e) = j.cancel() { app.push_status(format!("error: cancel: {e:#}")); }
                     app.job_cancelled();
@@ -219,6 +223,42 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     drop((code_tx, login_task));
     drop(term);
     Ok(detached)
+}
+
+/// Whether to re-emit attachment links as OSC 8 hyperlinks (off for the Linux console,
+/// `TERM=dumb`, or with `ACP_NO_OSC8` set).
+pub fn osc8_supported() -> bool {
+    if std::env::var_os("ACP_NO_OSC8").is_some() { return false; }
+    !matches!(std::env::var("TERM").as_deref(), Ok("linux") | Ok("dumb"))
+}
+
+/// The OSC 8 sequence for `text` linking to `url` (no control characters pass through).
+pub fn osc8(text: &str, url: &str) -> String {
+    let clean = |s: &str| s.chars().filter(|c| !c.is_control()).collect::<String>();
+    format!("\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", clean(url), clean(text))
+}
+
+fn emit_osc8(links: &[(u16, u16, String, String)]) {
+    use crossterm::{cursor::MoveTo, queue, style::{Attribute, Print, SetAttribute}};
+    if links.is_empty() { return; }
+    let mut out = std::io::stdout();
+    for (x, y, text, url) in links {
+        let _ = queue!(out, MoveTo(*x, *y), SetAttribute(Attribute::Underlined), Print(osc8(text, url)), SetAttribute(Attribute::Reset));
+    }
+    let _ = out.flush();
+}
+
+/// Open `p` with the desktop's default application, detached (`xdg-open`; `open` on macOS;
+/// `ACP_OPENER` overrides).
+pub fn open_file(p: &Path) -> Result<()> {
+    let opener = std::env::var("ACP_OPENER").ok().filter(|s| !s.is_empty())
+        .unwrap_or_else(|| if cfg!(target_os = "macos") { "open".into() } else { "xdg-open".into() });
+    let mut c = std::process::Command::new(&opener);
+    c.arg(p).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+    #[cfg(unix)]
+    { use std::os::unix::process::CommandExt; c.process_group(0); }
+    c.spawn().with_context(|| format!("starting {opener} {}", p.display()))?;
+    Ok(())
 }
 
 #[cfg(test)]

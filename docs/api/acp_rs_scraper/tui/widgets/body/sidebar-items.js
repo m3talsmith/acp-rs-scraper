@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["card","compact","draw","draw_cards","draw_carousel","draw_flat","draw_grid","draw_grid_modal","draw_stack","draw_with_detail","full_frame","post_text","star"]};
+window.SIDEBAR_ITEMS = {"fn":["card","compact","draw","draw_cards","draw_carousel","draw_flat","draw_grid","draw_grid_modal","draw_stack","draw_with_detail","full_frame","lines_label_width","post_text","star"]};

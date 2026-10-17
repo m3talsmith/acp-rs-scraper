@@ -21,6 +21,7 @@ use std::time::Instant;
 /// Draw the whole screen.
 pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     app.hits.clear();
+    app.osc_links.clear();
     let area = f.area();
     if area.width < TUI_MIN_SIZE.0 || area.height < TUI_MIN_SIZE.1 {
         f.render_widget(Paragraph::new(format!("Terminal too small: {}×{} (need {}×{}). q quits.",

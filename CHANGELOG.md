@@ -6,6 +6,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-10-17
+
+### Added
+- TUI post bodies render as **Markdown** (pulldown-cmark → styled, word-wrapped lines): headings,
+  bold / italic / strikethrough, inline and block code, bullet and numbered lists with hanging
+  indents, block quotes, links (the URL is shown when it differs from the text). Line breaks and
+  paragraph breaks are kept.
+- **Attachments are links** in a post detail: click, or `←`/`→` then `Enter`, opens the stored file
+  with `xdg-open` (`open` on macOS; `ACP_OPENER` overrides), detached from the TUI. Missing files say
+  so. Where supported they are also OSC 8 `file://` hyperlinks (off for `TERM=linux`/`dumb` or with
+  `ACP_NO_OSC8`).
+
+### Changed
+- One column of padding between the borders of cards and details and their text.
+
 ## [2.5.0] - 2026-10-17
 
 ### Added

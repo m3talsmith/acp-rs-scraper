@@ -1,6 +1,6 @@
 [package]
 name = "acp-rs-scraper"
-version = "2.5.0"
+version = "2.6.0"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
@@ -34,6 +34,7 @@ clap_mangen = "0.3.3"
 ratatui = "0.30"
 crossterm = "0.29"
 unicode-width = "0.2"
+pulldown-cmark = { version = "0.13", default-features = false }
 
 [dev-dependencies]
 axum = { version = "0.8.9", features = ["ws"] }

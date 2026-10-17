@@ -39,7 +39,8 @@ pub fn header_lines(f: &DetailFrame, width: usize, t: &Theme) -> Vec<Line<'stati
 }
 
 fn link_label(kind: LinkKind) -> &'static str {
-    match kind { LinkKind::ReplyTo => "↳ Replying to", LinkKind::Thread => "⌂ Thread", LinkKind::Mentioned => "→ Linked post", LinkKind::Reply => "↩ Reply" }
+    match kind { LinkKind::ReplyTo => "↳ Replying to", LinkKind::Thread => "⌂ Thread", LinkKind::Mentioned => "→ Linked post",
+        LinkKind::Reply => "↩ Reply", LinkKind::Attachment => "▣ Open" }
 }
 
 /// Full detail lines for `width` columns, and (line index, link index) for each link row.
@@ -48,11 +49,25 @@ pub fn detail_lines(f: &DetailFrame, width: usize, t: &Theme) -> (Vec<Line<'stat
     let mut links = Vec::new();
     let link_line = |i: usize, lines: &mut Vec<Line<'static>>, links: &mut Vec<(usize, usize)>| {
         let l = &f.links[i];
+        let sel = i == f.link_cursor;
+        if l.kind == LinkKind::Attachment {
+            let a = f.attachments.iter().find(|a| a.local_path.display().to_string() == l.id);
+            let mime = a.map(|a| a.mime_type.as_str()).unwrap_or("file");
+            let exists = std::path::Path::new(&l.id).exists();
+            links.push((lines.len(), i));
+            let name = std::path::Path::new(&l.id).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| l.id.clone());
+            lines.push(Line::from(vec![
+                Span::styled(format!("{} {mime}", link_label(l.kind)), if sel { t.selected() } else { t.accent() }),
+                Span::raw("  "),
+                Span::styled(name, if exists { t.accent().add_modifier(Modifier::UNDERLINED) } else { t.muted().add_modifier(Modifier::CROSSED_OUT) }),
+                Span::styled(if exists { "" } else { "  (file missing)" }, t.muted()),
+            ]));
+            return;
+        }
         let who = match &l.target {
             Some(p) => format!("@{} · {} · {}", p.nick, p.posted_at, ellipsize(&snippet(p), width.saturating_sub(40).max(10))),
             None => "not in database".into(),
         };
-        let sel = i == f.link_cursor;
         let st = if sel { t.selected() } else { t.accent() };
         links.push((lines.len(), i));
         lines.push(Line::from(vec![
@@ -70,16 +85,12 @@ pub fn detail_lines(f: &DetailFrame, width: usize, t: &Theme) -> (Vec<Line<'stat
         for l in wrap(f.post.title.trim(), width) { lines.push(Line::styled(l, Style::default().add_modifier(Modifier::BOLD))); }
         lines.push(Line::raw(""));
     }
-    for l in wrap(f.post.content.trim_end(), width) { lines.push(Line::raw(l)); }
-    if !f.attachments.is_empty() {
+    lines.extend(crate::tui::markdown::render(f.post.content.trim_end(), width, t));
+    let atts: Vec<usize> = (0..f.links.len()).filter(|i| f.links[*i].kind == LinkKind::Attachment).collect();
+    if !atts.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled(format!("Attachments ({})", f.attachments.len()), Style::default().add_modifier(Modifier::BOLD)));
-        for a in &f.attachments {
-            let p = a.local_path.display().to_string();
-            let state = if a.local_path.exists() { format!("open: xdg-open {p}") } else { "file missing".into() };
-            lines.push(Line::from(vec![Span::styled(format!("  ▣ {} ", a.mime_type), t.muted()), Span::raw(p)]));
-            lines.push(Line::styled(format!("      {state}"), t.muted()));
-        }
+        lines.push(Line::styled(format!("Attachments ({}) · Enter / click opens", atts.len()), Style::default().add_modifier(Modifier::BOLD)));
+        for i in atts { link_line(i, &mut lines, &mut links); }
     }
     let others: Vec<usize> = (0..f.links.len()).filter(|i| matches!(f.links[*i].kind, LinkKind::Mentioned)).collect();
     if !others.is_empty() {

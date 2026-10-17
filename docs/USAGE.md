@@ -46,7 +46,11 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 - **Details** open in place: the list slides up to a strip, the detail fills the Body, with the same
   fields as the HTML export. Links (reply-to, thread, post ids in the body, replies) cross-load: the
   linked post nests inside and the previous detail is pushed up into a header strip. `Esc` pops one,
-  clicking a header pops back to it, at most 8 deep. Ids not in the database say so.
+  clicking a header pops back to it, at most 8 deep. Ids not in the database say so. Bodies render
+  as Markdown (headings, emphasis, code, lists, quotes, links; line breaks kept) with one column of
+  padding inside the borders. Attachments are links: Enter / click opens the stored file with
+  `xdg-open` (`ACP_OPENER` overrides), and they are also emitted as OSC 8 `file://` hyperlinks
+  unless `TERM` is `linux`/`dumb` or `ACP_NO_OSC8` is set.
 - **Search** (Search menu, or `Shift-S` for keyword + nicks + post id + date range + posts/replies)
   replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears.
 - **Menu → flags:**
@@ -465,7 +469,8 @@ A nick's own posts can also be recorded as mentions of that nick.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
 - **Logins:** a saved session is reused until the site expires it; then the next scrape asks for a fresh email code.
-- **TUI:** images are listed as paths (with an `xdg-open` hint), not drawn in the terminal; Ctrl-Shift-S arrives as Ctrl-S in most terminals; cancelling a job kills it outright.
+- **TUI:** bodies are stored as plain text (the site's bold/italic marks are not kept by the
+  scraper), so Markdown styling shows only where the text itself is Markdown; Ctrl-Shift-S arrives as Ctrl-S in most terminals; cancelling a job kills it outright.
 - **Truncated bodies:** feeds shorten long posts and comments (`body_truncated: true`, cut `body` plus `body_text_summary`). Checked on the live site: the thread page (`/rs/post/{thread}`) carries every item's full body with `body_truncated: false`, so the scraper reads it (once per thread) instead of pushing the "show more" action over LiveView.
 
 ## Contributing
