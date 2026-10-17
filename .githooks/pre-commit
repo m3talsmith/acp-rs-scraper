@@ -38,7 +38,9 @@ patterns=(
   '_acp_key=[A-Za-z0-9%._-]{20,}'
   '(password|passwd|secret|api[_-]?key|access[_-]?token|auth[_-]?token|client[_-]?secret)["'"'"']?[[:space:]]*[:=][[:space:]]*["'"'"'][^"'"'"'[:space:]]{8,}["'"'"']'
 )
-added=$(git diff --cached -U0 --diff-filter=ACMR -- . ':(exclude).githooks/pre-commit' | grep -E '^\+[^+]' || true)
+# Generated rustdoc output (docs/api) is skipped: its base64 search index can
+# randomly contain token-shaped strings. Secret-looking file names are still blocked.
+added=$(git diff --cached -U0 --diff-filter=ACMR -- . ':(exclude).githooks/pre-commit' ':(exclude)docs/api/**' | grep -E '^\+[^+]' || true)
 # Token formats (AKIA..., AIza..., ghp_..., etc.) are case-sensitive by spec, so match
 # them exactly; only the password/secret assignment pattern (the last one) ignores case.
 last=$(( ${#patterns[@]} - 1 ))

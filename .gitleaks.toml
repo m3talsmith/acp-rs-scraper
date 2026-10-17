@@ -1,0 +1,8 @@
+# gitleaks config: default rules, but skip generated rustdoc output whose
+# base64 search index can contain token-shaped strings.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated rustdoc API docs"
+paths = ['''^docs/api/''']
