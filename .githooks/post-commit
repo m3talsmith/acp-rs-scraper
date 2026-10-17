@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Tags every commit that changes the crate version as vX.Y.Z (annotated).
+set -euo pipefail
+ver() { sed -n 's/^version *= *"\(.*\)"/\1/p' | head -1; }
+new_v=$(git show HEAD:Cargo.toml 2>/dev/null | ver || true)
+old_v=$(git show HEAD^:Cargo.toml 2>/dev/null | ver || true)
+[ -z "$new_v" ] || [ "$new_v" = "$old_v" ] && exit 0
+tag="v$new_v"
+if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+  printf '\033[33mTag %s already exists; not moving it.\033[0m\n' "$tag" >&2
+  exit 0
+fi
+git tag -a "$tag" -m "acp-rs-scraper $new_v"
+printf '\033[32mTagged %s\033[0m\n' "$tag" >&2

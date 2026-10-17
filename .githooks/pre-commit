@@ -55,6 +55,17 @@ for i in "${!patterns[@]}"; do
   fi
 done
 
+# 4. A version bump in Cargo.toml must come with a CHANGELOG.md entry for it.
+ver() { sed -n 's/^version *= *"\(.*\)"/\1/p' | head -1; }
+new_v=$(git show :Cargo.toml 2>/dev/null | ver || true)
+old_v=$(git show HEAD:Cargo.toml 2>/dev/null | ver || true)
+if [ -n "$new_v" ] && [ "$new_v" != "$old_v" ]; then
+  if ! git show :CHANGELOG.md 2>/dev/null | grep -Eq "^## \[$new_v\]"; then
+    red "Version bumped to $new_v but CHANGELOG.md has no staged '## [$new_v]' entry."
+    fail=1
+  fi
+fi
+
 if [ "$fail" -ne 0 ]; then
   red "Commit blocked: remove the secrets above (or git commit --no-verify if they are false positives)."
   exit 1
