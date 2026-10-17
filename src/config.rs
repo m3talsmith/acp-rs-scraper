@@ -193,7 +193,8 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Enter", "Open: nick (only it), post detail, linked post, menu item"),
     ("Space", "Nicks: add/remove from the selection; menu: toggle checkbox"),
     ("Shift-↑ / Shift-↓", "Nicks: extend the selection"),
-    ("Ctrl-A", "Nicks: select every nick"),
+    ("Ctrl-A", "Nicks: select every (shown) nick"),
+    ("/", "Nicks: filter the nick list (type to filter, Enter/↓ to the list, Esc clears)"),
     ("← →  [ ]", "Detail: previous / next link"),
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
@@ -216,11 +217,11 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
 ];
 
 // ---------------------------------------------------------------- bookmarks
-/// GUESSED (no live check yet): the logged-in user's bookmarks feed, a
+/// CONFIRMED (live sync, 2.5.0): the logged-in user's bookmarks feed, a
 /// `forum/Feed` page like a profile. Override the path with `ACP_BOOKMARKS_PATH`.
 pub fn bookmarks_url() -> String {
     let p = std::env::var("ACP_BOOKMARKS_PATH").ok().filter(|v| v.starts_with('/')).unwrap_or_else(|| "/rs/bookmarks".into());
     format!("{}{p}", base_url())
 }
-/// GUESSED: LiveView click event that toggles a post's bookmark (`{"id": post_id}`).
+/// CONFIRMED (live sync, 2.5.0): LiveView click event that toggles a post's bookmark (`{"id": post_id}`).
 pub const BOOKMARK_EVENT: &str = "toggle-bookmark";

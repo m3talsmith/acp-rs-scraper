@@ -32,6 +32,7 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         after_modal(app, r);
         return;
     }
+    if app.filter_editing { filter_key(app, k); return; }
     if app.focus == Focus::Menu && app.menu.editing { menu_edit_key(app, k); return; }
     // Global keys.
     let alt = k.modifiers.contains(KeyModifiers::ALT);
@@ -47,6 +48,7 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
             if let Some(i) = app.menu.menu.items.iter().position(|it| it.hint == c.to_ascii_lowercase()) { app.open_menu(i); }
             return;
         }
+        KeyCode::Char('/') if app.focus != Focus::Menu => { app.focus_nick_filter(); return; }
         KeyCode::Char('S') => { app.act(Action::OpenSearchModal); return; }
         KeyCode::Char('B') => { app.act(Action::ShowBookmarks); return; }
         KeyCode::Char('?') | KeyCode::F(1) => { app.act(Action::Help); return; }
@@ -98,6 +100,7 @@ fn nicks_key(app: &mut App, k: KeyEvent) {
         KeyCode::End => app.nick_cursor = app.nicks.len().saturating_sub(1),
         KeyCode::Enter | KeyCode::Right => { let i = app.nick_cursor; app.select_only(i); if !app.view().posts.is_empty() { app.focus = Focus::Body; } }
         KeyCode::Char(' ') => { let i = app.nick_cursor; app.toggle_nick(i); }
+        KeyCode::Esc if app.nick_filter_active() => app.clear_nick_filter(),
         KeyCode::Esc => { let i = app.nick_cursor; if app.selected.len() > 1 { app.select_only(i); } }
         _ => { common_key(app, k); }
     }
@@ -193,6 +196,19 @@ fn menu_key(app: &mut App, k: KeyEvent) {
     }
 }
 
+/// Typing into the nick filter: it narrows the list on every key.
+fn filter_key(app: &mut App, k: KeyEvent) {
+    match k.code {
+        KeyCode::Esc => app.clear_nick_filter(),
+        KeyCode::Enter | KeyCode::Tab | KeyCode::Down => { app.filter_editing = false; app.focus = Focus::Nicks; }
+        _ => {
+            let before = app.nick_filter.value.clone();
+            app.nick_filter.on_key(k);
+            if app.nick_filter.value != before { app.apply_nick_filter(); }
+        }
+    }
+}
+
 fn menu_edit_key(app: &mut App, k: KeyEvent) {
     let Some(item) = app.menu.open else { app.menu.editing = false; return };
     match k.code {
@@ -222,7 +238,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     }
     if wheel != 0 {
         match hit {
-            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
+            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
             Some(Hit::DetailPane | Hit::Link(_) | Hit::StarTop) => app.scroll_detail(wheel * 3),
             Some(Hit::Post(_) | Hit::Star(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
             _ => {}
@@ -231,12 +247,15 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     }
     let MouseEventKind::Down(MouseButton::Left) = m.kind else { return };
     let multi = m.modifiers.intersects(KeyModifiers::CONTROL | KeyModifiers::SHIFT);
+    if app.filter_editing && !matches!(hit, Some(Hit::NickFilter)) { app.filter_editing = false; }
     // A click outside the open dropdown closes it.
     if app.menu.open.is_some() && !matches!(hit, Some(Hit::MenuOpt(_) | Hit::MenuItem(_))) { app.close_menu(); }
     match hit {
         Some(Hit::Nick(i)) => { app.focus = Focus::Nicks; if multi { app.toggle_nick(i) } else { app.select_only(i) } }
         Some(Hit::Post(i)) => app.open_post(i),
         Some(Hit::Bookmarks) => app.open_bookmarks(),
+        Some(Hit::NickFilter) => app.focus_nick_filter(),
+        Some(Hit::NickFilterClear) => app.clear_nick_filter(),
         Some(Hit::ViewMode) => app.act(Action::CycleView),
         Some(Hit::StackPrev) => { app.focus = Focus::Body; app.act(Action::StackPrev); }
         Some(Hit::StackNext) => { app.focus = Focus::Body; app.act(Action::StackNext); }

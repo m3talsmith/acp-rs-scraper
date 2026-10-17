@@ -15,6 +15,24 @@ pub struct NickEntry {
     pub post_count: i64,
 }
 
+/// Nick-bar filter: case-insensitive match of `q` against the nick and display name.
+/// Substring matches come first, then fuzzy ones (the letters of `q` in order, e.g.
+/// `hzd` → `hazaldin`); each group keeps the input order. A blank `q` keeps everything.
+pub fn filter_nicks(all: &[NickEntry], q: &str) -> Vec<NickEntry> {
+    let q = q.trim().trim_start_matches('@').to_lowercase();
+    if q.is_empty() { return all.to_vec(); }
+    let fuzzy = |s: &str| { let mut it = s.chars(); q.chars().all(|c| it.any(|x| x == c)) };
+    let hay = |n: &NickEntry| (n.nick.to_lowercase(), n.display_name.as_deref().unwrap_or("").to_lowercase());
+    let (mut sub, mut fz) = (Vec::new(), Vec::new());
+    for n in all {
+        let (a, b) = hay(n);
+        if a.contains(&q) || b.contains(&q) { sub.push(n.clone()); }
+        else if fuzzy(&a) || fuzzy(&b) { fz.push(n.clone()); }
+    }
+    sub.extend(fz);
+    sub
+}
+
 /// Which rows a search keeps.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum KindFilter {

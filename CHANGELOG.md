@@ -6,6 +6,25 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-10-17
+
+### Added
+- TUI **nick filter**: a field at the top of the nick bar (click it, or `/` from the nick bar or
+  Body) narrows the list as you type. Case-insensitive; substring matches on the nick or display
+  name come first, then fuzzy in-order matches (`hzd` → `hazaldin`). Shows `matched/total` in the
+  field and the bar title; `Esc` or the `x` clears it. Selection, Ctrl/Shift-click, `Shift-↑/↓`
+  and `Ctrl-A` act on the shown nicks; selected nicks that are filtered out stay selected. The
+  ★ Bookmarks row stays visible, and the filter survives view-mode switches, searches and
+  refreshes.
+
+### Changed
+- `Ctrl-A` in the nick bar adds the shown nicks to the selection (with no filter: every nick, as
+  before).
+
+### Notes
+- Bookmark sync is confirmed against the live site: the `/rs/bookmarks` page and the
+  `toggle-bookmark` LiveView event are no longer marked as guesses.
+
 ## [2.4.0] - 2026-10-16
 
 ### Added

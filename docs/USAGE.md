@@ -38,7 +38,11 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   line (`l` expands it to a log panel).
 - **Browsing** is offline and read-only (the database is opened `SQLITE_OPEN_READ_ONLY`). Select a
   nick to list their posts and replies, newest first; select several with `Space`, `Shift-↑/↓`,
-  `Ctrl-A`, or Ctrl/Shift-click.
+  `Ctrl-A`, or Ctrl/Shift-click. The **filter** field on top of the nick bar (click, or `/` from the
+  nick bar or Body) narrows the list as you type: case-insensitive, substring matches first, then
+  fuzzy (in-order letters), display names included, with a `matched/total` count. Selection and
+  `Ctrl-A` act on the shown nicks; selected nicks that are filtered out stay selected. `Esc` or
+  `x` clears it; it survives view-mode switches and searches.
 - **Details** open in place: the list slides up to a strip, the detail fills the Body, with the same
   fields as the HTML export. Links (reply-to, thread, post ids in the body, replies) cross-load: the
   linked post nests inside and the previous detail is pushed up into a header strip. `Esc` pops one,
@@ -205,7 +209,7 @@ After the commit, attachment, avatar and banner files are deleted from disk **on
 Sync rules: a site bookmark missing locally is added; a local one the site lacks is pushed; a
 local removal is pushed and the row dropped; a bookmark that vanished from a fully read site list
 is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) and the
-LiveView event (`toggle-bookmark`) are inferred, not yet confirmed against the live site.
+LiveView event (`toggle-bookmark`) are confirmed against the live site (2.5.0).
 
 ### Sync
 

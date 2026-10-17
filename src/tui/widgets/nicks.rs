@@ -10,7 +10,8 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 /// Draw the nick bar into `r`.
 pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
-    let title = if app.selected.len() > 1 { format!(" Nicks · {} selected ", app.selected.len()) } else { format!(" Nicks ({}) ", app.nicks.len()) };
+    let count = if app.nick_filter_active() { format!("{}/{}", app.nicks.len(), app.all_nicks.len()) } else { app.nicks.len().to_string() };
+    let title = if app.selected.len() > 1 { format!(" Nicks ({count}) · {} selected ", app.selected.len()) } else { format!(" Nicks ({count}) ") };
     let b = Block::default().borders(Borders::ALL).title(title).border_style(t.border(app.focus == Focus::Nicks));
     let mut inner = b.inner(r);
     f.render_widget(b, r);
@@ -24,8 +25,32 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
         app.hits.push((br, Hit::Bookmarks));
         inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
     }
+    // Filter field: "/ text▏  3/390 x".
+    if inner.height > 1 && !app.all_nicks.is_empty() {
+        let fr = Rect { height: 1, ..inner };
+        let active = app.nick_filter_active();
+        let tail = if active { format!(" {}/{} x ", app.nicks.len(), app.all_nicks.len()) } else { String::new() };
+        let tw = unicode_width::UnicodeWidthStr::width(tail.as_str()) as u16;
+        let fw = fr.width.saturating_sub(tw + 3) as usize;
+        let mut text = app.nick_filter.display();
+        if app.filter_editing { let b = text.char_indices().nth(app.nick_filter.cursor).map(|(b, _)| b).unwrap_or(text.len()); text.insert(b, '▏'); }
+        let shown = if text.is_empty() { Span::styled(crate::tui::layout::ellipsize("filter nicks (/)", fw), t.muted()) }
+            else { Span::styled(crate::tui::layout::ellipsize(&text, fw), if app.filter_editing { t.selected() } else { Style::default() }) };
+        let lead = Span::styled(" / ", if app.filter_editing { t.accent_bold() } else { t.muted() });
+        f.render_widget(Paragraph::new(Line::from(vec![lead, shown])), fr);
+        app.hits.push((Rect { width: fr.width.saturating_sub(tw), ..fr }, Hit::NickFilter));
+        if active {
+            let cr = Rect { x: fr.x + fr.width - tw, width: tw, ..fr };
+            f.render_widget(Paragraph::new(Span::styled(tail, t.muted())), cr);
+            // Only the "x" clears; the count is part of the field.
+            app.hits.push((Rect { x: cr.x + tw.saturating_sub(2), width: 2.min(tw), ..cr }, Hit::NickFilterClear));
+        }
+        inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
+    }
     if app.nicks.is_empty() {
-        f.render_widget(Paragraph::new(vec![Line::raw("No nicks yet —"), Line::raw("use Scrape or Import.")]).style(t.muted()), inner);
+        let msg = if app.all_nicks.is_empty() { vec![Line::raw("No nicks yet —"), Line::raw("use Scrape or Import.")] }
+            else { vec![Line::raw("No nick matches."), Line::raw("Esc or x clears the filter.")] };
+        f.render_widget(Paragraph::new(msg).style(t.muted()), inner);
         return;
     }
     let h = inner.height as usize;

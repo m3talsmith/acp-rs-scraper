@@ -245,6 +245,10 @@ pub enum Hit {
     Backdrop,
     /// The "★ Bookmarks" row of the nick bar.
     Bookmarks,
+    /// The nick filter field.
+    NickFilter,
+    /// The nick filter's `x` (clear).
+    NickFilterClear,
     /// The bookmark star of the n-th post card.
     Star(usize),
     /// The bookmark star of the top detail.
@@ -270,8 +274,14 @@ pub struct MenuState {
 pub struct App {
     /// Data source (read-only).
     pub store: Box<dyn Store>,
-    /// Nick bar.
+    /// Nick bar: the nicks shown (every nick, narrowed by the filter).
     pub nicks: Vec<NickEntry>,
+    /// Every nick in the database.
+    pub all_nicks: Vec<NickEntry>,
+    /// Nick-bar filter text.
+    pub nick_filter: crate::tui::widgets::text::TextField,
+    /// Typing into the nick-bar filter.
+    pub filter_editing: bool,
     /// Highlighted nick.
     pub nick_cursor: usize,
     /// First visible nick.
@@ -326,7 +336,7 @@ impl App {
     /// State over `store`; `args` seeds the menu, `--nick(s)` the selection.
     pub fn new(store: Box<dyn Store>, args: &Args, theme: Theme, session_saved: bool) -> Self {
         let mut app = App {
-            store, nicks: Vec::new(), nick_cursor: 0, nick_offset: 0, selected: Vec::new(),
+            store, nicks: Vec::new(), all_nicks: Vec::new(), nick_filter: Default::default(), filter_editing: false, nick_cursor: 0, nick_offset: 0, selected: Vec::new(),
             base: BodyView::default(), search: None, focus: Focus::Nicks,
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
@@ -364,14 +374,40 @@ impl App {
     /// Re-read the nick bar; keep the selection that still exists.
     pub fn refresh_nicks(&mut self) {
         match self.store.nicks() {
-            Ok(n) => self.nicks = n,
-            Err(e) => { self.push_status(format!("error: reading nicks: {e:#}")); self.nicks.clear(); }
+            Ok(n) => self.all_nicks = n,
+            Err(e) => { self.push_status(format!("error: reading nicks: {e:#}")); self.all_nicks.clear(); }
         }
+        // Selected nicks hidden by the filter stay selected.
         let keep: Vec<String> = self.selected.iter()
-            .filter_map(|s| self.nicks.iter().find(|n| n.nick.eq_ignore_ascii_case(s)).map(|n| n.nick.clone())).collect();
+            .filter_map(|s| self.all_nicks.iter().find(|n| n.nick.eq_ignore_ascii_case(s)).map(|n| n.nick.clone())).collect();
         self.selected = keep;
-        self.nick_cursor = self.nick_cursor.min(self.nicks.len().saturating_sub(1));
+        let cur = self.nicks.get(self.nick_cursor).map(|n| n.nick.clone());
+        self.nicks = crate::tui::data::filter_nicks(&self.all_nicks, &self.nick_filter.value);
+        self.nick_cursor = cur.and_then(|c| self.nicks.iter().position(|n| n.nick == c))
+            .unwrap_or(self.nick_cursor).min(self.nicks.len().saturating_sub(1));
     }
+    /// Re-apply the filter after it changed: the cursor stays on its nick when still shown, else the first match.
+    pub fn apply_nick_filter(&mut self) {
+        let cur = self.nicks.get(self.nick_cursor).map(|n| n.nick.clone());
+        self.nicks = crate::tui::data::filter_nicks(&self.all_nicks, &self.nick_filter.value);
+        self.nick_cursor = cur.and_then(|c| self.nicks.iter().position(|n| n.nick == c)).unwrap_or(0);
+        self.nick_offset = 0;
+    }
+    /// Start typing into the nick filter (`/` or a click).
+    pub fn focus_nick_filter(&mut self) {
+        self.close_menu_dropdown();
+        self.focus = Focus::Nicks;
+        self.filter_editing = true;
+    }
+    /// Empty the nick filter and stop editing it (`Esc` or the `x`).
+    pub fn clear_nick_filter(&mut self) {
+        self.filter_editing = false;
+        if self.nick_filter.value.is_empty() { return; }
+        self.nick_filter.set("");
+        self.apply_nick_filter();
+    }
+    /// Whether the nick list is narrowed by a filter.
+    pub fn nick_filter_active(&self) -> bool { !self.nick_filter.value.trim().is_empty() }
     /// Select only the n-th nick.
     pub fn select_only(&mut self, i: usize) {
         let Some(n) = self.nicks.get(i) else { return };
@@ -396,9 +432,9 @@ impl App {
         if !self.selected.contains(&n) { self.selected.push(n); }
         self.selection_changed();
     }
-    /// Select every nick.
+    /// Select every shown nick (added to the selection; with no filter that is every nick).
     pub fn select_all(&mut self) {
-        self.selected = self.nicks.iter().map(|n| n.nick.clone()).collect();
+        for n in &self.nicks { if !self.selected.contains(&n.nick) { self.selected.push(n.nick.clone()); } }
         self.selection_changed();
     }
     /// Move the nick cursor.

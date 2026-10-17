@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.4.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.5.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -218,7 +218,11 @@ headless scrape is now `--scrape`.
 
 - **Browse offline.** The left bar lists every nick with its post count. Click one (or `Enter`)
   to read their posts and replies, newest first; `Space`, `Shift-↑/↓`, or Ctrl/Shift-click
-  select several, `Ctrl-A` all of them. The database is opened **read-only**; nothing you do while
+  select several, `Ctrl-A` all of them. **Filter** the list with the field on top of the bar
+  (click it or press `/`): it narrows as you type (case-insensitive; substring matches first, then
+  fuzzy ones like `hzd` → `hazaldin`; display names count too) and shows `matched/total`. Selection
+  and `Ctrl-A` work on the shown nicks; `Esc` or the `x` clears it. The filter stays while you
+  switch view modes or search. The database is opened **read-only**; nothing you do while
   browsing changes it.
 - **Post details.** Click a post (or `Enter`): the detail slides in and the list slides up to a
   thin strip. A detail shows what the HTML export shows: Post/Reply badge, `@nick · posted_at ·
@@ -318,9 +322,8 @@ ones the site lacks are bookmarked there, local removals are removed there, and 
 disappeared from the site (removed in the browser) is dropped locally. Local changes made since the
 last sync win.
 
-The site's bookmark page (`/rs/bookmarks`) and its `toggle-bookmark` event are inferred from the
-site's naming, not confirmed against the live site yet; set `ACP_BOOKMARKS_PATH=/rs/…` if the page
-lives elsewhere.
+The site's bookmark page (`/rs/bookmarks`) and its `toggle-bookmark` event are confirmed against
+the live site (2.5.0); `ACP_BOOKMARKS_PATH=/rs/…` still overrides the page if it ever moves.
 
 ## Sync
 

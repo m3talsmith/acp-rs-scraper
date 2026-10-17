@@ -12,6 +12,7 @@ mod state;
 mod sync;
 mod views;
 mod history;
+mod nick_filter;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

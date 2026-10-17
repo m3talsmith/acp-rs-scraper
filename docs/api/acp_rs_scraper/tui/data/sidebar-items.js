@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["COLS"],"enum":["KindFilter"],"fn":["linked_ids","row"],"struct":["MemStore","NickEntry","SearchFilter","SqliteStore"],"trait":["Store"]};
+window.SIDEBAR_ITEMS = {"constant":["COLS"],"enum":["KindFilter"],"fn":["filter_nicks","linked_ids","row"],"struct":["MemStore","NickEntry","SearchFilter","SqliteStore"],"trait":["Store"]};
