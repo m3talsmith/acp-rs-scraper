@@ -77,6 +77,7 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
   | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; ◂ Previous post / Next post ▸ (TUI only) |
   | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked |
+  | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
@@ -98,6 +99,17 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   lists it (`<` back), Export basket writes it with Export's Path / Format / Name / Compress
   (`--export PATH --post-ids …`), Clear basket empties it; Export › From also has a Basket choice.
   The basket lives for the TUI session.
+- **Research:** a `◈` button left of the basket button on every card and detail (click, or `r`)
+  opens the research picker: **Add** (‹ › chooses: this post or reply, the posts it links, its
+  attachment files, the web pages in its body, or all posts of the view / the search results),
+  **Note**, the **project list** (the last one used is preselected) and **…or a new project**
+  name + description. `Enter` adds; it runs `--research-add NAME …` as a background job and the
+  status line reports "N added". The Research menu: Project (name), Projects… (pick or create, then
+  show it), Show project (its items as cards: posts from the database, files and pages with their
+  note, metadata and text; Enter opens one, its stored file is an attachment link), Add current
+  post…, Add current view / search…, Local file + Add local file…, Web page URL + Add web page…,
+  Google Drive / Telegram (pinned for later), Export to / Format / Compress + Export project
+  (`--research-export`).
 - **Sync:** Sync menu: Auto sync, Interval (minutes, default 15), Nicks (blank: selected), Mentions
   (off), Bookmarks (on), Sync now, Save as default (`[sync]` in `preferences.toml`). An automatic
   sync runs `--sync` as a background job when it's due and nothing else runs; it checks the saved
@@ -134,6 +146,8 @@ The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip 
 | Database | `~/.acp/ai/data/rs.database` |
 | Attachments (persistent copies) | `~/.acp/ai/data/attachments/<hash>.<ext>` |
 | Default export / archive location | `~/.acp/ai/data/exports/` |
+| Research files (copies) and web page snapshots | `~/.acp/research/<project>/files/`, `…/web/` |
+| Picture cache (AVIF/HEIC converted to PNG) | `~/.acp/cache/thumbs/` |
 
 Every scrape is saved to the database. Exports are written on top of that.
 
@@ -230,6 +244,21 @@ Sync rules: a site bookmark missing locally is added; a local one the site lacks
 local removal is pushed and the row dropped; a bookmark that vanished from a fully read site list
 is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) and the
 LiveView event (`toggle-bookmark`) are confirmed against the live site (2.5.0).
+
+### Research (offline, except `--url`)
+
+| Flag | What it does |
+|---|---|
+| `--research-list` | List projects (name, items, created, description), newest first; `--format json` for JSON. |
+| `--research-create NAME` | Create a project (1–80 printable characters, names are case-insensitive); an existing name is an error. |
+| `--research-description TEXT` | Its description (also used when `--research-add` creates the project). |
+| `--research-add NAME` | Add to NAME (created if missing) one of: `--post-ids IDS` (posts/replies in the database; unknown ids are warned about), `--search TEXT [--nicks a,b]` (every match, as search results), `--file PATH`, `--url URL`. `--note TEXT` attaches a note. Re-adding updates the note only. |
+| `--file PATH` | A local file: size, MIME type, modified time and (text files up to 2 MB) its text are kept; copied to `~/.acp/research/<project>/files/` unless `--no-copy`. |
+| `--no-copy` | With `--file`: reference the file in place. |
+| `--url URL` | http(s) only, no acp.us cookies, 20 MB limit: keeps the title, readable text and an HTML snapshot (other content types are stored as a file). |
+| `--note TEXT` | Note for the added items. |
+| `--research-show NAME` | List a project's items (`--format json` for the export's `research` section). |
+| `--research-export NAME` | With `--export FILE`: the project's posts (with attachments) plus a `research` section in JSON / HTML; `--compress --tar-gz` bundles the files and snapshots. |
 
 ### Sync
 
@@ -424,6 +453,29 @@ How each mention type is decided:
 
 A nick's own posts can also be recorded as mentions of that nick.
 
+Research (2.9.0):
+
+```sql
+CREATE TABLE research_projects (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  description TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL
+);
+CREATE TABLE research_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  project_id INTEGER NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('post','reply','search-result','local-file','web-url')),
+  ref TEXT NOT NULL,                 -- post id, absolute file path or URL
+  title TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '',
+  meta TEXT NOT NULL DEFAULT '{}',   -- JSON: size / mime_type / modified / copied, or status / content_type / final_url / fetched_at
+  content TEXT NOT NULL DEFAULT '',  -- readable text (pages, text files)
+  local_path TEXT NOT NULL DEFAULT '', -- the copy or snapshot
+  added_at TEXT NOT NULL,
+  UNIQUE (project_id, kind, ref)
+);
+```
+
 ## Export format (version 2)
 
 ```json
@@ -452,6 +504,7 @@ A nick's own posts can also be recorded as mentions of that nick.
 - **HTML exports** are a single page. They show a profile header per nick, threads with nested replies, embedded media and a Mentions section. Every post is an `<article id="post-{post_id}">`. A reply shows "Replying to {id}" linking to its immediate parent, plus "thread {id}" when the parent is a comment rather than the root. A link goes to `#post-{id}` when that post is in the export and to `https://acp.us/rs/post/{thread}/{id}` (or `/rs/post/{id}` for a thread root) when it isn't. The same JSON is embedded in `<script type="application/json" id="acp-data">`, which is how HTML exports can be imported again.
 - **Posts vs replies:** every node has `"kind"`: `"post"` for a top-level thread post (`parent_post_id` is `""`), `"reply"` for a reply/comment. `counts` totals both over the whole tree. Top-level `posts` lists thread posts first (newest first), then replies whose parent isn't in the export (newest first). The HTML page has a "N posts · M replies" line, a **Posts** section (thread posts with their nested replies) and a **Replies in other threads** section, and every article carries a Post/Reply badge and a `kind-post`/`kind-reply` class.
 - **Parent ids:** `parent_post_id` is the thread root and `in_reply_to_id` the immediate parent (equal to the root for a direct reply, `""` for roots). Import reads `in_reply_to_id` when present and falls back to `parent_post_id`.
+- **Research exports** (`--research-export`) add `"research": { "name", "description", "created_at", "items": [ { "id", "kind", "ref", "title", "note", "meta", "content", "file", "added_at" } ] }`, where `file` is the bundle-relative path of the copy or snapshot (`attachments/…`) or the absolute one outside a bundle. The HTML page gets a Research section listing every item with its note, linking posts to their `#post-` article. Import ignores the section.
 - **Versions:** import accepts versions 1 (no profiles or mentions) and 2, and refuses newer versions or unknown formats.
 
 ## Troubleshooting and debugging
@@ -489,7 +542,9 @@ A nick's own posts can also be recorded as mentions of that nick.
 - **TUI:** bodies are stored as plain text (the site's bold/italic marks are not kept by the
   scraper), so Markdown styling shows only where the text itself is Markdown; pictures need
   `avifdec`, ImageMagick or ffmpeg for the site's AVIF files, and half-block pictures are coarse;
-  video attachments are links only; Ctrl-Shift-S arrives as Ctrl-S in most terminals; cancelling a job kills it outright.
+  video attachments are links only; research has no delete (use `sqlite3`), Google Drive and
+  Telegram sources are pinned for later, and web pages that need JavaScript to render come out
+  thin; Ctrl-Shift-S arrives as Ctrl-S in most terminals; cancelling a job kills it outright.
 - **Truncated bodies:** feeds shorten long posts and comments (`body_truncated: true`, cut `body` plus `body_text_summary`). Checked on the live site: the thread page (`/rs/post/{thread}`) carries every item's full body with `body_truncated: false`, so the scraper reads it (once per thread) instead of pushing the "show more" action over LiveView.
 
 ## Contributing
@@ -506,7 +561,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `tui/{state,input,layout,commands,data,jobs,theme,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `tui/{state,input,layout,commands,data,jobs,theme,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/features/*.feature` and the steps in `tests/e2e.rs`. It runs the real binary against a **mock acp.us** (`tests/support/mock.rs`: HTTP pages, the LiveView websocket, OTP sign-in, threads and media) with a temporary `HOME`. It covers:
 - login (right and wrong code);
@@ -516,7 +571,8 @@ The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/featur
 - the "Posts and replies" URL and its form fallback;
 - truncated feed bodies completed from the thread page, and `--refetch-truncated`;
 - search, export/import round trip, `--remove-nick` and `--clear-all`;
-- the TUI entry (bare / `--tui` / `--scrape`) and the argvs its Scrape, Export and Maintain menus build.
+- the TUI entry (bare / `--tui` / `--scrape`) and the argvs its Scrape, Export and Maintain menus build;
+- the export basket (`--post-ids`) and research projects (create, list, add posts / search results / a local file / a web page from the mock site, show, export, and the TUI's add argv).
 
 TUI state, menu → argv mapping, layout geometry and headless renders (ratatui `TestBackend`) are unit-tested in `src/tui/tests/`. `cargo test smoke_real_db -- --ignored --nocapture` renders your own database read-only.
 

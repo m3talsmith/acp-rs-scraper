@@ -38,6 +38,7 @@ pub mod import;
 pub mod liveview;
 pub mod maintenance;
 pub mod media;
+pub mod research;
 pub mod scrape;
 pub mod storage;
 pub mod tui;
@@ -58,6 +59,7 @@ pub mod prelude {
     pub use crate::logging::*;
     pub use crate::maintenance::*;
     pub use crate::media::*;
+    pub use crate::research::*;
     pub use crate::scrape::{feed::*, mentions::*, profile::*, refetch::*, thread::*, *};
     pub use crate::storage::{db::*, schema::*};
 

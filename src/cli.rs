@@ -28,6 +28,11 @@ pub fn prompt(msg: &str) -> Result<String> {
   acp-rs-scraper --export all.json
   acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
   acp-rs-scraper --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
+  acp-rs-scraper --research-create strike --research-description \"1877 and after\"
+  acp-rs-scraper --research-add strike --post-ids A1B2C3D4 --note \"key source\"
+  acp-rs-scraper --research-add strike --url https://example.org/article
+  acp-rs-scraper --research-add strike --file ~/notes/strike.md
+  acp-rs-scraper --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
   acp-rs-scraper --import strike.tar.gz --compress --tar-gz
   acp-rs-scraper --import all.json
   ACP_DEBUG=1 acp-rs-scraper --nick alice --debug
@@ -48,6 +53,7 @@ acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 200
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
 /// Command-line arguments (see `--help`).
 pub struct Args {
     /// Site feed: Latest tab (/rs/latest). Default — even though the site opens on Trending.
@@ -161,6 +167,36 @@ pub struct Args {
     /// With --sync: skip the bookmark sync.
     #[arg(long, help_heading = "Sync", requires = "sync")]
     pub no_bookmarks: bool,
+    /// Offline: list research projects (name, items, created, description); --format json for JSON.
+    #[arg(long, help_heading = "Research", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub research_list: bool,
+    /// Offline: create a research project NAME (with --research-description).
+    #[arg(long, value_name = "NAME", help_heading = "Research", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub research_create: Option<String>,
+    /// Description for --research-create (or to set when --research-add creates the project).
+    #[arg(long, value_name = "TEXT", help_heading = "Research")]
+    pub research_description: Option<String>,
+    /// Add to research project NAME (created if missing): --post-ids IDS, --search TEXT [--nicks] (the matches), --file PATH or --url URL; with --note.
+    #[arg(long, value_name = "NAME", help_heading = "Research", conflicts_with_all = ["export", "import"])]
+    pub research_add: Option<String>,
+    /// With --research-add: a local file to add (copied to ~/.acp/research/<project>/files/ unless --no-copy).
+    #[arg(long, value_name = "PATH", help_heading = "Research", requires = "research_add")]
+    pub file: Option<PathBuf>,
+    /// With --file: reference the file where it is instead of copying it.
+    #[arg(long, help_heading = "Research", requires = "file")]
+    pub no_copy: bool,
+    /// With --research-add: fetch this web page (no acp.us cookies) and keep its title, readable text and an HTML snapshot.
+    #[arg(long, value_name = "URL", help_heading = "Research", requires = "research_add")]
+    pub url: Option<String>,
+    /// With --research-add: a note for the added items.
+    #[arg(long, value_name = "TEXT", help_heading = "Research", requires = "research_add")]
+    pub note: Option<String>,
+    /// Offline: show a research project's items (--format json for JSON).
+    #[arg(long, value_name = "NAME", help_heading = "Research", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub research_show: Option<String>,
+    /// Offline: export research project NAME (its posts, files, pages and notes) to --export FILE (--format json,html; --compress --tar-gz bundles the files).
+    #[arg(long, value_name = "NAME", help_heading = "Research", requires = "export", conflicts_with_all = ["nick", "nicks", "search", "import", "post_ids"])]
+    pub research_export: Option<String>,
     /// With --remove-nick / --clear-all: show what would be removed and change nothing.
     #[arg(long, requires = "maint", help_heading = "Maintenance")]
     pub dry_run: bool,

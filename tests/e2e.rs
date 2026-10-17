@@ -54,7 +54,7 @@ impl E2e {
     /// Run the binary with these arguments (no `argv[0]`); `$HOME` is expanded.
     async fn run_argv(&mut self, args: &[String]) {
         let base = self.mock.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "http://127.0.0.1:9".into());
-        let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &self.home.to_string_lossy())).collect();
+        let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &self.home.to_string_lossy()).replace("$SITE", &base)).collect();
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_acp-rs-scraper"))
             .args(&args).env("HOME", &self.home).env("ACP_BASE_URL", base).env_remove("ACP_DEBUG")
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
@@ -342,4 +342,36 @@ async fn links_thread(w: &mut E2e, f: String, id: String, path: String) {
 #[tokio::main]
 async fn main() {
     E2e::cucumber().max_concurrent_scenarios(4).fail_on_skipped().run_and_exit("tests/features").await;
+}
+
+#[given(expr = "a local file {string} containing {string}")]
+async fn local_file(w: &mut E2e, f: String, text: String) {
+    let p = f.replace("$HOME", &w.home.to_string_lossy());
+    std::fs::write(p, text).unwrap();
+}
+
+#[then(expr = "research project {string} has {int} items")]
+async fn research_count(w: &mut E2e, name: String, n: i64) {
+    let got = w.q(&format!("SELECT count(*) FROM research_items i JOIN research_projects p ON p.id = i.project_id WHERE p.name = '{name}' COLLATE NOCASE"));
+    assert_eq!(got, n);
+}
+
+#[then(expr = "research project {string} has a {string} item {string}")]
+async fn research_item(w: &mut E2e, name: String, kind: String, r#ref: String) {
+    let r#ref = r#ref.replace("$HOME", &w.home.to_string_lossy()).replace("$SITE", &w.mock().base);
+    let got = w.q(&format!("SELECT count(*) FROM research_items i JOIN research_projects p ON p.id = i.project_id
+        WHERE p.name = '{name}' COLLATE NOCASE AND i.kind = '{kind}' AND i.ref = '{}'", r#ref.replace('\'', "''")));
+    assert_eq!(got, 1, "{kind} {ref}");
+}
+
+#[then("the web page was fetched without the site's cookies")]
+async fn web_no_cookies(w: &mut E2e) {
+    let c = w.mock().inner.lock().unwrap().web_cookies.clone();
+    assert!(c.iter().all(|c| !c.contains("_acp_key")), "{c:?}");
+}
+
+#[when(expr = "I add {string} to research project {string} from the TUI")]
+async fn tui_research_add(w: &mut E2e, id: String, name: String) {
+    let argv = acp_rs_scraper::tui::commands::research_add_argv(&name, "", &acp_rs_scraper::tui::commands::ResearchSource::Posts(vec![id]), "").unwrap();
+    w.run_argv(&argv[1..]).await;
 }

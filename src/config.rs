@@ -188,6 +188,8 @@ pub const TUI_SYNC_DEFAULT_MINUTES: u64 = 15;
 pub const TUI_MIN_SIZE: (u16, u16) = (60, 18);
 /// Rows of the TUI header (logo, big "ACP", title, session).
 pub const TUI_HEADER_ROWS: u16 = 3;
+/// Research project files (copies, web snapshots), under `$HOME`.
+pub const RESEARCH_REL_DIR: &str = ".acp/research";
 /// Converted image cache (AVIF → PNG), under `$HOME`.
 pub const THUMBS_REL_DIR: &str = ".acp/cache/thumbs";
 /// Log files of scans/jobs started from the TUI (`tui-<kind>-<stamp>.log`), inside [`LOGS_REL_DIR`].
@@ -205,6 +207,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
+    ("r", "Add to a research project: the open or highlighted post, what it links, its files and web links, or the whole view (or click ◈)"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),
     (", .  /  Alt-← Alt-→", "Previous / next post of the detail stack (◂ prev / next ▸ on the nav bar)"),
     ("v / V", "Next / previous view mode: Nested, Stack, Stack + pane, Carousel ∞, Carousel, Grid"),

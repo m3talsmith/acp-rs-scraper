@@ -139,6 +139,9 @@ pub async fn run() -> Result<()> {
         else { info!("Not logged in: no saved session at {}.", session_path()?.display()); }
         return Ok(());
     }
+    if args.research_list || args.research_create.is_some() || args.research_add.is_some() || args.research_show.is_some() || args.research_export.is_some() {
+        return run_research(&args).await;
+    }
     if args.bookmark.is_some() || args.unbookmark.is_some() || args.list_bookmarks {
         return run_bookmarks(&args);
     }

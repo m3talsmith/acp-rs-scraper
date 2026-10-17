@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.8.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.9.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -156,6 +156,37 @@ Sync:
       --no-bookmarks
           With --sync: skip the bookmark sync
 
+Research:
+      --research-list
+          Offline: list research projects (name, items, created, description); --format json for JSON
+
+      --research-create <NAME>
+          Offline: create a research project NAME (with --research-description)
+
+      --research-description <TEXT>
+          Description for --research-create (or to set when --research-add creates the project)
+
+      --research-add <NAME>
+          Add to research project NAME (created if missing): --post-ids IDS, --search TEXT [--nicks] (the matches), --file PATH or --url URL; with --note
+
+      --file <PATH>
+          With --research-add: a local file to add (copied to ~/.acp/research/<project>/files/ unless --no-copy)
+
+      --no-copy
+          With --file: reference the file where it is instead of copying it
+
+      --url <URL>
+          With --research-add: fetch this web page (no acp.us cookies) and keep its title, readable text and an HTML snapshot
+
+      --note <TEXT>
+          With --research-add: a note for the added items
+
+      --research-show <NAME>
+          Offline: show a research project's items (--format json for JSON)
+
+      --research-export <NAME>
+          Offline: export research project NAME (its posts, files, pages and notes) to --export FILE (--format json,html; --compress --tar-gz bundles the files)
+
 Debug:
   -q, --quiet
           Suppress progress/summary on stderr (prompts and errors still show)
@@ -186,6 +217,11 @@ Examples:
   acp-rs-scraper --export all.json
   acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
   acp-rs-scraper --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
+  acp-rs-scraper --research-create strike --research-description "1877 and after"
+  acp-rs-scraper --research-add strike --post-ids A1B2C3D4 --note "key source"
+  acp-rs-scraper --research-add strike --url https://example.org/article
+  acp-rs-scraper --research-add strike --file ~/notes/strike.md
+  acp-rs-scraper --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
   acp-rs-scraper --import strike.tar.gz --compress --tar-gz
   acp-rs-scraper --import all.json
   ACP_DEBUG=1 acp-rs-scraper --nick alice --debug
@@ -257,7 +293,8 @@ headless scrape is now `--scrape`.
   as you left it. `Shift-S` opens the full search: keyword, nicks, post id (the post and its
   thread), date range, posts/replies. `Ctrl-S` clears it. (Terminals send Ctrl-Shift-S as Ctrl-S.)
 - **Menu bar.** Every command comes from the CLI flags: Scrape, Search, Export, Import, List,
-  Maintain, Session, Debug, Help, Quit. Options show as checkboxes `[x]`, dropdowns `‹ … ›`,
+  Maintain, Research, Session, Bookmarks, Sync, View, Debug, Help, Quit (on a narrow terminal the
+  scan button shortens to `▶ Scan` so they all fit). Options show as checkboxes `[x]`, dropdowns `‹ … ›`,
   text fields `[…]` and buttons `< … >`; `*` marks a required one. Keyboard: `m`/`F10` or
   `Alt`+the underlined letter, `↑↓` to pick, `Space`/`Enter` to change, `Esc` to close.
   `Ctrl-Space` (or `Ctrl-P`) opens a command palette. Selecting nicks fills Scrape › Nicks.
@@ -299,6 +336,16 @@ headless scrape is now `--scrape`.
   Export menu's Path, Format, Name and Compress (a background `--export PATH --post-ids …` job),
   Clear basket empties it. The basket lasts until you quit. Headless:
   `acp-rs-scraper --export picked.html --format html --post-ids ID1,ID2`.
+- **Research.** Left of the basket button every card and detail has a `◈` button (or press `r`):
+  it opens a picker with what can be added from there, the project list and a "new project" name
+  and description. From an open post you can add the post itself, the posts it links, its
+  attachment files and the web pages it links; from anywhere, every post of the current view or
+  search (a keyword search is added as its search results). The Research menu (`Alt-r`) also adds
+  a **Local file** (type its path, `~` works) or a **Web page URL**, shows the project (**Projects…**
+  to pick or create one, **Show project**: its posts, files and pages as cards, `<` back) and
+  **Export project** with its own Export to / Format / Compress. Google Drive and Telegram are
+  listed but pinned for later. Every change is a small background `--research-add` job, like
+  bookmarks. See [Research](#research).
 - **Sync.** The Sync menu (`Alt-y`) keeps the database current while the TUI is open. Tick
   **Auto sync** and every **Interval** minutes (default 15) it runs `--sync` in the background:
   bookmarks both ways, then an incremental scrape of **Nicks** (blank: the selected nicks; mentions
@@ -331,7 +378,7 @@ headless scrape is now `--scrape`.
 
 Keys: `?`/`F1` help (the full `--help` plus every key), `Tab` cycles Nicks → Body → Menu,
 `↑↓`/`jk`, `PgUp`/`PgDn`, `Home`/`End`, `Ctrl-R` re-reads nicks, `q` or `Ctrl-C` quits.
-The TUI needs at least 60×16 cells and a terminal on stdin/stdout; without one it tells you which
+The TUI needs at least 60×18 cells and a terminal on stdin/stdout; without one it tells you which
 headless flags to use.
 
 ## Bookmarks
@@ -353,6 +400,31 @@ last sync win.
 
 The site's bookmark page (`/rs/bookmarks`) and its `toggle-bookmark` event are confirmed against
 the live site (2.5.0); `ACP_BOOKMARKS_PATH=/rs/…` still overrides the page if it ever moves.
+
+## Research
+
+Research projects collect posts, replies, search results, local files and web pages, each with
+an optional note, and export them together. They live in the database (`research_projects`,
+`research_items`); copied files and page snapshots go to `~/.acp/research/<project>/`.
+
+```sh
+acp-rs-scraper --research-create strike --research-description "1877 and after"
+acp-rs-scraper --research-add strike --post-ids A1B2C3D4,E5F6G7H8 --note "key source"
+acp-rs-scraper --research-add strike --search "general strike" --nicks alice   # every match
+acp-rs-scraper --research-add strike --file ~/notes/strike.md                   # copied (--no-copy: referenced)
+acp-rs-scraper --research-add strike --url https://example.org/article          # title + readable text + snapshot
+acp-rs-scraper --research-list                                                  # --format json for JSON
+acp-rs-scraper --research-show strike
+acp-rs-scraper --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
+```
+
+`--research-add` creates the project if it is missing (`--research-description` sets its
+description then). Adding the same thing again only updates its note. Web pages are fetched once,
+over http(s) only, without the acp.us cookies, up to 20 MB; the readable text keeps headings,
+paragraphs, lists, quotes and code and drops navigation, headers, footers and scripts. The export
+is the usual export of the project's posts (with their attachments) plus a `research` section
+(every item, its note, text and file); a bundle also carries the files and page snapshots. There
+is no delete flag yet: `sqlite3` on the two tables works if you need one.
 
 ## Sync
 

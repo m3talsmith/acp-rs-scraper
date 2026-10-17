@@ -3,7 +3,10 @@
 //! menu state, modals and the side effects the event loop must carry out.
 
 use crate::prelude::*;
-use crate::tui::commands::{Action, CommandId, Menu};
+use crate::tui::commands::{Action, CommandId, Menu, ResearchSource};
+use crate::research::{ItemKind, ResearchItem};
+use std::collections::HashSet;
+use std::path::Path;
 use crate::tui::data::{NickEntry, SearchFilter, Store};
 use crate::tui::jobs::JobKind;
 use crate::tui::modals::*;
@@ -85,6 +88,8 @@ pub struct BodyView {
     pub filter: Option<SearchFilter>,
     /// The bookmarks view.
     pub bookmarks: bool,
+    /// The research project this view shows.
+    pub research: Option<String>,
     /// Frames closed with prev / Esc, nearest last: `next` reopens them.
     pub forward: Vec<DetailFrame>,
 }
@@ -261,6 +266,10 @@ pub enum Hit {
     Basket(usize),
     /// The export-basket button of the top detail.
     BasketTop,
+    /// The add-to-research button of the n-th post card.
+    Research(usize),
+    /// The add-to-research button of the top detail.
+    ResearchTop,
 }
 
 /// Menu bar state.
@@ -334,6 +343,8 @@ pub struct App {
     pub theme: Theme,
     /// Side effects for the event loop.
     pub effects: Vec<Effect>,
+    /// The research project last used (preselected in the modal).
+    pub research_current: Option<String>,
     /// Post ids picked for export (`x`), in the order added.
     pub basket: Vec<String>,
     /// Pictures (logo, post images); `None` when off or not on a terminal.
@@ -355,7 +366,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(),
+            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None,
         };
         app.refresh_nicks();
@@ -529,11 +540,140 @@ impl App {
         self.focus = Focus::Body;
         self.anim = None;
     }
+    // ------------------------------------------------------------ research
+    /// Projects for the modal: (name, items, description).
+    fn research_list(&mut self) -> Vec<(String, usize, String)> {
+        match self.store.research_projects() {
+            Ok(v) => v.into_iter().map(|p| (p.name, p.items, p.description)).collect(),
+            Err(e) => { self.push_status(format!("error: reading research projects: {e:#}")); Vec::new() }
+        }
+    }
+    /// The project named in Research › Project, else the last one used.
+    pub fn research_name(&self) -> Option<String> {
+        let t = self.menu.menu.text(CommandId::Research, "project");
+        if !t.trim().is_empty() { return Some(t.trim().to_string()); }
+        self.research_current.clone()
+    }
+    /// What `r` can add from here: the open post (or the highlighted card), the
+    /// posts it links, its attachments and web links, and the whole search view.
+    pub fn research_candidates(&self) -> Vec<(String, ResearchSource)> {
+        let mut v: Vec<(String, ResearchSource)> = Vec::new();
+        let kind = |p: &Post| if p.parent_post_id.is_empty() { "post" } else { "reply" };
+        let in_search = self.search.as_ref().is_some_and(|s| s.filter.is_some());
+        let label = |p: &Post| format!("This {} {} · @{}", if in_search { "search result" } else { kind(p) }, p.post_id, p.nick);
+        if let Some(f) = self.top() {
+            if !f.post.post_id.starts_with("research:") { v.push((label(&f.post), ResearchSource::Posts(vec![f.post.post_id.clone()]))); }
+            let mut seen: HashSet<String> = HashSet::new();
+            for l in &f.links {
+                match l.kind {
+                    LinkKind::Attachment => {
+                        let p = Path::new(&l.id);
+                        if p.exists() && seen.insert(l.id.clone()) {
+                            let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+                            v.push((format!("Attachment file {name}"), ResearchSource::File(l.id.clone())));
+                        }
+                    }
+                    _ => if let Some(t) = &l.target && seen.insert(t.post_id.clone()) && t.post_id != f.post.post_id {
+                        let what = match l.kind { LinkKind::ReplyTo => "Replied-to", LinkKind::Thread => "Thread", LinkKind::Reply => "Reply", _ => "Linked" };
+                        v.push((format!("{what} {} {} · @{}", kind(t), t.post_id, t.nick), ResearchSource::Posts(vec![t.post_id.clone()])));
+                    }
+                }
+            }
+            for u in web_links(&f.post.content) {
+                if seen.insert(u.clone()) { v.push((format!("Web page {u}"), ResearchSource::Url(u))); }
+            }
+        } else {
+            let view = self.view();
+            if let Some(p) = view.posts.get(view.cursor).filter(|p| !p.post_id.starts_with("research:")) {
+                v.push((label(p), ResearchSource::Posts(vec![p.post_id.clone()])));
+            }
+        }
+        if let Some(all) = self.view_source() { v.push(all); }
+        v
+    }
+    /// Every post of the current search / view as one source.
+    fn view_source(&self) -> Option<(String, ResearchSource)> {
+        let view = self.view();
+        if view.research.is_some() { return None; }
+        let ids: Vec<String> = view.posts.iter().map(|p| p.post_id.clone()).filter(|id| !id.starts_with("research:")).collect();
+        if ids.is_empty() { return None; }
+        match &view.filter {
+            Some(f) if !f.keyword.trim().is_empty() && f.post_id.trim().is_empty() && f.from.trim().is_empty() && f.to.trim().is_empty()
+                && f.kind == crate::tui::data::KindFilter::Any =>
+                Some((format!("All {} results of the search {:?}", ids.len(), f.keyword.trim()),
+                    ResearchSource::Search { query: f.keyword.trim().to_string(), nicks: f.nicks.clone() })),
+            _ => Some((format!("All {} posts in this view ({})", ids.len(), view.title), ResearchSource::Posts(ids))),
+        }
+    }
+    /// Open the add-to-research modal for `what`.
+    pub fn open_research_add(&mut self, what: Vec<(String, ResearchSource)>) {
+        self.close_menu();
+        if what.is_empty() { self.push_status("nothing to add to research here: open or highlight a post first"); return; }
+        let projects = self.research_list();
+        let cur = self.research_name();
+        self.modal = Some(Modal::Research(ResearchModal::add(what, projects, cur.as_deref())));
+    }
+    /// Show research project `name` as a Body view (`<` goes back).
+    pub fn open_research(&mut self, name: &str) {
+        self.open_research_keep(name);
+        self.focus = Focus::Body;
+        self.anim = None;
+    }
+    fn open_research_keep(&mut self, name: &str) {
+        let items = match self.store.research_items(name) {
+            Ok(v) => v,
+            Err(e) => { self.push_status(format!("error: reading research {name}: {e:#}")); return; }
+        };
+        let mut posts = Vec::new();
+        for it in &items {
+            if it.kind.is_post() && let Ok(Some(p)) = self.store.post(&it.r#ref) { posts.push(p); continue; }
+            posts.push(research_post(it));
+        }
+        let (cursor, offset) = self.search.as_ref().filter(|v| v.research.as_deref() == Some(name))
+            .map(|v| (v.cursor.min(posts.len().saturating_sub(1)), v.offset.min(posts.len().saturating_sub(1)))).unwrap_or((0, 0));
+        let stack = self.search.as_mut().filter(|v| v.research.as_deref() == Some(name)).map(|v| std::mem::take(&mut v.stack)).unwrap_or_default();
+        self.search = Some(BodyView { title: format!("◈ Research: {name} ({} items)", items.len()), posts, cursor, offset, stack,
+            research: Some(name.to_string()), ..BodyView::default() });
+        self.research_current = Some(name.to_string());
+    }
+    /// A research modal closed with a choice.
+    fn research_chosen(&mut self, m: ResearchModal) {
+        let Some((name, desc, new)) = m.chosen.clone() else { return };
+        self.research_current = Some(name.clone());
+        self.menu.menu.set_text(CommandId::Research, "project", &name);
+        match m.mode {
+            ResearchMode::Add => {
+                let Some(src) = m.source() else { return };
+                match crate::tui::commands::research_add_argv(&name, if new { &desc } else { "" }, src, &m.note.value) {
+                    Ok(argv) => {
+                        let what = m.what.get(m.what_idx).map(|w| w.0.clone()).unwrap_or_default();
+                        self.push_status(format!("◈ adding to research {name}: {what}{}", if new { " (new project)" } else { "" }));
+                        self.effects.push(Effect::RunSideJob(JobKind::Research, argv));
+                    }
+                    Err(e) => self.error("Cannot add to research", &e),
+                }
+            }
+            ResearchMode::Browse => {
+                if new {
+                    match crate::tui::commands::research_create_argv(&name, &desc) {
+                        Ok(argv) => { self.push_status(format!("◈ creating research project {name}")); self.effects.push(Effect::RunSideJob(JobKind::Research, argv)); }
+                        Err(e) => { self.error("Cannot create the project", &e); return; }
+                    }
+                }
+                self.open_research(&name);
+            }
+        }
+    }
+
     /// A side job ended; `pending` = side jobs still running.
     pub fn side_job_finished(&mut self, ok: bool, tail: &[String], pending: usize) {
-        if !ok { self.push_status(format!("error: bookmark not saved: {}", tail.last().map(String::as_str).unwrap_or("?"))); }
+        if !ok { self.push_status(format!("error: change not saved: {}", tail.last().map(String::as_str).unwrap_or("?"))); }
+        else if let Some(l) = tail.iter().rev().find_map(|l| l.find("research \"").map(|i| &l[i..])) { self.push_status(format!("◈ {l}")); }
         // Re-read only once every write landed, so quick toggles don't flicker back.
-        if pending == 0 { self.reload_marks(); }
+        if pending == 0 {
+            self.reload_marks();
+            if let Some(name) = self.search.as_ref().and_then(|v| v.research.clone()) { self.open_research_keep(&name); }
+        }
     }
     /// Run `argv` (a network job) after making sure we're logged in.
     fn start_online_job(&mut self, kind: JobKind, argv: Vec<String>) {
@@ -844,6 +984,40 @@ impl App {
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }
             }
             Action::ShowBasket => { self.close_menu(); self.open_basket(); }
+            Action::ResearchProjects => {
+                self.close_menu();
+                let projects = self.research_list();
+                let cur = self.research_name();
+                self.modal = Some(Modal::Research(ResearchModal::browse(projects, cur.as_deref())));
+            }
+            Action::ShowResearch => match self.research_name() {
+                Some(n) => { self.close_menu(); self.open_research(&n); }
+                None => self.act(Action::ResearchProjects),
+            },
+            Action::AddToResearch => { let w = self.research_candidates(); self.open_research_add(w); }
+            Action::AddViewToResearch => {
+                let w: Vec<_> = self.view_source().into_iter().collect();
+                if w.is_empty() { self.close_menu(); self.push_status("no posts in this view to add"); } else { self.open_research_add(w); }
+            }
+            Action::AddFileToResearch => {
+                let f = self.menu.menu.text(CommandId::Research, "file");
+                if f.trim().is_empty() { self.error("Add local file", "type the file's path in Research › Local file first (~ works)"); }
+                else { self.open_research_add(vec![(format!("Local file {f}"), ResearchSource::File(f))]); }
+            }
+            Action::AddUrlToResearch => {
+                let u = self.menu.menu.text(CommandId::Research, "url");
+                if !(u.starts_with("http://") || u.starts_with("https://")) { self.error("Add web page", "type an http:// or https:// address in Research › Web page URL first"); }
+                else { self.open_research_add(vec![(format!("Web page {u}"), ResearchSource::Url(u))]); }
+            }
+            Action::ComingLater(which) => {
+                let what = if which == 0 { "Google Drive" } else { "Telegram" };
+                self.push_status(format!("{what} as a research source is pinned for later; add files from disk or web pages for now"));
+            }
+            Action::ExportResearch => match self.research_name().ok_or_else(|| "pick a research project first (Research › Projects…)".to_string())
+                .and_then(|n| self.menu.menu.research_export_argv(&n)) {
+                Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
+                Err(e) => self.error("Cannot export research", &e),
+            },
             Action::ClearBasket => { self.close_menu(); let n = self.basket.len(); self.basket.clear(); self.push_status(format!("export basket emptied ({n} removed)")); }
             Action::ExportBasket => match self.menu.menu.export_argv_with(&sel, None, &self.basket, Some("Basket")) {
                 Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
@@ -1006,6 +1180,7 @@ impl App {
                 if s.cleared { self.clear_search(); }
                 else if let Ok(f) = s.filter() { self.run_search(f); }
             }
+            (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),
             (Modal::Palette(p), ModalResult::ClosedSubmitted) => match p.chosen() {
                 Some(PaletteCmd::Action(a)) => self.act(a),
                 Some(PaletteCmd::OpenMenu(i)) => self.open_menu(i),
@@ -1028,6 +1203,7 @@ impl App {
             ("Show bookmarks (B)".into(), PaletteCmd::Action(Action::ShowBookmarks)),
             ("Bookmark current post (b)".into(), PaletteCmd::Action(Action::ToggleBookmark)),
             ("Add current post to the export basket (x)".into(), PaletteCmd::Action(Action::ToggleBasket)),
+            ("Add to a research project (r)".into(), PaletteCmd::Action(Action::AddToResearch)),
         ];
         for (i, c) in self.menu.menu.items.iter().enumerate() {
             if c.opts.is_empty() { v.push((c.label.to_string(), PaletteCmd::OpenMenu(i))); continue; }
@@ -1038,4 +1214,33 @@ impl App {
         }
         v
     }
+}
+
+/// http(s) links in a body, except links to posts on the site itself.
+pub fn web_links(text: &str) -> Vec<String> {
+    use std::sync::LazyLock;
+    static RE: LazyLock<regex::Regex> = LazyLock::new(|| regex::Regex::new(r"https?://[^\s<>()\[\]\x22']+").expect("url re"));
+    let mut seen = HashSet::new();
+    RE.find_iter(text).map(|m| m.as_str().trim_end_matches(['.', ',', ';', ':', '!', '?']).to_string())
+        .filter(|u| !u.contains("/rs/post/"))
+        .filter(|u| seen.insert(u.clone())).collect()
+}
+
+/// A research file or web page shown as a card: its note, where it came from, and its text.
+pub fn research_post(it: &ResearchItem) -> Post {
+    let mut body = String::new();
+    if !it.note.trim().is_empty() { body.push_str(&format!("> {}\n\n", it.note.trim())); }
+    body.push_str(&it.r#ref);
+    if let Some(s) = it.meta["size"].as_u64() { body.push_str(&format!(" · {s} bytes")); }
+    if let Some(m) = it.meta["mime_type"].as_str().or(it.meta["content_type"].as_str()) { body.push_str(&format!(" · {m}")); }
+    if !it.content.trim().is_empty() {
+        let text: String = it.content.chars().take(6000).collect();
+        body.push_str("\n\n");
+        body.push_str(&text);
+        if it.content.chars().count() > 6000 { body.push_str("\n\n…"); }
+    }
+    let nick = match it.kind { ItemKind::WebUrl => "web", ItemKind::LocalFile => "file", _ => "missing post" };
+    let content = if it.kind.is_post() { format!("{} is not in the database any more.\n\n{body}", it.r#ref) } else { body };
+    Post { post_id: format!("research:{}", it.id), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(),
+        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false }
 }

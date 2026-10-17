@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["ARGV0","FORMAT_CHOICES","MODE_CHOICES","SCOPE_CHOICES"],"enum":["Action","CommandId","Widget"],"fn":["button","check","choice","opt","shell_line","text","validate"],"struct":["Menu","MenuCommand","Opt"]};
+window.SIDEBAR_ITEMS = {"constant":["ARGV0","FORMAT_CHOICES","MODE_CHOICES","SCOPE_CHOICES"],"enum":["Action","CommandId","ResearchSource","Widget"],"fn":["button","check","choice","opt","research_add_argv","research_create_argv","shell_line","text","validate"],"struct":["Menu","MenuCommand","Opt"]};

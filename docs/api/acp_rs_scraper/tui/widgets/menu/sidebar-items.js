@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["draw","draw_dropdown","scan_label","widget_text"]};
+window.SIDEBAR_ITEMS = {"fn":["draw","draw_dropdown","scan_label","short_scan_label","widget_text"]};

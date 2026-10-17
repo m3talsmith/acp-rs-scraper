@@ -95,90 +95,133 @@
 <a href=#95 id=95 data-nosnippet>95</a>    </span><span class="kw">let </span>top: Vec&lt;<span class="kw-2">&amp;</span>Value&gt; = doc[<span class="string">"posts"</span>].as_array().into_iter().flatten().collect();
 <a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">let </span>(roots, orphans): (Vec&lt;<span class="kw-2">&amp;</span>Value&gt;, Vec&lt;<span class="kw-2">&amp;</span>Value&gt;) = top.into_iter()
 <a href=#97 id=97 data-nosnippet>97</a>        .partition(|p| p[<span class="string">"parent_post_id"</span>].as_str().unwrap_or_default().is_empty());
-<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">let </span>(np, nr) = count_kinds(<span class="kw-2">&amp;</span>doc[<span class="string">"posts"</span>]);
-<a href=#99 id=99 data-nosnippet>99</a>    body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;p class=\"meta counts\"&gt;{np} posts · {nr} replies&lt;/p&gt;"</span>));
-<a href=#100 id=100 data-nosnippet>100</a>    body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;h2 id=\"posts\"&gt;Posts ({})&lt;/h2&gt;"</span>, roots.len()));
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">if </span>roots.is_empty() { body.push_str(<span class="string">"&lt;p class=\"meta\"&gt;No top-level posts in this export.&lt;/p&gt;"</span>); }
-<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">for </span>p <span class="kw">in </span>roots { html_post(p, <span class="kw-2">&amp;mut </span>body, <span class="number">0</span>, <span class="kw-2">&amp;</span>ids); }
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">if </span>!orphans.is_empty() {
-<a href=#104 id=104 data-nosnippet>104</a>        body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;h2 id=\"replies\"&gt;Replies in other threads ({})&lt;/h2&gt;"</span>, orphans.len()));
-<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">for </span>p <span class="kw">in </span>orphans { html_post(p, <span class="kw-2">&amp;mut </span>body, <span class="number">0</span>, <span class="kw-2">&amp;</span>ids); }
-<a href=#106 id=106 data-nosnippet>106</a>    }
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">let </span>mentions = doc[<span class="string">"mentions"</span>].as_array().cloned().unwrap_or_default();
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">if </span>!mentions.is_empty() {
-<a href=#109 id=109 data-nosnippet>109</a>        body.push_str(<span class="string">"&lt;h2&gt;Mentions&lt;/h2&gt;&lt;ul class=\"mentions\"&gt;"</span>);
-<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">for </span>h <span class="kw">in </span><span class="kw-2">&amp;</span>mentions {
-<a href=#111 id=111 data-nosnippet>111</a>            body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
-<a href=#112 id=112 data-nosnippet>112</a>                <span class="string">"&lt;li&gt;&lt;a href=\"#post-{}\"&gt;{}&lt;/a&gt; → @{} &lt;span class=\"meta\"&gt;({})&lt;/span&gt;&lt;/li&gt;"</span>,
-<a href=#113 id=113 data-nosnippet>113</a>                esc(h[<span class="string">"post_id"</span>].as_str().unwrap_or(<span class="string">""</span>)),
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">if </span>doc[<span class="string">"research"</span>].is_object() { body.push_str(<span class="kw-2">&amp;</span>research_html(<span class="kw-2">&amp;</span>doc[<span class="string">"research"</span>], <span class="kw-2">&amp;</span>ids)); }
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">let </span>(np, nr) = count_kinds(<span class="kw-2">&amp;</span>doc[<span class="string">"posts"</span>]);
+<a href=#100 id=100 data-nosnippet>100</a>    body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;p class=\"meta counts\"&gt;{np} posts · {nr} replies&lt;/p&gt;"</span>));
+<a href=#101 id=101 data-nosnippet>101</a>    body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;h2 id=\"posts\"&gt;Posts ({})&lt;/h2&gt;"</span>, roots.len()));
+<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">if </span>roots.is_empty() { body.push_str(<span class="string">"&lt;p class=\"meta\"&gt;No top-level posts in this export.&lt;/p&gt;"</span>); }
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">for </span>p <span class="kw">in </span>roots { html_post(p, <span class="kw-2">&amp;mut </span>body, <span class="number">0</span>, <span class="kw-2">&amp;</span>ids); }
+<a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">if </span>!orphans.is_empty() {
+<a href=#105 id=105 data-nosnippet>105</a>        body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;h2 id=\"replies\"&gt;Replies in other threads ({})&lt;/h2&gt;"</span>, orphans.len()));
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">for </span>p <span class="kw">in </span>orphans { html_post(p, <span class="kw-2">&amp;mut </span>body, <span class="number">0</span>, <span class="kw-2">&amp;</span>ids); }
+<a href=#107 id=107 data-nosnippet>107</a>    }
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">let </span>mentions = doc[<span class="string">"mentions"</span>].as_array().cloned().unwrap_or_default();
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">if </span>!mentions.is_empty() {
+<a href=#110 id=110 data-nosnippet>110</a>        body.push_str(<span class="string">"&lt;h2&gt;Mentions&lt;/h2&gt;&lt;ul class=\"mentions\"&gt;"</span>);
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">for </span>h <span class="kw">in </span><span class="kw-2">&amp;</span>mentions {
+<a href=#112 id=112 data-nosnippet>112</a>            body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href=#113 id=113 data-nosnippet>113</a>                <span class="string">"&lt;li&gt;&lt;a href=\"#post-{}\"&gt;{}&lt;/a&gt; → @{} &lt;span class=\"meta\"&gt;({})&lt;/span&gt;&lt;/li&gt;"</span>,
 <a href=#114 id=114 data-nosnippet>114</a>                esc(h[<span class="string">"post_id"</span>].as_str().unwrap_or(<span class="string">""</span>)),
-<a href=#115 id=115 data-nosnippet>115</a>                esc(h[<span class="string">"mentioned_nick"</span>].as_str().unwrap_or(<span class="string">""</span>)),
-<a href=#116 id=116 data-nosnippet>116</a>                esc(h[<span class="string">"match_type"</span>].as_str().unwrap_or(<span class="string">""</span>)),
-<a href=#117 id=117 data-nosnippet>117</a>            ));
-<a href=#118 id=118 data-nosnippet>118</a>        }
-<a href=#119 id=119 data-nosnippet>119</a>        body.push_str(<span class="string">"&lt;/ul&gt;"</span>);
-<a href=#120 id=120 data-nosnippet>120</a>    }
-<a href=#121 id=121 data-nosnippet>121</a>    <span class="macro">format!</span>(<span class="string">r#"&lt;!DOCTYPE html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;meta charset="utf-8"&gt;
-<a href=#122 id=122 data-nosnippet>122</a>&lt;meta name="viewport" content="width=device-width,initial-scale=1"&gt;&lt;title&gt;{nick}&lt;/title&gt;
-<a href=#123 id=123 data-nosnippet>123</a>&lt;style&gt;
-<a href=#124 id=124 data-nosnippet>124</a>body{{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:2em auto;padding:0 1em;color:#18181b;background:#fafafa}}
-<a href=#125 id=125 data-nosnippet>125</a>.post{{background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:.8em 1em;margin:.8em 0}}
-<a href=#126 id=126 data-nosnippet>126</a>.post .post{{margin-left:1.2em;border-left:3px solid #dc2626;border-radius:0 8px 8px 0}}
-<a href=#127 id=127 data-nosnippet>127</a>h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .body{{margin:.5em 0;white-space:normal}} .body p{{margin:0 0 .7em}}
-<a href=#128 id=128 data-nosnippet>128</a>.att img,.att video{{max-width:100%;border-radius:6px}} .att{{margin:.4em 0}}
-<a href=#129 id=129 data-nosnippet>129</a>.profile{{display:flex;gap:1em;align-items:flex-start;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:1em;margin:1em 0}}
-<a href=#130 id=130 data-nosnippet>130</a>.profile .avatar{{width:72px;height:72px;border-radius:50%;object-fit:cover}}
-<a href=#131 id=131 data-nosnippet>131</a>.badge{{display:inline-block;font-size:.75em;font-weight:600;padding:0 .45em;border-radius:4px;color:#fff;background:#71717a}} .badge.post{{background:#dc2626}}
-<a href=#132 id=132 data-nosnippet>132</a>.post.kind-post.d0{{border-left:4px solid #dc2626}}
-<a href=#133 id=133 data-nosnippet>133</a>.mentions{{padding-left:1.2em}} .reply-to a{{color:#dc2626}}
-<a href=#134 id=134 data-nosnippet>134</a>&lt;/style&gt;&lt;script type="application/json" id="{data_id}"&gt;{data}&lt;/script&gt;&lt;/head&gt;&lt;body&gt;&lt;h1&gt;{nick}&lt;/h1&gt;&lt;p class="meta"&gt;Exported {}&lt;/p&gt;{body}&lt;/body&gt;&lt;/html&gt;"#</span>,
-<a href=#135 id=135 data-nosnippet>135</a>        esc(doc[<span class="string">"exported_at"</span>].as_str().unwrap_or_default()),
-<a href=#136 id=136 data-nosnippet>136</a>        data_id = HTML_DATA_ID,
-<a href=#137 id=137 data-nosnippet>137</a>        data = doc.to_string().replace(<span class="string">'&lt;'</span>, <span class="string">"\\u003c"</span>))
-<a href=#138 id=138 data-nosnippet>138</a>}
-<a href=#139 id=139 data-nosnippet>139</a>
-<a href=#140 id=140 data-nosnippet>140</a><span class="doccomment">/// Body text as HTML paragraphs: blank lines split `&lt;p&gt;`s, single newlines
-<a href=#141 id=141 data-nosnippet>141</a>/// inside a paragraph become `&lt;br&gt;`.
-<a href=#142 id=142 data-nosnippet>142</a></span><span class="kw">pub fn </span>paragraphs_html(text: <span class="kw-2">&amp;</span>str) -&gt; String {
-<a href=#143 id=143 data-nosnippet>143</a>    text.split(<span class="string">"\n\n"</span>).map(str::trim).filter(|p| !p.is_empty())
-<a href=#144 id=144 data-nosnippet>144</a>        .map(|p| <span class="macro">format!</span>(<span class="string">"&lt;p&gt;{}&lt;/p&gt;"</span>, esc(p).replace(<span class="string">'\n'</span>, <span class="string">"&lt;br&gt;"</span>)))
-<a href=#145 id=145 data-nosnippet>145</a>        .collect()
-<a href=#146 id=146 data-nosnippet>146</a>}
-<a href=#147 id=147 data-nosnippet>147</a>
-<a href=#148 id=148 data-nosnippet>148</a><span class="attr">#[cfg(test)]
-<a href=#149 id=149 data-nosnippet>149</a></span><span class="kw">mod </span>tests {
-<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#151 id=151 data-nosnippet>151</a>
-<a href=#152 id=152 data-nosnippet>152</a>    <span class="attr">#[test]
-<a href=#153 id=153 data-nosnippet>153</a>    </span><span class="kw">fn </span>posts_and_replies_get_separate_sections_and_badges() {
-<a href=#154 id=154 data-nosnippet>154</a>        <span class="kw">let </span>doc = <span class="macro">json!</span>({<span class="string">"nick"</span>: <span class="string">"@haz"</span>, <span class="string">"posts"</span>: [
-<a href=#155 id=155 data-nosnippet>155</a>            {<span class="string">"post_id"</span>: <span class="string">"R1"</span>, <span class="string">"parent_post_id"</span>: <span class="string">""</span>, <span class="string">"nick"</span>: <span class="string">"haz"</span>, <span class="string">"content"</span>: <span class="string">"my post"</span>, <span class="string">"children"</span>: [
-<a href=#156 id=156 data-nosnippet>156</a>                {<span class="string">"post_id"</span>: <span class="string">"R1a"</span>, <span class="string">"parent_post_id"</span>: <span class="string">"R1"</span>, <span class="string">"nick"</span>: <span class="string">"haz"</span>, <span class="string">"content"</span>: <span class="string">"self reply"</span>, <span class="string">"children"</span>: []}]},
-<a href=#157 id=157 data-nosnippet>157</a>            {<span class="string">"post_id"</span>: <span class="string">"C1"</span>, <span class="string">"parent_post_id"</span>: <span class="string">"T9"</span>, <span class="string">"nick"</span>: <span class="string">"haz"</span>, <span class="string">"content"</span>: <span class="string">"comment"</span>, <span class="string">"children"</span>: []},
-<a href=#158 id=158 data-nosnippet>158</a>        ]});
-<a href=#159 id=159 data-nosnippet>159</a>        <span class="macro">assert_eq!</span>(count_kinds(<span class="kw-2">&amp;</span>doc[<span class="string">"posts"</span>]), (<span class="number">1</span>, <span class="number">2</span>));
-<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw">let </span>h = build_html(<span class="kw-2">&amp;</span>doc);
-<a href=#161 id=161 data-nosnippet>161</a>        <span class="kw">let </span>posts = h.find(<span class="string">"&lt;h2 id=\"posts\"&gt;Posts (1)&lt;/h2&gt;"</span>).expect(<span class="string">"posts section"</span>);
-<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>replies = h.find(<span class="string">"&lt;h2 id=\"replies\"&gt;Replies in other threads (1)&lt;/h2&gt;"</span>).expect(<span class="string">"replies section"</span>);
-<a href=#163 id=163 data-nosnippet>163</a>        <span class="kw">let </span>r1 = h.find(<span class="string">"id=\"post-R1\""</span>).unwrap();
-<a href=#164 id=164 data-nosnippet>164</a>        <span class="kw">let </span>c1 = h.find(<span class="string">"id=\"post-C1\""</span>).unwrap();
-<a href=#165 id=165 data-nosnippet>165</a>        <span class="macro">assert!</span>(posts &lt; r1 &amp;&amp; r1 &lt; replies &amp;&amp; replies &lt; c1, <span class="string">"posts before replies"</span>);
-<a href=#166 id=166 data-nosnippet>166</a>        <span class="macro">assert!</span>(h.contains(<span class="string">"class=\"post kind-post d0\" id=\"post-R1\""</span>));
-<a href=#167 id=167 data-nosnippet>167</a>        <span class="macro">assert!</span>(h.contains(<span class="string">"class=\"post kind-reply d0\" id=\"post-C1\""</span>));
-<a href=#168 id=168 data-nosnippet>168</a>        <span class="macro">assert!</span>(h.contains(<span class="string">"1 posts · 2 replies"</span>));
-<a href=#169 id=169 data-nosnippet>169</a>    }
-<a href=#170 id=170 data-nosnippet>170</a>
-<a href=#171 id=171 data-nosnippet>171</a>    <span class="attr">#[test]
-<a href=#172 id=172 data-nosnippet>172</a>    </span><span class="kw">fn </span>reply_links_prefer_in_export_anchors() {
-<a href=#173 id=173 data-nosnippet>173</a>        <span class="kw">let </span>ids: HashSet&lt;String&gt; = [<span class="string">"c1"</span>.to_string()].into();
-<a href=#174 id=174 data-nosnippet>174</a>        <span class="kw">let </span>h = reply_links(<span class="string">"t1"</span>, <span class="string">"c1"</span>, <span class="kw-2">&amp;</span>ids);
-<a href=#175 id=175 data-nosnippet>175</a>        <span class="macro">assert!</span>(h.contains(<span class="string">"class=\"parent\" href=\"#post-c1\"&gt;c1&lt;/a&gt;"</span>), <span class="string">"{h}"</span>);
-<a href=#176 id=176 data-nosnippet>176</a>        <span class="macro">assert!</span>(h.contains(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"class=\"thread\" href=\"{}/rs/post/t1\"&gt;t1&lt;/a&gt;"</span>, base_url())), <span class="string">"{h}"</span>);
-<a href=#177 id=177 data-nosnippet>177</a>        <span class="comment">// Parent not exported: link to the reply on the site; root-only reply has no thread link.
-<a href=#178 id=178 data-nosnippet>178</a>        </span><span class="kw">let </span>h = reply_links(<span class="string">"t1"</span>, <span class="string">"c2"</span>, <span class="kw-2">&amp;</span>HashSet::new());
-<a href=#179 id=179 data-nosnippet>179</a>        <span class="macro">assert!</span>(h.contains(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"href=\"{}/rs/post/t1/c2\""</span>, base_url())), <span class="string">"{h}"</span>);
-<a href=#180 id=180 data-nosnippet>180</a>        <span class="macro">assert!</span>(!reply_links(<span class="string">"t1"</span>, <span class="string">"t1"</span>, <span class="kw-2">&amp;</span>ids).contains(<span class="string">"thread"</span>));
-<a href=#181 id=181 data-nosnippet>181</a>        <span class="macro">assert_eq!</span>(reply_links(<span class="string">""</span>, <span class="string">""</span>, <span class="kw-2">&amp;</span>ids), <span class="string">""</span>);
-<a href=#182 id=182 data-nosnippet>182</a>    }
-<a href=#183 id=183 data-nosnippet>183</a>}
+<a href=#115 id=115 data-nosnippet>115</a>                esc(h[<span class="string">"post_id"</span>].as_str().unwrap_or(<span class="string">""</span>)),
+<a href=#116 id=116 data-nosnippet>116</a>                esc(h[<span class="string">"mentioned_nick"</span>].as_str().unwrap_or(<span class="string">""</span>)),
+<a href=#117 id=117 data-nosnippet>117</a>                esc(h[<span class="string">"match_type"</span>].as_str().unwrap_or(<span class="string">""</span>)),
+<a href=#118 id=118 data-nosnippet>118</a>            ));
+<a href=#119 id=119 data-nosnippet>119</a>        }
+<a href=#120 id=120 data-nosnippet>120</a>        body.push_str(<span class="string">"&lt;/ul&gt;"</span>);
+<a href=#121 id=121 data-nosnippet>121</a>    }
+<a href=#122 id=122 data-nosnippet>122</a>    <span class="macro">format!</span>(<span class="string">r#"&lt;!DOCTYPE html&gt;&lt;html lang="en"&gt;&lt;head&gt;&lt;meta charset="utf-8"&gt;
+<a href=#123 id=123 data-nosnippet>123</a>&lt;meta name="viewport" content="width=device-width,initial-scale=1"&gt;&lt;title&gt;{nick}&lt;/title&gt;
+<a href=#124 id=124 data-nosnippet>124</a>&lt;style&gt;
+<a href=#125 id=125 data-nosnippet>125</a>body{{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:2em auto;padding:0 1em;color:#18181b;background:#fafafa}}
+<a href=#126 id=126 data-nosnippet>126</a>.post{{background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:.8em 1em;margin:.8em 0}}
+<a href=#127 id=127 data-nosnippet>127</a>.post .post{{margin-left:1.2em;border-left:3px solid #dc2626;border-radius:0 8px 8px 0}}
+<a href=#128 id=128 data-nosnippet>128</a>h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .body{{margin:.5em 0;white-space:normal}} .body p{{margin:0 0 .7em}}
+<a href=#129 id=129 data-nosnippet>129</a>.att img,.att video{{max-width:100%;border-radius:6px}} .att{{margin:.4em 0}}
+<a href=#130 id=130 data-nosnippet>130</a>.profile{{display:flex;gap:1em;align-items:flex-start;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:1em;margin:1em 0}}
+<a href=#131 id=131 data-nosnippet>131</a>.profile .avatar{{width:72px;height:72px;border-radius:50%;object-fit:cover}}
+<a href=#132 id=132 data-nosnippet>132</a>.badge{{display:inline-block;font-size:.75em;font-weight:600;padding:0 .45em;border-radius:4px;color:#fff;background:#71717a}} .badge.post{{background:#dc2626}}
+<a href=#133 id=133 data-nosnippet>133</a>.post.kind-post.d0{{border-left:4px solid #dc2626}}
+<a href=#134 id=134 data-nosnippet>134</a>.research{{background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:.8em 1em;margin:1em 0}} .research-items li{{margin:.5em 0}}
+<a href=#135 id=135 data-nosnippet>135</a>.note{{margin:.3em 0 .3em .5em;padding-left:.7em;border-left:3px solid #dc2626;color:#3f3f46}}
+<a href=#136 id=136 data-nosnippet>136</a>.mentions{{padding-left:1.2em}} .reply-to a{{color:#dc2626}}
+<a href=#137 id=137 data-nosnippet>137</a>&lt;/style&gt;&lt;script type="application/json" id="{data_id}"&gt;{data}&lt;/script&gt;&lt;/head&gt;&lt;body&gt;&lt;h1&gt;{nick}&lt;/h1&gt;&lt;p class="meta"&gt;Exported {}&lt;/p&gt;{body}&lt;/body&gt;&lt;/html&gt;"#</span>,
+<a href=#138 id=138 data-nosnippet>138</a>        esc(doc[<span class="string">"exported_at"</span>].as_str().unwrap_or_default()),
+<a href=#139 id=139 data-nosnippet>139</a>        data_id = HTML_DATA_ID,
+<a href=#140 id=140 data-nosnippet>140</a>        data = doc.to_string().replace(<span class="string">'&lt;'</span>, <span class="string">"\\u003c"</span>))
+<a href=#141 id=141 data-nosnippet>141</a>}
+<a href=#142 id=142 data-nosnippet>142</a>
+<a href=#143 id=143 data-nosnippet>143</a><span class="doccomment">/// The research section: description, then every item with its kind, title, note and source.
+<a href=#144 id=144 data-nosnippet>144</a></span><span class="kw">pub fn </span>research_html(r: <span class="kw-2">&amp;</span>Value, ids: <span class="kw-2">&amp;</span>HashSet&lt;String&gt;) -&gt; String {
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">let </span>s = |v: <span class="kw-2">&amp;</span>Value, k: <span class="kw-2">&amp;</span>str| v[k].as_str().unwrap_or_default().to_string();
+<a href=#146 id=146 data-nosnippet>146</a>    <span class="kw">let </span>items = r[<span class="string">"items"</span>].as_array().cloned().unwrap_or_default();
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">let </span><span class="kw-2">mut </span>h = <span class="macro">format!</span>(<span class="string">"&lt;section class=\"research\"&gt;&lt;h2 id=\"research\"&gt;Research: {} &lt;span class=\"meta\"&gt;({} items)&lt;/span&gt;&lt;/h2&gt;"</span>,
+<a href=#148 id=148 data-nosnippet>148</a>        esc(<span class="kw-2">&amp;</span>s(r, <span class="string">"name"</span>)), items.len());
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">if </span>!s(r, <span class="string">"description"</span>).is_empty() { h.push_str(<span class="kw-2">&amp;</span>paragraphs_html(<span class="kw-2">&amp;</span>s(r, <span class="string">"description"</span>))); }
+<a href=#150 id=150 data-nosnippet>150</a>    h.push_str(<span class="string">"&lt;ol class=\"research-items\"&gt;"</span>);
+<a href=#151 id=151 data-nosnippet>151</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="kw-2">&amp;</span>items {
+<a href=#152 id=152 data-nosnippet>152</a>        <span class="kw">let </span>kind = s(i, <span class="string">"kind"</span>);
+<a href=#153 id=153 data-nosnippet>153</a>        <span class="kw">let </span>(title, rf) = (s(i, <span class="string">"title"</span>), s(i, <span class="string">"ref"</span>));
+<a href=#154 id=154 data-nosnippet>154</a>        h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;li class=\"item kind-{}\"&gt;&lt;span class=\"badge\"&gt;{}&lt;/span&gt; "</span>, esc(<span class="kw-2">&amp;</span>kind), esc(<span class="kw-2">&amp;</span>kind)));
+<a href=#155 id=155 data-nosnippet>155</a>        <span class="kw">match </span>kind.as_str() {
+<a href=#156 id=156 data-nosnippet>156</a>            <span class="string">"post" </span>| <span class="string">"reply" </span>| <span class="string">"search-result" </span>=&gt; {
+<a href=#157 id=157 data-nosnippet>157</a>                <span class="kw">let </span>href = <span class="kw">if </span>ids.contains(<span class="kw-2">&amp;</span>rf) { <span class="macro">format!</span>(<span class="string">"#post-{}"</span>, esc(<span class="kw-2">&amp;</span>rf)) } <span class="kw">else </span>{ <span class="macro">format!</span>(<span class="string">"{}/rs/post/{}"</span>, esc(base_url()), esc(<span class="kw-2">&amp;</span>rf)) };
+<a href=#158 id=158 data-nosnippet>158</a>                h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;a href=\"{href}\"&gt;{}&lt;/a&gt; &lt;span class=\"meta\"&gt;{}&lt;/span&gt;"</span>, esc(<span class="kw-2">&amp;</span>title), esc(<span class="kw-2">&amp;</span>rf)));
+<a href=#159 id=159 data-nosnippet>159</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(q) = i[<span class="string">"meta"</span>][<span class="string">"query"</span>].as_str() { h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" &lt;span class=\"meta\"&gt;search: {}&lt;/span&gt;"</span>, esc(q))); }
+<a href=#160 id=160 data-nosnippet>160</a>            }
+<a href=#161 id=161 data-nosnippet>161</a>            <span class="string">"web-url" </span>=&gt; {
+<a href=#162 id=162 data-nosnippet>162</a>                h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;a href=\"{}\"&gt;{}&lt;/a&gt; &lt;span class=\"meta\"&gt;{}&lt;/span&gt;"</span>, esc(<span class="kw-2">&amp;</span>rf), esc(<span class="kw-2">&amp;</span>title), esc(<span class="kw-2">&amp;</span>rf)));
+<a href=#163 id=163 data-nosnippet>163</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = i[<span class="string">"file"</span>].as_str() { h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" · &lt;a href=\"{}\"&gt;snapshot&lt;/a&gt;"</span>, esc(f))); }
+<a href=#164 id=164 data-nosnippet>164</a>            }
+<a href=#165 id=165 data-nosnippet>165</a>            <span class="kw">_ </span>=&gt; {
+<a href=#166 id=166 data-nosnippet>166</a>                <span class="kw">let </span>link = i[<span class="string">"file"</span>].as_str().map(str::to_string).unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">"file://{rf}"</span>));
+<a href=#167 id=167 data-nosnippet>167</a>                h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;a href=\"{}\"&gt;{}&lt;/a&gt; &lt;span class=\"meta\"&gt;{}&lt;/span&gt;"</span>, esc(<span class="kw-2">&amp;</span>link), esc(<span class="kw-2">&amp;</span>title), esc(<span class="kw-2">&amp;</span>rf)));
+<a href=#168 id=168 data-nosnippet>168</a>            }
+<a href=#169 id=169 data-nosnippet>169</a>        }
+<a href=#170 id=170 data-nosnippet>170</a>        h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" &lt;span class=\"meta\"&gt;added {}&lt;/span&gt;"</span>, esc(<span class="kw-2">&amp;</span>s(i, <span class="string">"added_at"</span>))));
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">if </span>!s(i, <span class="string">"note"</span>).is_empty() { h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;blockquote class=\"note\"&gt;{}&lt;/blockquote&gt;"</span>, paragraphs_html(<span class="kw-2">&amp;</span>s(i, <span class="string">"note"</span>)))); }
+<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span>content = s(i, <span class="string">"content"</span>);
+<a href=#173 id=173 data-nosnippet>173</a>        <span class="kw">if </span>!content.trim().is_empty() {
+<a href=#174 id=174 data-nosnippet>174</a>            h.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;details&gt;&lt;summary&gt;Text ({} characters)&lt;/summary&gt;&lt;div class=\"body\"&gt;{}&lt;/div&gt;&lt;/details&gt;"</span>,
+<a href=#175 id=175 data-nosnippet>175</a>                content.chars().count(), paragraphs_html(<span class="kw-2">&amp;</span>content)));
+<a href=#176 id=176 data-nosnippet>176</a>        }
+<a href=#177 id=177 data-nosnippet>177</a>        h.push_str(<span class="string">"&lt;/li&gt;"</span>);
+<a href=#178 id=178 data-nosnippet>178</a>    }
+<a href=#179 id=179 data-nosnippet>179</a>    h.push_str(<span class="string">"&lt;/ol&gt;&lt;/section&gt;"</span>);
+<a href=#180 id=180 data-nosnippet>180</a>    h
+<a href=#181 id=181 data-nosnippet>181</a>}
+<a href=#182 id=182 data-nosnippet>182</a>
+<a href=#183 id=183 data-nosnippet>183</a><span class="doccomment">/// Body text as HTML paragraphs: blank lines split `&lt;p&gt;`s, single newlines
+<a href=#184 id=184 data-nosnippet>184</a>/// inside a paragraph become `&lt;br&gt;`.
+<a href=#185 id=185 data-nosnippet>185</a></span><span class="kw">pub fn </span>paragraphs_html(text: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href=#186 id=186 data-nosnippet>186</a>    text.split(<span class="string">"\n\n"</span>).map(str::trim).filter(|p| !p.is_empty())
+<a href=#187 id=187 data-nosnippet>187</a>        .map(|p| <span class="macro">format!</span>(<span class="string">"&lt;p&gt;{}&lt;/p&gt;"</span>, esc(p).replace(<span class="string">'\n'</span>, <span class="string">"&lt;br&gt;"</span>)))
+<a href=#188 id=188 data-nosnippet>188</a>        .collect()
+<a href=#189 id=189 data-nosnippet>189</a>}
+<a href=#190 id=190 data-nosnippet>190</a>
+<a href=#191 id=191 data-nosnippet>191</a><span class="attr">#[cfg(test)]
+<a href=#192 id=192 data-nosnippet>192</a></span><span class="kw">mod </span>tests {
+<a href=#193 id=193 data-nosnippet>193</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#194 id=194 data-nosnippet>194</a>
+<a href=#195 id=195 data-nosnippet>195</a>    <span class="attr">#[test]
+<a href=#196 id=196 data-nosnippet>196</a>    </span><span class="kw">fn </span>posts_and_replies_get_separate_sections_and_badges() {
+<a href=#197 id=197 data-nosnippet>197</a>        <span class="kw">let </span>doc = <span class="macro">json!</span>({<span class="string">"nick"</span>: <span class="string">"@haz"</span>, <span class="string">"posts"</span>: [
+<a href=#198 id=198 data-nosnippet>198</a>            {<span class="string">"post_id"</span>: <span class="string">"R1"</span>, <span class="string">"parent_post_id"</span>: <span class="string">""</span>, <span class="string">"nick"</span>: <span class="string">"haz"</span>, <span class="string">"content"</span>: <span class="string">"my post"</span>, <span class="string">"children"</span>: [
+<a href=#199 id=199 data-nosnippet>199</a>                {<span class="string">"post_id"</span>: <span class="string">"R1a"</span>, <span class="string">"parent_post_id"</span>: <span class="string">"R1"</span>, <span class="string">"nick"</span>: <span class="string">"haz"</span>, <span class="string">"content"</span>: <span class="string">"self reply"</span>, <span class="string">"children"</span>: []}]},
+<a href=#200 id=200 data-nosnippet>200</a>            {<span class="string">"post_id"</span>: <span class="string">"C1"</span>, <span class="string">"parent_post_id"</span>: <span class="string">"T9"</span>, <span class="string">"nick"</span>: <span class="string">"haz"</span>, <span class="string">"content"</span>: <span class="string">"comment"</span>, <span class="string">"children"</span>: []},
+<a href=#201 id=201 data-nosnippet>201</a>        ]});
+<a href=#202 id=202 data-nosnippet>202</a>        <span class="macro">assert_eq!</span>(count_kinds(<span class="kw-2">&amp;</span>doc[<span class="string">"posts"</span>]), (<span class="number">1</span>, <span class="number">2</span>));
+<a href=#203 id=203 data-nosnippet>203</a>        <span class="kw">let </span>h = build_html(<span class="kw-2">&amp;</span>doc);
+<a href=#204 id=204 data-nosnippet>204</a>        <span class="kw">let </span>posts = h.find(<span class="string">"&lt;h2 id=\"posts\"&gt;Posts (1)&lt;/h2&gt;"</span>).expect(<span class="string">"posts section"</span>);
+<a href=#205 id=205 data-nosnippet>205</a>        <span class="kw">let </span>replies = h.find(<span class="string">"&lt;h2 id=\"replies\"&gt;Replies in other threads (1)&lt;/h2&gt;"</span>).expect(<span class="string">"replies section"</span>);
+<a href=#206 id=206 data-nosnippet>206</a>        <span class="kw">let </span>r1 = h.find(<span class="string">"id=\"post-R1\""</span>).unwrap();
+<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">let </span>c1 = h.find(<span class="string">"id=\"post-C1\""</span>).unwrap();
+<a href=#208 id=208 data-nosnippet>208</a>        <span class="macro">assert!</span>(posts &lt; r1 &amp;&amp; r1 &lt; replies &amp;&amp; replies &lt; c1, <span class="string">"posts before replies"</span>);
+<a href=#209 id=209 data-nosnippet>209</a>        <span class="macro">assert!</span>(h.contains(<span class="string">"class=\"post kind-post d0\" id=\"post-R1\""</span>));
+<a href=#210 id=210 data-nosnippet>210</a>        <span class="macro">assert!</span>(h.contains(<span class="string">"class=\"post kind-reply d0\" id=\"post-C1\""</span>));
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="macro">assert!</span>(h.contains(<span class="string">"1 posts · 2 replies"</span>));
+<a href=#212 id=212 data-nosnippet>212</a>    }
+<a href=#213 id=213 data-nosnippet>213</a>
+<a href=#214 id=214 data-nosnippet>214</a>    <span class="attr">#[test]
+<a href=#215 id=215 data-nosnippet>215</a>    </span><span class="kw">fn </span>reply_links_prefer_in_export_anchors() {
+<a href=#216 id=216 data-nosnippet>216</a>        <span class="kw">let </span>ids: HashSet&lt;String&gt; = [<span class="string">"c1"</span>.to_string()].into();
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>h = reply_links(<span class="string">"t1"</span>, <span class="string">"c1"</span>, <span class="kw-2">&amp;</span>ids);
+<a href=#218 id=218 data-nosnippet>218</a>        <span class="macro">assert!</span>(h.contains(<span class="string">"class=\"parent\" href=\"#post-c1\"&gt;c1&lt;/a&gt;"</span>), <span class="string">"{h}"</span>);
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="macro">assert!</span>(h.contains(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"class=\"thread\" href=\"{}/rs/post/t1\"&gt;t1&lt;/a&gt;"</span>, base_url())), <span class="string">"{h}"</span>);
+<a href=#220 id=220 data-nosnippet>220</a>        <span class="comment">// Parent not exported: link to the reply on the site; root-only reply has no thread link.
+<a href=#221 id=221 data-nosnippet>221</a>        </span><span class="kw">let </span>h = reply_links(<span class="string">"t1"</span>, <span class="string">"c2"</span>, <span class="kw-2">&amp;</span>HashSet::new());
+<a href=#222 id=222 data-nosnippet>222</a>        <span class="macro">assert!</span>(h.contains(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"href=\"{}/rs/post/t1/c2\""</span>, base_url())), <span class="string">"{h}"</span>);
+<a href=#223 id=223 data-nosnippet>223</a>        <span class="macro">assert!</span>(!reply_links(<span class="string">"t1"</span>, <span class="string">"t1"</span>, <span class="kw-2">&amp;</span>ids).contains(<span class="string">"thread"</span>));
+<a href=#224 id=224 data-nosnippet>224</a>        <span class="macro">assert_eq!</span>(reply_links(<span class="string">""</span>, <span class="string">""</span>, <span class="kw-2">&amp;</span>ids), <span class="string">""</span>);
+<a href=#225 id=225 data-nosnippet>225</a>    }
+<a href=#226 id=226 data-nosnippet>226</a>}
 </code></pre></div></section></main></body></html>

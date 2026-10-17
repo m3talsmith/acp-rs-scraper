@@ -32,6 +32,8 @@ pub enum CommandId {
     Session,
     /// Bookmarks: show, toggle, sync.
     Bookmarks,
+    /// Research projects.
+    Research,
     /// Periodic sync with the site.
     Sync,
     /// Body layout.
@@ -103,6 +105,75 @@ pub enum Action {
     ClearBasket,
     /// Export the basket with the Export menu's Path / Format / Name / Compress.
     ExportBasket,
+    /// Pick or create a research project, then show it.
+    ResearchProjects,
+    /// Show Research › Project.
+    ShowResearch,
+    /// Add the current post (or something in its body) to a research project (`r`).
+    AddToResearch,
+    /// Add every post of the current view / search.
+    AddViewToResearch,
+    /// Add Research › Local file.
+    AddFileToResearch,
+    /// Add Research › Web page URL.
+    AddUrlToResearch,
+    /// A source that is pinned for later (0 = Google Drive, 1 = Telegram).
+    ComingLater(u8),
+    /// `--research-export` with Research › Export to / Format / Compress.
+    ExportResearch,
+}
+
+/// What a research add takes from (one `--research-add` source).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ResearchSource {
+    /// Posts / replies by id (`--post-ids`).
+    Posts(Vec<String>),
+    /// The matches of a keyword search (`--search`, `--nicks`).
+    Search {
+        /// Keyword.
+        query: String,
+        /// Nick filter.
+        nicks: Vec<String>,
+    },
+    /// A local file (`--file`).
+    File(String),
+    /// A web page (`--url`).
+    Url(String),
+}
+
+/// argv for `--research-add NAME` from `source`; `description` is used when the project is new.
+pub fn research_add_argv(name: &str, description: &str, source: &ResearchSource, note: &str) -> std::result::Result<Vec<String>, String> {
+    if name.trim().is_empty() { return Err("pick a research project or type a new name".into()); }
+    let mut v = vec![ARGV0.to_string(), "--research-add".into(), name.trim().into()];
+    if !description.trim().is_empty() { v.extend(["--research-description".into(), description.trim().into()]); }
+    match source {
+        ResearchSource::Posts(ids) => {
+            if ids.is_empty() { return Err("nothing to add: no posts".into()); }
+            v.extend(["--post-ids".into(), ids.join(",")]);
+        }
+        ResearchSource::Search { query, nicks } => {
+            v.extend(["--search".into(), query.clone()]);
+            if !nicks.is_empty() { v.extend(["--nicks".into(), nicks.join(",")]); }
+        }
+        ResearchSource::File(p) => {
+            if p.trim().is_empty() { return Err("type a path in Research › Local file first".into()); }
+            v.extend(["--file".into(), p.trim().into()]);
+        }
+        ResearchSource::Url(u) => {
+            if u.trim().is_empty() { return Err("type a URL in Research › Web page URL first".into()); }
+            v.extend(["--url".into(), u.trim().into()]);
+        }
+    }
+    if !note.trim().is_empty() { v.extend(["--note".into(), note.trim().into()]); }
+    validate(v)
+}
+
+/// argv for `--research-create NAME`.
+pub fn research_create_argv(name: &str, description: &str) -> std::result::Result<Vec<String>, String> {
+    if name.trim().is_empty() { return Err("a research project needs a name".into()); }
+    let mut v = vec![ARGV0.to_string(), "--research-create".into(), name.trim().into()];
+    if !description.trim().is_empty() { v.extend(["--research-description".into(), description.trim().into()]); }
+    validate(v)
 }
 
 /// The input type shown right of an option's label.
@@ -227,6 +298,23 @@ impl Menu {
                 opt("yes", "Skip confirmation", "--yes (dangerous)", false, check(false)),
                 opt("remove", "Remove", "", false, button(Action::RemoveNicks)),
                 opt("clear", "Clear all", "--clear-all", false, button(Action::ClearAll)),
+            ]},
+            MenuCommand { id: Research, label: "Research", hint: 'r', action: None, opts: vec![
+                opt("project", "Project", "--research-add / --research-show NAME", false, text("")),
+                opt("projects", "Projects…", "--research-list · pick or create", false, button(Action::ResearchProjects)),
+                opt("show", "Show project", "--research-show", false, button(Action::ShowResearch)),
+                opt("add", "Add current post…", "r · --post-ids", false, button(Action::AddToResearch)),
+                opt("add_view", "Add current view / search…", "--search / --post-ids", false, button(Action::AddViewToResearch)),
+                opt("file", "Local file", "--file", false, text("")),
+                opt("add_file", "Add local file…", "--file", false, button(Action::AddFileToResearch)),
+                opt("url", "Web page URL", "--url", false, text("")),
+                opt("add_url", "Add web page…", "--url", false, button(Action::AddUrlToResearch)),
+                opt("gdrive", "Google Drive (coming later)", "pinned for later", false, button(Action::ComingLater(0))),
+                opt("telegram", "Telegram (coming later)", "pinned for later", false, button(Action::ComingLater(1))),
+                opt("export_path", "Export to", "--export", false, text("")),
+                opt("export_format", "Format", "--format", false, choice(FORMAT_CHOICES)),
+                opt("export_compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
+                opt("export", "Export project", "--research-export", false, button(Action::ExportResearch)),
             ]},
             MenuCommand { id: Session, label: "Session", hint: 'n', action: None, opts: vec![
                 opt("login", "Log in", "", false, button(Action::Login)),
@@ -400,6 +488,19 @@ impl Menu {
         let mut v = vec![ARGV0.to_string(), "--remove-nick".into(), n.join(","), "--yes".into()];
         if self.check(M, "keep_replies") { v.push("--keep-replies".into()); }
         if self.check(M, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--research-export` of `name` with Research › Export to / Format / Compress.
+    pub fn research_export_argv(&self, name: &str) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Research as R;
+        if name.trim().is_empty() { return Err("pick a research project first (Research › Projects…)".into()); }
+        let path = self.text(R, "export_path");
+        if path.is_empty() { return Err("Research › Export to needs a path".into()); }
+        let mut v = vec![ARGV0.to_string(), "--research-export".into(), name.trim().into(), "--export".into(), path,
+            "--format".into(), self.choice(R, "export_format").into()];
+        if self.check(R, "export_compress") { v.extend(["--compress".into(), "--tar-gz".into()]); }
         v.extend(self.debug_args());
         validate(v)
     }

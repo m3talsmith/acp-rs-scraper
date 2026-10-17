@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AnimKind","Effect","Focus","Hit","LinkKind","SessionState","ViewMode"],"struct":["Anim","App","BodyView","DetailFrame","JobView","Link","MenuState"]};
+window.SIDEBAR_ITEMS = {"enum":["AnimKind","Effect","Focus","Hit","LinkKind","SessionState","ViewMode"],"fn":["research_post","web_links"],"struct":["Anim","App","BodyView","DetailFrame","JobView","Link","MenuState"]};

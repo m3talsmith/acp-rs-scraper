@@ -112,6 +112,20 @@ pub trait Store {
     fn attachments(&self, id: &str) -> Result<Vec<Attachment>>;
     /// Bookmarked post ids (pending removals excluded).
     fn bookmarks(&self) -> Result<HashSet<String>>;
+    /// Research projects, newest first.
+    fn research_projects(&self) -> Result<Vec<ResearchProject>> { Ok(Vec::new()) }
+    /// Items of research project `name`, in the order added.
+    fn research_items(&self, _name: &str) -> Result<Vec<ResearchItem>> { Ok(Vec::new()) }
+}
+
+/// The stored file of research item `research:<id>`, as an attachment (local files, page snapshots).
+pub fn research_attachment(it: &ResearchItem) -> Option<Attachment> {
+    (!it.local_path.is_empty()).then(|| Attachment {
+        post_id: format!("research:{}", it.id), url: it.r#ref.clone(), kind: "file".into(),
+        local_path: PathBuf::from(&it.local_path),
+        mime_type: it.meta["mime_type"].as_str().or(it.meta["content_type"].as_str()).unwrap_or("application/octet-stream")
+            .split(';').next().unwrap_or("").trim().to_string(),
+    })
 }
 
 const COLS: &str = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state";
@@ -186,6 +200,12 @@ impl Store for SqliteStore {
     }
     fn attachments(&self, id: &str) -> Result<Vec<Attachment>> {
         let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        if let Some(n) = id.strip_prefix("research:").and_then(|n| n.parse::<i64>().ok()) {
+            if !crate::maintenance::table_exists(&c, "research_items")? { return Ok(Vec::new()); }
+            let pid: Option<i64> = c.query_row("SELECT project_id FROM research_items WHERE id = ?1", [n], |r| r.get(0)).optional()?;
+            let Some(pid) = pid else { return Ok(Vec::new()) };
+            return Ok(project_items(&c, pid)?.iter().filter(|i| i.id == n).filter_map(research_attachment).collect());
+        }
         if !crate::maintenance::table_exists(&c, "attachments")? { return Ok(Vec::new()); }
         let mut st = c.prepare("SELECT post_id,url,local_path,mime_type FROM attachments WHERE post_id = ?1 ORDER BY id DESC")?;
         let mut seen = HashSet::new();
@@ -207,6 +227,16 @@ impl Store for SqliteStore {
         let v = st.query_map([], |r| r.get(0))?.collect::<rusqlite::Result<HashSet<String>>>()?;
         Ok(v)
     }
+    fn research_projects(&self) -> Result<Vec<ResearchProject>> {
+        let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        if !crate::maintenance::table_exists(&c, "research_projects")? { return Ok(Vec::new()); }
+        list_projects(&c)
+    }
+    fn research_items(&self, name: &str) -> Result<Vec<ResearchItem>> {
+        let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        if !crate::maintenance::table_exists(&c, "research_items")? { return Ok(Vec::new()); }
+        match project_id(&c, name)? { Some(id) => project_items(&c, id), None => Ok(Vec::new()) }
+    }
 }
 
 /// In-memory store (tests, headless renders).
@@ -218,6 +248,10 @@ pub struct MemStore {
     pub atts: Vec<Attachment>,
     /// Bookmarked post ids.
     pub marks: Vec<String>,
+    /// Research projects.
+    pub projects: Vec<ResearchProject>,
+    /// Research items: (project name, item).
+    pub research: Vec<(String, ResearchItem)>,
 }
 
 impl Store for MemStore {
@@ -249,9 +283,16 @@ impl Store for MemStore {
         Ok(v)
     }
     fn attachments(&self, id: &str) -> Result<Vec<Attachment>> {
+        if id.starts_with("research:") {
+            return Ok(self.research.iter().filter(|(_, i)| format!("research:{}", i.id) == id).filter_map(|(_, i)| research_attachment(i)).collect());
+        }
         Ok(self.atts.iter().filter(|a| a.post_id == id).cloned().collect())
     }
     fn bookmarks(&self) -> Result<HashSet<String>> { Ok(self.marks.iter().cloned().collect()) }
+    fn research_projects(&self) -> Result<Vec<ResearchProject>> { Ok(self.projects.clone()) }
+    fn research_items(&self, name: &str) -> Result<Vec<ResearchItem>> {
+        Ok(self.research.iter().filter(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, i)| i.clone()).collect())
+    }
 }
 
 /// Post ids linked from a body: `/rs/post/{root}` and `/rs/post/{root}/{reply}` URLs

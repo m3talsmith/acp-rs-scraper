@@ -6,6 +6,7 @@ pub mod help;
 pub mod login;
 pub mod message;
 pub mod palette;
+pub mod research;
 pub mod search;
 
 use crossterm::event::KeyEvent;
@@ -15,6 +16,7 @@ pub use help::*;
 pub use login::*;
 pub use message::*;
 pub use palette::*;
+pub use research::*;
 pub use search::*;
 
 /// How a modal closed.
@@ -64,6 +66,8 @@ pub enum Modal {
     Search(SearchModal),
     /// Command palette.
     Palette(PaletteModal),
+    /// Pick / create a research project (and add to it).
+    Research(ResearchModal),
 }
 
 impl Modal {
@@ -71,7 +75,7 @@ impl Modal {
     pub fn state(&mut self) -> &mut dyn ModalState {
         match self {
             Modal::Login(m) => m, Modal::Help(m) => m, Modal::Confirm(m) => m,
-            Modal::Message(m) => m, Modal::Search(m) => m, Modal::Palette(m) => m,
+            Modal::Message(m) => m, Modal::Search(m) => m, Modal::Palette(m) => m, Modal::Research(m) => m,
         }
     }
 }

@@ -20,13 +20,15 @@ pub enum JobKind {
     Bookmark,
     /// `--sync` / `--sync-bookmarks` with the site.
     Sync,
+    /// `--research-add` / `--research-create` (a side job).
+    Research,
 }
 
 impl JobKind {
     /// Lower-case name (log file names, status).
     pub fn name(self) -> &'static str {
         match self { JobKind::Scan => "scan", JobKind::Export => "export", JobKind::Import => "import", JobKind::Maintain => "maintain",
-            JobKind::Bookmark => "bookmark", JobKind::Sync => "sync" }
+            JobKind::Bookmark => "bookmark", JobKind::Sync => "sync", JobKind::Research => "research" }
     }
 }
 

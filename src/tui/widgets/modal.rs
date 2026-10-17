@@ -135,6 +135,54 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let focus = s.focus.checked_sub(nf);
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &labels, focus);
         }
+        Modal::Research(m) => {
+            let list_rows = (m.projects.len() as u16).clamp(1, 10);
+            let add = m.mode == ResearchMode::Add;
+            let h = list_rows + if add { 13 } else { 10 };
+            let r = modal_rect(area, 84, h.min(area.height));
+            let inner = frame(f, &t, r, &format!("{} · Tab moves · Enter {}", m.title(), if add { "adds" } else { "opens" }));
+            let mut y = inner.y + 1;
+            let row = |y: u16| Rect { y, height: 1, ..inner };
+            let lab = |s: &str, on: bool| Span::styled(format!("{s:>18}: "), if on { t.accent_bold() } else { Style::default() });
+            if add {
+                let what = m.what.get(m.what_idx).map(|w| w.0.clone()).unwrap_or_else(|| "nothing here".into());
+                let n = if m.what.len() > 1 { format!("  ({}/{} · ←/→)", m.what_idx + 1, m.what.len()) } else { String::new() };
+                f.render_widget(Paragraph::new(Line::from(vec![lab("Add", m.focus == RField::What), Span::raw(format!("‹ {what} ›")),
+                    Span::styled(n, t.muted())])), row(y));
+                app.hits.push((row(y), Hit::Modal(ModalHit::Field(0))));
+                y += 1;
+                f.render_widget(Paragraph::new(field_line("Note", &m.note, m.focus == RField::Note, &t)), row(y));
+                app.hits.push((row(y), Hit::Modal(ModalHit::Field(1))));
+                y += 2;
+            }
+            f.render_widget(Paragraph::new(Span::styled(format!("Projects ({})", m.projects.len()),
+                if m.focus == RField::List { t.accent_bold() } else { Style::default().add_modifier(Modifier::BOLD) })), row(y));
+            y += 1;
+            if m.projects.is_empty() {
+                f.render_widget(Paragraph::new(Span::styled("  none yet — type a name below to create one", t.muted())), row(y));
+            }
+            let skip = m.sel.saturating_sub(list_rows as usize - 1);
+            for (k, (i, (name, n, desc))) in m.projects.iter().enumerate().skip(skip).take(list_rows as usize).enumerate() {
+                let rr = row(y + k as u16);
+                let sel = i == m.sel;
+                let st = if sel && m.focus == RField::List { t.selected() } else if sel { t.accent_bold() } else { Style::default() };
+                let text = format!(" {} {name}  ({n} items){}", if sel { "▸" } else { " " }, if desc.is_empty() { String::new() } else { format!(" — {desc}") });
+                f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
+                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+            y += list_rows + 1;
+            f.render_widget(Paragraph::new(Span::styled("…or a new project", Style::default().add_modifier(Modifier::BOLD))), row(y));
+            y += 1;
+            f.render_widget(Paragraph::new(field_line("Name", &m.name, m.focus == RField::Name, &t)), row(y));
+            app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
+            y += 1;
+            f.render_widget(Paragraph::new(field_line("Description", &m.desc, m.focus == RField::Desc, &t)), row(y));
+            app.hits.push((row(y), Hit::Modal(ModalHit::Field(3))));
+            y += 1;
+            if let Some(e) = &m.error { f.render_widget(Paragraph::new(Span::styled(e.clone(), t.accent())), row(y)); }
+            let focus = match m.focus { RField::Button(b) => Some(b), _ => None };
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &m.buttons(), focus);
+        }
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

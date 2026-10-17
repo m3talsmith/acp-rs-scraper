@@ -110,6 +110,11 @@ fn card(f: &mut Frame, app: &mut App, i: usize, cr: Rect, sel: bool) {
         f.render_widget(Paragraph::new(Span::styled(basket_icon(app.in_basket(&p.post_id)), t.accent_bold())), br);
         app.hits.push((br, Hit::Basket(i)));
     }
+    if cr.width > 16 && !p.post_id.starts_with("research:") {
+        let rr = Rect { x: cr.x + cr.width - 11, y: cr.y, width: 3, height: 1 };
+        f.render_widget(Paragraph::new(Span::styled(RESEARCH_ICON, t.accent_bold())), rr);
+        app.hits.push((rr, Hit::Research(i)));
+    }
 }
 
 /// Stack: one column of full posts (each card as tall as its text, up to the area).
@@ -237,6 +242,9 @@ fn lines_label_width(atts: &[crate::prelude::Attachment], id: &str) -> usize {
 
 /// Bookmark star: `★` bookmarked, `☆` not (click toggles).
 pub fn star(on: bool) -> &'static str { if on { " ★ " } else { " ☆ " } }
+/// The add-to-research button (opens the project picker).
+pub const RESEARCH_ICON: &str = " ◈ ";
+
 /// The export-basket button: `+` adds the post, `✓` means it's in (click again to take it out).
 pub fn basket_icon(on: bool) -> &'static str { if on { " ✓ " } else { " + " } }
 
@@ -357,5 +365,10 @@ fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
         let br = Rect { x: fr.x + fr.width - 7, y: fr.y, width: 3, height: 1 };
         f.render_widget(Paragraph::new(Span::styled(basket_icon(inb), t.accent_bold())), br);
         app.hits.push((br, Hit::BasketTop));
+    }
+    if fr.width > 14 && !app.view().stack[d].post.post_id.starts_with("research:") {
+        let rr = Rect { x: fr.x + fr.width - 10, y: fr.y, width: 3, height: 1 };
+        f.render_widget(Paragraph::new(Span::styled(RESEARCH_ICON, t.accent_bold())), rr);
+        app.hits.push((rr, Hit::ResearchTop));
     }
 }

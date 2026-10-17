@@ -95,6 +95,7 @@ pub fn build_html(doc: &Value) -> String {
     let top: Vec<&Value> = doc["posts"].as_array().into_iter().flatten().collect();
     let (roots, orphans): (Vec<&Value>, Vec<&Value>) = top.into_iter()
         .partition(|p| p["parent_post_id"].as_str().unwrap_or_default().is_empty());
+    if doc["research"].is_object() { body.push_str(&research_html(&doc["research"], &ids)); }
     let (np, nr) = count_kinds(&doc["posts"]);
     body.push_str(&format!("<p class=\"meta counts\">{np} posts · {nr} replies</p>"));
     body.push_str(&format!("<h2 id=\"posts\">Posts ({})</h2>", roots.len()));
@@ -130,11 +131,53 @@ h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .bod
 .profile .avatar{{width:72px;height:72px;border-radius:50%;object-fit:cover}}
 .badge{{display:inline-block;font-size:.75em;font-weight:600;padding:0 .45em;border-radius:4px;color:#fff;background:#71717a}} .badge.post{{background:#dc2626}}
 .post.kind-post.d0{{border-left:4px solid #dc2626}}
+.research{{background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:.8em 1em;margin:1em 0}} .research-items li{{margin:.5em 0}}
+.note{{margin:.3em 0 .3em .5em;padding-left:.7em;border-left:3px solid #dc2626;color:#3f3f46}}
 .mentions{{padding-left:1.2em}} .reply-to a{{color:#dc2626}}
 </style><script type="application/json" id="{data_id}">{data}</script></head><body><h1>{nick}</h1><p class="meta">Exported {}</p>{body}</body></html>"#,
         esc(doc["exported_at"].as_str().unwrap_or_default()),
         data_id = HTML_DATA_ID,
         data = doc.to_string().replace('<', "\\u003c"))
+}
+
+/// The research section: description, then every item with its kind, title, note and source.
+pub fn research_html(r: &Value, ids: &HashSet<String>) -> String {
+    let s = |v: &Value, k: &str| v[k].as_str().unwrap_or_default().to_string();
+    let items = r["items"].as_array().cloned().unwrap_or_default();
+    let mut h = format!("<section class=\"research\"><h2 id=\"research\">Research: {} <span class=\"meta\">({} items)</span></h2>",
+        esc(&s(r, "name")), items.len());
+    if !s(r, "description").is_empty() { h.push_str(&paragraphs_html(&s(r, "description"))); }
+    h.push_str("<ol class=\"research-items\">");
+    for i in &items {
+        let kind = s(i, "kind");
+        let (title, rf) = (s(i, "title"), s(i, "ref"));
+        h.push_str(&format!("<li class=\"item kind-{}\"><span class=\"badge\">{}</span> ", esc(&kind), esc(&kind)));
+        match kind.as_str() {
+            "post" | "reply" | "search-result" => {
+                let href = if ids.contains(&rf) { format!("#post-{}", esc(&rf)) } else { format!("{}/rs/post/{}", esc(base_url()), esc(&rf)) };
+                h.push_str(&format!("<a href=\"{href}\">{}</a> <span class=\"meta\">{}</span>", esc(&title), esc(&rf)));
+                if let Some(q) = i["meta"]["query"].as_str() { h.push_str(&format!(" <span class=\"meta\">search: {}</span>", esc(q))); }
+            }
+            "web-url" => {
+                h.push_str(&format!("<a href=\"{}\">{}</a> <span class=\"meta\">{}</span>", esc(&rf), esc(&title), esc(&rf)));
+                if let Some(f) = i["file"].as_str() { h.push_str(&format!(" · <a href=\"{}\">snapshot</a>", esc(f))); }
+            }
+            _ => {
+                let link = i["file"].as_str().map(str::to_string).unwrap_or_else(|| format!("file://{rf}"));
+                h.push_str(&format!("<a href=\"{}\">{}</a> <span class=\"meta\">{}</span>", esc(&link), esc(&title), esc(&rf)));
+            }
+        }
+        h.push_str(&format!(" <span class=\"meta\">added {}</span>", esc(&s(i, "added_at"))));
+        if !s(i, "note").is_empty() { h.push_str(&format!("<blockquote class=\"note\">{}</blockquote>", paragraphs_html(&s(i, "note")))); }
+        let content = s(i, "content");
+        if !content.trim().is_empty() {
+            h.push_str(&format!("<details><summary>Text ({} characters)</summary><div class=\"body\">{}</div></details>",
+                content.chars().count(), paragraphs_html(&content)));
+        }
+        h.push_str("</li>");
+    }
+    h.push_str("</ol></section>");
+    h
 }
 
 /// Body text as HTML paragraphs: blank lines split `<p>`s, single newlines

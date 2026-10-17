@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["app","auth","bookmarks","cli","config","export","http","import","liveview","logging","maintenance","media","prelude","scrape","storage","tui"]};
+window.SIDEBAR_ITEMS = {"mod":["app","auth","bookmarks","cli","config","export","http","import","liveview","logging","maintenance","media","prelude","research","scrape","storage","tui"]};

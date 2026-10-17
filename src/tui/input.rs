@@ -79,6 +79,7 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('<') => { app.search_back(); }
         KeyCode::Char('b') => app.act(Action::ToggleBookmark),
         KeyCode::Char('x') => app.act(Action::ToggleBasket),
+        KeyCode::Char('r') => app.act(Action::AddToResearch),
         KeyCode::Char('v') => app.act(Action::CycleView),
         KeyCode::Char(',') => app.act(Action::StackPrev),
         KeyCode::Char('.') => app.act(Action::StackNext),
@@ -240,8 +241,8 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     if wheel != 0 {
         match hit {
             Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
-            Some(Hit::DetailPane | Hit::Link(_) | Hit::StarTop | Hit::BasketTop) => app.scroll_detail(wheel * 3),
-            Some(Hit::Post(_) | Hit::Star(_) | Hit::Basket(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
+            Some(Hit::DetailPane | Hit::Link(_) | Hit::StarTop | Hit::BasketTop | Hit::ResearchTop) => app.scroll_detail(wheel * 3),
+            Some(Hit::Post(_) | Hit::Star(_) | Hit::Basket(_) | Hit::Research(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
             _ => {}
         }
         return;
@@ -264,6 +265,10 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::Star(i)) => { if let Some(id) = app.view().posts.get(i).map(|p| p.post_id.clone()) { app.focus = Focus::Body; app.toggle_mark(&id); } }
         Some(Hit::StarTop) => { if let Some(id) = app.top().map(|f| f.post.post_id.clone()) { app.toggle_mark(&id); } }
         Some(Hit::Basket(i)) => { if let Some(id) = app.view().posts.get(i).map(|p| p.post_id.clone()) { app.focus = Focus::Body; app.toggle_basket(&id); } }
+        Some(Hit::Research(i)) => {
+            if i < app.view().posts.len() { app.focus = Focus::Body; app.view_mut().cursor = i; app.act(Action::AddToResearch); }
+        }
+        Some(Hit::ResearchTop) => app.act(Action::AddToResearch),
         Some(Hit::BasketTop) => { if let Some(id) = app.top().map(|f| f.post.post_id.clone()) { app.toggle_basket(&id); } }
         Some(Hit::MenuItem(i)) => app.open_menu(i),
         Some(Hit::MenuOpt(i)) => { app.menu.editing = false; app.activate_opt(i); }

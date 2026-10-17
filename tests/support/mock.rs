@@ -32,6 +32,8 @@ const PAGE: usize = 2;
 /// Counters and switches the steps read or flip.
 #[derive(Default, Debug)]
 pub struct Inner {
+    /// Cookie headers sent with `/web/...` requests (research web pages must not carry the session).
+    pub web_cookies: Vec<String>,
     /// Feed `page-next` events received.
     pub page_next: usize,
     /// Thread pages served.
@@ -225,6 +227,17 @@ async fn media(Path(name): Path<String>) -> Response {
     ([(header::CONTENT_TYPE, "image/png")], PNG).into_response()
 }
 
+/// A third-party article for research `--url` tests.
+async fn web_article(State(m): State<Mock>, headers: axum::http::HeaderMap) -> Response {
+    if let Some(c) = headers.get(header::COOKIE).and_then(|v| v.to_str().ok()) { m.inner.lock().unwrap().web_cookies.push(c.to_string()); }
+    let html = r#"<!DOCTYPE html><html><head><title>The Great Railroad Strike</title></head><body>
+<nav><a href="/">Home</a> menu text</nav>
+<article><h1>The Great Railroad Strike of 1877</h1><p>Workers stopped the trains in <b>Martinsburg</b>.</p>
+<ul><li>Baltimore</li><li>Pittsburgh</li></ul><blockquote>An injury to one is an injury to all.</blockquote></article>
+<footer>footer text</footer><script>var tracking = 1;</script></body></html>"#;
+    ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], html).into_response()
+}
+
 async fn live(State(m): State<Mock>, ws: WebSocketUpgrade) -> Response { ws.on_upgrade(move |s| lv_conn(m, s)) }
 
 /// Which feed a joined LiveView pages: from its join URL and any `configure-feed`.
@@ -300,6 +313,7 @@ impl Mock {
             .route("/auth/user/otp/sign_in", post(sign_in))
             .route("/media/{name}", get(media))
             .route("/live/websocket", get(live))
+            .route("/web/article", get(web_article))
             .with_state(m.clone());
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         m

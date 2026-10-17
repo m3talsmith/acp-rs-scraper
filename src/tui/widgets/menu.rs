@@ -12,16 +12,21 @@ use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 /// Label of the pinned scan button.
 pub fn scan_label(app: &App) -> &'static str { if app.job.is_some() { " ■ Cancel " } else { " ▶ Start Scanning " } }
 
+/// The scan button on a narrow menu bar.
+pub fn short_scan_label(app: &App) -> &'static str { if app.job.is_some() { " ■ Cancel " } else { " ▶ Scan " } }
+
 /// Draw the menu bar into `r` (one row); the dropdown is drawn by [`draw_dropdown`].
 pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
     let mut x = r.x;
-    let scan = scan_label(app);
-    let scan_w = scan.chars().count() as u16;
-    let limit = r.x + r.width.saturating_sub(scan_w + 1);
-    // Wide: " Label " │ " Label "; narrow: drop the separators, then the padding.
+    // Wide: " Label " │ " Label "; narrow: drop the separators, then the padding,
+    // then shorten the scan button so every command (Quit included) still shows.
     let labels: u16 = app.menu.menu.items.iter().map(|c| c.label.chars().count() as u16).sum();
     let n = app.menu.menu.items.len() as u16;
+    let full = scan_label(app);
+    let scan = if labels + 2 * n + full.chars().count() as u16 + 1 > r.width { short_scan_label(app) } else { full };
+    let scan_w = scan.chars().count() as u16;
+    let limit = r.x + r.width.saturating_sub(scan_w + 1);
     let room = limit.saturating_sub(r.x);
     let (pad, sep) = if labels + 3 * n <= room { (1, true) } else if labels + 2 * n <= room { (1, false) } else { (0, false) };
     for (i, c) in app.menu.menu.items.iter().enumerate() {

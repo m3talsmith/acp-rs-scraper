@@ -6,6 +6,27 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-10-17
+
+### Added
+- **Research projects**: named collections of posts, replies, search results, local files and web
+  pages, each with an optional note, stored in the new `research_projects` / `research_items`
+  tables. Flags: `--research-list`, `--research-create NAME [--research-description TEXT]`,
+  `--research-add NAME` with `--post-ids IDS`, `--search TEXT [--nicks]`, `--file PATH [--no-copy]`
+  or `--url URL` (plus `--note`), `--research-show NAME` and `--research-export NAME --export FILE`.
+  Local files keep their metadata (and text) and are copied to `~/.acp/research/<project>/files/`;
+  web pages are fetched once without the acp.us cookies and keep their title, readable text and an
+  HTML snapshot. Exports add a `research` section to the JSON and HTML; bundles carry the files.
+- TUI: a `◈` button on every card and detail (or `r`) opens a research picker — add this post or
+  reply, the posts it links, its attachment files, the web pages in its body, or the whole view /
+  search results to an existing or new project, with a note. A Research menu (`Alt-r`): Projects…
+  (pick or create), Show project (its items as cards), add a local file or a web page URL, Google
+  Drive and Telegram (pinned for later), and Export project.
+### Changed
+- The menu bar's scan button shortens to `▶ Scan` when the window is too narrow for every command.
+### Fixed
+- Readable web text no longer puts a space before punctuation after inline tags.
+
 ## [2.8.0] - 2026-10-17
 
 ### Added

@@ -1,3 +1,9 @@
+acp-rs-scraper (2.9.0) unstable; urgency=medium
+
+  * Research projects: posts, search results, local files and web pages (--research-*), TUI picker and Research menu.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 07:59:27 -0400
+
 acp-rs-scraper (2.8.0) unstable; urgency=medium
 
   * TUI export basket (+ button / x) and --post-ids exports.

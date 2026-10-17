@@ -64,6 +64,17 @@ pub fn render(f: Format, doc: &Value) -> Result<String> {
 #[allow(clippy::too_many_arguments)]
 /// Write an export (JSON or HTML) to stdout, `--output`, or a `.tar.gz` archive with an `attachments/` folder, as selected in `args`.
 pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attachment], profiles: &[Profile], hits: &[MentionHit], exports_dir: &Path) -> Result<()> {
+    export_with(args, name, nick, posts, atts, profiles, hits, exports_dir, None)
+}
+
+/// A research project to add to an export (its `research` section).
+pub type ResearchPart<'a> = Option<(&'a ResearchProject, &'a [ResearchItem])>;
+
+#[allow(clippy::too_many_arguments)]
+/// [`export`] plus an optional research section; research files must be in `atts`
+/// (see [`item_attachments`]) so bundles copy them.
+pub fn export_with(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attachment], profiles: &[Profile], hits: &[MentionHit],
+    exports_dir: &Path, research: ResearchPart) -> Result<()> {
     let formats = args.formats();
     let base = name.to_string();
 
@@ -75,6 +86,9 @@ pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attac
         }
         let mut doc = build_json(nick, posts, atts, profiles, hits, &|a| a.local_path.to_string_lossy().into_owned());
         doc["title"] = json!(name);
+        if let Some((p, items)) = research {
+            doc["research"] = research_json(p, items, &|i| (!i.local_path.is_empty()).then(|| i.local_path.clone()));
+        }
         let mut so = std::io::stdout().lock();
         so.write_all(render(formats[0], &doc)?.as_bytes())?;
         so.write_all(b"\n")?;
@@ -82,7 +96,7 @@ pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attac
     }
 
     // Never write (or overwrite a good export with) an empty file.
-    if posts.is_empty() && hits.is_empty() {
+    if posts.is_empty() && hits.is_empty() && research.is_none_or(|(_, i)| i.is_empty()) {
         err!("warning: export {name}: 0 posts kept, not writing an export (any existing file is left untouched)");
         return Ok(());
     }
@@ -127,6 +141,11 @@ pub fn export(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[Attac
         format!("attachments/{}", a.local_path.file_name().unwrap_or_default().to_string_lossy())
     });
     doc["title"] = json!(name);
+    if let Some((p, items)) = research {
+        let copied: HashSet<String> = atts.iter().map(|a| a.local_path.display().to_string()).collect();
+        doc["research"] = research_json(p, items, &|i| copied.contains(&i.local_path)
+            .then(|| format!("attachments/{}", Path::new(&i.local_path).file_name().unwrap_or_default().to_string_lossy())));
+    }
     for (f, file) in &files {
         if let Some(p) = file.parent().filter(|p| !p.as_os_str().is_empty()) { std::fs::create_dir_all(p)?; }
         std::fs::write(file, render(*f, &doc)?)?;

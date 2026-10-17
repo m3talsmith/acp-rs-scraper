@@ -89,3 +89,26 @@ pub const BOOKMARKS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
             remote INTEGER NOT NULL DEFAULT 0,
             deleted INTEGER NOT NULL DEFAULT 0
         );";
+
+/// Research projects and their items (see `research`). Items are unique per
+/// project, kind and ref; deleting a project deletes its items.
+pub const RESEARCH_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS research_projects (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            description TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS research_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            project_id INTEGER NOT NULL REFERENCES research_projects(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL CHECK (kind IN ('post', 'reply', 'search-result', 'local-file', 'web-url')),
+            ref TEXT NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            note TEXT NOT NULL DEFAULT '',
+            meta TEXT NOT NULL DEFAULT '{}',
+            content TEXT NOT NULL DEFAULT '',
+            local_path TEXT NOT NULL DEFAULT '',
+            added_at TEXT NOT NULL,
+            UNIQUE (project_id, kind, ref)
+        );
+        CREATE INDEX IF NOT EXISTS research_items_project_idx ON research_items(project_id);";
