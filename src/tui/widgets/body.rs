@@ -7,9 +7,10 @@ use crate::tui::state::{AnimKind, App, Focus, Hit, ViewMode};
 use crate::tui::widgets::detail::{badge, detail_layout, header_lines, meta_line, snippet};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
+use crate::tui::theme::Gloss;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Padding, Paragraph};
+use crate::tui::theme::frame as boxed;
+use ratatui::widgets::{Clear, Paragraph};
 use crate::prelude::Post;
 use std::time::Instant;
 
@@ -17,7 +18,7 @@ use std::time::Instant;
 pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     let t = app.theme;
     let focused = app.focus == Focus::Body;
-    let b = Block::default().borders(Borders::ALL).border_style(t.border(focused));
+    let b = boxed(&t.pane(focused));
     let inner = b.inner(r);
     f.render_widget(b, r);
     if inner.height < 2 { return; }
@@ -28,7 +29,7 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     let (pos, total) = app.stack_pos();
     let mut spans = Vec::new();
     let mut x = nav.x;
-    let mut button = |spans: &mut Vec<Span<'static>>, hits: &mut Vec<(Rect, Hit)>, label: &'static str, st: Style, hit: Option<Hit>| {
+    let mut button = |spans: &mut Vec<Span<'static>>, hits: &mut Vec<(Rect, Hit)>, label: &'static str, st: Gloss, hit: Option<Hit>| {
         let w = unicode_width::UnicodeWidthStr::width(label) as u16;
         if let Some(h) = hit { hits.push((Rect { x, width: w.min((nav.x + nav.width).saturating_sub(x)), ..nav }, h)); }
         spans.push(Span::styled(label, st));
@@ -44,7 +45,7 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     let v = app.view();
     if total > 0 { spans.push(Span::styled(format!("{pos}/{total}  "), t.muted())); }
     let title = if v.title.is_empty() { "Select a nick on the left".to_string() } else { v.title.clone() };
-    spans.push(Span::styled(title, Style::default().add_modifier(Modifier::BOLD)));
+    spans.push(Span::styled(title, t.bold()));
     spans.push(Span::styled(format!("  {} posts", v.posts.len()), t.muted()));
     if !v.stack.is_empty() {
         spans.push(Span::styled(format!("  · detail {}/{}", v.stack.len(), crate::config::MAX_DETAIL_DEPTH), t.muted()));
@@ -91,9 +92,7 @@ fn card(f: &mut Frame, app: &mut App, i: usize, cr: Rect, sel: bool) {
     let t = app.theme;
     let Some(p) = app.view().posts.get(i).cloned() else { return };
     let focused = app.focus == Focus::Body;
-    let b = Block::default().borders(Borders::ALL).title(meta_line(&p, &t)).padding(Padding::horizontal(1))
-        .border_type(if sel { BorderType::Thick } else { BorderType::Plain })
-        .border_style(if sel && focused { t.accent() } else if sel { Style::default() } else { t.border(false) });
+    let b = boxed(&t.card(sel, focused)).title(meta_line(&p, &t));
     let inner = b.inner(cr);
     f.render_widget(b, cr);
     let lines: Vec<Line> = crate::tui::markdown::render(post_text(&p).trim(), inner.width as usize, &t).into_iter()
@@ -145,12 +144,11 @@ fn draw_flat(f: &mut Frame, app: &mut App, r: Rect) {
     let focused = app.focus == Focus::Body;
     let depth = app.view().stack.len();
     let title = if depth > 1 { format!(" {depth} deep · Esc back ") } else { " Esc closes ".into() };
-    let b = Block::default().borders(Borders::ALL).border_type(BorderType::Double).title(title)
-        .border_style(if focused { t.accent() } else { t.border(false) });
+    let b = boxed(&t.detail(focused).padding_left(1)).title(title);
     let inner = b.inner(r);
     f.render_widget(b, r);
-    if inner.width < 3 || inner.height == 0 { return; }
-    full_frame(f, app, depth - 1, Rect { x: inner.x + 1, width: inner.width - 1, ..inner }, true);
+    if inner.width < 2 || inner.height == 0 { return; }
+    full_frame(f, app, depth - 1, inner, true);
 }
 
 /// Carousel: the current post in the middle, its neighbours peeking at the sides.
@@ -165,7 +163,7 @@ fn draw_carousel(f: &mut Frame, app: &mut App, r: Rect) {
     let prev = if cur > 0 { Some(cur - 1) } else if wrapv && n > 1 { Some(n - 1) } else { None };
     let next = if cur + 1 < n { Some(cur + 1) } else if wrapv && n > 1 { Some(0) } else { None };
     for (side, idx, arrow) in [(c.prev, prev, "◂"), (c.next, next, "▸")] {
-        let b = Block::default().borders(Borders::ALL).border_style(t.border(false));
+        let b = boxed(&t.pane(false));
         let inner = b.inner(side);
         f.render_widget(b, side);
         if let Some(i) = idx {
@@ -208,7 +206,7 @@ fn draw_grid_modal(f: &mut Frame, app: &mut App, body: Rect) {
     f.render_widget(Clear, mr);
     app.hits.push((mr, Hit::DetailPane));
     let depth = app.view().stack.len();
-    let b = Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(t.accent())
+    let b = boxed(&t.dialog())
         .title(if depth > 1 { format!(" Post · {depth} deep · Esc back ") } else { " Post ".into() });
     let inner = b.inner(mr);
     f.render_widget(b, mr);
@@ -269,13 +267,13 @@ fn draw_with_detail(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     for (i, rr) in split.above.clone() { compact(f, app, i, rr); }
     for (i, rr) in split.below.clone() { compact(f, app, i, rr); }
     let focused = app.focus == Focus::Body;
-    let b = Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(if focused { t.accent() } else { t.border(false) });
+    let b = boxed(&t.detail(focused));
     let inner = b.inner(split.detail);
     f.render_widget(b, split.detail);
     let depth = app.view().stack.len();
     let sl = stack_layout(inner, depth, push_p);
     if let Some(nb) = sl.nested {
-        f.render_widget(Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(t.accent()), nb);
+        f.render_widget(boxed(&t.dialog()), nb);
     }
     for (d, fr, collapsed) in sl.frames {
         if fr.height == 0 || fr.width < 3 { continue; }

@@ -6,22 +6,21 @@ use crate::prelude::*;
 use crate::tui::layout::{ellipsize, wrap};
 use crate::tui::state::{DetailFrame, LinkKind};
 use crate::tui::theme::Theme;
-use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 
 /// `Post` / `Reply` badge.
 pub fn badge(p: &Post, t: &Theme) -> Span<'static> {
     if p.parent_post_id.is_empty() {
-        Span::styled(" Post ", Style::default().fg(t.on_accent).bg(t.border).add_modifier(Modifier::BOLD))
+        Span::styled(" Post ", t.post_tag())
     } else {
-        Span::styled(" Reply ", Style::default().fg(t.on_accent).bg(t.accent).add_modifier(Modifier::BOLD))
+        Span::styled(" Reply ", t.reply_tag())
     }
 }
 
 /// `[badge] @nick · posted_at · post_id`.
 pub fn meta_line(p: &Post, t: &Theme) -> Line<'static> {
     let mut v = vec![badge(p, t), Span::raw(" "),
-        Span::styled(format!("@{}", p.nick), Style::default().add_modifier(Modifier::BOLD)),
+        Span::styled(format!("@{}", p.nick), t.bold()),
         Span::styled(format!(" · {} · {}", p.posted_at, p.post_id), t.muted())];
     if p.truncated { v.push(Span::styled(" · shortened (run --refetch-truncated)", t.muted())); }
     Line::from(v)
@@ -71,7 +70,7 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
             lines.push(Line::from(vec![
                 Span::styled(format!("{} {mime}", link_label(l.kind)), if sel { t.selected() } else { t.accent() }),
                 Span::raw("  "),
-                Span::styled(name, if exists { t.accent().add_modifier(Modifier::UNDERLINED) } else { t.muted().add_modifier(Modifier::CROSSED_OUT) }),
+                Span::styled(name, if exists { t.accent().underline(true) } else { t.muted().strikethrough(true) }),
                 Span::styled(if exists { "" } else { "  (file missing)" }, t.muted()),
             ]));
             return;
@@ -83,8 +82,8 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
         let st = if sel { t.selected() } else { t.accent() };
         links.push((lines.len(), i));
         lines.push(Line::from(vec![
-            Span::styled(format!("{} {}", link_label(l.kind), l.id), st.add_modifier(Modifier::UNDERLINED)),
-            Span::styled(format!("  {who}"), if l.target.is_some() { t.muted() } else { t.muted().add_modifier(Modifier::ITALIC) }),
+            Span::styled(format!("{} {}", link_label(l.kind), l.id), st.underline(true)),
+            Span::styled(format!("  {who}"), if l.target.is_some() { t.muted() } else { t.muted().italic(true) }),
         ]));
     };
     // "Replying to … · thread …" right under the meta line, like the HTML export.
@@ -94,7 +93,7 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
     if let Some(n) = &f.notice { lines.push(Line::styled(format!("⚠ {n}"), t.accent_bold())); }
     lines.push(Line::raw(""));
     if !f.post.title.trim().is_empty() {
-        for l in wrap(f.post.title.trim(), width) { lines.push(Line::styled(l, Style::default().add_modifier(Modifier::BOLD))); }
+        for l in wrap(f.post.title.trim(), width) { lines.push(Line::styled(l, t.bold())); }
         lines.push(Line::raw(""));
     }
     lines.extend(crate::tui::markdown::render(f.post.content.trim_end(), width, t));
@@ -111,19 +110,19 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
     let atts: Vec<usize> = (0..f.links.len()).filter(|i| f.links[*i].kind == LinkKind::Attachment).collect();
     if !atts.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled(format!("Attachments ({}) · Enter / click opens", atts.len()), Style::default().add_modifier(Modifier::BOLD)));
+        lines.push(Line::styled(format!("Attachments ({}) · Enter / click opens", atts.len()), t.bold()));
         for i in atts { link_line(i, &mut lines, &mut links); }
     }
     let others: Vec<usize> = (0..f.links.len()).filter(|i| matches!(f.links[*i].kind, LinkKind::Mentioned)).collect();
     if !others.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled("Linked posts", Style::default().add_modifier(Modifier::BOLD)));
+        lines.push(Line::styled("Linked posts", t.bold()));
         for i in others { link_line(i, &mut lines, &mut links); }
     }
     let replies: Vec<usize> = (0..f.links.len()).filter(|i| matches!(f.links[*i].kind, LinkKind::Reply)).collect();
     if !replies.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled(format!("Replies ({})", replies.len()), Style::default().add_modifier(Modifier::BOLD)));
+        lines.push(Line::styled(format!("Replies ({})", replies.len()), t.bold()));
         for i in replies { link_line(i, &mut lines, &mut links); }
     }
     if !f.links.is_empty() {

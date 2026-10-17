@@ -118,7 +118,8 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   and, when logged out, opens the Login modal (email, then the code or login link), then starts the
   scan.
 - **Theme:** `[theme]` in `~/.acp/preferences.toml` (`accent`, `muted`, `border`, `on_accent`,
-  `#rrggbb`); the default accent is ACP red `#dc2626`.
+  `#rrggbb`); the default accent is ACP red `#dc2626`. Every style and box comes from
+  `src/tui/theme.rs`, built with [ratatui-lipgloss](https://crates.io/crates/ratatui-lipgloss).
 - **Keys:** `?`/`F1` lists them all next to the full `--help`.
 
 ## First run and login
@@ -562,6 +563,13 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 ### Code layout and tests
 
 The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `tui/{state,input,layout,commands,data,jobs,theme,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+
+TUI styling goes through `tui::theme` only: `Theme` holds the four colours (defaults plus
+`[theme]` overrides) and returns `ratatui_lipgloss::Style` values for text (`accent()`,
+`muted()`, `selected()`, `bar()`, …) and boxes (`pane()`, `card()`, `detail()`, `dialog()`:
+border kind, border colour and padding). `theme::frame(&style)` turns a box style into a
+ratatui `Block` (via the crate's `to_block`) so a title can be added. Widgets don't build
+`ratatui::style::Style`, `Modifier` or `BorderType` values themselves.
 
 The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/features/*.feature` and the steps in `tests/e2e.rs`. It runs the real binary against a **mock acp.us** (`tests/support/mock.rs`: HTTP pages, the LiveView websocket, OTP sign-in, threads and media) with a temporary `HOME`. It covers:
 - login (right and wrong code);

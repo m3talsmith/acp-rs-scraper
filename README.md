@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.9.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.10.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -365,8 +365,10 @@ headless scrape is now `--scrape`.
 - **Quit** (`q`) while a scan runs asks whether to keep it running in the background (the default:
   it is its own process, so it carries on after the TUI exits and prints the `tail -f` line for its
   log) or to cancel it first.
-- **Theme.** The accent is ACP red `#dc2626`, as in the HTML export. Override any colour in
-  `~/.acp/preferences.toml`:
+- **Theme.** All TUI styling (text styles, borders, border colours, padding) is defined once in
+  `src/tui/theme.rs` with [ratatui-lipgloss](https://crates.io/crates/ratatui-lipgloss), a Lip
+  Gloss port for ratatui. The accent is ACP red `#dc2626`, as in the HTML export. Override any
+  colour in `~/.acp/preferences.toml`:
 
   ```toml
   [theme]

@@ -3,16 +3,15 @@
 use crate::tui::state::{App, Focus, Hit};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::Paragraph;
 
 /// Draw the nick bar into `r`.
 pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
     let count = if app.nick_filter_active() { format!("{}/{}", app.nicks.len(), app.all_nicks.len()) } else { app.nicks.len().to_string() };
     let title = if app.selected.len() > 1 { format!(" Nicks ({count}) · {} selected ", app.selected.len()) } else { format!(" Nicks ({count}) ") };
-    let b = Block::default().borders(Borders::ALL).title(title).border_style(t.border(app.focus == Focus::Nicks));
+    let b = crate::tui::theme::frame(&t.pane(app.focus == Focus::Nicks)).title(title);
     let mut inner = b.inner(r);
     f.render_widget(b, r);
     app.hits.push((r, Hit::NickPane));
@@ -35,7 +34,7 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
         let mut text = app.nick_filter.display();
         if app.filter_editing { let b = text.char_indices().nth(app.nick_filter.cursor).map(|(b, _)| b).unwrap_or(text.len()); text.insert(b, '▏'); }
         let shown = if text.is_empty() { Span::styled(crate::tui::layout::ellipsize("filter nicks (/)", fw), t.muted()) }
-            else { Span::styled(crate::tui::layout::ellipsize(&text, fw), if app.filter_editing { t.selected() } else { Style::default() }) };
+            else { Span::styled(crate::tui::layout::ellipsize(&text, fw), if app.filter_editing { t.selected() } else { t.plain() }) };
         let lead = Span::styled(" / ", if app.filter_editing { t.accent_bold() } else { t.muted() });
         f.render_widget(Paragraph::new(Line::from(vec![lead, shown])), fr);
         app.hits.push((Rect { width: fr.width.saturating_sub(tw), ..fr }, Hit::NickFilter));
@@ -66,9 +65,9 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
         let w = (inner.width as usize).saturating_sub(count.len() + 2);
         let name = crate::tui::layout::ellipsize(&format!("@{}", n.nick), w);
         let pad = w.saturating_sub(unicode_width::UnicodeWidthStr::width(name.as_str()));
-        let mut st = if sel { t.accent_bold() } else { Style::default() };
-        if cur && app.focus == Focus::Nicks { st = t.selected(); } else if cur { st = st.add_modifier(Modifier::REVERSED); }
-        let line = Line::from(vec![Span::styled(mark, t.accent()), Span::styled(format!("{name}{}", " ".repeat(pad)), st),
+        let mut st = if sel { t.accent_bold() } else { t.plain() };
+        if cur && app.focus == Focus::Nicks { st = t.selected(); } else if cur { st = st.reverse(true); }
+        let line = Line::from(vec![Span::styled(mark, t.accent()), Span::styled(format!("{name}{}", " ".repeat(pad)), &st),
             Span::styled(format!(" {count}"), if cur && app.focus == Focus::Nicks { st } else { t.muted() })]);
         f.render_widget(Paragraph::new(line), rr);
         app.hits.push((rr, Hit::Nick(i)));

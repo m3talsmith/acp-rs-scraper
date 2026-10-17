@@ -5,9 +5,9 @@ use crate::tui::commands::Widget;
 use crate::tui::state::{App, Focus, Hit};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
+use crate::tui::theme::frame as boxed;
+use ratatui::widgets::{Clear, Paragraph};
 
 /// Label of the pinned scan button.
 pub fn scan_label(app: &App) -> &'static str { if app.job.is_some() { " ■ Cancel " } else { " ▶ Start Scanning " } }
@@ -34,14 +34,14 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
         let w = label.chars().count() as u16 + 2 * pad + u16::from(pad == 0);
         if x + w > limit { break; }
         let active = app.menu.open == Some(i) || (app.focus == Focus::Menu && app.menu.item == i);
-        let base = if active { t.selected() } else { Style::default() };
+        let base = if active { t.selected() } else { t.plain() };
         let hint = label.chars().position(|ch| ch.to_ascii_lowercase() == c.hint).unwrap_or(0);
-        let mut spans = vec![Span::styled(if pad == 1 { " " } else { "" }, base)];
+        let mut spans = vec![Span::styled(if pad == 1 { " " } else { "" }, &base)];
         for (k, ch) in label.chars().enumerate() {
-            let st = if k == hint { base.add_modifier(Modifier::UNDERLINED) } else { base };
+            let st = if k == hint { base.clone().underline(true) } else { base.clone() };
             spans.push(Span::styled(ch.to_string(), st));
         }
-        spans.push(Span::styled(" ", base));
+        spans.push(Span::styled(" ", &base));
         let rr = Rect { x, y: r.y, width: w, height: 1 };
         f.render_widget(Paragraph::new(Line::from(spans)), rr);
         app.hits.push((rr, Hit::MenuItem(i)));
@@ -49,7 +49,7 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
         if sep && x < limit { f.render_widget(Paragraph::new(Span::styled("│", t.muted())), Rect { x, y: r.y, width: 1, height: 1 }); x += 1; }
     }
     let sr = Rect { x: r.x + r.width.saturating_sub(scan_w), y: r.y, width: scan_w.min(r.width), height: 1 };
-    let st = Style::default().bg(t.accent).fg(t.on_accent).add_modifier(Modifier::BOLD);
+    let st = t.button();
     f.render_widget(Paragraph::new(Span::styled(scan, st)), sr);
     app.hits.push((sr, Hit::StartScan));
 }
@@ -78,12 +78,12 @@ pub fn draw_dropdown(f: &mut Frame, app: &mut App, screen: Rect) {
         let cur = k == app.menu.opt;
         let editing = cur && app.menu.editing;
         let req = if o.required { "*" } else { " " };
-        let base = if cur { t.selected() } else { Style::default() };
+        let base = if cur { t.selected() } else { t.plain() };
         let line = match &o.widget {
-            Widget::Check(v) => Line::from(vec![Span::styled(req, t.accent()), Span::styled(format!(" [{}] {}", if *v { "x" } else { " " }, o.label), base)]),
-            Widget::Button(_) => Line::from(vec![Span::styled(req, t.accent()), Span::styled(format!("  < {} >", o.label), if cur { base } else { t.accent_bold() })]),
-            w => Line::from(vec![Span::styled(req, t.accent()), Span::styled(format!("     {} ", o.label), base),
-                Span::styled(widget_text(w, editing), if editing { t.accent_bold() } else { base })]),
+            Widget::Check(v) => Line::from(vec![Span::styled(req, t.accent()), Span::styled(format!(" [{}] {}", if *v { "x" } else { " " }, o.label), &base)]),
+            Widget::Button(_) => Line::from(vec![Span::styled(req, t.accent()), Span::styled(format!("  < {} >", o.label), if cur { base.clone() } else { t.accent_bold() })]),
+            w => Line::from(vec![Span::styled(req, t.accent()), Span::styled(format!("     {} ", o.label), &base),
+                Span::styled(widget_text(w, editing), if editing { t.accent_bold() } else { base.clone() })]),
         };
         (line, cur)
     }).collect();
@@ -94,7 +94,7 @@ pub fn draw_dropdown(f: &mut Frame, app: &mut App, screen: Rect) {
     let x = x.min(screen.x + screen.width - w);
     let r = Rect { x, y: screen.y + 2, width: w, height: h.min(screen.height.saturating_sub(2)) };
     f.render_widget(Clear, r);
-    let b = Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(t.accent()).title(format!(" {} ", c.label));
+    let b = boxed(&t.dialog()).title(format!(" {} ", c.label));
     let inner = b.inner(r);
     f.render_widget(b, r);
     for (k, (line, _)) in rows.into_iter().enumerate() {

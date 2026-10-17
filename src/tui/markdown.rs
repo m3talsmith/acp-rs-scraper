@@ -4,9 +4,9 @@
 //! stored as plain text whose newlines matter), and paragraphs stay separated
 //! by a blank line.
 
-use crate::tui::theme::Theme;
+use crate::tui::theme::{Gloss, Theme};
 use pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
-use ratatui::style::{Modifier, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use unicode_width::UnicodeWidthStr;
 
@@ -74,7 +74,7 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
     let mut out: Vec<Line<'static>> = Vec::new();
     let mut opts = Options::empty();
     opts.insert(Options::ENABLE_STRIKETHROUGH);
-    let mut style_stack: Vec<Style> = vec![Style::default()];
+    let mut style_stack: Vec<Gloss> = vec![t.plain()];
     let mut cur = Block::default();
     let mut lists: Vec<Option<u64>> = Vec::new();
     let mut quote = 0usize;
@@ -102,25 +102,24 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
         cur.rest = rest;
     };
     for ev in Parser::new_ext(text, opts) {
-        let st = *style_stack.last().unwrap_or(&Style::default());
+        let g = style_stack.last().cloned().unwrap_or_else(|| t.plain());
+        let st = Style::from(&g);
         match ev {
             Event::Start(tag) => match tag {
                 Tag::Paragraph => { if lists.is_empty() { blank(&mut out); } start_block(&mut cur, &lists, quote, &mut pending_item, t); }
                 Tag::Heading { level, .. } => {
                     blank(&mut out);
                     start_block(&mut cur, &lists, quote, &mut pending_item, t);
-                    let mut h = t.accent_bold();
-                    if level == HeadingLevel::H1 { h = h.add_modifier(Modifier::UNDERLINED); }
-                    style_stack.push(h);
+                    style_stack.push(if level == HeadingLevel::H1 { t.accent_bold().underline(true) } else { t.accent_bold() });
                 }
                 Tag::BlockQuote(_) => { blank(&mut out); quote += 1; }
                 Tag::CodeBlock(_) => { blank(&mut out); in_code = true; }
                 Tag::List(start) => { if lists.is_empty() { blank(&mut out); } flush(&mut cur, &mut out); lists.push(start); }
                 Tag::Item => { flush(&mut cur, &mut out); pending_item = true; start_block(&mut cur, &lists, quote, &mut pending_item, t); }
-                Tag::Emphasis => style_stack.push(st.add_modifier(Modifier::ITALIC)),
-                Tag::Strong => style_stack.push(st.add_modifier(Modifier::BOLD)),
-                Tag::Strikethrough => style_stack.push(st.add_modifier(Modifier::CROSSED_OUT)),
-                Tag::Link { dest_url, .. } => { link = Some(dest_url.to_string()); style_stack.push(t.accent().add_modifier(Modifier::UNDERLINED)); }
+                Tag::Emphasis => style_stack.push(g.italic(true)),
+                Tag::Strong => style_stack.push(g.bold(true)),
+                Tag::Strikethrough => style_stack.push(g.strikethrough(true)),
+                Tag::Link { dest_url, .. } => { link = Some(dest_url.to_string()); style_stack.push(t.link()); }
                 _ => {}
             },
             Event::End(tag) => match tag {
@@ -138,7 +137,7 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
                     style_stack.pop();
                     if let Some(u) = link.take() {
                         let shown: String = cur.parts.iter().rev().take(1).map(|(s, _)| s.clone()).collect();
-                        if !u.is_empty() && !shown.contains(u.as_str()) { cur.parts.push((format!(" <{u}>"), t.muted())); }
+                        if !u.is_empty() && !shown.contains(u.as_str()) { cur.parts.push((format!(" <{u}>"), t.muted().into())); }
                     }
                 }
                 _ => {}
@@ -147,14 +146,14 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
                 for l in s.trim_end_matches('\n').split('\n') {
                     let mut first = quote_prefix(quote, t);
                     first.push(Span::styled("  ", t.muted()));
-                    wrap_parts(Block { rest: first.clone(), first, parts: vec![(l.to_string(), t.muted())] }, width, &mut out);
+                    wrap_parts(Block { rest: first.clone(), first, parts: vec![(l.to_string(), t.muted().into())] }, width, &mut out);
                 }
             }
             Event::Text(s) => {
                 if cur.first.is_empty() && cur.rest.is_empty() && cur.parts.is_empty() { start_block(&mut cur, &lists, quote, &mut pending_item, t); }
                 cur.parts.push((s.to_string(), st));
             }
-            Event::Code(s) => cur.parts.push((s.to_string(), t.muted().add_modifier(Modifier::BOLD))),
+            Event::Code(s) => cur.parts.push((s.to_string(), t.code().into())),
             Event::SoftBreak | Event::HardBreak => {
                 // Keep the author's line breaks.
                 let (first, rest) = (cur.first.clone(), cur.rest.clone());

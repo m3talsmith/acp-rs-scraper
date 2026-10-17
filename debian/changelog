@@ -1,3 +1,9 @@
+acp-rs-scraper (2.10.0) unstable; urgency=medium
+
+  * TUI styling moved to ratatui-lipgloss (look unchanged).
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 08:43:52 -0400
+
 acp-rs-scraper (2.9.0) unstable; urgency=medium
 
   * Research projects: posts, search results, local files and web pages (--research-*), TUI picker and Research menu.

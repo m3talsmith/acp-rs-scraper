@@ -1,8 +1,16 @@
-//! Colours: ACP red (`#dc2626`) accent by default, overridable from the
-//! `[theme]` table of `~/.acp/preferences.toml`.
+//! The single source of TUI styling. Colours: ACP red (`#dc2626`) accent by
+//! default, overridable from the `[theme]` table of `~/.acp/preferences.toml`.
+//!
+//! Every text style and every box (border kind, border colour, padding) is a
+//! [`ratatui_lipgloss`] [`Gloss`] style built here; widgets only pick one.
+//! `&Gloss` / `Gloss` convert into ratatui styles (`Span::styled(s, t.muted())`),
+//! and [`frame`] turns a box style into a ratatui `Block` so callers can add a
+//! border title (Lip Gloss has no border titles).
 
 use crate::prelude::*;
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Color;
+use ratatui::widgets::Block;
+pub use ratatui_lipgloss::{Border, Style as Gloss};
 
 /// Resolved colours used by every widget.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -55,16 +63,68 @@ impl Theme {
         t.on_accent = pick(&p.on_accent, t.on_accent);
         t
     }
+
+    // ----- text ------------------------------------------------------------
+    /// Unstyled text (the terminal's own colours).
+    pub fn plain(&self) -> Gloss { Gloss::new() }
+    /// Bold text (headings, titles, nicks).
+    pub fn bold(&self) -> Gloss { Gloss::new().bold(true) }
     /// Accent-coloured text.
-    pub fn accent(&self) -> Style { Style::default().fg(self.accent) }
+    pub fn accent(&self) -> Gloss { Gloss::new().foreground(self.accent) }
     /// Bold accent text.
-    pub fn accent_bold(&self) -> Style { self.accent().add_modifier(Modifier::BOLD) }
+    pub fn accent_bold(&self) -> Gloss { self.accent().bold(true) }
+    /// A link: underlined accent.
+    pub fn link(&self) -> Gloss { self.accent().underline(true) }
     /// Muted text.
-    pub fn muted(&self) -> Style { Style::default().fg(self.muted) }
+    pub fn muted(&self) -> Gloss { Gloss::new().foreground(self.muted) }
+    /// Something that is gone (a missing file): muted, struck through.
+    pub fn gone(&self) -> Gloss { self.muted().strikethrough(true) }
+    /// Inline code: bold muted.
+    pub fn code(&self) -> Gloss { self.muted().bold(true) }
     /// Highlighted (selected) row.
-    pub fn selected(&self) -> Style { Style::default().bg(self.accent).fg(self.on_accent).add_modifier(Modifier::BOLD) }
-    /// Border style for a pane, accent when focused.
-    pub fn border(&self, focused: bool) -> Style {
-        if focused { Style::default().fg(self.accent) } else { Style::default().fg(self.border) }
+    pub fn selected(&self) -> Gloss { Gloss::new().background(self.accent).foreground(self.on_accent).bold(true) }
+    /// A text field's value.
+    pub fn field(&self) -> Gloss { Gloss::new().underline(true) }
+    /// A form label, accent when its field has focus.
+    pub fn label(&self, focused: bool) -> Gloss { if focused { self.accent_bold() } else { self.plain() } }
+    /// The header bar and its text: on-accent over accent.
+    pub fn bar(&self) -> Gloss { Gloss::new().background(self.accent).foreground(self.on_accent) }
+    /// The header's text-art logo badge: accent over on-accent.
+    pub fn badge(&self) -> Gloss { Gloss::new().background(self.on_accent).foreground(self.accent) }
+    /// A filled button (Start Scanning).
+    pub fn button(&self) -> Gloss { self.bar().bold(true) }
+    /// The "Post" badge of a card.
+    pub fn post_tag(&self) -> Gloss { Gloss::new().foreground(self.on_accent).background(self.border).bold(true) }
+    /// The "Reply" badge of a card.
+    pub fn reply_tag(&self) -> Gloss { Gloss::new().foreground(self.on_accent).background(self.accent).bold(true) }
+    /// The background under an open modal.
+    pub fn dimmed(&self) -> Gloss { Gloss::new().faint(true) }
+
+    // ----- boxes -----------------------------------------------------------
+    /// Border colour of a pane: accent when focused.
+    pub fn border(&self, focused: bool) -> Gloss { Gloss::new().foreground(if focused { self.accent } else { self.border }) }
+    /// A pane (Nicks, Body, carousel sides): plain border, accent when focused.
+    pub fn pane(&self, focused: bool) -> Gloss {
+        Gloss::new().border(Border::normal()).border_foreground(if focused { self.accent } else { self.border })
     }
+    /// A post card with one column of padding: thick when selected (accent
+    /// when the Body has focus), plain and muted otherwise.
+    pub fn card(&self, selected: bool, focused: bool) -> Gloss {
+        let g = Gloss::new().border(if selected { Border::thick() } else { Border::normal() }).padding((0, 1));
+        match (selected, focused) {
+            (true, true) => g.border_foreground(self.accent),
+            (true, false) => g,
+            _ => g.border_foreground(self.border),
+        }
+    }
+    /// A detail / content pane: double border, accent when focused.
+    pub fn detail(&self, focused: bool) -> Gloss {
+        Gloss::new().border(Border::double()).border_foreground(if focused { self.accent } else { self.border })
+    }
+    /// Dialogs, dropdown menus and nested details: double accent border.
+    pub fn dialog(&self) -> Gloss { Gloss::new().border(Border::double()).border_foreground(self.accent) }
 }
+
+/// The ratatui `Block` for a box style (borders, border colour, padding), to
+/// render or to give a title.
+pub fn frame(g: &Gloss) -> Block<'static> { g.to_block() }

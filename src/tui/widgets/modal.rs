@@ -7,22 +7,23 @@ use crate::tui::theme::Theme;
 use crate::tui::widgets::text::TextField;
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
+use crate::tui::theme::frame as boxed;
+use ratatui::widgets::{Clear, Paragraph};
 
-fn dim(f: &mut Frame, area: Rect) {
+fn dim(f: &mut Frame, t: &Theme, area: Rect) {
+    let st = ratatui::style::Style::from(t.dimmed());
     let buf = f.buffer_mut();
     for y in area.y..area.y + area.height {
         for x in area.x..area.x + area.width {
-            if let Some(c) = buf.cell_mut((x, y)) { c.set_style(Style::default().add_modifier(Modifier::DIM)); }
+            if let Some(c) = buf.cell_mut((x, y)) { c.set_style(st); }
         }
     }
 }
 
 fn frame(f: &mut Frame, t: &Theme, r: Rect, title: &str) -> Rect {
     f.render_widget(Clear, r);
-    let b = Block::default().borders(Borders::ALL).border_type(BorderType::Double).border_style(t.accent()).title(format!(" {title} "));
+    let b = boxed(&t.dialog()).title(format!(" {title} "));
     let inner = b.inner(r);
     f.render_widget(b, r);
     inner
@@ -46,13 +47,14 @@ fn buttons(f: &mut Frame, app: &mut App, r: Rect, labels: &[String], focus: Opti
 fn field_line(label: &str, tf: &TextField, focused: bool, t: &Theme) -> Line<'static> {
     let mut v = tf.display();
     if focused { let b = v.char_indices().nth(tf.cursor).map(|(b, _)| b).unwrap_or(v.len()); v.insert(b, '▏'); }
-    Line::from(vec![Span::styled(format!("{label:>18}: "), if focused { t.accent_bold() } else { Style::default() }),
-        Span::styled(format!("{v:<30}"), Style::default().add_modifier(Modifier::UNDERLINED))])
+    Line::from(vec![Span::styled(format!("{label:>18}: "), if focused { t.accent_bold() } else { t.plain() }),
+        Span::styled(format!("{v:<30}"), t.field())])
 }
 
 /// Draw the open modal.
 pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
-    dim(f, area);
+    let theme = app.theme;
+    dim(f, &theme, area);
     app.hits.push((area, Hit::Backdrop));
     let t = app.theme;
     let Some(m) = app.modal.take() else { return };
@@ -70,8 +72,8 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let text: Vec<String> = mm.lines.iter().flat_map(|l| wrap(l, w as usize - 4)).collect();
             let r = modal_rect(area, w, text.len() as u16 + 5);
             let inner = frame(f, &t, r, &mm.title);
-            let st = if mm.error { t.accent() } else { Style::default() };
-            f.render_widget(Paragraph::new(text.into_iter().map(|l| Line::styled(l, st)).collect::<Vec<_>>()),
+            let st = if mm.error { t.accent() } else { t.plain() };
+            f.render_widget(Paragraph::new(text.into_iter().map(|l| Line::styled(l, &st)).collect::<Vec<_>>()),
                 Rect { height: inner.height.saturating_sub(2), ..inner });
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["OK".into()], Some(0));
         }
@@ -123,7 +125,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 let rr = Rect { y: inner.y + 1 + i as u16, height: 1, ..inner };
                 let line = if i < nf - 1 { field_line(label, &s.fields[i], s.focus == i, &t) } else {
                     let k = match s.kind { crate::tui::data::KindFilter::Any => "Posts and replies", crate::tui::data::KindFilter::Posts => "Posts only", crate::tui::data::KindFilter::Replies => "Replies only" };
-                    Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { Style::default() }), Span::raw(format!("‹ {k} ›"))])
+                    Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {k} ›"))])
                 };
                 f.render_widget(Paragraph::new(line), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Field(i))));
@@ -143,7 +145,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let inner = frame(f, &t, r, &format!("{} · Tab moves · Enter {}", m.title(), if add { "adds" } else { "opens" }));
             let mut y = inner.y + 1;
             let row = |y: u16| Rect { y, height: 1, ..inner };
-            let lab = |s: &str, on: bool| Span::styled(format!("{s:>18}: "), if on { t.accent_bold() } else { Style::default() });
+            let lab = |s: &str, on: bool| Span::styled(format!("{s:>18}: "), if on { t.accent_bold() } else { t.plain() });
             if add {
                 let what = m.what.get(m.what_idx).map(|w| w.0.clone()).unwrap_or_else(|| "nothing here".into());
                 let n = if m.what.len() > 1 { format!("  ({}/{} · ←/→)", m.what_idx + 1, m.what.len()) } else { String::new() };
@@ -156,7 +158,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 y += 2;
             }
             f.render_widget(Paragraph::new(Span::styled(format!("Projects ({})", m.projects.len()),
-                if m.focus == RField::List { t.accent_bold() } else { Style::default().add_modifier(Modifier::BOLD) })), row(y));
+                if m.focus == RField::List { t.accent_bold() } else { t.bold() })), row(y));
             y += 1;
             if m.projects.is_empty() {
                 f.render_widget(Paragraph::new(Span::styled("  none yet — type a name below to create one", t.muted())), row(y));
@@ -165,13 +167,13 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             for (k, (i, (name, n, desc))) in m.projects.iter().enumerate().skip(skip).take(list_rows as usize).enumerate() {
                 let rr = row(y + k as u16);
                 let sel = i == m.sel;
-                let st = if sel && m.focus == RField::List { t.selected() } else if sel { t.accent_bold() } else { Style::default() };
+                let st = if sel && m.focus == RField::List { t.selected() } else if sel { t.accent_bold() } else { t.plain() };
                 let text = format!(" {} {name}  ({n} items){}", if sel { "▸" } else { " " }, if desc.is_empty() { String::new() } else { format!(" — {desc}") });
                 f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
             }
             y += list_rows + 1;
-            f.render_widget(Paragraph::new(Span::styled("…or a new project", Style::default().add_modifier(Modifier::BOLD))), row(y));
+            f.render_widget(Paragraph::new(Span::styled("…or a new project", t.bold())), row(y));
             y += 1;
             f.render_widget(Paragraph::new(field_line("Name", &m.name, m.focus == RField::Name, &t)), row(y));
             app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
@@ -192,7 +194,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let skip = p.cursor.saturating_sub(list.height.saturating_sub(1) as usize);
             for (row, (i, (label, _))) in items.iter().enumerate().skip(skip).take(list.height as usize).enumerate() {
                 let rr = Rect { y: list.y + row as u16, height: 1, ..list };
-                let st = if i == p.cursor { t.selected() } else { Style::default() };
+                let st = if i == p.cursor { t.selected() } else { t.plain() };
                 f.render_widget(Paragraph::new(Span::styled(format!(" {label}"), st)), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
             }

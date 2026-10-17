@@ -13,7 +13,6 @@ use crate::tui::layout::areas;
 use crate::tui::state::{App, SessionState};
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use std::time::Instant;
@@ -44,16 +43,16 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
 /// vertically centred in [`TUI_HEADER_ROWS`] rows.
 fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
-    let bar = Style::default().bg(t.accent).fg(t.on_accent);
-    f.render_widget(Paragraph::new("").style(bar), r);
+    let bar = t.bar();
+    f.render_widget(Paragraph::new("").style(&bar), r);
     let mid = Rect { x: r.x, y: r.y + r.height / 2, width: r.width, height: 1.min(r.height) };
     // Logo: a square badge (cells are about twice as tall as wide).
     let logo = Rect { x: r.x + 1, y: r.y, width: (r.height * 2).min(r.width), height: r.height };
     let drawn = app.images.as_mut().is_some_and(|im| im.draw_logo(f.buffer_mut(), logo));
     if !drawn {
-        let star = Style::default().bg(t.on_accent).fg(t.accent);
+        let star = t.badge();
         let art = [" ▗█▖  ", "▜███▛ ", "▟▘ ▝▙ "];
-        let lines: Vec<Line> = art.iter().take(r.height as usize).map(|l| Line::styled(*l, star)).collect();
+        let lines: Vec<Line> = art.iter().take(r.height as usize).map(|l| Line::styled(*l, &star)).collect();
         f.render_widget(Paragraph::new(lines), logo);
     }
     let mut x = logo.x + logo.width + 1;
@@ -61,14 +60,14 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     if r.height >= 3 && x + big_w + 2 < r.width {
         let big = tui_big_text::BigText::builder()
             .pixel_size(tui_big_text::PixelSize::ThirdHeight)
-            .style(bar.add_modifier(Modifier::BOLD))
+            .style(t.bar().bold(true))
             .lines(vec![Line::from("ACP")])
             .build();
         let h = 3;
         f.render_widget(big, Rect { x, y: r.y + (r.height - h) / 2, width: big_w, height: h });
         x += big_w + 2;
     } else {
-        f.render_widget(Paragraph::new(Span::styled("ACP", bar.add_modifier(Modifier::BOLD))), Rect { x, ..mid });
+        f.render_widget(Paragraph::new(Span::styled("ACP", t.bar().bold(true))), Rect { x, ..mid });
         x += 5;
     }
     let left = format!("{}  v{}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"));
@@ -83,7 +82,7 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
     let pad = (rest.width as usize).saturating_sub(left.chars().count() + right.chars().count());
     f.render_widget(Paragraph::new(Line::from(vec![
-        Span::styled(left, bar.add_modifier(Modifier::BOLD)), Span::styled(" ".repeat(pad), bar), Span::styled(right, bar),
+        Span::styled(left, t.bar().bold(true)), Span::styled(" ".repeat(pad), &bar), Span::styled(right, &bar),
     ])), rest);
 }
 

@@ -4,9 +4,9 @@
 <a href=#4 id=4 data-nosnippet>4</a>//! stored as plain text whose newlines matter), and paragraphs stay separated
 <a href=#5 id=5 data-nosnippet>5</a>//! by a blank line.
 <a href=#6 id=6 data-nosnippet>6</a>
-<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">use </span><span class="kw">crate</span>::tui::theme::Theme;
+<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">use </span><span class="kw">crate</span>::tui::theme::{Gloss, Theme};
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>pulldown_cmark::{Event, HeadingLevel, Options, Parser, Tag, TagEnd};
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>ratatui::style::{Modifier, Style};
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>ratatui::style::Style;
 <a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>ratatui::text::{Line, Span};
 <a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>unicode_width::UnicodeWidthStr;
 <a href=#12 id=12 data-nosnippet>12</a>
@@ -74,7 +74,7 @@
 <a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">let </span><span class="kw-2">mut </span>out: Vec&lt;Line&lt;<span class="lifetime">'static</span>&gt;&gt; = Vec::new();
 <a href=#75 id=75 data-nosnippet>75</a>    <span class="kw">let </span><span class="kw-2">mut </span>opts = Options::empty();
 <a href=#76 id=76 data-nosnippet>76</a>    opts.insert(Options::ENABLE_STRIKETHROUGH);
-<a href=#77 id=77 data-nosnippet>77</a>    <span class="kw">let </span><span class="kw-2">mut </span>style_stack: Vec&lt;Style&gt; = <span class="macro">vec!</span>[Style::default()];
+<a href=#77 id=77 data-nosnippet>77</a>    <span class="kw">let </span><span class="kw-2">mut </span>style_stack: Vec&lt;Gloss&gt; = <span class="macro">vec!</span>[t.plain()];
 <a href=#78 id=78 data-nosnippet>78</a>    <span class="kw">let </span><span class="kw-2">mut </span>cur = Block::default();
 <a href=#79 id=79 data-nosnippet>79</a>    <span class="kw">let </span><span class="kw-2">mut </span>lists: Vec&lt;<span class="prelude-ty">Option</span>&lt;u64&gt;&gt; = Vec::new();
 <a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span><span class="kw-2">mut </span>quote = <span class="number">0usize</span>;
@@ -102,80 +102,79 @@
 <a href=#102 id=102 data-nosnippet>102</a>        cur.rest = rest;
 <a href=#103 id=103 data-nosnippet>103</a>    };
 <a href=#104 id=104 data-nosnippet>104</a>    <span class="kw">for </span>ev <span class="kw">in </span>Parser::new_ext(text, opts) {
-<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>st = <span class="kw-2">*</span>style_stack.last().unwrap_or(<span class="kw-2">&amp;</span>Style::default());
-<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">match </span>ev {
-<a href=#107 id=107 data-nosnippet>107</a>            Event::Start(tag) =&gt; <span class="kw">match </span>tag {
-<a href=#108 id=108 data-nosnippet>108</a>                Tag::Paragraph =&gt; { <span class="kw">if </span>lists.is_empty() { blank(<span class="kw-2">&amp;mut </span>out); } start_block(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;</span>lists, quote, <span class="kw-2">&amp;mut </span>pending_item, t); }
-<a href=#109 id=109 data-nosnippet>109</a>                Tag::Heading { level, .. } =&gt; {
-<a href=#110 id=110 data-nosnippet>110</a>                    blank(<span class="kw-2">&amp;mut </span>out);
-<a href=#111 id=111 data-nosnippet>111</a>                    start_block(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;</span>lists, quote, <span class="kw-2">&amp;mut </span>pending_item, t);
-<a href=#112 id=112 data-nosnippet>112</a>                    <span class="kw">let </span><span class="kw-2">mut </span>h = t.accent_bold();
-<a href=#113 id=113 data-nosnippet>113</a>                    <span class="kw">if </span>level == HeadingLevel::H1 { h = h.add_modifier(Modifier::UNDERLINED); }
-<a href=#114 id=114 data-nosnippet>114</a>                    style_stack.push(h);
-<a href=#115 id=115 data-nosnippet>115</a>                }
-<a href=#116 id=116 data-nosnippet>116</a>                Tag::BlockQuote(<span class="kw">_</span>) =&gt; { blank(<span class="kw-2">&amp;mut </span>out); quote += <span class="number">1</span>; }
-<a href=#117 id=117 data-nosnippet>117</a>                Tag::CodeBlock(<span class="kw">_</span>) =&gt; { blank(<span class="kw-2">&amp;mut </span>out); in_code = <span class="bool-val">true</span>; }
-<a href=#118 id=118 data-nosnippet>118</a>                Tag::List(start) =&gt; { <span class="kw">if </span>lists.is_empty() { blank(<span class="kw-2">&amp;mut </span>out); } flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); lists.push(start); }
-<a href=#119 id=119 data-nosnippet>119</a>                Tag::Item =&gt; { flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); pending_item = <span class="bool-val">true</span>; start_block(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;</span>lists, quote, <span class="kw-2">&amp;mut </span>pending_item, t); }
-<a href=#120 id=120 data-nosnippet>120</a>                Tag::Emphasis =&gt; style_stack.push(st.add_modifier(Modifier::ITALIC)),
-<a href=#121 id=121 data-nosnippet>121</a>                Tag::Strong =&gt; style_stack.push(st.add_modifier(Modifier::BOLD)),
-<a href=#122 id=122 data-nosnippet>122</a>                Tag::Strikethrough =&gt; style_stack.push(st.add_modifier(Modifier::CROSSED_OUT)),
-<a href=#123 id=123 data-nosnippet>123</a>                Tag::Link { dest_url, .. } =&gt; { link = <span class="prelude-val">Some</span>(dest_url.to_string()); style_stack.push(t.accent().add_modifier(Modifier::UNDERLINED)); }
-<a href=#124 id=124 data-nosnippet>124</a>                <span class="kw">_ </span>=&gt; {}
-<a href=#125 id=125 data-nosnippet>125</a>            },
-<a href=#126 id=126 data-nosnippet>126</a>            Event::End(tag) =&gt; <span class="kw">match </span>tag {
-<a href=#127 id=127 data-nosnippet>127</a>                TagEnd::Paragraph =&gt; flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out),
-<a href=#128 id=128 data-nosnippet>128</a>                TagEnd::Heading(<span class="kw">_</span>) =&gt; { flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); style_stack.pop(); }
-<a href=#129 id=129 data-nosnippet>129</a>                TagEnd::BlockQuote(<span class="kw">_</span>) =&gt; { flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); quote = quote.saturating_sub(<span class="number">1</span>); }
-<a href=#130 id=130 data-nosnippet>130</a>                TagEnd::CodeBlock =&gt; in_code = <span class="bool-val">false</span>,
-<a href=#131 id=131 data-nosnippet>131</a>                TagEnd::List(<span class="kw">_</span>) =&gt; { flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); lists.pop(); }
-<a href=#132 id=132 data-nosnippet>132</a>                TagEnd::Item =&gt; {
-<a href=#133 id=133 data-nosnippet>133</a>                    flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out);
-<a href=#134 id=134 data-nosnippet>134</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(n)) = lists.last_mut() { <span class="kw-2">*</span>n += <span class="number">1</span>; }
-<a href=#135 id=135 data-nosnippet>135</a>                }
-<a href=#136 id=136 data-nosnippet>136</a>                TagEnd::Emphasis | TagEnd::Strong | TagEnd::Strikethrough =&gt; { style_stack.pop(); }
-<a href=#137 id=137 data-nosnippet>137</a>                TagEnd::Link =&gt; {
-<a href=#138 id=138 data-nosnippet>138</a>                    style_stack.pop();
-<a href=#139 id=139 data-nosnippet>139</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = link.take() {
-<a href=#140 id=140 data-nosnippet>140</a>                        <span class="kw">let </span>shown: String = cur.parts.iter().rev().take(<span class="number">1</span>).map(|(s, <span class="kw">_</span>)| s.clone()).collect();
-<a href=#141 id=141 data-nosnippet>141</a>                        <span class="kw">if </span>!u.is_empty() &amp;&amp; !shown.contains(u.as_str()) { cur.parts.push((<span class="macro">format!</span>(<span class="string">" &lt;{u}&gt;"</span>), t.muted())); }
-<a href=#142 id=142 data-nosnippet>142</a>                    }
-<a href=#143 id=143 data-nosnippet>143</a>                }
-<a href=#144 id=144 data-nosnippet>144</a>                <span class="kw">_ </span>=&gt; {}
-<a href=#145 id=145 data-nosnippet>145</a>            },
-<a href=#146 id=146 data-nosnippet>146</a>            Event::Text(s) <span class="kw">if </span>in_code =&gt; {
-<a href=#147 id=147 data-nosnippet>147</a>                <span class="kw">for </span>l <span class="kw">in </span>s.trim_end_matches(<span class="string">'\n'</span>).split(<span class="string">'\n'</span>) {
-<a href=#148 id=148 data-nosnippet>148</a>                    <span class="kw">let </span><span class="kw-2">mut </span>first = quote_prefix(quote, t);
-<a href=#149 id=149 data-nosnippet>149</a>                    first.push(Span::styled(<span class="string">"  "</span>, t.muted()));
-<a href=#150 id=150 data-nosnippet>150</a>                    wrap_parts(Block { rest: first.clone(), first, parts: <span class="macro">vec!</span>[(l.to_string(), t.muted())] }, width, <span class="kw-2">&amp;mut </span>out);
-<a href=#151 id=151 data-nosnippet>151</a>                }
-<a href=#152 id=152 data-nosnippet>152</a>            }
-<a href=#153 id=153 data-nosnippet>153</a>            Event::Text(s) =&gt; {
-<a href=#154 id=154 data-nosnippet>154</a>                <span class="kw">if </span>cur.first.is_empty() &amp;&amp; cur.rest.is_empty() &amp;&amp; cur.parts.is_empty() { start_block(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;</span>lists, quote, <span class="kw-2">&amp;mut </span>pending_item, t); }
-<a href=#155 id=155 data-nosnippet>155</a>                cur.parts.push((s.to_string(), st));
-<a href=#156 id=156 data-nosnippet>156</a>            }
-<a href=#157 id=157 data-nosnippet>157</a>            Event::Code(s) =&gt; cur.parts.push((s.to_string(), t.muted().add_modifier(Modifier::BOLD))),
-<a href=#158 id=158 data-nosnippet>158</a>            Event::SoftBreak | Event::HardBreak =&gt; {
-<a href=#159 id=159 data-nosnippet>159</a>                <span class="comment">// Keep the author's line breaks.
-<a href=#160 id=160 data-nosnippet>160</a>                </span><span class="kw">let </span>(first, rest) = (cur.first.clone(), cur.rest.clone());
-<a href=#161 id=161 data-nosnippet>161</a>                flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out);
-<a href=#162 id=162 data-nosnippet>162</a>                cur.first = rest.clone();
-<a href=#163 id=163 data-nosnippet>163</a>                cur.rest = rest;
-<a href=#164 id=164 data-nosnippet>164</a>                <span class="kw">let _ </span>= first;
-<a href=#165 id=165 data-nosnippet>165</a>            }
-<a href=#166 id=166 data-nosnippet>166</a>            Event::Rule =&gt; { blank(<span class="kw-2">&amp;mut </span>out); out.push(Line::styled(<span class="string">"─"</span>.repeat(width.min(<span class="number">40</span>)), t.muted())); }
-<a href=#167 id=167 data-nosnippet>167</a>            Event::Html(s) | Event::InlineHtml(s) =&gt; cur.parts.push((s.to_string(), st)),
-<a href=#168 id=168 data-nosnippet>168</a>            <span class="kw">_ </span>=&gt; {}
-<a href=#169 id=169 data-nosnippet>169</a>        }
-<a href=#170 id=170 data-nosnippet>170</a>    }
-<a href=#171 id=171 data-nosnippet>171</a>    flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out);
-<a href=#172 id=172 data-nosnippet>172</a>    <span class="kw">while </span>out.first().is_some_and(|l| l.width() == <span class="number">0</span>) { out.remove(<span class="number">0</span>); }
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="kw">while </span>out.last().is_some_and(|l| l.width() == <span class="number">0</span>) { out.pop(); }
-<a href=#174 id=174 data-nosnippet>174</a>    out
-<a href=#175 id=175 data-nosnippet>175</a>}
-<a href=#176 id=176 data-nosnippet>176</a>
-<a href=#177 id=177 data-nosnippet>177</a><span class="doccomment">/// Plain text of rendered lines (tests, card snippets).
-<a href=#178 id=178 data-nosnippet>178</a></span><span class="kw">pub fn </span>plain(lines: <span class="kw-2">&amp;</span>[Line]) -&gt; Vec&lt;String&gt; {
-<a href=#179 id=179 data-nosnippet>179</a>    lines.iter().map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect::&lt;String&gt;()).collect()
-<a href=#180 id=180 data-nosnippet>180</a>}
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>g = style_stack.last().cloned().unwrap_or_else(|| t.plain());
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">let </span>st = Style::from(<span class="kw-2">&amp;</span>g);
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">match </span>ev {
+<a href=#108 id=108 data-nosnippet>108</a>            Event::Start(tag) =&gt; <span class="kw">match </span>tag {
+<a href=#109 id=109 data-nosnippet>109</a>                Tag::Paragraph =&gt; { <span class="kw">if </span>lists.is_empty() { blank(<span class="kw-2">&amp;mut </span>out); } start_block(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;</span>lists, quote, <span class="kw-2">&amp;mut </span>pending_item, t); }
+<a href=#110 id=110 data-nosnippet>110</a>                Tag::Heading { level, .. } =&gt; {
+<a href=#111 id=111 data-nosnippet>111</a>                    blank(<span class="kw-2">&amp;mut </span>out);
+<a href=#112 id=112 data-nosnippet>112</a>                    start_block(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;</span>lists, quote, <span class="kw-2">&amp;mut </span>pending_item, t);
+<a href=#113 id=113 data-nosnippet>113</a>                    style_stack.push(<span class="kw">if </span>level == HeadingLevel::H1 { t.accent_bold().underline(<span class="bool-val">true</span>) } <span class="kw">else </span>{ t.accent_bold() });
+<a href=#114 id=114 data-nosnippet>114</a>                }
+<a href=#115 id=115 data-nosnippet>115</a>                Tag::BlockQuote(<span class="kw">_</span>) =&gt; { blank(<span class="kw-2">&amp;mut </span>out); quote += <span class="number">1</span>; }
+<a href=#116 id=116 data-nosnippet>116</a>                Tag::CodeBlock(<span class="kw">_</span>) =&gt; { blank(<span class="kw-2">&amp;mut </span>out); in_code = <span class="bool-val">true</span>; }
+<a href=#117 id=117 data-nosnippet>117</a>                Tag::List(start) =&gt; { <span class="kw">if </span>lists.is_empty() { blank(<span class="kw-2">&amp;mut </span>out); } flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); lists.push(start); }
+<a href=#118 id=118 data-nosnippet>118</a>                Tag::Item =&gt; { flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); pending_item = <span class="bool-val">true</span>; start_block(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;</span>lists, quote, <span class="kw-2">&amp;mut </span>pending_item, t); }
+<a href=#119 id=119 data-nosnippet>119</a>                Tag::Emphasis =&gt; style_stack.push(g.italic(<span class="bool-val">true</span>)),
+<a href=#120 id=120 data-nosnippet>120</a>                Tag::Strong =&gt; style_stack.push(g.bold(<span class="bool-val">true</span>)),
+<a href=#121 id=121 data-nosnippet>121</a>                Tag::Strikethrough =&gt; style_stack.push(g.strikethrough(<span class="bool-val">true</span>)),
+<a href=#122 id=122 data-nosnippet>122</a>                Tag::Link { dest_url, .. } =&gt; { link = <span class="prelude-val">Some</span>(dest_url.to_string()); style_stack.push(t.link()); }
+<a href=#123 id=123 data-nosnippet>123</a>                <span class="kw">_ </span>=&gt; {}
+<a href=#124 id=124 data-nosnippet>124</a>            },
+<a href=#125 id=125 data-nosnippet>125</a>            Event::End(tag) =&gt; <span class="kw">match </span>tag {
+<a href=#126 id=126 data-nosnippet>126</a>                TagEnd::Paragraph =&gt; flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out),
+<a href=#127 id=127 data-nosnippet>127</a>                TagEnd::Heading(<span class="kw">_</span>) =&gt; { flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); style_stack.pop(); }
+<a href=#128 id=128 data-nosnippet>128</a>                TagEnd::BlockQuote(<span class="kw">_</span>) =&gt; { flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); quote = quote.saturating_sub(<span class="number">1</span>); }
+<a href=#129 id=129 data-nosnippet>129</a>                TagEnd::CodeBlock =&gt; in_code = <span class="bool-val">false</span>,
+<a href=#130 id=130 data-nosnippet>130</a>                TagEnd::List(<span class="kw">_</span>) =&gt; { flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out); lists.pop(); }
+<a href=#131 id=131 data-nosnippet>131</a>                TagEnd::Item =&gt; {
+<a href=#132 id=132 data-nosnippet>132</a>                    flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out);
+<a href=#133 id=133 data-nosnippet>133</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="prelude-val">Some</span>(n)) = lists.last_mut() { <span class="kw-2">*</span>n += <span class="number">1</span>; }
+<a href=#134 id=134 data-nosnippet>134</a>                }
+<a href=#135 id=135 data-nosnippet>135</a>                TagEnd::Emphasis | TagEnd::Strong | TagEnd::Strikethrough =&gt; { style_stack.pop(); }
+<a href=#136 id=136 data-nosnippet>136</a>                TagEnd::Link =&gt; {
+<a href=#137 id=137 data-nosnippet>137</a>                    style_stack.pop();
+<a href=#138 id=138 data-nosnippet>138</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = link.take() {
+<a href=#139 id=139 data-nosnippet>139</a>                        <span class="kw">let </span>shown: String = cur.parts.iter().rev().take(<span class="number">1</span>).map(|(s, <span class="kw">_</span>)| s.clone()).collect();
+<a href=#140 id=140 data-nosnippet>140</a>                        <span class="kw">if </span>!u.is_empty() &amp;&amp; !shown.contains(u.as_str()) { cur.parts.push((<span class="macro">format!</span>(<span class="string">" &lt;{u}&gt;"</span>), t.muted().into())); }
+<a href=#141 id=141 data-nosnippet>141</a>                    }
+<a href=#142 id=142 data-nosnippet>142</a>                }
+<a href=#143 id=143 data-nosnippet>143</a>                <span class="kw">_ </span>=&gt; {}
+<a href=#144 id=144 data-nosnippet>144</a>            },
+<a href=#145 id=145 data-nosnippet>145</a>            Event::Text(s) <span class="kw">if </span>in_code =&gt; {
+<a href=#146 id=146 data-nosnippet>146</a>                <span class="kw">for </span>l <span class="kw">in </span>s.trim_end_matches(<span class="string">'\n'</span>).split(<span class="string">'\n'</span>) {
+<a href=#147 id=147 data-nosnippet>147</a>                    <span class="kw">let </span><span class="kw-2">mut </span>first = quote_prefix(quote, t);
+<a href=#148 id=148 data-nosnippet>148</a>                    first.push(Span::styled(<span class="string">"  "</span>, t.muted()));
+<a href=#149 id=149 data-nosnippet>149</a>                    wrap_parts(Block { rest: first.clone(), first, parts: <span class="macro">vec!</span>[(l.to_string(), t.muted().into())] }, width, <span class="kw-2">&amp;mut </span>out);
+<a href=#150 id=150 data-nosnippet>150</a>                }
+<a href=#151 id=151 data-nosnippet>151</a>            }
+<a href=#152 id=152 data-nosnippet>152</a>            Event::Text(s) =&gt; {
+<a href=#153 id=153 data-nosnippet>153</a>                <span class="kw">if </span>cur.first.is_empty() &amp;&amp; cur.rest.is_empty() &amp;&amp; cur.parts.is_empty() { start_block(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;</span>lists, quote, <span class="kw-2">&amp;mut </span>pending_item, t); }
+<a href=#154 id=154 data-nosnippet>154</a>                cur.parts.push((s.to_string(), st));
+<a href=#155 id=155 data-nosnippet>155</a>            }
+<a href=#156 id=156 data-nosnippet>156</a>            Event::Code(s) =&gt; cur.parts.push((s.to_string(), t.code().into())),
+<a href=#157 id=157 data-nosnippet>157</a>            Event::SoftBreak | Event::HardBreak =&gt; {
+<a href=#158 id=158 data-nosnippet>158</a>                <span class="comment">// Keep the author's line breaks.
+<a href=#159 id=159 data-nosnippet>159</a>                </span><span class="kw">let </span>(first, rest) = (cur.first.clone(), cur.rest.clone());
+<a href=#160 id=160 data-nosnippet>160</a>                flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out);
+<a href=#161 id=161 data-nosnippet>161</a>                cur.first = rest.clone();
+<a href=#162 id=162 data-nosnippet>162</a>                cur.rest = rest;
+<a href=#163 id=163 data-nosnippet>163</a>                <span class="kw">let _ </span>= first;
+<a href=#164 id=164 data-nosnippet>164</a>            }
+<a href=#165 id=165 data-nosnippet>165</a>            Event::Rule =&gt; { blank(<span class="kw-2">&amp;mut </span>out); out.push(Line::styled(<span class="string">"─"</span>.repeat(width.min(<span class="number">40</span>)), t.muted())); }
+<a href=#166 id=166 data-nosnippet>166</a>            Event::Html(s) | Event::InlineHtml(s) =&gt; cur.parts.push((s.to_string(), st)),
+<a href=#167 id=167 data-nosnippet>167</a>            <span class="kw">_ </span>=&gt; {}
+<a href=#168 id=168 data-nosnippet>168</a>        }
+<a href=#169 id=169 data-nosnippet>169</a>    }
+<a href=#170 id=170 data-nosnippet>170</a>    flush(<span class="kw-2">&amp;mut </span>cur, <span class="kw-2">&amp;mut </span>out);
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="kw">while </span>out.first().is_some_and(|l| l.width() == <span class="number">0</span>) { out.remove(<span class="number">0</span>); }
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="kw">while </span>out.last().is_some_and(|l| l.width() == <span class="number">0</span>) { out.pop(); }
+<a href=#173 id=173 data-nosnippet>173</a>    out
+<a href=#174 id=174 data-nosnippet>174</a>}
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a><span class="doccomment">/// Plain text of rendered lines (tests, card snippets).
+<a href=#177 id=177 data-nosnippet>177</a></span><span class="kw">pub fn </span>plain(lines: <span class="kw-2">&amp;</span>[Line]) -&gt; Vec&lt;String&gt; {
+<a href=#178 id=178 data-nosnippet>178</a>    lines.iter().map(|l| l.spans.iter().map(|s| s.content.as_ref()).collect::&lt;String&gt;()).collect()
+<a href=#179 id=179 data-nosnippet>179</a>}
 </code></pre></div></section></main></body></html>

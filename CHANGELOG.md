@@ -6,6 +6,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-10-17
+
+### Changed
+- All TUI styling now goes through [ratatui-lipgloss](https://crates.io/crates/ratatui-lipgloss)
+  1.1 (a Lip Gloss port for ratatui): `tui::theme` builds every text style and every box (border
+  kind, border colour, padding) as a lipgloss `Style`, and widgets only pick one. The look is
+  unchanged (checked cell for cell against 2.9.0), the accent is still `#dc2626`, and `[theme]`
+  overrides work as before.
+
 ## [2.9.0] - 2026-10-17
 
 ### Added

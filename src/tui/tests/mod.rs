@@ -14,6 +14,7 @@ mod research;
 mod modals;
 mod render;
 mod state;
+mod theme;
 mod sync;
 mod views;
 mod history;

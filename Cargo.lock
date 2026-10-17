@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acp-rs-scraper"
-version = "2.9.0"
+version = "2.10.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -20,6 +20,7 @@ dependencies = [
  "libc",
  "pulldown-cmark",
  "ratatui",
+ "ratatui-lipgloss",
  "regex",
  "reqwest",
  "rusqlite",
@@ -2710,6 +2711,17 @@ dependencies = [
  "crossterm",
  "instability",
  "ratatui-core",
+]
+
+[[package]]
+name = "ratatui-lipgloss"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87dec83ab2551acd58f8e857fc9a0e7100b03f4ebada3894a0f0ebee21104c4c"
+dependencies = [
+ "ratatui",
+ "unicode-segmentation",
+ "unicode-width",
 ]
 
 [[package]]
