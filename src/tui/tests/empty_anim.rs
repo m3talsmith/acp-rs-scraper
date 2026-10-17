@@ -121,7 +121,7 @@ fn the_empty_body_plays_it_and_content_replaces_it() {
     assert_eq!(a.empty_anim_frame, Some(6));
     assert_ne!(s0, s1, "next frames differ");
     // Too small: paused, nothing drawn.
-    render(&mut a, 60, 18, Duration::ZERO);
+    render(&mut a, TUI_MIN_SIZE.0, TUI_MIN_SIZE.1, Duration::ZERO);
     assert_eq!(a.empty_anim_frame, None);
     // Selecting a nick shows posts instead.
     a.select_only(nick_idx(&a, "alice"));

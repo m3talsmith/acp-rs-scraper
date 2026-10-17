@@ -1,4 +1,4 @@
-//! Pictures: the 3-row header (logo + big "ACP"), inline post images, decoding.
+//! Pictures: the 4-row header (logo + big "ACP"), inline post images, decoding.
 
 use super::*;
 use crate::tui::images::*;
@@ -15,7 +15,7 @@ fn row(b: &Buffer, y: u16, x0: u16, x1: u16) -> String { (x0..x1).map(|x| b[(x, 
 
 fn with_images(store: MemStore) -> App {
     let mut a = App::new(Box::new(store), &no_args(), Theme::default(), false);
-    a.images = Some(Images::new(Protocol::Halfblocks, DEFAULT_CELL, false, [255, 255, 255]));
+    a.images = Some(Images::new(Protocol::Halfblocks, DEFAULT_CELL, false, [255, 255, 255], [0xdc, 0x26, 0x26]));
     a
 }
 
@@ -26,38 +26,55 @@ fn png(name: &str) -> PathBuf {
 }
 
 #[test]
-fn header_is_three_rows_with_big_acp_centred() {
+fn header_is_four_rows_with_big_acp_centred_and_room_above() {
     let mut a = app();
     let b = draw(&mut a, 110, 30);
-    // The big "ACP" spans all three header rows; the title and session sit on the middle one.
-    for y in 0..TUI_HEADER_ROWS { assert!(row(&b, y, 8, 32).chars().any(|c| c != ' '), "row {y}: {:?}", row(&b, y, 8, 32)); }
-    let mid = row(&b, 1, 0, 110);
+    assert_eq!(TUI_HEADER_ROWS, 4);
+    // The big "ACP" spans rows 1-3 (row 0 is breathing room); title and session sit on row 2.
+    assert!(row(&b, 0, 10, 34).chars().all(|c| c == ' '), "room above: {:?}", row(&b, 0, 10, 34));
+    for y in 1..4 { assert!(row(&b, y, 10, 34).chars().any(|c| c != ' '), "row {y}: {:?}", row(&b, y, 10, 34)); }
+    let mid = row(&b, 2, 0, 110);
     assert!(mid.contains(TUI_SUBTITLE) && mid.contains(env!("CARGO_PKG_VERSION")) && mid.contains("logged out"), "{mid}");
-    assert!(!row(&b, 0, 34, 110).contains(TUI_SUBTITLE) && !row(&b, 2, 34, 110).contains(TUI_SUBTITLE));
-    assert!(row(&b, 3, 0, 110).contains("Scrape"), "menu under the header");
+    for y in [0, 1, 3] { assert!(!row(&b, y, 36, 110).contains(TUI_SUBTITLE)); }
+    assert!(row(&b, 4, 0, 110).contains("Scrape"), "menu under the header");
+    assert_eq!(b[(40, 0)].bg, Theme::default().accent, "red bar");
+}
+
+fn logo_rows(b: &Buffer) -> Vec<String> { (0..4).map(|y| row(b, y, 1, 9)).collect() }
+
+#[test]
+fn logo_is_the_png_silhouette_in_sextants_on_the_red_bar() {
+    let t = Theme::default();
+    for mut a in [with_images(fixture()), app()] {
+        let b = draw(&mut a, 110, 30);
+        let logo = logo_rows(&b);
+        println!("{}", logo.join("\n"));
+        assert!(logo.iter().all(|l| l.chars().count() == 8), "8x4 cells: {logo:?}");
+        assert_eq!((b[(1, 0)].fg, b[(1, 0)].bg), (t.on_accent, t.accent), "white on the bar, no badge");
+        assert_eq!(logo, logo_rows(&draw(&mut with_images(fixture()), 110, 30)), "same with and without picture support");
+    }
 }
 
 #[test]
-fn logo_is_drawn_from_the_png_in_sextants() {
-    let mut a = with_images(fixture());
-    let b = draw(&mut a, 110, 30);
-    let logo: Vec<String> = (0..3).map(|y| row(&b, y, 1, 7)).collect();
-    println!("{}", logo.join("\n"));
-    assert!(logo.iter().all(|l| l.chars().count() == 6 && l.trim() != ""), "{logo:?}");
-    assert_eq!(b[(4, 1)].bg, ratatui::style::Color::Rgb(255, 255, 255), "on the badge");
-    // Without image support the text star stands in.
-    let mut plain = app();
-    let b = draw(&mut plain, 110, 30);
-    assert!(row(&b, 1, 1, 7).contains('█'));
+fn logo_mask_keeps_the_ring_and_the_star() {
+    let m = logo_mask(16, 12).unwrap();
+    let at = |x: usize, y: usize| m[y * 16 + x];
+    let txt: String = (0..12).map(|y| (0..16).map(|x| if at(x, y) { '#' } else { '.' }).collect::<String>() + "\n").collect();
+    // The ring: left and right edges at mid height, top and bottom in the middle.
+    assert!(at(0, 6) && at(15, 6) && at(8, 0) && at(8, 11), "ring\n{txt}");
+    // Just inside the ring is empty; the star's arms cross the middle row and its top point is above.
+    assert!(!at(2, 6) && !at(13, 6), "gap inside the ring\n{txt}");
+    assert!((4..12).filter(|&x| at(x, 5)).count() >= 6, "star arms\n{txt}");
+    assert!(at(7, 3) || at(8, 3), "star top point\n{txt}");
+    assert!((4..12).any(|x| at(x, 8)), "star legs\n{txt}");
 }
 
 #[test]
-fn logo_badge_keeps_the_star_visible() {
-    let img = logo_on([255, 255, 255]).unwrap().to_rgba8();
+fn logo_image_is_the_shape_in_fg_over_bg() {
+    let img = logo_image([255, 255, 255], [0xdc, 0x26, 0x26]).unwrap();
     assert_eq!(img.width(), img.height());
-    assert_eq!(img.get_pixel(1, 1).0, [255, 255, 255, 255]);
-    let c = img.get_pixel(img.width() / 2, img.height() / 2).0;
-    assert!(c[0] > 150 && c[1] < 80, "red centre: {c:?}");
+    assert_eq!(img.get_pixel(0, 0).0, [0xdc, 0x26, 0x26, 255], "transparent corner = the bar");
+    assert_eq!(img.get_pixel(256, 3).0, [255, 255, 255, 255], "the ring = on-accent");
 }
 
 #[test]
@@ -81,7 +98,7 @@ fn post_images_show_inline_in_the_detail() {
 
 #[test]
 fn missing_or_broken_images_fail_softly() {
-    let mut im = Images::new(Protocol::Halfblocks, DEFAULT_CELL, false, [0, 0, 0]);
+    let mut im = Images::new(Protocol::Halfblocks, DEFAULT_CELL, false, [255, 255, 255], [0, 0, 0]);
     assert!(matches!(im.get(Path::new("/nonexistent/a.png")), ImgState::Failed(e) if e.contains("missing")));
     let bad = std::env::temp_dir().join(format!("acp-img-{}-bad.png", std::process::id()));
     std::fs::write(&bad, b"not a png").unwrap();
@@ -138,22 +155,22 @@ fn base64_and_sixel_encoders() {
 #[test]
 fn graphics_protocols_place_after_the_frame_and_only_on_change() {
     let mut a = App::new(Box::new(fixture()), &no_args(), Theme::default(), false);
-    a.images = Some(Images::new(Protocol::Kitty, DEFAULT_CELL, false, [255, 255, 255]));
+    a.images = Some(Images::new(Protocol::Kitty, DEFAULT_CELL, false, [255, 255, 255], [0xdc, 0x26, 0x26]));
     let b = draw(&mut a, 110, 30);
-    assert_eq!(row(&b, 1, 1, 7), "      ", "cells left blank for the picture");
+    assert_eq!(row(&b, 1, 1, 9), "        ", "cells left blank for the picture");
     let im = a.images.as_mut().unwrap();
     assert_eq!(im.frame.len(), 1);
     let mut out = Vec::new();
     assert_eq!(im.flush(&mut out), Flush::Done);
     let s = String::from_utf8_lossy(&out).to_string();
-    assert!(s.contains("a=t,f=100,i=1") && s.contains("a=p,i=1,p=1,c=6,r=3"), "{}", &s[..80.min(s.len())]);
+    assert!(s.contains("a=t,f=100,i=1") && s.contains("a=p,i=1,p=1,c=8,r=4"), "{}", &s[..80.min(s.len())]);
     draw(&mut a, 110, 30);
     let mut again = Vec::new();
     a.images.as_mut().unwrap().flush(&mut again);
     assert!(again.is_empty(), "unchanged frame writes nothing");
     // Sixel asks for a repaint when the pictures change.
     let mut s = App::new(Box::new(fixture()), &no_args(), Theme::default(), false);
-    s.images = Some(Images::new(Protocol::Sixel, DEFAULT_CELL, false, [255, 255, 255]));
+    s.images = Some(Images::new(Protocol::Sixel, DEFAULT_CELL, false, [255, 255, 255], [0xdc, 0x26, 0x26]));
     draw(&mut s, 110, 30);
     let mut o = Vec::new();
     assert_eq!(s.images.as_mut().unwrap().flush(&mut o), Flush::Done);

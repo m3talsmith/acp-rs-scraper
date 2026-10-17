@@ -1,3 +1,9 @@
+acp-rs-scraper (2.11.1) unstable; urgency=medium
+
+  * Taller TUI header and a recognisable red-star logo.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 10:15:51 -0400
+
 acp-rs-scraper (2.11.0) unstable; urgency=medium
 
   * Empty-Body animation in the TUI (built-in clip used with permission of the ACP, red-star fallback) and tools/acp-anim.

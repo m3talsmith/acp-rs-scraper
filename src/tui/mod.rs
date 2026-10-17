@@ -84,7 +84,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     let prev = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| { restore_terminal(); prev(info); }));
     // Ask the terminal for its graphics protocol before the input thread starts reading.
-    app.images = images::Images::detect(theme::rgb_bytes(app.theme.on_accent));
+    app.images = images::Images::detect(theme::rgb_bytes(app.theme.on_accent), theme::rgb_bytes(app.theme.accent));
     let osc8 = osc8_supported();
     let mut term = Terminal(ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(std::io::stdout()))?);
 

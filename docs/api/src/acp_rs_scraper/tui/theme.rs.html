@@ -89,43 +89,41 @@
 <a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">pub fn </span>label(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss { <span class="kw">if </span>focused { <span class="self">self</span>.accent_bold() } <span class="kw">else </span>{ <span class="self">self</span>.plain() } }
 <a href=#90 id=90 data-nosnippet>90</a>    <span class="doccomment">/// The header bar and its text: on-accent over accent.
 <a href=#91 id=91 data-nosnippet>91</a>    </span><span class="kw">pub fn </span>bar(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().background(<span class="self">self</span>.accent).foreground(<span class="self">self</span>.on_accent) }
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="doccomment">/// The header's text-art logo badge: accent over on-accent.
-<a href=#93 id=93 data-nosnippet>93</a>    </span><span class="kw">pub fn </span>badge(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().background(<span class="self">self</span>.on_accent).foreground(<span class="self">self</span>.accent) }
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="doccomment">/// A filled button (Start Scanning).
-<a href=#95 id=95 data-nosnippet>95</a>    </span><span class="kw">pub fn </span>button(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.bar().bold(<span class="bool-val">true</span>) }
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="doccomment">/// The "Post" badge of a card.
-<a href=#97 id=97 data-nosnippet>97</a>    </span><span class="kw">pub fn </span>post_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().foreground(<span class="self">self</span>.on_accent).background(<span class="self">self</span>.border).bold(<span class="bool-val">true</span>) }
-<a href=#98 id=98 data-nosnippet>98</a>    <span class="doccomment">/// The "Reply" badge of a card.
-<a href=#99 id=99 data-nosnippet>99</a>    </span><span class="kw">pub fn </span>reply_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().foreground(<span class="self">self</span>.on_accent).background(<span class="self">self</span>.accent).bold(<span class="bool-val">true</span>) }
-<a href=#100 id=100 data-nosnippet>100</a>    <span class="doccomment">/// The background under an open modal.
-<a href=#101 id=101 data-nosnippet>101</a>    </span><span class="kw">pub fn </span>dimmed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().faint(<span class="bool-val">true</span>) }
-<a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="comment">// ----- boxes -----------------------------------------------------------
-<a href=#104 id=104 data-nosnippet>104</a>    </span><span class="doccomment">/// Border colour of a pane: accent when focused.
-<a href=#105 id=105 data-nosnippet>105</a>    </span><span class="kw">pub fn </span>border(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss { Gloss::new().foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border }) }
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="doccomment">/// A pane (Nicks, Body, carousel sides): plain border, accent when focused.
-<a href=#107 id=107 data-nosnippet>107</a>    </span><span class="kw">pub fn </span>pane(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
-<a href=#108 id=108 data-nosnippet>108</a>        Gloss::new().border(Border::normal()).border_foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border })
-<a href=#109 id=109 data-nosnippet>109</a>    }
-<a href=#110 id=110 data-nosnippet>110</a>    <span class="doccomment">/// A post card with one column of padding: thick when selected (accent
-<a href=#111 id=111 data-nosnippet>111</a>    /// when the Body has focus), plain and muted otherwise.
-<a href=#112 id=112 data-nosnippet>112</a>    </span><span class="kw">pub fn </span>card(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: bool, focused: bool) -&gt; Gloss {
-<a href=#113 id=113 data-nosnippet>113</a>        <span class="kw">let </span>g = Gloss::new().border(<span class="kw">if </span>selected { Border::thick() } <span class="kw">else </span>{ Border::normal() }).padding((<span class="number">0</span>, <span class="number">1</span>));
-<a href=#114 id=114 data-nosnippet>114</a>        <span class="kw">match </span>(selected, focused) {
-<a href=#115 id=115 data-nosnippet>115</a>            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; g.border_foreground(<span class="self">self</span>.accent),
-<a href=#116 id=116 data-nosnippet>116</a>            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; g,
-<a href=#117 id=117 data-nosnippet>117</a>            <span class="kw">_ </span>=&gt; g.border_foreground(<span class="self">self</span>.border),
-<a href=#118 id=118 data-nosnippet>118</a>        }
-<a href=#119 id=119 data-nosnippet>119</a>    }
-<a href=#120 id=120 data-nosnippet>120</a>    <span class="doccomment">/// A detail / content pane: double border, accent when focused.
-<a href=#121 id=121 data-nosnippet>121</a>    </span><span class="kw">pub fn </span>detail(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
-<a href=#122 id=122 data-nosnippet>122</a>        Gloss::new().border(Border::double()).border_foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border })
-<a href=#123 id=123 data-nosnippet>123</a>    }
-<a href=#124 id=124 data-nosnippet>124</a>    <span class="doccomment">/// Dialogs, dropdown menus and nested details: double accent border.
-<a href=#125 id=125 data-nosnippet>125</a>    </span><span class="kw">pub fn </span>dialog(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().border(Border::double()).border_foreground(<span class="self">self</span>.accent) }
-<a href=#126 id=126 data-nosnippet>126</a>}
-<a href=#127 id=127 data-nosnippet>127</a>
-<a href=#128 id=128 data-nosnippet>128</a><span class="doccomment">/// The ratatui `Block` for a box style (borders, border colour, padding), to
-<a href=#129 id=129 data-nosnippet>129</a>/// render or to give a title.
-<a href=#130 id=130 data-nosnippet>130</a></span><span class="kw">pub fn </span>frame(g: <span class="kw-2">&amp;</span>Gloss) -&gt; Block&lt;<span class="lifetime">'static</span>&gt; { g.to_block() }
+<a href=#92 id=92 data-nosnippet>92</a>    <span class="doccomment">/// A filled button (Start Scanning).
+<a href=#93 id=93 data-nosnippet>93</a>    </span><span class="kw">pub fn </span>button(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.bar().bold(<span class="bool-val">true</span>) }
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="doccomment">/// The "Post" badge of a card.
+<a href=#95 id=95 data-nosnippet>95</a>    </span><span class="kw">pub fn </span>post_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().foreground(<span class="self">self</span>.on_accent).background(<span class="self">self</span>.border).bold(<span class="bool-val">true</span>) }
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="doccomment">/// The "Reply" badge of a card.
+<a href=#97 id=97 data-nosnippet>97</a>    </span><span class="kw">pub fn </span>reply_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().foreground(<span class="self">self</span>.on_accent).background(<span class="self">self</span>.accent).bold(<span class="bool-val">true</span>) }
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="doccomment">/// The background under an open modal.
+<a href=#99 id=99 data-nosnippet>99</a>    </span><span class="kw">pub fn </span>dimmed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().faint(<span class="bool-val">true</span>) }
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="comment">// ----- boxes -----------------------------------------------------------
+<a href=#102 id=102 data-nosnippet>102</a>    </span><span class="doccomment">/// Border colour of a pane: accent when focused.
+<a href=#103 id=103 data-nosnippet>103</a>    </span><span class="kw">pub fn </span>border(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss { Gloss::new().foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border }) }
+<a href=#104 id=104 data-nosnippet>104</a>    <span class="doccomment">/// A pane (Nicks, Body, carousel sides): plain border, accent when focused.
+<a href=#105 id=105 data-nosnippet>105</a>    </span><span class="kw">pub fn </span>pane(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
+<a href=#106 id=106 data-nosnippet>106</a>        Gloss::new().border(Border::normal()).border_foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border })
+<a href=#107 id=107 data-nosnippet>107</a>    }
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="doccomment">/// A post card with one column of padding: thick when selected (accent
+<a href=#109 id=109 data-nosnippet>109</a>    /// when the Body has focus), plain and muted otherwise.
+<a href=#110 id=110 data-nosnippet>110</a>    </span><span class="kw">pub fn </span>card(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: bool, focused: bool) -&gt; Gloss {
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">let </span>g = Gloss::new().border(<span class="kw">if </span>selected { Border::thick() } <span class="kw">else </span>{ Border::normal() }).padding((<span class="number">0</span>, <span class="number">1</span>));
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="kw">match </span>(selected, focused) {
+<a href=#113 id=113 data-nosnippet>113</a>            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; g.border_foreground(<span class="self">self</span>.accent),
+<a href=#114 id=114 data-nosnippet>114</a>            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; g,
+<a href=#115 id=115 data-nosnippet>115</a>            <span class="kw">_ </span>=&gt; g.border_foreground(<span class="self">self</span>.border),
+<a href=#116 id=116 data-nosnippet>116</a>        }
+<a href=#117 id=117 data-nosnippet>117</a>    }
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="doccomment">/// A detail / content pane: double border, accent when focused.
+<a href=#119 id=119 data-nosnippet>119</a>    </span><span class="kw">pub fn </span>detail(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
+<a href=#120 id=120 data-nosnippet>120</a>        Gloss::new().border(Border::double()).border_foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border })
+<a href=#121 id=121 data-nosnippet>121</a>    }
+<a href=#122 id=122 data-nosnippet>122</a>    <span class="doccomment">/// Dialogs, dropdown menus and nested details: double accent border.
+<a href=#123 id=123 data-nosnippet>123</a>    </span><span class="kw">pub fn </span>dialog(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().border(Border::double()).border_foreground(<span class="self">self</span>.accent) }
+<a href=#124 id=124 data-nosnippet>124</a>}
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a><span class="doccomment">/// The ratatui `Block` for a box style (borders, border colour, padding), to
+<a href=#127 id=127 data-nosnippet>127</a>/// render or to give a title.
+<a href=#128 id=128 data-nosnippet>128</a></span><span class="kw">pub fn </span>frame(g: <span class="kw-2">&amp;</span>Gloss) -&gt; Block&lt;<span class="lifetime">'static</span>&gt; { g.to_block() }
 </code></pre></div></section></main></body></html>

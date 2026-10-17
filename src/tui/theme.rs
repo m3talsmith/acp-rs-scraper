@@ -89,8 +89,6 @@ impl Theme {
     pub fn label(&self, focused: bool) -> Gloss { if focused { self.accent_bold() } else { self.plain() } }
     /// The header bar and its text: on-accent over accent.
     pub fn bar(&self) -> Gloss { Gloss::new().background(self.accent).foreground(self.on_accent) }
-    /// The header's text-art logo badge: accent over on-accent.
-    pub fn badge(&self) -> Gloss { Gloss::new().background(self.on_accent).foreground(self.accent) }
     /// A filled button (Start Scanning).
     pub fn button(&self) -> Gloss { self.bar().bold(true) }
     /// The "Post" badge of a card.

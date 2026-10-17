@@ -31,10 +31,11 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 ## Terminal UI
 
 `acp-rs-scraper` (no flags) or `acp-rs-scraper --tui` opens it. It needs a terminal on stdin/stdout
-(at least 60×18); piped or scripted runs get an error naming the headless flags instead.
+(at least 60×19); piped or scripted runs get an error naming the headless flags instead.
 
-- **Layout:** a 3-row header (the red star logo, a big "ACP" drawn with tui-big-text, then name,
-  version, session and running job, vertically centred) · menu bar (one item per group of CLI
+- **Layout:** a 4-row header on the red bar (the red star logo in white over all four rows, a big
+  "ACP" drawn with tui-big-text on rows 2–4 so it has a row of room above, then name, version,
+  session and running job on the middle row of the "ACP") · menu bar (one item per group of CLI
   flags, Start Scanning pinned right) · nick bar on the left (`@nick` and post count) · Body · status
   line (`l` expands it to a log panel).
 - **Browsing** is offline and read-only (the database is opened `SQLITE_OPEN_READ_ONLY`). Select a
@@ -55,7 +56,7 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 - **Pictures** (the logo and post images): the graphics protocol is detected at start by querying
   the terminal (kitty graphics reply, sixel in DA1, cell size via `CSI 16 t`; iTerm2/WezTerm from
   the environment; tmux always uses the fallback), falling back to Unicode half blocks (the logo
-  uses two-colour sextant cells there);
+  is a two-colour sextant silhouette of the PNG there: 8×4 cells, 16×12 dots);
   `ACP_IMAGE_PROTOCOL=halfblocks|sixel|kitty|iterm2` forces one and `ACP_IMAGES=off` disables
   pictures. Each stored picture gets a 14-row slot under the body; it decodes on a background thread
   and is drawn when its slot is fully visible ("scroll to show it" otherwise). AVIF/HEIC are

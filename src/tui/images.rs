@@ -104,7 +104,8 @@ pub struct Images {
     /// Cell size in pixels (width, height).
     pub cell: (u16, u16),
     logo: Option<Pic>,
-    badge: [u8; 3],
+    logo_fg: [u8; 3],
+    logo_bg: [u8; 3],
     cache: HashMap<PathBuf, ImgState>,
     next_id: u32,
     tx: Option<std::sync::mpsc::Sender<PathBuf>>,
@@ -119,10 +120,11 @@ pub struct Images {
 
 impl Images {
     /// Images drawn with `protocol`; `background` decodes on a worker thread (else
-    /// inline, for tests). The logo is laid on a `badge` colour so the red star
-    /// stays visible on the red header.
-    pub fn new(protocol: Protocol, cell: (u16, u16), background: bool, badge: [u8; 3]) -> Self {
-        let logo = logo_on(badge).map(|i| Pic { id: 1, img: i.to_rgba8() });
+    /// inline, for tests). The logo is the star's shape in `logo_fg` on
+    /// `logo_bg` (the header's on-accent over accent), so it stays crisp on the
+    /// red header without a badge.
+    pub fn new(protocol: Protocol, cell: (u16, u16), background: bool, logo_fg: [u8; 3], logo_bg: [u8; 3]) -> Self {
+        let logo = logo_image(logo_fg, logo_bg).map(|img| Pic { id: 1, img });
         let (tx, rx) = if background {
             let (tx, rx_req) = std::sync::mpsc::channel::<PathBuf>();
             let (tx_res, rx) = std::sync::mpsc::channel();
@@ -135,14 +137,14 @@ impl Images {
             (Some(tx), Some(rx))
         } else { (None, None) };
         let cell = (cell.0.max(1), cell.1.max(2));
-        Images { protocol, cell, logo, badge, cache: HashMap::new(), next_id: 2, tx, rx, frame: Vec::new(), last: Vec::new(),
+        Images { protocol, cell, logo, logo_fg, logo_bg, cache: HashMap::new(), next_id: 2, tx, rx, frame: Vec::new(), last: Vec::new(),
             transmitted: HashSet::new(), scaled: HashMap::new(), encoded: HashMap::new() }
     }
 
     /// Detect the terminal's graphics support (call in raw mode, before the input
     /// thread reads stdin). `ACP_IMAGES=off` disables pictures;
     /// `ACP_IMAGE_PROTOCOL=halfblocks|sixel|kitty|iterm2` forces a protocol.
-    pub fn detect(badge: [u8; 3]) -> Option<Self> {
+    pub fn detect(logo_fg: [u8; 3], logo_bg: [u8; 3]) -> Option<Self> {
         if std::env::var("ACP_IMAGES").is_ok_and(|v| matches!(v.as_str(), "off" | "0" | "no")) { return None; }
         let forced = std::env::var("ACP_IMAGE_PROTOCOL").ok().and_then(|s| Protocol::parse(&s));
         let in_tmux = std::env::var_os("TMUX").is_some();
@@ -150,7 +152,7 @@ impl Images {
         let mut p = parse_reply(&reply);
         if p.0 == Protocol::Halfblocks && !in_tmux && iterm2_env() { p.0 = Protocol::Iterm2; }
         let cell = p.1.or_else(cell_from_winsize).unwrap_or(DEFAULT_CELL);
-        Some(Images::new(forced.unwrap_or(p.0), cell, true, badge))
+        Some(Images::new(forced.unwrap_or(p.0), cell, true, logo_fg, logo_bg))
     }
 
     /// The state of `path`, starting its decode on first use.
@@ -184,26 +186,15 @@ impl Images {
         changed
     }
 
-    /// Draw the logo into `area`. With half blocks it is drawn in two colours
-    /// with sextant cells instead (2×3 dots per cell), which keeps the star's
-    /// points at header size.
+    /// Draw the logo into `area`. With half blocks it is drawn as a two-colour
+    /// sextant silhouette instead (2×3 dots per cell, see [`draw_logo_text`]).
     pub fn draw_logo(&mut self, buf: &mut Buffer, area: Rect) -> bool {
-        let Some(pic) = self.logo.take() else { return false };
         if self.protocol == Protocol::Halfblocks {
-            let (cols, rows) = fit(pic.img.width(), pic.img.height(), self.cell, area.width, area.height);
-            let rect = Rect { x: area.x + (area.width - cols) / 2, y: area.y + (area.height - rows) / 2, width: cols, height: rows };
-            let small = self.scaled.entry((pic.id, cols, rows)).or_insert_with(|| {
-                image::imageops::resize(&pic.img, u32::from(cols) * 2, u32::from(rows) * 3, image::imageops::FilterType::Triangle)
-            });
-            let b = self.badge;
-            let star = |p: &image::Rgba<u8>| {
-                let d = |i: usize| (i32::from(p.0[i]) - i32::from(b[i])).abs();
-                d(0) + d(1) + d(2) > 120
-            };
-            sextants(buf, rect, small, star, Color::Rgb(193, 22, 22), Color::Rgb(b[0], b[1], b[2]));
-        } else {
-            self.place(buf, area, &pic, true, true);
+            let (f, b) = (self.logo_fg, self.logo_bg);
+            return draw_logo_text(buf, area, Color::Rgb(f[0], f[1], f[2]), Color::Rgb(b[0], b[1], b[2]));
         }
+        let Some(pic) = self.logo.take() else { return false };
+        self.place(buf, area, &pic, true, true);
         self.logo = Some(pic);
         true
     }
@@ -506,14 +497,76 @@ fn cell_from_winsize() -> Option<(u16, u16)> {
     (ws.width > 0 && ws.columns > 0 && ws.rows > 0).then(|| (ws.width / ws.columns, ws.height / ws.rows)).filter(|c| c.0 > 0 && c.1 > 0)
 }
 
-/// The logo composited on a square of `badge` colour (with a small margin).
-pub fn logo_on(badge: [u8; 3]) -> Option<DynamicImage> {
-    let star = image::load_from_memory(LOGO_PNG).ok()?.to_rgba8();
-    let m = star.width() / 10;
-    let side = star.width().max(star.height()) + 2 * m;
-    let mut bg = RgbaImage::from_pixel(side, side, image::Rgba([badge[0], badge[1], badge[2], 255]));
-    image::imageops::overlay(&mut bg, &star, i64::from(m), i64::from(m));
-    Some(DynamicImage::ImageRgba8(bg))
+/// The logo's shape (its alpha) in `fg` over an opaque `bg`, at the PNG's size.
+/// Sixel has no transparency, so the blend is done here for every protocol.
+pub fn logo_image(fg: [u8; 3], bg: [u8; 3]) -> Option<RgbaImage> {
+    let src = image::load_from_memory(LOGO_PNG).ok()?.to_rgba8();
+    let mut out = RgbaImage::new(src.width(), src.height());
+    for (x, y, p) in src.enumerate_pixels() {
+        let a = u32::from(p.0[3]);
+        let mix = |i: usize| ((u32::from(fg[i]) * a + u32::from(bg[i]) * (255 - a) + 127) / 255) as u8;
+        out.put_pixel(x, y, image::Rgba([mix(0), mix(1), mix(2), 255]));
+    }
+    Some(out)
+}
+
+/// Logo masks already computed, by size in dots.
+type MaskCache = std::sync::Mutex<HashMap<(u32, u32), Option<Vec<bool>>>>;
+
+/// The logo as on/off dots on a `w`×`h` grid: each dot is the mean alpha of the
+/// PNG area it covers (a box filter, so thin lines aren't lost), on when over
+/// half covered, or over 22% inside the ring so the small star in the middle
+/// keeps its points. Computed once per size.
+pub fn logo_mask(w: u32, h: u32) -> Option<Vec<bool>> {
+    static CACHE: std::sync::OnceLock<MaskCache> = std::sync::OnceLock::new();
+    if w == 0 || h == 0 { return None; }
+    let cache = CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+    if let Some(m) = cache.lock().ok()?.get(&(w, h)) { return m.clone(); }
+    let m = compute_mask(w, h);
+    cache.lock().ok()?.insert((w, h), m.clone());
+    m
+}
+
+fn compute_mask(w: u32, h: u32) -> Option<Vec<bool>> {
+    let src = image::load_from_memory(LOGO_PNG).ok()?.to_rgba8();
+    let (sw, sh) = (src.width(), src.height());
+    let mut v = Vec::with_capacity((w * h) as usize);
+    for y in 0..h {
+        for x in 0..w {
+            let (x0, x1) = (x * sw / w, ((x + 1) * sw / w).max(x * sw / w + 1));
+            let (y0, y1) = (y * sh / h, ((y + 1) * sh / h).max(y * sh / h + 1));
+            let mut sum = 0u64;
+            for yy in y0..y1.min(sh) { for xx in x0..x1.min(sw) { sum += u64::from(src.get_pixel(xx, yy).0[3]); } }
+            let cover = sum as f64 / (u64::from(x1 - x0) * u64::from(y1 - y0) * 255) as f64;
+            let (u, vv) = ((x as f64 + 0.5) / w as f64 * 2.0 - 1.0, (y as f64 + 0.5) / h as f64 * 2.0 - 1.0);
+            let th = if (u * u + vv * vv).sqrt() < 0.72 { 0.22 } else { 0.5 };
+            v.push(cover >= th);
+        }
+    }
+    Some(v)
+}
+
+/// Draw the logo into `area` as a two-colour sextant silhouette, as big as fits
+/// at the cells' ~1:2 aspect (8×4 cells in the 4-row header: 16×12 dots), centred.
+/// Works without any terminal graphics. False if the PNG can't be read.
+pub fn draw_logo_text(buf: &mut Buffer, area: Rect, fg: Color, bg: Color) -> bool {
+    let rows = area.height.min(area.width / 2);
+    let cols = rows * 2;
+    if rows == 0 { return false; }
+    let Some(mask) = logo_mask(u32::from(cols) * 2, u32::from(rows) * 3) else { return false };
+    let rect = Rect { x: area.x + (area.width - cols) / 2, y: area.y + (area.height - rows) / 2, width: cols, height: rows };
+    let w = usize::from(cols) * 2;
+    for row in 0..rect.height {
+        for col in 0..rect.width {
+            let mut bits = 0u8;
+            for dy in 0..3 { for dx in 0..2 {
+                let (x, y) = (usize::from(col) * 2 + dx, usize::from(row) * 3 + dy);
+                if mask[y * w + x] { bits |= 1 << (dy * 2 + dx); }
+            } }
+            if let Some(c) = buf.cell_mut((rect.x + col, rect.y + row)) { c.set_char(sextant(bits)).set_fg(fg).set_bg(bg); }
+        }
+    }
+    true
 }
 
 /// Whether a stored attachment is a picture the TUI can show.

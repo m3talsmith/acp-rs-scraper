@@ -185,9 +185,9 @@ pub const MAX_FLAT_DEPTH: usize = 256;
 /// Default minutes between automatic TUI syncs (Sync › Interval).
 pub const TUI_SYNC_DEFAULT_MINUTES: u64 = 15;
 /// Smallest terminal the layout supports.
-pub const TUI_MIN_SIZE: (u16, u16) = (60, 18);
-/// Rows of the TUI header (logo, big "ACP", title, session).
-pub const TUI_HEADER_ROWS: u16 = 3;
+pub const TUI_MIN_SIZE: (u16, u16) = (60, 19);
+/// Rows of the TUI header (logo, big "ACP" with a row of room above it, title, session).
+pub const TUI_HEADER_ROWS: u16 = 4;
 /// Research project files (copies, web snapshots), under `$HOME`.
 pub const RESEARCH_REL_DIR: &str = ".acp/research";
 /// Converted image cache (AVIF → PNG), under `$HOME`.

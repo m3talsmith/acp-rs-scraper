@@ -84,7 +84,7 @@
 <a href=#84 id=84 data-nosnippet>84</a>    <span class="kw">let </span>prev = std::panic::take_hook();
 <a href=#85 id=85 data-nosnippet>85</a>    std::panic::set_hook(Box::new(<span class="kw">move </span>|info| { restore_terminal(); prev(info); }));
 <a href=#86 id=86 data-nosnippet>86</a>    <span class="comment">// Ask the terminal for its graphics protocol before the input thread starts reading.
-<a href=#87 id=87 data-nosnippet>87</a>    </span>app.images = images::Images::detect(theme::rgb_bytes(app.theme.on_accent));
+<a href=#87 id=87 data-nosnippet>87</a>    </span>app.images = images::Images::detect(theme::rgb_bytes(app.theme.on_accent), theme::rgb_bytes(app.theme.accent));
 <a href=#88 id=88 data-nosnippet>88</a>    <span class="kw">let </span>osc8 = osc8_supported();
 <a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">let </span><span class="kw-2">mut </span>term = Terminal(ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(std::io::stdout()))<span class="question-mark">?</span>);
 <a href=#90 id=90 data-nosnippet>90</a>

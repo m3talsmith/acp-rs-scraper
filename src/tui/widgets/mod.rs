@@ -45,16 +45,16 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
     let bar = t.bar();
     f.render_widget(Paragraph::new("").style(&bar), r);
-    let mid = Rect { x: r.x, y: r.y + r.height / 2, width: r.width, height: 1.min(r.height) };
-    // Logo: a square badge (cells are about twice as tall as wide).
-    let logo = Rect { x: r.x + 1, y: r.y, width: (r.height * 2).min(r.width), height: r.height };
+    // The big "ACP" is 3 rows: in the 4-row header it gets the spare row above it,
+    // and the title / session line sits on its middle row.
+    let big_top = r.y + r.height.saturating_sub(3).div_ceil(2);
+    let mid = Rect { x: r.x, y: (big_top + 1).min(r.y + r.height.saturating_sub(1)), width: r.width, height: 1.min(r.height) };
+    // Logo: square on screen (cells are about twice as tall as wide), the full
+    // header height, in on-accent over the red bar. Without terminal graphics it
+    // is a sextant silhouette of the same PNG.
+    let logo = Rect { x: r.x + 1, y: r.y, width: (r.height * 2).min(r.width.saturating_sub(1)), height: r.height };
     let drawn = app.images.as_mut().is_some_and(|im| im.draw_logo(f.buffer_mut(), logo));
-    if !drawn {
-        let star = t.badge();
-        let art = [" ▗█▖  ", "▜███▛ ", "▟▘ ▝▙ "];
-        let lines: Vec<Line> = art.iter().take(r.height as usize).map(|l| Line::styled(*l, &star)).collect();
-        f.render_widget(Paragraph::new(lines), logo);
-    }
+    if !drawn { crate::tui::images::draw_logo_text(f.buffer_mut(), logo, t.on_accent, t.accent); }
     let mut x = logo.x + logo.width + 1;
     let big_w = 3 * 8;
     if r.height >= 3 && x + big_w + 2 < r.width {
@@ -63,8 +63,7 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
             .style(t.bar().bold(true))
             .lines(vec![Line::from("ACP")])
             .build();
-        let h = 3;
-        f.render_widget(big, Rect { x, y: r.y + (r.height - h) / 2, width: big_w, height: h });
+        f.render_widget(big, Rect { x, y: big_top, width: big_w, height: 3 });
         x += big_w + 2;
     } else {
         f.render_widget(Paragraph::new(Span::styled("ACP", t.bar().bold(true))), Rect { x, ..mid });

@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.11.0
+Version:        2.11.1
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sat Oct 17 2026 m3talsmith <m3talsmith@gmail.com> - 2.11.1-1
+- Taller TUI header and a recognisable red-star logo
+
 * Sat Oct 17 2026 m3talsmith <m3talsmith@gmail.com> - 2.11.0-1
 - Empty-Body TUI animation and tools/acp-anim
 

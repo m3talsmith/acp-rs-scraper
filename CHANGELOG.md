@@ -6,6 +6,20 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.11.1] - 2026-10-17
+
+### Changed
+- The TUI header is one row taller (4 rows): the big "ACP" sits on the lower three rows so it
+  isn't pressed against the top edge, and the name, version, session and running job sit on its
+  middle row. The TUI's minimum size is now 60×19.
+
+### Fixed
+- The red-star logo in the header now looks like `assets/red-star.png` (a ring with a star in
+  it): it fills all four header rows, square on screen, and is drawn in white straight on the red
+  bar instead of in a small light badge. Without terminal graphics (half blocks: the Linux console,
+  tmux, SSH, waypipe) it is a 16×12-dot sextant silhouette made by box-filtering the PNG's alpha,
+  computed once per size; with kitty, sixel or iTerm2 the PNG is composited white-on-red first.
+
 ## [2.11.0] - 2026-10-17
 
 ### Added

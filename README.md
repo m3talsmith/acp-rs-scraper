@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.11.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.11.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -244,9 +244,10 @@ headless scrape is now `--scrape`.
 
 ```
 +--------------------------------------------------------------+
-| ▗█▖  ▄▀▀▄ ▄▀▀ █▀▀▄                                            |
-| ███  █▀▀█ █   █▀▀   Red Star Scraper  v2.7.0     ● logged in |  header: logo, big ACP,
-| ▟▘▙  ▀  ▀ ▀▀▀ ▀                                              |  session, running job
+|  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
+| 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.11.1 |  room above, session,
+|  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
 | @feistyD 369 | ╔═ Reply @hazaldin · 2026-10-16 … ══════════╗ |  the post you opened
@@ -277,14 +278,16 @@ headless scrape is now `--scrape`.
   **Pictures show inline** under the body (see *Images in the terminal* below). Click a link (or `←`/`→`
   then `Enter`) to cross-load that post: it opens on top and pushes the previous detail up into a
   header strip. Up to 8 nest; `Esc` closes the top one, a click on a header goes back to it.
-- **Header.** Three rows: the red star logo (`assets/red-star.png`), a big "ACP"
-  ([tui-big-text](https://crates.io/crates/tui-big-text), one-third-height pixels), then the name,
-  version, session and running job, all centred on the middle row.
+- **Header.** Four rows on the red bar: the red star logo (`assets/red-star.png`, its ring and
+  star drawn in white across all four rows, square on screen), a big "ACP"
+  ([tui-big-text](https://crates.io/crates/tui-big-text), one-third-height pixels) on the lower
+  three rows so it has a row of room above it, then the name, version, session and running job on
+  the middle row of the "ACP".
 - **Images in the terminal.** At start the TUI asks the terminal which graphics protocol it speaks
   (a kitty graphics query, sixel in the device attributes, the cell size in pixels); iTerm2 and
   WezTerm get iTerm2 inline images. Terminals that don't answer (the Linux console, tmux, many SSH,
   waypipe and Windows-terminal setups) get Unicode half blocks for pictures and two-colour sextant
-  cells for the logo, which work everywhere at lower resolution. `ACP_IMAGE_PROTOCOL=halfblocks|sixel|kitty|iterm2` forces one,
+  cells for the logo (a 16×12-dot silhouette of the PNG), which work everywhere at lower resolution. `ACP_IMAGE_PROTOCOL=halfblocks|sixel|kitty|iterm2` forces one,
   `ACP_IMAGES=off` turns pictures off. Pictures decode in the background; a picture is drawn once
   its rows are fully on screen (scroll it into view). The site stores AVIF, which is converted once
   to a PNG in `~/.acp/cache/thumbs/` with the first of `avifdec` (libavif), `magick` (ImageMagick)
@@ -404,7 +407,7 @@ headless scrape is now `--scrape`.
 
 Keys: `?`/`F1` help (the full `--help` plus every key), `Tab` cycles Nicks → Body → Menu,
 `↑↓`/`jk`, `PgUp`/`PgDn`, `Home`/`End`, `Ctrl-R` re-reads nicks, `q` or `Ctrl-C` quits.
-The TUI needs at least 60×18 cells and a terminal on stdin/stdout; without one it tells you which
+The TUI needs at least 60×19 cells and a terminal on stdin/stdout; without one it tells you which
 headless flags to use.
 
 ## Bookmarks
