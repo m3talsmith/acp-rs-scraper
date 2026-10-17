@@ -205,30 +205,31 @@
 <a href=#205 id=205 data-nosnippet>205</a>    (<span class="string">"Esc / Backspace"</span>, <span class="string">"Close the top detail; close menu / modal"</span>),
 <a href=#206 id=206 data-nosnippet>206</a>    (<span class="string">"&lt;"</span>, <span class="string">"Back from search results / bookmarks"</span>),
 <a href=#207 id=207 data-nosnippet>207</a>    (<span class="string">"b"</span>, <span class="string">"Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"</span>),
-<a href=#208 id=208 data-nosnippet>208</a>    (<span class="string">", .  /  Alt-← Alt-→"</span>, <span class="string">"Previous / next post of the detail stack (◂ prev / next ▸ on the nav bar)"</span>),
-<a href=#209 id=209 data-nosnippet>209</a>    (<span class="string">"v / V"</span>, <span class="string">"Next / previous view mode: Nested, Stack, Stack + pane, Carousel ∞, Carousel, Grid"</span>),
-<a href=#210 id=210 data-nosnippet>210</a>    (<span class="string">"← →  (Carousel, Grid)"</span>, <span class="string">"Previous / next post; ↑ ↓ move a row in the Grid"</span>),
-<a href=#211 id=211 data-nosnippet>211</a>    (<span class="string">"B"</span>, <span class="string">"Show bookmarks (the ★ Bookmarks row on the nick bar)"</span>),
-<a href=#212 id=212 data-nosnippet>212</a>    (<span class="string">"PgUp PgDn Home End"</span>, <span class="string">"Page / jump"</span>),
-<a href=#213 id=213 data-nosnippet>213</a>    (<span class="string">"m / F10 / Alt+letter"</span>, <span class="string">"Menu bar (underlined letter opens a command)"</span>),
-<a href=#214 id=214 data-nosnippet>214</a>    (<span class="string">"F5"</span>, <span class="string">"Start Scanning (Cancel while a job runs)"</span>),
-<a href=#215 id=215 data-nosnippet>215</a>    (<span class="string">"Shift-S"</span>, <span class="string">"Search modal: keyword, nicks, post id, dates, posts/replies"</span>),
-<a href=#216 id=216 data-nosnippet>216</a>    (<span class="string">"Ctrl-S (Ctrl-Shift-S)"</span>, <span class="string">"Clear the search"</span>),
-<a href=#217 id=217 data-nosnippet>217</a>    (<span class="string">"Ctrl-Space / Ctrl-P"</span>, <span class="string">"Command palette"</span>),
-<a href=#218 id=218 data-nosnippet>218</a>    (<span class="string">"l"</span>, <span class="string">"Show / hide the log panel"</span>),
-<a href=#219 id=219 data-nosnippet>219</a>    (<span class="string">"Ctrl-R"</span>, <span class="string">"Re-read nicks from the database"</span>),
-<a href=#220 id=220 data-nosnippet>220</a>    (<span class="string">"? / F1"</span>, <span class="string">"Help"</span>),
-<a href=#221 id=221 data-nosnippet>221</a>    (<span class="string">"q / Ctrl-C"</span>, <span class="string">"Quit (a running scan keeps going in the background)"</span>),
-<a href=#222 id=222 data-nosnippet>222</a>    (<span class="string">"Mouse"</span>, <span class="string">"Click anything; Ctrl/Shift-click nicks to multi-select; wheel scrolls"</span>),
-<a href=#223 id=223 data-nosnippet>223</a>];
-<a href=#224 id=224 data-nosnippet>224</a>
-<a href=#225 id=225 data-nosnippet>225</a><span class="comment">// ---------------------------------------------------------------- bookmarks
-<a href=#226 id=226 data-nosnippet>226</a></span><span class="doccomment">/// CONFIRMED (live sync, 2.5.0): the logged-in user's bookmarks feed, a
-<a href=#227 id=227 data-nosnippet>227</a>/// `forum/Feed` page like a profile. Override the path with `ACP_BOOKMARKS_PATH`.
-<a href=#228 id=228 data-nosnippet>228</a></span><span class="kw">pub fn </span>bookmarks_url() -&gt; String {
-<a href=#229 id=229 data-nosnippet>229</a>    <span class="kw">let </span>p = std::env::var(<span class="string">"ACP_BOOKMARKS_PATH"</span>).ok().filter(|v| v.starts_with(<span class="string">'/'</span>)).unwrap_or_else(|| <span class="string">"/rs/bookmarks"</span>.into());
-<a href=#230 id=230 data-nosnippet>230</a>    <span class="macro">format!</span>(<span class="string">"{}{p}"</span>, base_url())
-<a href=#231 id=231 data-nosnippet>231</a>}
-<a href=#232 id=232 data-nosnippet>232</a><span class="doccomment">/// CONFIRMED (live sync, 2.5.0): LiveView click event that toggles a post's bookmark (`{"id": post_id}`).
-<a href=#233 id=233 data-nosnippet>233</a></span><span class="kw">pub const </span>BOOKMARK_EVENT: <span class="kw-2">&amp;</span>str = <span class="string">"toggle-bookmark"</span>;
+<a href=#208 id=208 data-nosnippet>208</a>    (<span class="string">"x"</span>, <span class="string">"Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"</span>),
+<a href=#209 id=209 data-nosnippet>209</a>    (<span class="string">", .  /  Alt-← Alt-→"</span>, <span class="string">"Previous / next post of the detail stack (◂ prev / next ▸ on the nav bar)"</span>),
+<a href=#210 id=210 data-nosnippet>210</a>    (<span class="string">"v / V"</span>, <span class="string">"Next / previous view mode: Nested, Stack, Stack + pane, Carousel ∞, Carousel, Grid"</span>),
+<a href=#211 id=211 data-nosnippet>211</a>    (<span class="string">"← →  (Carousel, Grid)"</span>, <span class="string">"Previous / next post; ↑ ↓ move a row in the Grid"</span>),
+<a href=#212 id=212 data-nosnippet>212</a>    (<span class="string">"B"</span>, <span class="string">"Show bookmarks (the ★ Bookmarks row on the nick bar)"</span>),
+<a href=#213 id=213 data-nosnippet>213</a>    (<span class="string">"PgUp PgDn Home End"</span>, <span class="string">"Page / jump"</span>),
+<a href=#214 id=214 data-nosnippet>214</a>    (<span class="string">"m / F10 / Alt+letter"</span>, <span class="string">"Menu bar (underlined letter opens a command)"</span>),
+<a href=#215 id=215 data-nosnippet>215</a>    (<span class="string">"F5"</span>, <span class="string">"Start Scanning (Cancel while a job runs)"</span>),
+<a href=#216 id=216 data-nosnippet>216</a>    (<span class="string">"Shift-S"</span>, <span class="string">"Search modal: keyword, nicks, post id, dates, posts/replies"</span>),
+<a href=#217 id=217 data-nosnippet>217</a>    (<span class="string">"Ctrl-S (Ctrl-Shift-S)"</span>, <span class="string">"Clear the search"</span>),
+<a href=#218 id=218 data-nosnippet>218</a>    (<span class="string">"Ctrl-Space / Ctrl-P"</span>, <span class="string">"Command palette"</span>),
+<a href=#219 id=219 data-nosnippet>219</a>    (<span class="string">"l"</span>, <span class="string">"Show / hide the log panel"</span>),
+<a href=#220 id=220 data-nosnippet>220</a>    (<span class="string">"Ctrl-R"</span>, <span class="string">"Re-read nicks from the database"</span>),
+<a href=#221 id=221 data-nosnippet>221</a>    (<span class="string">"? / F1"</span>, <span class="string">"Help"</span>),
+<a href=#222 id=222 data-nosnippet>222</a>    (<span class="string">"q / Ctrl-C"</span>, <span class="string">"Quit (a running scan keeps going in the background)"</span>),
+<a href=#223 id=223 data-nosnippet>223</a>    (<span class="string">"Mouse"</span>, <span class="string">"Click anything; Ctrl/Shift-click nicks to multi-select; wheel scrolls"</span>),
+<a href=#224 id=224 data-nosnippet>224</a>];
+<a href=#225 id=225 data-nosnippet>225</a>
+<a href=#226 id=226 data-nosnippet>226</a><span class="comment">// ---------------------------------------------------------------- bookmarks
+<a href=#227 id=227 data-nosnippet>227</a></span><span class="doccomment">/// CONFIRMED (live sync, 2.5.0): the logged-in user's bookmarks feed, a
+<a href=#228 id=228 data-nosnippet>228</a>/// `forum/Feed` page like a profile. Override the path with `ACP_BOOKMARKS_PATH`.
+<a href=#229 id=229 data-nosnippet>229</a></span><span class="kw">pub fn </span>bookmarks_url() -&gt; String {
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="kw">let </span>p = std::env::var(<span class="string">"ACP_BOOKMARKS_PATH"</span>).ok().filter(|v| v.starts_with(<span class="string">'/'</span>)).unwrap_or_else(|| <span class="string">"/rs/bookmarks"</span>.into());
+<a href=#231 id=231 data-nosnippet>231</a>    <span class="macro">format!</span>(<span class="string">"{}{p}"</span>, base_url())
+<a href=#232 id=232 data-nosnippet>232</a>}
+<a href=#233 id=233 data-nosnippet>233</a><span class="doccomment">/// CONFIRMED (live sync, 2.5.0): LiveView click event that toggles a post's bookmark (`{"id": post_id}`).
+<a href=#234 id=234 data-nosnippet>234</a></span><span class="kw">pub const </span>BOOKMARK_EVENT: <span class="kw-2">&amp;</span>str = <span class="string">"toggle-bookmark"</span>;
 </code></pre></div></section></main></body></html>

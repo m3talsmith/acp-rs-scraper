@@ -27,6 +27,7 @@ pub fn prompt(msg: &str) -> Result<String> {
   acp-rs-scraper --search \"general strike\" --format json
   acp-rs-scraper --export all.json
   acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
+  acp-rs-scraper --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
   acp-rs-scraper --import strike.tar.gz --compress --tar-gz
   acp-rs-scraper --import all.json
   ACP_DEBUG=1 acp-rs-scraper --nick alice --debug
@@ -100,6 +101,10 @@ pub struct Args {
     /// Offline: dump the local DB (all / --nick(s) / --search) to FILE. Replaces --output for DB dumps.
     #[arg(long, value_name = "FILE", help_heading = "Search / Export", conflicts_with_all = ["output", "import"])]
     pub export: Option<PathBuf>,
+    /// Offline: export exactly these posts and replies (comma-separated post ids), with their attachments — to --export FILE, or stdout / --output. The TUI's export basket uses it.
+    #[arg(long, value_name = "IDS", value_parser = parse_post_id_arg, help_heading = "Search / Export",
+          conflicts_with_all = ["search", "nick", "nicks", "import", "bookmark", "unbookmark", "list_bookmarks", "sync", "sync_bookmarks", "list_nicks"])]
+    pub post_ids: Option<PostIds>,
     /// Export name: basename, archive name, folder inside archive, HTML title.
     #[arg(long, help_heading = "Search / Export")]
     pub name: Option<String>,

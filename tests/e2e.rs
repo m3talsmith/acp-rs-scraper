@@ -118,6 +118,14 @@ async fn tui_export(w: &mut E2e, nicks: String, path: String, format: String) {
     w.run_argv(&argv[1..]).await;
 }
 
+#[when(expr = "I export the TUI basket {string} to {string}")]
+async fn tui_basket(w: &mut E2e, ids: String, path: String) {
+    let basket: Vec<String> = ids.split(',').map(String::from).collect();
+    w.menu().set_text(CommandId::Export, "path", &path);
+    let argv = w.menu().export_argv_with(&[], None, &basket, Some("Basket")).unwrap();
+    w.run_argv(&argv[1..]).await;
+}
+
 #[when(expr = "I remove the TUI selection {string} from the Maintain menu")]
 async fn tui_remove(w: &mut E2e, nicks: String) {
     let sel: Vec<String> = nicks.split(',').map(String::from).collect();
@@ -248,6 +256,13 @@ async fn file_exists(w: &mut E2e, f: String) { assert!(w.home.join(f.trim_start_
 
 #[then(expr = "the file {string} does not exist")]
 async fn file_missing(w: &mut E2e, f: String) { assert!(!w.home.join(f.trim_start_matches("$HOME/")).exists()); }
+
+#[then(expr = "the file {string} does not contain {string}")]
+async fn file_lacks(w: &mut E2e, f: String, text: String) {
+    let p = f.replace("$HOME", &w.home.to_string_lossy());
+    let s = std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("{p}: {e}"));
+    assert!(!s.contains(&text), "{p} contains {text:?}");
+}
 
 #[then(expr = "the file {string} contains {string}")]
 async fn file_contains(w: &mut E2e, f: String, s: String) {

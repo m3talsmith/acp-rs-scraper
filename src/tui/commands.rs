@@ -95,6 +95,14 @@ pub enum Action {
     SyncNow,
     /// Sync › Save as default.
     SaveSyncPrefs,
+    /// Add / remove the current post in the export basket (`x`).
+    ToggleBasket,
+    /// Show the export basket.
+    ShowBasket,
+    /// Empty the export basket.
+    ClearBasket,
+    /// Export the basket with the Export menu's Path / Format / Name / Compress.
+    ExportBasket,
 }
 
 /// The input type shown right of an option's label.
@@ -158,7 +166,7 @@ pub const MODE_CHOICES: &[&str] = &["Latest", "Trending"];
 /// Export format choices.
 pub const FORMAT_CHOICES: &[&str] = &["json", "html", "json,html"];
 /// Export scope choices.
-pub const SCOPE_CHOICES: &[&str] = &["Selected nicks", "Current view", "Everything"];
+pub const SCOPE_CHOICES: &[&str] = &["Selected nicks", "Current view", "Everything", "Basket"];
 
 /// The whole menu bar, with every option's current value.
 #[derive(Clone, Debug, PartialEq)]
@@ -199,6 +207,10 @@ impl Menu {
                 opt("name", "Name", "--name", false, text("")),
                 opt("compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
                 opt("run", "Export", "", false, button(Action::RunExport)),
+                opt("basket_add", "Add current post to basket", "x", false, button(Action::ToggleBasket)),
+                opt("basket_show", "Show basket", "", false, button(Action::ShowBasket)),
+                opt("basket_run", "Export basket", "--post-ids", false, button(Action::ExportBasket)),
+                opt("basket_clear", "Clear basket", "", false, button(Action::ClearBasket)),
             ]},
             MenuCommand { id: Import, label: "Import", hint: 'i', action: None, opts: vec![
                 opt("path", "Path", "--import", true, text("")),
@@ -325,12 +337,22 @@ impl Menu {
 
     /// argv for Export. `selected` = selected nicks; `view` = the current search, if any.
     pub fn export_argv(&self, selected: &[String], view: Option<&SearchFilter>) -> std::result::Result<Vec<String>, String> {
+        self.export_argv_with(selected, view, &[], None)
+    }
+
+    /// argv for Export with the export `basket`; `scope` overrides Export › From.
+    pub fn export_argv_with(&self, selected: &[String], view: Option<&SearchFilter>, basket: &[String], scope: Option<&str>)
+        -> std::result::Result<Vec<String>, String> {
         use CommandId::Export as E;
         let path = self.text(E, "path");
         if path.is_empty() { return Err("Export needs a Path".into()); }
         let mut v = vec![ARGV0.to_string(), "--export".into(), path];
         let nicks_arg = |v: &mut Vec<String>, n: &[String]| if !n.is_empty() { v.extend(["--nicks".into(), n.join(",")]); };
-        match self.choice(E, "scope") {
+        match scope.unwrap_or(self.choice(E, "scope")) {
+            "Basket" => {
+                if basket.is_empty() { return Err("the export basket is empty: press x on a post (or its + button) to add it".into()); }
+                v.extend(["--post-ids".into(), basket.join(",")]);
+            }
             "Selected nicks" => {
                 if selected.is_empty() { return Err("Export › From is \"Selected nicks\" but no nick is selected".into()); }
                 nicks_arg(&mut v, selected);

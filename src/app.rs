@@ -168,6 +168,23 @@ pub async fn run() -> Result<()> {
             posts.len(), atts.len(), profiles.len(), hits.len());
         return Ok(());
     }
+    // Offline export of chosen posts (the TUI's export basket).
+    if let Some(ids) = &args.post_ids {
+        let mut a = args.clone();
+        if let Some(f) = &args.export { a.output = Some(f.clone()); }
+        let db = home()?.join(DB_REL_PATH);
+        let (posts, atts, missing) = posts_by_ids(&db, &ids.0)?;
+        for m in &missing { err!("warning: post {m} is not in the database"); }
+        if posts.is_empty() { bail!("none of the {} posts is in the database", ids.0.len()); }
+        info!("db export: {} chosen posts, {} attachments", posts.len(), atts.len());
+        let name = clean(args.name.clone().unwrap_or_else(|| format!("basket-{stamp}")));
+        let mut nicks: Vec<String> = posts.iter().map(|p| p.nick.clone()).collect();
+        nicks.sort();
+        nicks.dedup();
+        let (profiles, hits) = load_profiles_mentions(&db, &nicks)?;
+        let label = format!("{} chosen posts", posts.len());
+        return export(&a, &name, &label, &posts, &atts, &profiles, &hits, &home()?.join(EXPORTS_REL_PATH));
+    }
     // Offline DB export: --export FILE, or --search (to stdout/--output).
     if args.export.is_some() || args.search.is_some() {
         let mut a = args.clone();

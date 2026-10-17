@@ -9,6 +9,7 @@ mod layout;
 mod markdown;
 mod content;
 mod images;
+mod basket;
 mod modals;
 mod render;
 mod state;

@@ -257,6 +257,10 @@ pub enum Hit {
     Star(usize),
     /// The bookmark star of the top detail.
     StarTop,
+    /// The export-basket button of the n-th post card.
+    Basket(usize),
+    /// The export-basket button of the top detail.
+    BasketTop,
 }
 
 /// Menu bar state.
@@ -330,6 +334,8 @@ pub struct App {
     pub theme: Theme,
     /// Side effects for the event loop.
     pub effects: Vec<Effect>,
+    /// Post ids picked for export (`x`), in the order added.
+    pub basket: Vec<String>,
     /// Pictures (logo, post images); `None` when off or not on a terminal.
     pub images: Option<crate::tui::images::Images>,
     /// Hyperlinks drawn this frame (x, y, text, target URL), re-emitted as OSC 8 after the draw.
@@ -349,7 +355,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None,
+            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(),
             page_rows: 5, email: None,
         };
         app.refresh_nicks();
@@ -503,6 +509,25 @@ impl App {
             }
             Err(e) => self.error("Cannot bookmark", &e),
         }
+    }
+    /// Whether `id` is in the export basket.
+    pub fn in_basket(&self, id: &str) -> bool { self.basket.iter().any(|b| b == id) }
+    /// Add `id` to the export basket, or take it out.
+    pub fn toggle_basket(&mut self, id: &str) {
+        if let Some(i) = self.basket.iter().position(|b| b == id) {
+            self.basket.remove(i);
+            self.push_status(format!("− {id} taken out of the export basket ({} left)", self.basket.len()));
+        } else {
+            self.basket.push(id.to_string());
+            self.push_status(format!("+ {id} added to the export basket ({}) · Export › Export basket writes it", self.basket.len()));
+        }
+    }
+    /// Show the basket's posts (replaces the Body like a search; `<` goes back).
+    pub fn open_basket(&mut self) {
+        let posts: Vec<Post> = self.basket.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
+        self.search = Some(BodyView { title: format!("+ Export basket ({})", self.basket.len()), posts, ..BodyView::default() });
+        self.focus = Focus::Body;
+        self.anim = None;
     }
     /// A side job ended; `pending` = side jobs still running.
     pub fn side_job_finished(&mut self, ok: bool, tail: &[String], pending: usize) {
@@ -764,7 +789,7 @@ impl App {
             Action::ClearSearch => { self.close_menu(); self.clear_search(); }
             Action::RunExport => {
                 let view = self.search.as_ref().and_then(|v| v.filter.clone());
-                match self.menu.menu.export_argv(&sel, view.as_ref()) {
+                match self.menu.menu.export_argv_with(&sel, view.as_ref(), &self.basket, None) {
                     Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
                     Err(e) => self.error("Cannot export", &e),
                 }
@@ -814,6 +839,16 @@ impl App {
             Action::CycleView => { self.close_menu(); let m = self.view_mode.cycle(1); self.set_view_mode(m); }
             Action::SetView(m) => { self.close_menu(); self.set_view_mode(m); }
             Action::ShowBookmarks => { self.close_menu(); self.open_bookmarks(); }
+            Action::ToggleBasket => {
+                self.close_menu();
+                match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }
+            }
+            Action::ShowBasket => { self.close_menu(); self.open_basket(); }
+            Action::ClearBasket => { self.close_menu(); let n = self.basket.len(); self.basket.clear(); self.push_status(format!("export basket emptied ({n} removed)")); }
+            Action::ExportBasket => match self.menu.menu.export_argv_with(&sel, None, &self.basket, Some("Basket")) {
+                Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
+                Err(e) => self.error("Cannot export", &e),
+            },
             Action::ToggleBookmark => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_mark(&id), None => self.push_status("no post to bookmark: open or highlight one first") }
@@ -992,6 +1027,7 @@ impl App {
             ("Next view mode (v)".into(), PaletteCmd::Action(Action::CycleView)),
             ("Show bookmarks (B)".into(), PaletteCmd::Action(Action::ShowBookmarks)),
             ("Bookmark current post (b)".into(), PaletteCmd::Action(Action::ToggleBookmark)),
+            ("Add current post to the export basket (x)".into(), PaletteCmd::Action(Action::ToggleBasket)),
         ];
         for (i, c) in self.menu.menu.items.iter().enumerate() {
             if c.opts.is_empty() { v.push((c.label.to_string(), PaletteCmd::OpenMenu(i))); continue; }

@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.7.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.8.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -85,6 +85,9 @@ Search / Export:
 
       --export <FILE>
           Offline: dump the local DB (all / --nick(s) / --search) to FILE. Replaces --output for DB dumps
+
+      --post-ids <IDS>
+          Offline: export exactly these posts and replies (comma-separated post ids), with their attachments — to --export FILE, or stdout / --output. The TUI's export basket uses it
 
       --name <NAME>
           Export name: basename, archive name, folder inside archive, HTML title
@@ -182,6 +185,7 @@ Examples:
   acp-rs-scraper --search "general strike" --format json
   acp-rs-scraper --export all.json
   acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
+  acp-rs-scraper --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
   acp-rs-scraper --import strike.tar.gz --compress --tar-gz
   acp-rs-scraper --import all.json
   ACP_DEBUG=1 acp-rs-scraper --nick alice --debug
@@ -289,6 +293,12 @@ headless scrape is now `--scrape`.
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows
   only your bookmarked posts and comments; `<` goes back. Bookmarks › Sync with acp.us pulls the
   site's bookmarks (and stores those posts) and pushes your local changes (`--sync-bookmarks`).
+- **Export basket.** Next to the star, every card and detail has a `+` button (or press `x`):
+  it puts that post or reply in the export basket (`✓` once it's in; click again to take it out).
+  Export › Show basket lists what you picked, **Export basket** writes exactly those posts with the
+  Export menu's Path, Format, Name and Compress (a background `--export PATH --post-ids …` job),
+  Clear basket empties it. The basket lasts until you quit. Headless:
+  `acp-rs-scraper --export picked.html --format html --post-ids ID1,ID2`.
 - **Sync.** The Sync menu (`Alt-y`) keeps the database current while the TUI is open. Tick
   **Auto sync** and every **Interval** minutes (default 15) it runs `--sync` in the background:
   bookmarks both ways, then an incremental scrape of **Nicks** (blank: the selected nicks; mentions

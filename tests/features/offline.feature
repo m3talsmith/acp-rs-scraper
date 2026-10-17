@@ -47,3 +47,21 @@ Feature: Offline search, export, import and maintenance
     When I run "--clear-all"
     Then it fails
     And stderr contains "pass --yes"
+
+  Scenario: Export exactly the chosen posts (the TUI's export basket)
+    When I run "--export $HOME/picked.json --post-ids A5,R1"
+    Then it succeeds
+    And the file "$HOME/picked.json" contains "fifth general strike"
+    And the file "$HOME/picked.json" contains "bob replies to alice"
+    And the file "$HOME/picked.json" does not contain "second"
+    And stderr contains "2 chosen posts"
+
+  Scenario: Unknown chosen posts are warned about
+    When I run "--export $HOME/none.json --post-ids NOPE1234"
+    Then it fails
+    And stderr contains "post NOPE1234 is not in the database"
+
+  Scenario: The TUI export basket runs a --post-ids export
+    When I export the TUI basket "A2,A3" to "$HOME/basket.json"
+    Then it succeeds
+    And the file "$HOME/basket.json" contains "third"

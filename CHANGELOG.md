@@ -6,6 +6,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-10-17
+
+### Added
+- **Export basket** in the TUI: a `+` button next to the star on every card and detail (or `x`)
+  adds that post or reply (`✓` when in; click again to remove). Export › Show basket, Export basket
+  (uses Export's Path / Format / Name / Compress) and Clear basket; Export › From has a Basket
+  choice. The basket lasts for the session.
+- `--post-ids IDS`: offline export of exactly these posts and replies (in the order given) with
+  their attachments, to `--export FILE` or stdout / `--output`; default name `basket-<ts>`. Unknown
+  ids are warned about; none found is an error.
+
 ## [2.7.0] - 2026-10-17
 
 ### Added

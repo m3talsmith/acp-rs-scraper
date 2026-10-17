@@ -69,7 +69,7 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   |---|---|
   | Scrape (Start Scanning, `F5`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format` |
   | Search | in-app search (same matching as `--search`, plus the filters above) |
-  | Export | `--export PATH` + `--nicks` (selection) or `--search`/`--nicks` (current view) or nothing (everything), `--format`, `--name`, `--compress --tar-gz` |
+  | Export | `--export PATH` + `--nicks` (selection) or `--search`/`--nicks` (current view) or nothing (everything) or `--post-ids` (Basket, and the Export basket button), `--format`, `--name`, `--compress --tar-gz` |
   | Import | `--import PATH` `--compress --tar-gz` |
   | List | re-reads the nick bar (`--list-nicks` data) |
   | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
@@ -93,6 +93,11 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
   Bookmarks › Sync with acp.us runs `--sync-bookmarks`.
+- **Export basket:** a `+` button left of the star on every card and detail (click, or `x`) adds
+  that post or reply to the basket (`✓` = in it; click again to take it out). Export › Show basket
+  lists it (`<` back), Export basket writes it with Export's Path / Format / Name / Compress
+  (`--export PATH --post-ids …`), Clear basket empties it; Export › From also has a Basket choice.
+  The basket lives for the TUI session.
 - **Sync:** Sync menu: Auto sync, Interval (minutes, default 15), Nicks (blank: selected), Mentions
   (off), Bookmarks (on), Sync now, Save as default (`[sync]` in `preferences.toml`). An automatic
   sync runs `--sync` as a background job when it's due and nothing else runs; it checks the saved
@@ -175,11 +180,12 @@ The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) i
 | `--list-nicks` | List the nicks in the database: display name, post count, latest post, whether a profile was scraped and when. Prints a table, or JSON with `--format json`. |
 | `--search <Q>` | Case-insensitive search of title and content. Exports each match plus its parent post and direct replies. Writes to stdout or `--output`. |
 | `--export <FILE>` | Dump the database (everything, or filtered by `--nick`/`--nicks` and/or `--search`) to FILE. Takes the place of `--output`. |
+| `--post-ids <IDS>` | Export exactly these posts and replies (comma-separated post ids, in that order) with their attachments, to `--export FILE` or stdout / `--output`. Ids not in the database are warned about; none found is an error. The TUI's export basket runs it. Can't be combined with `--search` / `--nick(s)`. |
 | `--name <NAME>` | Sets the export's file name, archive name, folder inside the archive, and HTML title. |
 
 `--nick`/`--nicks` also filter `--search` and `--export` (posts by any listed nick).
 
-Default names: `<nick>-<YYYYmmdd-HHMMSS>`, `nick1+nick2-<ts>` for several nicks (`multi-<ts>` for more than 4 nicks or more than 40 characters), `search-<slug>-<ts>` for a search, and `db-<ts>` for a full dump.
+Default names: `<nick>-<YYYYmmdd-HHMMSS>`, `nick1+nick2-<ts>` for several nicks (`multi-<ts>` for more than 4 nicks or more than 40 characters), `search-<slug>-<ts>` for a search, `basket-<ts>` for `--post-ids`, and `db-<ts>` for a full dump.
 
 ### Maintenance (offline)
 
@@ -318,6 +324,7 @@ acp-rs-scraper --search strike --nicks alice,bob > strike.json
 acp-rs-scraper --export all.json
 acp-rs-scraper --export alice.html --format html --nick alice
 acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
+acp-rs-scraper --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
 
 # Round trip into another machine / fresh DB
 acp-rs-scraper --export backup.tar.gz --compress --tar-gz

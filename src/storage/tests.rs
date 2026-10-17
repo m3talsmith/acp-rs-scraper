@@ -30,3 +30,22 @@ fn old_posts_table_gains_body_state_unknown() {
     let st: String = c.query_row("SELECT body_state FROM posts WHERE post_id='T1'", [], |r| r.get(0)).unwrap();
     assert_eq!(st, "unknown");
 }
+
+#[test]
+fn posts_by_ids_keeps_the_order_and_reports_missing_ones() {
+    let db = std::env::temp_dir().join(format!("acp-ids-{}.db", std::process::id()));
+    let _ = std::fs::remove_file(&db);
+    let c = Connection::open(&db).unwrap();
+    c.execute_batch("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id TEXT NOT NULL,
+            parent_post_id TEXT NOT NULL, nick TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL,
+            posted_at TEXT NOT NULL);
+        INSERT INTO posts (post_id,parent_post_id,nick,title,content,posted_at) VALUES
+            ('T1','','a','t','x','1'), ('R1','T1','b','','y','2'), ('T2','','a','','z','3');").unwrap();
+    drop(c);
+    let ids: Vec<String> = ["R1", "NOPE", "T1", "R1"].iter().map(|s| s.to_string()).collect();
+    let (posts, atts, missing) = crate::storage::db::posts_by_ids(&db, &ids).unwrap();
+    assert_eq!(posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["R1", "T1"]);
+    assert!(atts.is_empty());
+    assert_eq!(missing, ["NOPE"]);
+    std::fs::remove_file(db).ok();
+}

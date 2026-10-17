@@ -319,6 +319,12 @@ pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Ve
         }
         for p in kids.query_map(params![id], row)? { let p = p?; if seen.insert(p.post_id.clone()) { out.push(p); } }
     }
+    let atts = attachments_for(&c, &out)?;
+    Ok((out, atts, n))
+}
+
+/// Stored attachment files of `posts` (one per file, newest row first; missing files are warned about and skipped).
+fn attachments_for(c: &Connection, out: &[Post]) -> Result<Vec<Attachment>> {
     let mut atts = Vec::new();
     let has_att: bool = c.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='attachments'", [], |r| r.get::<_, i64>(0))? > 0;
     if has_att {
@@ -326,7 +332,7 @@ pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Ve
         // stored before 1.26.1) are skipped so each file is exported once.
         let mut st = c.prepare("SELECT post_id,url,local_path,mime_type FROM attachments WHERE post_id = ?1 ORDER BY id DESC")?;
         let mut seen_att: HashSet<(String, String)> = HashSet::new();
-        for p in &out {
+        for p in out {
             for a in st.query_map(params![p.post_id], |r| Ok(Attachment {
                 post_id: r.get(0)?, url: r.get(1)?, kind: "file".into(),
                 local_path: PathBuf::from(r.get::<_, String>(2)?), mime_type: r.get(3)?,
@@ -337,7 +343,26 @@ pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Ve
             }
         }
     }
-    Ok((out, atts, n))
+    Ok(atts)
+}
+
+/// Exactly these posts (in the order given, duplicates once) with their
+/// attachments, and the ids that are not in the database.
+pub fn posts_by_ids(db: &Path, ids: &[String]) -> Result<(Vec<Post>, Vec<Attachment>, Vec<String>)> {
+    let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
+    ensure_posts_schema(&c)?;
+    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state";
+    let mut by_id = c.prepare(&format!("SELECT {cols} FROM posts WHERE post_id = ?1"))?;
+    let (mut out, mut missing, mut seen) = (Vec::new(), Vec::new(), HashSet::new());
+    for id in ids {
+        if !seen.insert(id.clone()) { continue; }
+        let p = by_id.query_row(params![id], |r| Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
+            content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new(),
+            truncated: r.get::<_, String>(7)? == "truncated" })).optional()?;
+        match p { Some(p) => out.push(p), None => missing.push(id.clone()) }
+    }
+    let atts = attachments_for(&c, &out)?;
+    Ok((out, atts, missing))
 }
 
 /// Open (creating) the database at `db`, creating its directory first so the

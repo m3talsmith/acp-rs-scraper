@@ -105,6 +105,11 @@ fn card(f: &mut Frame, app: &mut App, i: usize, cr: Rect, sel: bool) {
         f.render_widget(Paragraph::new(Span::styled(star(app.is_marked(&p.post_id)), t.accent_bold())), sr);
         app.hits.push((sr, Hit::Star(i)));
     }
+    if cr.width > 12 {
+        let br = Rect { x: cr.x + cr.width - 8, y: cr.y, width: 3, height: 1 };
+        f.render_widget(Paragraph::new(Span::styled(basket_icon(app.in_basket(&p.post_id)), t.accent_bold())), br);
+        app.hits.push((br, Hit::Basket(i)));
+    }
 }
 
 /// Stack: one column of full posts (each card as tall as its text, up to the area).
@@ -232,6 +237,8 @@ fn lines_label_width(atts: &[crate::prelude::Attachment], id: &str) -> usize {
 
 /// Bookmark star: `★` bookmarked, `☆` not (click toggles).
 pub fn star(on: bool) -> &'static str { if on { " ★ " } else { " ☆ " } }
+/// The export-basket button: `+` adds the post, `✓` means it's in (click again to take it out).
+pub fn basket_icon(on: bool) -> &'static str { if on { " ✓ " } else { " + " } }
 
 fn compact(f: &mut Frame, app: &mut App, i: usize, r: Rect) {
     let t = app.theme;
@@ -344,5 +351,11 @@ fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
         let sr = Rect { x: fr.x + fr.width - 4, y: fr.y, width: 3, height: 1 };
         f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
         app.hits.push((sr, Hit::StarTop));
+    }
+    if fr.width > 10 {
+        let inb = app.in_basket(&app.view().stack[d].post.post_id);
+        let br = Rect { x: fr.x + fr.width - 7, y: fr.y, width: 3, height: 1 };
+        f.render_widget(Paragraph::new(Span::styled(basket_icon(inb), t.accent_bold())), br);
+        app.hits.push((br, Hit::BasketTop));
     }
 }
