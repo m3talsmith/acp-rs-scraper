@@ -10,6 +10,7 @@ Rules-Requires-Root: no
 Package: acp-rs-scraper
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: libavif-bin | imagemagick | ffmpeg, xdg-utils
 Description: Scrape Red Star (acp.us/rs) posts into SQLite and export them
  Logs in to https://acp.us/rs, scrapes posts, mentions and profiles for one or
  more nicks into a local SQLite database, downloads attachments, and exports

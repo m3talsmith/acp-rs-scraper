@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Msg"],"fn":["emit_osc8","event_loop","open_file","osc8","osc8_supported","restore_terminal","run"],"mod":["commands","data","input","jobs","layout","markdown","modals","state","theme","widgets"],"struct":["Terminal"]};
+window.SIDEBAR_ITEMS = {"enum":["Msg"],"fn":["emit_osc8","event_loop","open_file","osc8","osc8_supported","restore_terminal","run"],"mod":["commands","data","images","input","jobs","layout","markdown","modals","state","theme","widgets"],"struct":["Terminal"]};

@@ -19,6 +19,16 @@ pub struct Theme {
 
 fn rgb((r, g, b): (u8, u8, u8)) -> Color { Color::Rgb(r, g, b) }
 
+/// A colour as RGB bytes (named colours map to white, black, or grey).
+pub fn rgb_bytes(c: Color) -> [u8; 3] {
+    match c {
+        Color::Rgb(r, g, b) => [r, g, b],
+        Color::Black => [0, 0, 0],
+        Color::White => [255, 255, 255],
+        _ => [200, 200, 200],
+    }
+}
+
 /// `#rrggbb` (or `rrggbb`) to a colour.
 pub fn parse_hex(s: &str) -> Option<Color> {
     let h = s.trim().trim_start_matches('#');

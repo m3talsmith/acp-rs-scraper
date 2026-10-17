@@ -13,6 +13,7 @@
 
 pub mod commands;
 pub mod data;
+pub mod images;
 pub mod input;
 pub mod jobs;
 pub mod layout;
@@ -80,6 +81,8 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
     let prev = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| { restore_terminal(); prev(info); }));
+    // Ask the terminal for its graphics protocol before the input thread starts reading.
+    app.images = images::Images::detect(theme::rgb_bytes(app.theme.on_accent));
     let osc8 = osc8_supported();
     let mut term = Terminal(ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(std::io::stdout()))?);
 
@@ -108,11 +111,21 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         let now = Instant::now();
         app.tick(now);
         app.sync_tick(now);
+        if let Some(im) = app.images.as_mut() { im.poll(); }
         term.0.draw(|f| widgets::draw(f, app, now))?;
         if osc8 { emit_osc8(&app.osc_links); }
+        if let Some(im) = app.images.as_mut()
+            && im.flush(&mut std::io::stdout()) == images::Flush::Repaint {
+                // Sixel / iTerm2 pictures are burnt into the cells: repaint everything, then place them again.
+                term.0.clear()?;
+                term.0.draw(|f| widgets::draw(f, app, now))?;
+                if osc8 { emit_osc8(&app.osc_links); }
+                if let Some(im) = app.images.as_mut() { im.flush(&mut std::io::stdout()); }
+            }
         let wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
         tokio::select! {
             Some(ev) = ev_rx.recv() => {
+                if matches!(ev, crossterm::event::Event::Resize(..)) && let Some(im) = app.images.as_mut() { im.invalidate(); }
                 input::on_event(app, ev);
                 while let Ok(ev) = ev_rx.try_recv() { input::on_event(app, ev); }
             }
@@ -220,6 +233,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         }
     }
     stop.store(true, std::sync::atomic::Ordering::Relaxed);
+    if let Some(im) = app.images.as_ref() { im.clear_screen_images(&mut std::io::stdout()); }
     drop((code_tx, login_task));
     drop(term);
     Ok(detached)

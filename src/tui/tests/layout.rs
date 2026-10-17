@@ -6,7 +6,8 @@ use ratatui::layout::Rect;
 fn base_layout_tiles_the_screen() {
     let r = Rect::new(0, 0, 100, 30);
     let a = areas(r, 1);
-    assert_eq!((a.top.y, a.menu.y), (0, 1));
+    assert_eq!((a.top.y, a.top.height, a.menu.y), (0, TUI_HEADER_ROWS, TUI_HEADER_ROWS));
+    assert_eq!(a.nicks.y, TUI_HEADER_ROWS + 1);
     assert_eq!(a.nicks.width, NICK_BAR_WIDTH);
     assert_eq!(a.nicks.width + a.body.width, 100);
     assert_eq!(a.body.y + a.body.height, a.status.y);

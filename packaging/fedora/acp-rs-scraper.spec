@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.6.0
+Version:        2.7.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -17,6 +17,8 @@ Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  cargo >= 1.88
 BuildRequires:  rust >= 1.88
 BuildRequires:  gcc
+Recommends:     (libavif-tools or ImageMagick or ffmpeg-free)
+Recommends:     xdg-utils
 
 %description
 Logs in to https://acp.us/rs, scrapes posts, mentions and profiles for one or
@@ -46,6 +48,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sat Oct 17 2026 m3talsmith <m3talsmith@gmail.com> - 2.7.0-1
+- TUI inline pictures and 3-row header with logo and big ACP
+
 * Sat Oct 17 2026 m3talsmith <m3talsmith@gmail.com> - 2.6.0-1
 - TUI Markdown bodies, padding and openable attachment links
 

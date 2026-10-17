@@ -11,7 +11,7 @@ pub const CARD_ROWS: u16 = 4;
 /// The base layout's areas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Areas {
-    /// Top bar (title).
+    /// Top bar ([`TUI_HEADER_ROWS`] tall: logo, big "ACP", title, session).
     pub top: Rect,
     /// Menu bar.
     pub menu: Rect,
@@ -26,11 +26,12 @@ pub struct Areas {
 /// Split the screen: top bar, menu bar, nicks | body, status (`log_rows` tall).
 pub fn areas(r: Rect, log_rows: u16) -> Areas {
     let row = |y: u16, h: u16| Rect { x: r.x, y, width: r.width, height: h };
-    let top = row(r.y, 1.min(r.height));
-    let menu = row(r.y + 1, 1.min(r.height.saturating_sub(1)));
-    let status_h = log_rows.max(1).min(r.height.saturating_sub(4));
-    let main_y = r.y + 2;
-    let main_h = r.height.saturating_sub(2 + status_h);
+    let th = TUI_HEADER_ROWS.min(r.height);
+    let top = row(r.y, th);
+    let menu = row(r.y + th, 1.min(r.height.saturating_sub(th)));
+    let status_h = log_rows.max(1).min(r.height.saturating_sub(th + 3));
+    let main_y = r.y + th + 1;
+    let main_h = r.height.saturating_sub(th + 1 + status_h);
     let status = row(main_y + main_h, status_h);
     let nw = NICK_BAR_WIDTH.min(r.width / 3);
     Areas { top, menu,

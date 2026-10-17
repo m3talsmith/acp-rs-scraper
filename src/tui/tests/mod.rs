@@ -8,6 +8,7 @@ mod jobs;
 mod layout;
 mod markdown;
 mod content;
+mod images;
 mod modals;
 mod render;
 mod state;

@@ -4,7 +4,7 @@
 use crate::config::DETAIL_HEADER_ROWS;
 use crate::tui::layout::{CARD_ROWS, card_height, carousel, detail_split, ellipsize, grid_cells, grid_rows, modal_rect, stack_layout, wrap};
 use crate::tui::state::{AnimKind, App, Focus, Hit, ViewMode};
-use crate::tui::widgets::detail::{badge, detail_lines, header_lines, meta_line, snippet};
+use crate::tui::widgets::detail::{badge, detail_layout, header_lines, meta_line, snippet};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -276,14 +276,37 @@ fn draw_with_detail(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     }
 }
 
+/// Draw the pictures whose reserved rows are fully on screen; a picture cut by
+/// the frame edge shows a one-line hint instead (graphics can't be clipped).
+fn draw_images(f: &mut Frame, app: &mut App, slots: &[(usize, std::path::PathBuf)], rows: u16, scroll: u16, fr: Rect) {
+    let t = app.theme;
+    // Graphics go on top of everything, so under a modal or an open menu draw half blocks.
+    let graphics = app.modal.is_none() && app.menu.open.is_none();
+    let Some(im) = app.images.as_mut() else { return };
+    for (li, path) in slots {
+        let y = *li as i64 - scroll as i64;
+        let end = y + rows as i64;
+        if end <= 0 || y >= fr.height as i64 { continue; }
+        let full = y >= 0 && end <= fr.height as i64;
+        let ry = fr.y + y.max(0) as u16;
+        let hint = |f: &mut Frame, text: String| {
+            f.render_widget(Paragraph::new(Span::styled(format!("  {text}"), t.muted())), Rect { x: fr.x, y: ry, width: fr.width, height: 1 });
+        };
+        if !full { hint(f, "▣ picture — scroll to show it".into()); continue; }
+        let area = Rect { x: fr.x, y: ry, width: fr.width.saturating_sub(1), height: rows };
+        if let Err(e) = im.draw_file(f.buffer_mut(), area, path, graphics) { hint(f, e); }
+    }
+}
+
 /// Draw frame `d` of the detail stack in full into `fr`; the top one gets its link, star and wheel hits.
 fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
     let t = app.theme;
     // One more column of padding on each side of the text.
     let fr = if fr.width > 6 { Rect { x: fr.x + 1, width: fr.width - 2, ..fr } } else { fr };
     let w = fr.width.saturating_sub(1) as usize;
-    let (lines, links) = detail_lines(&app.view().stack[d], w, &t);
     let h = fr.height as usize;
+    let img_rows = if app.images.is_some() { crate::tui::images::IMAGE_ROWS.min(fr.height.saturating_sub(2)) } else { 0 };
+    let (lines, links, slots) = detail_layout(&app.view().stack[d], w, &t, img_rows);
     let fm = &mut app.view_mut().stack[d];
     if top && fm.follow_link
         && let Some((li, _)) = links.iter().find(|(_, k)| *k == fm.link_cursor) {
@@ -296,6 +319,7 @@ fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
     if fm.scroll > max { fm.scroll = max; }
     let scroll = fm.scroll;
     f.render_widget(Paragraph::new(lines).scroll((scroll, 0)), fr);
+    draw_images(f, app, &slots, img_rows, scroll, fr);
     if !top { app.hits.push((fr, Hit::Frame(d))); return; }
     app.hits.push((fr, Hit::DetailPane));
     for (li, k) in links {

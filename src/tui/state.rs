@@ -330,6 +330,8 @@ pub struct App {
     pub theme: Theme,
     /// Side effects for the event loop.
     pub effects: Vec<Effect>,
+    /// Pictures (logo, post images); `None` when off or not on a terminal.
+    pub images: Option<crate::tui::images::Images>,
     /// Hyperlinks drawn this frame (x, y, text, target URL), re-emitted as OSC 8 after the draw.
     pub osc_links: Vec<(u16, u16, String, String)>,
     /// Post cards that fit the list (set while drawing).
@@ -347,7 +349,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(),
+            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None,
             page_rows: 5, email: None,
         };
         app.refresh_nicks();

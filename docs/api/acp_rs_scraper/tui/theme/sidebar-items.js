@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["parse_hex","rgb"],"struct":["Theme"]};
+window.SIDEBAR_ITEMS = {"fn":["parse_hex","rgb","rgb_bytes"],"struct":["Theme"]};

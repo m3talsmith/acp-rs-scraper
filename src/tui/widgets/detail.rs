@@ -45,6 +45,18 @@ fn link_label(kind: LinkKind) -> &'static str {
 
 /// Full detail lines for `width` columns, and (line index, link index) for each link row.
 pub fn detail_lines(f: &DetailFrame, width: usize, t: &Theme) -> (Vec<Line<'static>>, Vec<(usize, usize)>) {
+    let (lines, links, _) = detail_layout(f, width, t, 0);
+    (lines, links)
+}
+
+/// Rows reserved for inline pictures: (first line index, image file).
+pub type ImageSlots = Vec<(usize, std::path::PathBuf)>;
+
+/// [`detail_lines`] plus `img_rows` blank rows under the text for each stored
+/// picture (0 = no pictures), and where those rows start.
+pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
+    -> (Vec<Line<'static>>, Vec<(usize, usize)>, ImageSlots) {
+    let mut slots = Vec::new();
     let mut lines = vec![meta_line(&f.post, t)];
     let mut links = Vec::new();
     let link_line = |i: usize, lines: &mut Vec<Line<'static>>, links: &mut Vec<(usize, usize)>| {
@@ -86,6 +98,16 @@ pub fn detail_lines(f: &DetailFrame, width: usize, t: &Theme) -> (Vec<Line<'stat
         lines.push(Line::raw(""));
     }
     lines.extend(crate::tui::markdown::render(f.post.content.trim_end(), width, t));
+    if img_rows > 0 {
+        for a in &f.attachments {
+            if !crate::tui::images::is_image(&a.mime_type, &a.local_path) || !a.local_path.exists() { continue; }
+            lines.push(Line::raw(""));
+            let name = a.local_path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            lines.push(Line::styled(format!("🖼 {name}"), t.muted()));
+            slots.push((lines.len(), a.local_path.clone()));
+            for _ in 0..img_rows { lines.push(Line::raw("")); }
+        }
+    }
     let atts: Vec<usize> = (0..f.links.len()).filter(|i| f.links[*i].kind == LinkKind::Attachment).collect();
     if !atts.is_empty() {
         lines.push(Line::raw(""));
@@ -108,5 +130,5 @@ pub fn detail_lines(f: &DetailFrame, width: usize, t: &Theme) -> (Vec<Line<'stat
         lines.push(Line::raw(""));
         lines.push(Line::styled("←/→ choose a link · Enter opens it · Esc closes", t.muted()));
     }
-    (lines, links)
+    (lines, links, slots)
 }

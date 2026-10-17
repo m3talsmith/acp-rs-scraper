@@ -6,6 +6,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-10-17
+
+### Added
+- **Pictures in the TUI**: stored post images show inline in a detail (a 14-row
+  slot under the body, drawn once fully on screen), decoded on a background thread and shrunk to
+  1024 px. The graphics protocol is detected by querying the terminal (kitty, sixel, iTerm2) with a
+  Unicode half-block fallback (tmux always falls back); `ACP_IMAGE_PROTOCOL` forces one,
+  `ACP_IMAGES=off` disables pictures. The encoders (kitty, sixel, iTerm2, half blocks) are built
+  in: ratatui-image was not used because its sixel quantiser needs Rust 1.90 (MSRV is 1.88).
+  AVIF/HEIC are converted once to PNG in `~/.acp/cache/thumbs/` with `avifdec`, `magick` or `ffmpeg`.
+- Packaging recommends an AVIF converter (libavif / ImageMagick / ffmpeg) and xdg-utils.
+
+### Changed
+- The TUI header is three rows tall: the red star logo from `assets/red-star.png` (on a light badge
+  so it shows on the red bar), a big "ACP" drawn with tui-big-text (third-height pixels), and the
+  name, version, session and running job vertically centred. Minimum terminal size is now 60×18.
+
 ## [2.6.0] - 2026-10-17
 
 ### Added

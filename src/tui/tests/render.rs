@@ -27,7 +27,7 @@ fn key(a: &mut App, c: KeyCode) { on_key(a, KeyEvent::new(c, KeyModifiers::NONE)
 fn base_layout_renders_title_menu_nicks_and_empty_state() {
     let mut a = app();
     let s = render(&mut a, 110, 30);
-    assert!(s.contains(TUI_TITLE));
+    assert!(s.contains(TUI_SUBTITLE));
     assert!(s.contains(env!("CARGO_PKG_VERSION")));
     for item in ["Scrape", "Search", "Export", "Import", "Maintain", "Session", "Help", "Quit", "Start Scanning"] { assert!(s.contains(item), "{item}"); }
     assert!(s.contains("@alice") && s.contains("@bob"));

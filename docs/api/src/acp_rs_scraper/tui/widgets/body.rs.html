@@ -4,7 +4,7 @@
 <a href=#4 id=4 data-nosnippet>4</a></span><span class="kw">use </span><span class="kw">crate</span>::config::DETAIL_HEADER_ROWS;
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span><span class="kw">crate</span>::tui::layout::{CARD_ROWS, card_height, carousel, detail_split, ellipsize, grid_cells, grid_rows, modal_rect, stack_layout, wrap};
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span><span class="kw">crate</span>::tui::state::{AnimKind, App, Focus, Hit, ViewMode};
-<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span><span class="kw">crate</span>::tui::widgets::detail::{badge, detail_lines, header_lines, meta_line, snippet};
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span><span class="kw">crate</span>::tui::widgets::detail::{badge, detail_layout, header_lines, meta_line, snippet};
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>ratatui::Frame;
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>ratatui::layout::Rect;
 <a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>ratatui::style::{Modifier, Style};
@@ -276,50 +276,74 @@
 <a href=#276 id=276 data-nosnippet>276</a>    }
 <a href=#277 id=277 data-nosnippet>277</a>}
 <a href=#278 id=278 data-nosnippet>278</a>
-<a href=#279 id=279 data-nosnippet>279</a><span class="doccomment">/// Draw frame `d` of the detail stack in full into `fr`; the top one gets its link, star and wheel hits.
-<a href=#280 id=280 data-nosnippet>280</a></span><span class="kw">fn </span>full_frame(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;mut </span>App, d: usize, fr: Rect, top: bool) {
-<a href=#281 id=281 data-nosnippet>281</a>    <span class="kw">let </span>t = app.theme;
-<a href=#282 id=282 data-nosnippet>282</a>    <span class="comment">// One more column of padding on each side of the text.
-<a href=#283 id=283 data-nosnippet>283</a>    </span><span class="kw">let </span>fr = <span class="kw">if </span>fr.width &gt; <span class="number">6 </span>{ Rect { x: fr.x + <span class="number">1</span>, width: fr.width - <span class="number">2</span>, ..fr } } <span class="kw">else </span>{ fr };
-<a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">let </span>w = fr.width.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>usize;
-<a href=#285 id=285 data-nosnippet>285</a>    <span class="kw">let </span>(lines, links) = detail_lines(<span class="kw-2">&amp;</span>app.view().stack[d], w, <span class="kw-2">&amp;</span>t);
-<a href=#286 id=286 data-nosnippet>286</a>    <span class="kw">let </span>h = fr.height <span class="kw">as </span>usize;
-<a href=#287 id=287 data-nosnippet>287</a>    <span class="kw">let </span>fm = <span class="kw-2">&amp;mut </span>app.view_mut().stack[d];
-<a href=#288 id=288 data-nosnippet>288</a>    <span class="kw">if </span>top &amp;&amp; fm.follow_link
-<a href=#289 id=289 data-nosnippet>289</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>((li, <span class="kw">_</span>)) = links.iter().find(|(<span class="kw">_</span>, k)| <span class="kw-2">*</span>k == fm.link_cursor) {
-<a href=#290 id=290 data-nosnippet>290</a>            <span class="kw">let </span>li = <span class="kw-2">*</span>li <span class="kw">as </span>u16;
-<a href=#291 id=291 data-nosnippet>291</a>            <span class="kw">if </span>li &lt; fm.scroll { fm.scroll = li; }
-<a href=#292 id=292 data-nosnippet>292</a>            <span class="kw">if </span>li <span class="kw">as </span>usize &gt;= fm.scroll <span class="kw">as </span>usize + h { fm.scroll = (li <span class="kw">as </span>usize + <span class="number">1 </span>- h) <span class="kw">as </span>u16; }
-<a href=#293 id=293 data-nosnippet>293</a>            fm.follow_link = <span class="bool-val">false</span>;
-<a href=#294 id=294 data-nosnippet>294</a>        }
-<a href=#295 id=295 data-nosnippet>295</a>    <span class="kw">let </span>max = lines.len().saturating_sub(h) <span class="kw">as </span>u16;
-<a href=#296 id=296 data-nosnippet>296</a>    <span class="kw">if </span>fm.scroll &gt; max { fm.scroll = max; }
-<a href=#297 id=297 data-nosnippet>297</a>    <span class="kw">let </span>scroll = fm.scroll;
-<a href=#298 id=298 data-nosnippet>298</a>    f.render_widget(Paragraph::new(lines).scroll((scroll, <span class="number">0</span>)), fr);
-<a href=#299 id=299 data-nosnippet>299</a>    <span class="kw">if </span>!top { app.hits.push((fr, Hit::Frame(d))); <span class="kw">return</span>; }
-<a href=#300 id=300 data-nosnippet>300</a>    app.hits.push((fr, Hit::DetailPane));
-<a href=#301 id=301 data-nosnippet>301</a>    <span class="kw">for </span>(li, k) <span class="kw">in </span>links {
-<a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">let </span>y = li <span class="kw">as </span>i64 - scroll <span class="kw">as </span>i64;
-<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">if </span>y &gt;= <span class="number">0 </span>&amp;&amp; (y <span class="kw">as </span>usize) &lt; h {
-<a href=#304 id=304 data-nosnippet>304</a>            app.hits.push((Rect { x: fr.x, y: fr.y + y <span class="kw">as </span>u16, width: fr.width, height: <span class="number">1 </span>}, Hit::Link(k)));
-<a href=#305 id=305 data-nosnippet>305</a>            <span class="comment">// Attachment rows also become OSC 8 hyperlinks (file://) where the terminal supports them.
-<a href=#306 id=306 data-nosnippet>306</a>            </span><span class="kw">let </span>l = <span class="kw-2">&amp;</span>app.view().stack[d].links[k];
-<a href=#307 id=307 data-nosnippet>307</a>            <span class="kw">if </span>l.kind == <span class="kw">crate</span>::tui::state::LinkKind::Attachment &amp;&amp; std::path::Path::new(<span class="kw-2">&amp;</span>l.id).exists() {
-<a href=#308 id=308 data-nosnippet>308</a>                <span class="kw">let </span>label_w = lines_label_width(<span class="kw-2">&amp;</span>app.view().stack[d].attachments, <span class="kw-2">&amp;</span>l.id);
-<a href=#309 id=309 data-nosnippet>309</a>                <span class="kw">let </span>name = std::path::Path::new(<span class="kw-2">&amp;</span>l.id).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-<a href=#310 id=310 data-nosnippet>310</a>                <span class="kw">let </span>x = fr.x + label_w <span class="kw">as </span>u16;
-<a href=#311 id=311 data-nosnippet>311</a>                <span class="kw">if </span>x &lt; fr.x + fr.width {
-<a href=#312 id=312 data-nosnippet>312</a>                    <span class="kw">let </span>shown = ellipsize(<span class="kw-2">&amp;</span>name, (fr.x + fr.width - x) <span class="kw">as </span>usize);
-<a href=#313 id=313 data-nosnippet>313</a>                    app.osc_links.push((x, fr.y + y <span class="kw">as </span>u16, shown, <span class="macro">format!</span>(<span class="string">"file://{}"</span>, l.id)));
-<a href=#314 id=314 data-nosnippet>314</a>                }
-<a href=#315 id=315 data-nosnippet>315</a>            }
-<a href=#316 id=316 data-nosnippet>316</a>        }
-<a href=#317 id=317 data-nosnippet>317</a>    }
-<a href=#318 id=318 data-nosnippet>318</a>    <span class="kw">if </span>fr.width &gt; <span class="number">6 </span>{
-<a href=#319 id=319 data-nosnippet>319</a>        <span class="kw">let </span>marked = app.is_marked(<span class="kw-2">&amp;</span>app.view().stack[d].post.post_id);
-<a href=#320 id=320 data-nosnippet>320</a>        <span class="kw">let </span>sr = Rect { x: fr.x + fr.width - <span class="number">4</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
-<a href=#321 id=321 data-nosnippet>321</a>        f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
-<a href=#322 id=322 data-nosnippet>322</a>        app.hits.push((sr, Hit::StarTop));
-<a href=#323 id=323 data-nosnippet>323</a>    }
-<a href=#324 id=324 data-nosnippet>324</a>}
+<a href=#279 id=279 data-nosnippet>279</a><span class="doccomment">/// Draw the pictures whose reserved rows are fully on screen; a picture cut by
+<a href=#280 id=280 data-nosnippet>280</a>/// the frame edge shows a one-line hint instead (graphics can't be clipped).
+<a href=#281 id=281 data-nosnippet>281</a></span><span class="kw">fn </span>draw_images(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;mut </span>App, slots: <span class="kw-2">&amp;</span>[(usize, std::path::PathBuf)], rows: u16, scroll: u16, fr: Rect) {
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="kw">let </span>t = app.theme;
+<a href=#283 id=283 data-nosnippet>283</a>    <span class="comment">// Graphics go on top of everything, so under a modal or an open menu draw half blocks.
+<a href=#284 id=284 data-nosnippet>284</a>    </span><span class="kw">let </span>graphics = app.modal.is_none() &amp;&amp; app.menu.open.is_none();
+<a href=#285 id=285 data-nosnippet>285</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(im) = app.images.as_mut() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#286 id=286 data-nosnippet>286</a>    <span class="kw">for </span>(li, path) <span class="kw">in </span>slots {
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span>y = <span class="kw-2">*</span>li <span class="kw">as </span>i64 - scroll <span class="kw">as </span>i64;
+<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">let </span>end = y + rows <span class="kw">as </span>i64;
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">if </span>end &lt;= <span class="number">0 </span>|| y &gt;= fr.height <span class="kw">as </span>i64 { <span class="kw">continue</span>; }
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="kw">let </span>full = y &gt;= <span class="number">0 </span>&amp;&amp; end &lt;= fr.height <span class="kw">as </span>i64;
+<a href=#291 id=291 data-nosnippet>291</a>        <span class="kw">let </span>ry = fr.y + y.max(<span class="number">0</span>) <span class="kw">as </span>u16;
+<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">let </span>hint = |f: <span class="kw-2">&amp;mut </span>Frame, text: String| {
+<a href=#293 id=293 data-nosnippet>293</a>            f.render_widget(Paragraph::new(Span::styled(<span class="macro">format!</span>(<span class="string">"  {text}"</span>), t.muted())), Rect { x: fr.x, y: ry, width: fr.width, height: <span class="number">1 </span>});
+<a href=#294 id=294 data-nosnippet>294</a>        };
+<a href=#295 id=295 data-nosnippet>295</a>        <span class="kw">if </span>!full { hint(f, <span class="string">"▣ picture — scroll to show it"</span>.into()); <span class="kw">continue</span>; }
+<a href=#296 id=296 data-nosnippet>296</a>        <span class="kw">let </span>area = Rect { x: fr.x, y: ry, width: fr.width.saturating_sub(<span class="number">1</span>), height: rows };
+<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = im.draw_file(f.buffer_mut(), area, path, graphics) { hint(f, e); }
+<a href=#298 id=298 data-nosnippet>298</a>    }
+<a href=#299 id=299 data-nosnippet>299</a>}
+<a href=#300 id=300 data-nosnippet>300</a>
+<a href=#301 id=301 data-nosnippet>301</a><span class="doccomment">/// Draw frame `d` of the detail stack in full into `fr`; the top one gets its link, star and wheel hits.
+<a href=#302 id=302 data-nosnippet>302</a></span><span class="kw">fn </span>full_frame(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;mut </span>App, d: usize, fr: Rect, top: bool) {
+<a href=#303 id=303 data-nosnippet>303</a>    <span class="kw">let </span>t = app.theme;
+<a href=#304 id=304 data-nosnippet>304</a>    <span class="comment">// One more column of padding on each side of the text.
+<a href=#305 id=305 data-nosnippet>305</a>    </span><span class="kw">let </span>fr = <span class="kw">if </span>fr.width &gt; <span class="number">6 </span>{ Rect { x: fr.x + <span class="number">1</span>, width: fr.width - <span class="number">2</span>, ..fr } } <span class="kw">else </span>{ fr };
+<a href=#306 id=306 data-nosnippet>306</a>    <span class="kw">let </span>w = fr.width.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>usize;
+<a href=#307 id=307 data-nosnippet>307</a>    <span class="kw">let </span>h = fr.height <span class="kw">as </span>usize;
+<a href=#308 id=308 data-nosnippet>308</a>    <span class="kw">let </span>img_rows = <span class="kw">if </span>app.images.is_some() { <span class="kw">crate</span>::tui::images::IMAGE_ROWS.min(fr.height.saturating_sub(<span class="number">2</span>)) } <span class="kw">else </span>{ <span class="number">0 </span>};
+<a href=#309 id=309 data-nosnippet>309</a>    <span class="kw">let </span>(lines, links, slots) = detail_layout(<span class="kw-2">&amp;</span>app.view().stack[d], w, <span class="kw-2">&amp;</span>t, img_rows);
+<a href=#310 id=310 data-nosnippet>310</a>    <span class="kw">let </span>fm = <span class="kw-2">&amp;mut </span>app.view_mut().stack[d];
+<a href=#311 id=311 data-nosnippet>311</a>    <span class="kw">if </span>top &amp;&amp; fm.follow_link
+<a href=#312 id=312 data-nosnippet>312</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>((li, <span class="kw">_</span>)) = links.iter().find(|(<span class="kw">_</span>, k)| <span class="kw-2">*</span>k == fm.link_cursor) {
+<a href=#313 id=313 data-nosnippet>313</a>            <span class="kw">let </span>li = <span class="kw-2">*</span>li <span class="kw">as </span>u16;
+<a href=#314 id=314 data-nosnippet>314</a>            <span class="kw">if </span>li &lt; fm.scroll { fm.scroll = li; }
+<a href=#315 id=315 data-nosnippet>315</a>            <span class="kw">if </span>li <span class="kw">as </span>usize &gt;= fm.scroll <span class="kw">as </span>usize + h { fm.scroll = (li <span class="kw">as </span>usize + <span class="number">1 </span>- h) <span class="kw">as </span>u16; }
+<a href=#316 id=316 data-nosnippet>316</a>            fm.follow_link = <span class="bool-val">false</span>;
+<a href=#317 id=317 data-nosnippet>317</a>        }
+<a href=#318 id=318 data-nosnippet>318</a>    <span class="kw">let </span>max = lines.len().saturating_sub(h) <span class="kw">as </span>u16;
+<a href=#319 id=319 data-nosnippet>319</a>    <span class="kw">if </span>fm.scroll &gt; max { fm.scroll = max; }
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="kw">let </span>scroll = fm.scroll;
+<a href=#321 id=321 data-nosnippet>321</a>    f.render_widget(Paragraph::new(lines).scroll((scroll, <span class="number">0</span>)), fr);
+<a href=#322 id=322 data-nosnippet>322</a>    draw_images(f, app, <span class="kw-2">&amp;</span>slots, img_rows, scroll, fr);
+<a href=#323 id=323 data-nosnippet>323</a>    <span class="kw">if </span>!top { app.hits.push((fr, Hit::Frame(d))); <span class="kw">return</span>; }
+<a href=#324 id=324 data-nosnippet>324</a>    app.hits.push((fr, Hit::DetailPane));
+<a href=#325 id=325 data-nosnippet>325</a>    <span class="kw">for </span>(li, k) <span class="kw">in </span>links {
+<a href=#326 id=326 data-nosnippet>326</a>        <span class="kw">let </span>y = li <span class="kw">as </span>i64 - scroll <span class="kw">as </span>i64;
+<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">if </span>y &gt;= <span class="number">0 </span>&amp;&amp; (y <span class="kw">as </span>usize) &lt; h {
+<a href=#328 id=328 data-nosnippet>328</a>            app.hits.push((Rect { x: fr.x, y: fr.y + y <span class="kw">as </span>u16, width: fr.width, height: <span class="number">1 </span>}, Hit::Link(k)));
+<a href=#329 id=329 data-nosnippet>329</a>            <span class="comment">// Attachment rows also become OSC 8 hyperlinks (file://) where the terminal supports them.
+<a href=#330 id=330 data-nosnippet>330</a>            </span><span class="kw">let </span>l = <span class="kw-2">&amp;</span>app.view().stack[d].links[k];
+<a href=#331 id=331 data-nosnippet>331</a>            <span class="kw">if </span>l.kind == <span class="kw">crate</span>::tui::state::LinkKind::Attachment &amp;&amp; std::path::Path::new(<span class="kw-2">&amp;</span>l.id).exists() {
+<a href=#332 id=332 data-nosnippet>332</a>                <span class="kw">let </span>label_w = lines_label_width(<span class="kw-2">&amp;</span>app.view().stack[d].attachments, <span class="kw-2">&amp;</span>l.id);
+<a href=#333 id=333 data-nosnippet>333</a>                <span class="kw">let </span>name = std::path::Path::new(<span class="kw-2">&amp;</span>l.id).file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+<a href=#334 id=334 data-nosnippet>334</a>                <span class="kw">let </span>x = fr.x + label_w <span class="kw">as </span>u16;
+<a href=#335 id=335 data-nosnippet>335</a>                <span class="kw">if </span>x &lt; fr.x + fr.width {
+<a href=#336 id=336 data-nosnippet>336</a>                    <span class="kw">let </span>shown = ellipsize(<span class="kw-2">&amp;</span>name, (fr.x + fr.width - x) <span class="kw">as </span>usize);
+<a href=#337 id=337 data-nosnippet>337</a>                    app.osc_links.push((x, fr.y + y <span class="kw">as </span>u16, shown, <span class="macro">format!</span>(<span class="string">"file://{}"</span>, l.id)));
+<a href=#338 id=338 data-nosnippet>338</a>                }
+<a href=#339 id=339 data-nosnippet>339</a>            }
+<a href=#340 id=340 data-nosnippet>340</a>        }
+<a href=#341 id=341 data-nosnippet>341</a>    }
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="kw">if </span>fr.width &gt; <span class="number">6 </span>{
+<a href=#343 id=343 data-nosnippet>343</a>        <span class="kw">let </span>marked = app.is_marked(<span class="kw-2">&amp;</span>app.view().stack[d].post.post_id);
+<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">let </span>sr = Rect { x: fr.x + fr.width - <span class="number">4</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
+<a href=#345 id=345 data-nosnippet>345</a>        f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
+<a href=#346 id=346 data-nosnippet>346</a>        app.hits.push((sr, Hit::StarTop));
+<a href=#347 id=347 data-nosnippet>347</a>    }
+<a href=#348 id=348 data-nosnippet>348</a>}
 </code></pre></div></section></main></body></html>

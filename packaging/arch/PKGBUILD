@@ -3,13 +3,17 @@
 # Install: cd packaging/arch && makepkg -si      Uninstall: sudo pacman -R acp-rs-scraper
 # (scripts/install.sh does this for you, scripts/uninstall.sh also purges ~/.acp.)
 pkgname=acp-rs-scraper
-pkgver=2.6.0
+pkgver=2.7.0
 pkgrel=1
 pkgdesc="Scrape Red Star (acp.us/rs) posts into SQLite and export them"
 arch=('x86_64' 'aarch64')
 url="https://github.com/m3talsmith/acp-rs-scraper"
 license=('GPL-3.0-or-later')
 depends=('gcc-libs' 'glibc')
+optdepends=('libavif: show AVIF post pictures in the TUI (avifdec)'
+            'imagemagick: alternative AVIF converter for TUI pictures'
+            'ffmpeg: alternative AVIF converter for TUI pictures'
+            'xdg-utils: open attachments from the TUI')
 makedepends=('cargo')   # Rust >= 1.88; provided by both 'rust' and 'rustup'
 options=('!lto' '!debug')
 source=()

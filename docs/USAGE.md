@@ -31,9 +31,10 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 ## Terminal UI
 
 `acp-rs-scraper` (no flags) or `acp-rs-scraper --tui` opens it. It needs a terminal on stdin/stdout
-(at least 60×16); piped or scripted runs get an error naming the headless flags instead.
+(at least 60×18); piped or scripted runs get an error naming the headless flags instead.
 
-- **Layout:** top bar (name, version, session, running job) · menu bar (one item per group of CLI
+- **Layout:** a 3-row header (the red star logo, a big "ACP" drawn with tui-big-text, then name,
+  version, session and running job, vertically centred) · menu bar (one item per group of CLI
   flags, Start Scanning pinned right) · nick bar on the left (`@nick` and post count) · Body · status
   line (`l` expands it to a log panel).
 - **Browsing** is offline and read-only (the database is opened `SQLITE_OPEN_READ_ONLY`). Select a
@@ -51,6 +52,15 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   padding inside the borders. Attachments are links: Enter / click opens the stored file with
   `xdg-open` (`ACP_OPENER` overrides), and they are also emitted as OSC 8 `file://` hyperlinks
   unless `TERM` is `linux`/`dumb` or `ACP_NO_OSC8` is set.
+- **Pictures** (the logo and post images): the graphics protocol is detected at start by querying
+  the terminal (kitty graphics reply, sixel in DA1, cell size via `CSI 16 t`; iTerm2/WezTerm from
+  the environment; tmux always uses the fallback), falling back to Unicode half blocks (the logo
+  uses two-colour sextant cells there);
+  `ACP_IMAGE_PROTOCOL=halfblocks|sixel|kitty|iterm2` forces one and `ACP_IMAGES=off` disables
+  pictures. Each stored picture gets a 14-row slot under the body; it decodes on a background thread
+  and is drawn when its slot is fully visible ("scroll to show it" otherwise). AVIF/HEIC are
+  converted once to PNG under `~/.acp/cache/thumbs/` with `avifdec`, `magick` or `ffmpeg`
+  (whichever is installed first); images are shrunk to at most 1024 px.
 - **Search** (Search menu, or `Shift-S` for keyword + nicks + post id + date range + posts/replies)
   replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears.
 - **Menu → flags:**
@@ -470,7 +480,9 @@ A nick's own posts can also be recorded as mentions of that nick.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
 - **Logins:** a saved session is reused until the site expires it; then the next scrape asks for a fresh email code.
 - **TUI:** bodies are stored as plain text (the site's bold/italic marks are not kept by the
-  scraper), so Markdown styling shows only where the text itself is Markdown; Ctrl-Shift-S arrives as Ctrl-S in most terminals; cancelling a job kills it outright.
+  scraper), so Markdown styling shows only where the text itself is Markdown; pictures need
+  `avifdec`, ImageMagick or ffmpeg for the site's AVIF files, and half-block pictures are coarse;
+  video attachments are links only; Ctrl-Shift-S arrives as Ctrl-S in most terminals; cancelling a job kills it outright.
 - **Truncated bodies:** feeds shorten long posts and comments (`body_truncated: true`, cut `body` plus `body_text_summary`). Checked on the live site: the thread page (`/rs/post/{thread}`) carries every item's full body with `body_truncated: false`, so the scraper reads it (once per thread) instead of pushing the "show more" action over LiveView.
 
 ## Contributing
@@ -487,7 +499,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `tui/{state,input,layout,commands,data,jobs,theme,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `tui/{state,input,layout,commands,data,jobs,theme,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/features/*.feature` and the steps in `tests/e2e.rs`. It runs the real binary against a **mock acp.us** (`tests/support/mock.rs`: HTTP pages, the LiveView websocket, OTP sign-in, threads and media) with a temporary `HOME`. It covers:
 - login (right and wrong code);

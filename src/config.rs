@@ -162,6 +162,8 @@ pub const TUI_ON_ACCENT: (u8, u8, u8) = (0xff, 0xff, 0xff);
 
 /// Title shown in the TUI top bar.
 pub const TUI_TITLE: &str = "ACP Red Star Scraper";
+/// The header text next to the big "ACP".
+pub const TUI_SUBTITLE: &str = "Red Star Scraper";
 /// Deepest stack of nested post details (linked posts opened from a detail).
 pub const MAX_DETAIL_DEPTH: usize = 8;
 /// Width of the nick bar (cells).
@@ -183,7 +185,11 @@ pub const MAX_FLAT_DEPTH: usize = 256;
 /// Default minutes between automatic TUI syncs (Sync › Interval).
 pub const TUI_SYNC_DEFAULT_MINUTES: u64 = 15;
 /// Smallest terminal the layout supports.
-pub const TUI_MIN_SIZE: (u16, u16) = (60, 16);
+pub const TUI_MIN_SIZE: (u16, u16) = (60, 18);
+/// Rows of the TUI header (logo, big "ACP", title, session).
+pub const TUI_HEADER_ROWS: u16 = 3;
+/// Converted image cache (AVIF → PNG), under `$HOME`.
+pub const THUMBS_REL_DIR: &str = ".acp/cache/thumbs";
 /// Log files of scans/jobs started from the TUI (`tui-<kind>-<stamp>.log`), inside [`LOGS_REL_DIR`].
 pub const TUI_JOB_LOG_PREFIX: &str = "tui-";
 /// Key bindings shown in the Help modal (and the README).
