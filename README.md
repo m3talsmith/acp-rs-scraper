@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.22.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.23.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -75,6 +75,9 @@ Reading:
 
       --thread-sort <ORDER>
           With --sort-thread: oldest or top. Newest is the site default and sends no hook
+
+      --reposts <ID>
+          Reposts of a post (/rs/post/ID/reposts). The post menu (p) › View reposts does this
 
 Interface:
       --tui
@@ -296,7 +299,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.22.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.23.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -397,6 +400,8 @@ headless scrape is now `--scrape`.
   JSON body yet.
 - **Thread sort.** `s` in an open thread cycles replies newest → oldest → top
   (`--sort-thread`, `--thread-sort`). Top uses the stored `score`.
+- **Reposts.** `p` opens a post menu on the highlighted or open post. View reposts
+  opens `/rs/post/{id}/reposts` (`--reposts`).
 - **Bookmarks.** Every card and detail has a star: `☆` click (or `b`) to bookmark it, `★` click
   again to remove it. It shows at once and is stored by a small background job, so it works
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows

@@ -115,6 +115,8 @@ fn feed_mode_flags() {
     assert!(Args::try_parse_from(["x", "--thread-sort", "oldest"]).is_err());
     assert!(Args::try_parse_from(["x", "--sort-thread", "T1", "--thread-sort", "newest"]).is_err());
     assert!(Args::try_parse_from(["x", "--sort-thread", "T1", "--thread-sort", "oldest", "--tag", "x"]).is_err());
+    assert_eq!(Args::try_parse_from(["x", "--reposts", "T1"]).unwrap().reposts.as_deref(), Some("T1"));
+    assert!(Args::try_parse_from(["x", "--reposts", "T1", "--tag", "x"]).is_err());
     assert_eq!(FeedMode::Latest.site_feed_url(), feed_latest_url());
     assert_eq!(FeedMode::Trending.site_feed_url(), feed_trending_url());
     assert!(FeedMode::Latest.allow_incremental_stop());

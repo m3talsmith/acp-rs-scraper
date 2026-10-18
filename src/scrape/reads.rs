@@ -308,6 +308,27 @@ pub fn search_title(query: &str) -> String {
     format!("Site search · {}", query.trim())
 }
 
+/// Reposts of a post (`/rs/post/{id}/reposts`).
+pub fn feed_reposts_url(id: &str) -> String {
+    format!("{}/rs/post/{}/reposts", base_url(), id.trim())
+}
+
+/// Database key for a reposts list.
+pub fn reposts_key(id: &str) -> String { format!("reposts:{}", id.trim()) }
+
+/// Body title for a reposts list.
+pub fn reposts_title(id: &str) -> String { format!("Reposts · {}", id.trim()) }
+
+/// `--reposts`: read who reposted `id` and store that feed.
+pub async fn read_reposts(http: &reqwest::Client, jar: &Jar, id: &str) -> Result<usize> {
+    let id = id.trim();
+    if id.is_empty() { bail!("reposts need a post id"); }
+    let url = feed_reposts_url(id);
+    read_view(http, jar, &url, &url, PROFILE_FILTER_EVENT, &[], &reposts_key(id), &reposts_title(id))
+        .await
+        .with_context(|| format!("reading reposts of {id}"))
+}
+
 /// Tag name without a leading `#` and surrounding space.
 pub fn tag_name(tag: &str) -> String {
     tag.trim().trim_start_matches('#').trim().to_string()

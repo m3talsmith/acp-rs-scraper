@@ -550,6 +550,15 @@ impl Menu {
         validate(v)
     }
 
+    /// argv for `--reposts`.
+    pub fn reposts_argv(&self, id: &str) -> std::result::Result<Vec<String>, String> {
+        let id = id.trim();
+        if id.is_empty() { return Err("reposts need a post id".into()); }
+        let mut v = vec![ARGV0.to_string(), "--reposts".into(), id.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
     /// argv for `--sort-thread` (`oldest` or `top`).
     pub fn sort_thread_argv(&self, thread_id: &str, order: &str) -> std::result::Result<Vec<String>, String> {
         let id = thread_id.trim();

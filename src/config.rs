@@ -238,6 +238,8 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
+    ("p", "Post menu: view reposts of the open or highlighted post"),
+    ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("r", "Add to a research project: the open or highlighted post, what it links, its files and web links, or the whole view (or click ◈)"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),
     (", .  /  Alt-← Alt-→", "Previous / next post of the detail stack (◂ prev / next ▸ on the nav bar)"),

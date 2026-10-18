@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.23.0] - 2026-10-18
+
+### Added
+
+- **Reposts list** (`/rs/post/{id}/reposts`): `--reposts ID`. `p` opens a post menu on the highlighted or open post; View reposts opens that list, saved locally and refreshed from the site.
+
 ## [2.22.0] - 2026-10-18
 
 ### Added

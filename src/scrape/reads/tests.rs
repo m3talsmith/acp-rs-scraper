@@ -118,3 +118,10 @@ fn tag_urls_fold_case_in_the_key_and_keep_the_spelling_in_the_title() {
     assert_eq!(tag_key("strike"), tag_key("#STRIKE"));
     assert_eq!(tag_title("#Strike"), "#Strike");
 }
+
+#[test]
+fn reposts_url_and_key() {
+    assert_eq!(feed_reposts_url(" AbC "), format!("{}/rs/post/AbC/reposts", base_url()));
+    assert_eq!(reposts_key("AbC"), "reposts:AbC");
+    assert_eq!(reposts_title("AbC"), "Reposts · AbC");
+}

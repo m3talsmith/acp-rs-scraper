@@ -219,6 +219,16 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
             }
         }
+        Modal::Post(p) => {
+            let r = modal_rect(area, 42, p.items.len() as u16 + 4);
+            let inner = frame(f, &t, r, &format!("Post {} · Enter opens", p.post_id));
+            for (i, action) in p.items.iter().enumerate() {
+                let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+                let st = if i == p.cursor { t.selected() } else { t.plain() };
+                f.render_widget(Paragraph::new(Span::styled(format!(" {}", action.label()), st)), rr);
+                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+        }
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

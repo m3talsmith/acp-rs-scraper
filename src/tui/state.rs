@@ -610,6 +610,21 @@ impl App {
             Err(e) => self.error("Explore", &e),
         }
     }
+    /// `p`: the post menu for the open detail, else the highlighted card.
+    pub fn open_post_menu(&mut self) {
+        let Some(id) = self.current_post_id() else { self.push_status("no post: open or highlight one first"); return; };
+        let thread = self.top().map(|f| f.post.clone())
+            .or_else(|| self.view().posts.iter().find(|p| p.post_id == id).cloned());
+        let thread_id = thread.map(|p| if p.parent_post_id.is_empty() { p.post_id } else { p.parent_post_id }).unwrap_or_else(|| id.clone());
+        self.modal = Some(Modal::Post(PostMenu::new(&id, &thread_id)));
+    }
+    /// Post menu › View reposts.
+    pub fn open_reposts(&mut self, id: &str) {
+        match self.menu.menu.reposts_argv(id) {
+            Ok(argv) => self.open_site_read(&reposts_key(id), argv),
+            Err(e) => self.error("Reposts", &e),
+        }
+    }
     /// `s` in a thread: cycle reply order and, for oldest/top, refresh scores from the site.
     pub fn cycle_thread_sort(&mut self) {
         if self.top().is_none() { self.push_status("open a thread to sort its replies"); return; }
@@ -1381,6 +1396,9 @@ impl App {
             (Modal::Confirm(c), ModalResult::ClosedSubmitted) => match c.action {
                 ConfirmAction::Job(k, argv) => self.start_job(k, argv),
                 ConfirmAction::Quit => self.effects.push(Effect::Quit { cancel_job: c.chosen == 1 }),
+            },
+            (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
+                PostAction::Reposts => self.open_reposts(&m.post_id),
             },
             (Modal::Search(s), ModalResult::ClosedSubmitted) => {
                 if s.cleared { self.clear_search(); }

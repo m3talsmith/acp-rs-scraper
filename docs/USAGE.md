@@ -104,6 +104,7 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   (period and replies); the **EB** row under Bookmarks opens `/rs/eb`. Both show the saved order
   at once and refresh it from the site. The **Explore** row opens `/rs/explore` (View › Explore
   latest selects `/rs/explore/latest`). Shift-S search can look at the local database or the site.
+  `p` opens a post menu; View reposts opens `/rs/post/{id}/reposts`.
 - **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
@@ -339,6 +340,7 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--backfill-tags` | Rewrite `post_tags` from stored bodies, then re-read threads whose `body_json` is still empty (one page per thread, with a pause). `--nick` / `--nicks` limit the rows. Stored post text is not replaced. |
 | `--sort-thread ID` | Re-read that thread after the `sort` hook and store scores. `s` in an open thread does this. |
 | `--thread-sort ORDER` | With `--sort-thread`: `oldest` or `top`. Newest is the page default and sends no hook. |
+| `--reposts ID` | Reposts of that post (`/rs/post/ID/reposts`). `p` › View reposts does the same. |
 
 ### Scraping
 
@@ -634,7 +636,7 @@ Research (2.9.0):
 
 ```sql
 CREATE TABLE site_feeds (          -- 2.18.0; created on first site read
-    key TEXT PRIMARY KEY,         -- top:week, eb, explore, explore:latest, search:…, tag:strike, …
+    key TEXT PRIMARY KEY,         -- top:week, eb, explore, explore:latest, search:…, tag:strike, reposts:…, …
     title TEXT NOT NULL,
     fetched_at TEXT NOT NULL,     -- RFC 3339
     post_ids TEXT NOT NULL        -- JSON array, in the site's order

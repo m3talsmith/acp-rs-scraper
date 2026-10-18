@@ -199,3 +199,21 @@ fn s_cycles_reply_order_and_asks_the_site_for_oldest_and_top() {
     assert_eq!(ids(&a), vec!["ALICE0004".to_string(), "BOB000002".to_string(), "ALICE0005".to_string()]);
     assert_eq!(a.effects.len(), n, "newest is the site default and sends no hook");
 }
+
+#[test]
+fn p_views_reposts_of_the_highlighted_post() {
+    use crate::tui::input::on_key;
+    use crate::tui::modals::Modal;
+    use crate::tui::state::Focus;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut a = app();
+    a.select_only(nick_idx(&a, "alice"));
+    a.focus = Focus::Body;
+    let id = a.view().posts[a.view().cursor].post_id.clone();
+    on_key(&mut a, KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
+    assert!(matches!(a.modal, Some(Modal::Post(_))), "post menu");
+    on_key(&mut a, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    assert_eq!(a.pending_feed.as_deref(), Some(reposts_key(&id).as_str()));
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--reposts", id.as_str()]);
+}
