@@ -1,3 +1,9 @@
+acp-rs-scraper (2.16.1) unstable; urgency=medium
+
+  * Fix missing bullets and numbers on loose and bold-led list items in post bodies.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 01:04:17 -0400
+
 acp-rs-scraper (2.16.0) unstable; urgency=medium
 
   * Theme editor sample dialog, per-row revert, changed-on-disk and broken-file save prompts, truecolor note; header missing/broken marker; grouped theme warnings.

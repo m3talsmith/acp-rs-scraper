@@ -101,6 +101,10 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
         cur.first = first;
         cur.rest = rest;
     };
+    // Open a block (with the item's bullet when one is due) before the first inline content.
+    let ensure_block = |cur: &mut Block, lists: &[Option<u64>], quote: usize, pending: &mut bool| {
+        if *pending || (cur.first.is_empty() && cur.rest.is_empty() && cur.parts.is_empty()) { start_block(cur, lists, quote, pending, t); }
+    };
     for ev in Parser::new_ext(text, opts) {
         let g = style_stack.last().cloned().unwrap_or_else(|| t.plain());
         let st = Style::from(&g);
@@ -114,12 +118,20 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
                 }
                 Tag::BlockQuote(_) => { blank(&mut out); quote += 1; }
                 Tag::CodeBlock(_) => { blank(&mut out); in_code = true; }
-                Tag::List(start) => { if lists.is_empty() { blank(&mut out); } flush(&mut cur, &mut out); lists.push(start); }
-                Tag::Item => { flush(&mut cur, &mut out); pending_item = true; start_block(&mut cur, &lists, quote, &mut pending_item, t); }
-                Tag::Emphasis => style_stack.push(g.italic(true)),
-                Tag::Strong => style_stack.push(g.bold(true)),
-                Tag::Strikethrough => style_stack.push(g.strikethrough(true)),
-                Tag::Link { dest_url, .. } => { link = Some(dest_url.to_string()); style_stack.push(t.link()); }
+                Tag::List(start) => {
+                    if lists.is_empty() { blank(&mut out); }
+                    // An item that opens straight with a sublist still shows its own bullet.
+                    if pending_item { start_block(&mut cur, &lists, quote, &mut pending_item, t); cur.parts.push((String::new(), st)); wrap_parts(std::mem::take(&mut cur), width, &mut out); }
+                    flush(&mut cur, &mut out);
+                    lists.push(start);
+                }
+                // The bullet goes on whatever block opens the item: its text in a tight list, its first
+                // paragraph in a loose one (so the paragraph's own start can't replace it).
+                Tag::Item => { flush(&mut cur, &mut out); pending_item = true; }
+                Tag::Emphasis => { ensure_block(&mut cur, &lists, quote, &mut pending_item); style_stack.push(g.italic(true)) }
+                Tag::Strong => { ensure_block(&mut cur, &lists, quote, &mut pending_item); style_stack.push(g.bold(true)) }
+                Tag::Strikethrough => { ensure_block(&mut cur, &lists, quote, &mut pending_item); style_stack.push(g.strikethrough(true)) }
+                Tag::Link { dest_url, .. } => { ensure_block(&mut cur, &lists, quote, &mut pending_item); link = Some(dest_url.to_string()); style_stack.push(t.link()); }
                 _ => {}
             },
             Event::End(tag) => match tag {
@@ -129,6 +141,8 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
                 TagEnd::CodeBlock => in_code = false,
                 TagEnd::List(_) => { flush(&mut cur, &mut out); lists.pop(); }
                 TagEnd::Item => {
+                    // An empty item still shows its bullet.
+                    if pending_item { start_block(&mut cur, &lists, quote, &mut pending_item, t); cur.parts.push((String::new(), st)); wrap_parts(std::mem::take(&mut cur), width, &mut out); }
                     flush(&mut cur, &mut out);
                     if let Some(Some(n)) = lists.last_mut() { *n += 1; }
                 }
@@ -150,10 +164,10 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
                 }
             }
             Event::Text(s) => {
-                if cur.first.is_empty() && cur.rest.is_empty() && cur.parts.is_empty() { start_block(&mut cur, &lists, quote, &mut pending_item, t); }
+                ensure_block(&mut cur, &lists, quote, &mut pending_item);
                 cur.parts.push((s.to_string(), st));
             }
-            Event::Code(s) => cur.parts.push((s.to_string(), t.code().into())),
+            Event::Code(s) => { ensure_block(&mut cur, &lists, quote, &mut pending_item); cur.parts.push((s.to_string(), t.code().into())) }
             Event::SoftBreak | Event::HardBreak => {
                 // Keep the author's line breaks.
                 let (first, rest) = (cur.first.clone(), cur.rest.clone());
@@ -163,7 +177,7 @@ pub fn render(text: &str, width: usize, t: &Theme) -> Vec<Line<'static>> {
                 let _ = first;
             }
             Event::Rule => { blank(&mut out); out.push(Line::styled("─".repeat(width.min(40)), t.muted())); }
-            Event::Html(s) | Event::InlineHtml(s) => cur.parts.push((s.to_string(), st)),
+            Event::Html(s) | Event::InlineHtml(s) => { ensure_block(&mut cur, &lists, quote, &mut pending_item); cur.parts.push((s.to_string(), st)) }
             _ => {}
         }
     }

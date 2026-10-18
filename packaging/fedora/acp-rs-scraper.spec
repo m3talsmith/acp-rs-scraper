@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.16.0
+Version:        2.16.1
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.16.1-1
+- Fix missing bullets and numbers on loose and bold-led list items in post bodies.
+
 * Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.16.0-1
 - Theme editor sample dialog, per-row revert, save prompts, truecolor note; header missing/broken marker; grouped theme warnings.
 

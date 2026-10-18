@@ -6,6 +6,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.16.1] - 2026-10-18
+
+### Fixed
+
+- Post bodies: list items separated by blank lines (loose lists) lost their bullet or number,
+  because the item's paragraph replaced the prefix the item had just set. Every list item now
+  shows its `•` or number, also when it starts with bold text, code or a link, when it opens
+  with a sublist or is empty, with wrapped lines indented under the item text.
+
 ## [2.16.0] - 2026-10-18
 
 ### Added
