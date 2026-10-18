@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.18.0
+Version:        2.19.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.19.0-1
+- Executive Board feed (/rs/eb) with a replies filter
+
 * Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.18.0-1
 - Site-wide Top feed (/rs/top) with a period and a replies filter
 

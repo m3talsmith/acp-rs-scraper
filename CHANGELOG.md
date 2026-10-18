@@ -6,6 +6,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.19.0] - 2026-10-18
+
+### Added
+
+- **Executive Board feed** (`/rs/eb`): `--eb` and `--eb-replies`. The **EB** row under Bookmarks
+  in the nick bar (and View › Executive Board) opens the saved order at once and refreshes it
+  from the site. View › EB includes replies sends the replies filter.
+
 ## [2.18.0] - 2026-10-18
 
 ### Added

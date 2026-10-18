@@ -86,3 +86,15 @@ fn site_feed_round_trip_keeps_order() {
     );
     assert!(load_site_feed(&c, "missing").unwrap().is_none());
 }
+
+#[test]
+fn eb_urls_keys_and_fields() {
+    assert_eq!(feed_eb_url(false), format!("{}/rs/eb", base_url()));
+    assert_eq!(feed_eb_url(true), format!("{}/rs/eb?replies=1", base_url()));
+    assert_eq!(feed_eb_page_url(), format!("{}/rs/eb", base_url()));
+    assert!(eb_fields(false).is_empty());
+    assert_eq!(eb_fields(true), [("replies", "1")]);
+    assert_eq!(form_query(&eb_fields(true)), "replies=1");
+    assert_eq!((eb_key(false), eb_key(true)), ("eb".into(), "eb:replies".into()));
+    assert_eq!(eb_title(true), "EB · posts and replies");
+}

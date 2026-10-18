@@ -100,7 +100,9 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 - **View modes** (`v`/`V`, the nav bar's `[View: …]`, or the View menu): Nested (default), Stack
   (full posts in one column, flat details), Stack + pane (list above, content pane below that
   follows `↑`/`↓`), Carousel ∞ (wraps) and Carousel (stops at the ends) with `←`/`→`, and Grid
-  (arrows move; the post opens in a modal with a Close button).
+  (arrows move; the post opens in a modal with a Close button). View › Site Top opens `/rs/top`
+  (period and replies); the **EB** row under Bookmarks opens `/rs/eb`. Both show the saved order
+  at once and refresh it from the site.
 - **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
@@ -318,6 +320,17 @@ These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`
 | `--trending` | Site-wide crawls use the Trending tab (`/rs`, the site's own default). It isn't chronological, so the early stop is disabled; paging runs until the end of the feed or `--crawl-limit`. |
 
 The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) in both modes.
+
+### Reading
+
+These read a site view and store it. They don't scrape nicks, and they don't post. Each one is saved in `site_feeds` (the site's order) so the TUI can open it offline and then refresh it. The direct URL is tried first; if that page has no feed, the same fields are submitted with `configure-feed`.
+
+| Flag | Meaning |
+|---|---|
+| `--top [PERIOD]` | Site-wide Top (`/rs/top`). PERIOD is `day`, `week`, `month`, `year` or `all` (default `week`). View › Site Top. |
+| `--top-replies` | With `--top`: the feed's replies filter. |
+| `--eb` | Executive Board feed (`/rs/eb`). The **EB** row of the nick bar, or View › Executive Board. |
+| `--eb-replies` | With `--eb`: the feed's replies filter (View › EB includes replies). |
 
 ### Scraping
 
@@ -603,6 +616,13 @@ A nick's own posts can also be recorded as mentions of that nick.
 Research (2.9.0):
 
 ```sql
+CREATE TABLE site_feeds (          -- 2.18.0; created on first site read
+    key TEXT PRIMARY KEY,         -- top:week, top:all:replies, eb, eb:replies, …
+    title TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,     -- RFC 3339
+    post_ids TEXT NOT NULL        -- JSON array, in the site's order
+);
+
 CREATE TABLE research_projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -709,7 +729,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;

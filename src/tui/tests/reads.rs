@@ -76,3 +76,35 @@ fn a_finished_read_opens_what_the_job_stored() {
     assert_eq!(a.view().title, "Top · day");
     assert_eq!(a.view().posts[0].post_id, "BOB000001");
 }
+
+#[test]
+fn eb_row_opens_the_saved_feed_and_asks_the_site() {
+    use crate::tui::input::on_mouse;
+    use crate::tui::state::Hit;
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::{Terminal, backend::TestBackend};
+    let mut store = fixture();
+    store.feeds.push(SiteFeed {
+        key: "eb".into(), title: "EB".into(), fetched_at: "t".into(),
+        post_ids: vec!["BOB000001".into(), "ALICE0001".into()],
+    });
+    let mut a = App::new(Box::new(store), &no_args(), Theme::acp(), false);
+    let mut t = Terminal::new(TestBackend::new(120, 32)).unwrap();
+    t.draw(|f| crate::tui::widgets::draw(f, &mut a, std::time::Instant::now())).unwrap();
+    let (r, _) = *a.hits.iter().rev().find(|(_, h)| *h == Hit::Eb).expect("EB row");
+    on_mouse(&mut a, MouseEvent { kind: MouseEventKind::Down(MouseButton::Left), column: r.x, row: r.y, modifiers: KeyModifiers::NONE });
+    assert_eq!(a.view().posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["BOB000001", "ALICE0001"]);
+    assert_eq!(a.view().site_key.as_deref(), Some("eb"));
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--eb"]);
+}
+
+#[test]
+fn eb_replies_checkbox_is_a_flag() {
+    let mut a = app();
+    a.menu.menu.set_check(CommandId::View, "eb_replies", true);
+    a.act(Action::OpenEb);
+    assert_eq!(a.pending_feed.as_deref(), Some("eb:replies"));
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--eb", "--eb-replies"]);
+}

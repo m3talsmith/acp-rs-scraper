@@ -92,6 +92,11 @@ fn feed_mode_flags() {
     assert!(Args::try_parse_from(["x", "--top", "hour"]).is_err());
     assert!(Args::try_parse_from(["x", "--top", "week", "--nick", "alice"]).is_err());
     assert!(!parse_with_mode(["x", "--top", "day"]).unwrap().1);
+    let a = Args::try_parse_from(["x", "--eb", "--eb-replies"]).unwrap();
+    assert!(a.eb && a.eb_replies);
+    assert!(Args::try_parse_from(["x", "--eb", "--top"]).is_err());
+    assert!(Args::try_parse_from(["x", "--eb-replies"]).is_err());
+    assert!(!parse_with_mode(["x", "--eb"]).unwrap().1);
     assert_eq!(FeedMode::Latest.site_feed_url(), feed_latest_url());
     assert_eq!(FeedMode::Trending.site_feed_url(), feed_trending_url());
     assert!(FeedMode::Latest.allow_incremental_stop());

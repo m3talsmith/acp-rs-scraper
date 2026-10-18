@@ -262,6 +262,8 @@ pub enum Hit {
     Backdrop,
     /// The "★ Bookmarks" row of the nick bar.
     Bookmarks,
+    /// The "EB" row of the nick bar.
+    Eb,
     /// The nick filter field.
     NickFilter,
     /// The nick filter's `x` (clear).
@@ -582,6 +584,14 @@ impl App {
         match self.menu.menu.top_argv() {
             Ok(argv) => self.open_site_read(&top_key(period, replies), argv),
             Err(e) => self.error("Site Top", &e),
+        }
+    }
+    /// The EB row / View › Executive Board.
+    pub fn open_eb(&mut self) {
+        let replies = self.menu.menu.check(crate::tui::commands::CommandId::View, "eb_replies");
+        match self.menu.menu.eb_argv() {
+            Ok(argv) => self.open_site_read(&eb_key(replies), argv),
+            Err(e) => self.error("Executive Board", &e),
         }
     }
     /// The post `b` / the menu toggles: the top detail, else the highlighted card.
@@ -1061,6 +1071,7 @@ impl App {
             Action::SetView(m) => { self.close_menu(); self.set_view_mode(m); }
             Action::ShowBookmarks => { self.close_menu(); self.open_bookmarks(); }
             Action::OpenTop => self.open_top(),
+            Action::OpenEb => self.open_eb(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }

@@ -135,6 +135,8 @@ pub enum Action {
     ThemeInit,
     /// Open the site-wide Top feed (View › Site Top).
     OpenTop,
+    /// Open the Executive Board feed (the EB row, or View › EB).
+    OpenEb,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
 }
@@ -362,6 +364,8 @@ impl Menu {
                 opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
                 opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
                 opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
+                opt("eb_replies", "EB includes replies", "--eb-replies", false, check(false)),
+                opt("eb", "Executive Board", "--eb", false, button(Action::OpenEb)),
                 opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
                 opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
             ]},
@@ -530,6 +534,14 @@ impl Menu {
     pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
         if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for the Executive Board feed.
+    pub fn eb_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--eb".into()];
+        if self.check(CommandId::View, "eb_replies") { v.push("--eb-replies".into()); }
         v.extend(self.debug_args());
         validate(v)
     }

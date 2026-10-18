@@ -300,6 +300,11 @@ pub async fn run() -> Result<()> {
         info!("== top {}: {n} posts", period.as_str());
         return Ok(());
     }
+    if args.eb {
+        let n = read_eb(&http, &jar, args.eb_replies).await?;
+        info!("== eb: {n} posts");
+        return Ok(());
+    }
     let mut nicks = args.nick_list()?;
     if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
         let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;

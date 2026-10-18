@@ -199,20 +199,68 @@ pub async fn read_top(
     replies: bool,
 ) -> Result<usize> {
     let fields = top_fields(period, replies);
-    let page = fetch_configured(
+    read_view(
         http,
         jar,
         &feed_top_url(period, replies),
         &feed_top_page_url(),
         &fields,
-    )
-    .await
-    .with_context(|| format!("reading Top ({})", period.as_str()))?;
-    remember_feed(
-        &page.items,
         &top_key(period, replies),
         &top_title(period, replies),
     )
+    .await
+    .with_context(|| format!("reading Top ({})", period.as_str()))
+}
+
+/// Executive Board feed (`/rs/eb`, plus `replies=1` when the replies filter is on).
+pub fn feed_eb_url(replies: bool) -> String {
+    let mut u = format!("{}/rs/eb", base_url());
+    if replies {
+        u.push_str("?replies=1");
+    }
+    u
+}
+
+/// The EB page a `configure-feed` fallback opens.
+pub fn feed_eb_page_url() -> String {
+    format!("{}/rs/eb", base_url())
+}
+
+/// `configure-feed` fields for EB: `replies=1` when asked, otherwise none.
+pub fn eb_fields(replies: bool) -> Vec<(&'static str, &'static str)> {
+    if replies { vec![("replies", "1")] } else { Vec::new() }
+}
+
+/// Database key for the EB view (`eb`, `eb:replies`).
+pub fn eb_key(replies: bool) -> String {
+    if replies { "eb:replies".into() } else { "eb".into() }
+}
+
+/// Body title for the EB view.
+pub fn eb_title(replies: bool) -> String {
+    if replies { "EB · posts and replies".into() } else { "EB".into() }
+}
+
+/// `--eb`: read the Executive Board feed and store it.
+pub async fn read_eb(http: &reqwest::Client, jar: &Jar, replies: bool) -> Result<usize> {
+    let fields = eb_fields(replies);
+    read_view(http, jar, &feed_eb_url(replies), &feed_eb_page_url(), &fields, &eb_key(replies), &eb_title(replies))
+        .await
+        .context("reading the Executive Board feed")
+}
+
+/// Fetch one configured feed and store it under `key`.
+async fn read_view(
+    http: &reqwest::Client,
+    jar: &Jar,
+    direct: &str,
+    page: &str,
+    fields: &[(&str, &str)],
+    key: &str,
+    title: &str,
+) -> Result<usize> {
+    let fetched = fetch_configured(http, jar, direct, page, fields).await?;
+    remember_feed(&fetched.items, key, title)
 }
 
 #[cfg(test)]
