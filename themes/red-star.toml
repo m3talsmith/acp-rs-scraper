@@ -1,0 +1,36 @@
+# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+version = 1
+name = "red-star"
+description = "Red Star: deep crimson with ACP red as the accent"
+
+[dark.palette]
+accent = "#dc2626"
+muted = "#c98a8a"
+border = "#7f1d1d"
+on_accent = "#ffffff"
+fg = "#f5e9e9"
+bg = "#2a0710"
+
+[dark.styles.bar]
+bold = true
+
+[dark.styles.dialog]
+bg = "@bg"
+
+[light.palette]
+accent = "#dc2626"
+muted = "#8b3a3a"
+border = "#e8b4b4"
+on_accent = "#ffffff"
+fg = "#3b0a12"
+bg = "#fff5f5"
+
+[light.styles.bar]
+bold = true
+
+[light.styles.dialog]
+bg = "@bg"
+
+[light.styles.post_tag]
+fg = "@bg"
+bg = "@fg"

@@ -1,0 +1,52 @@
+# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+version = 1
+name = "soviet"
+description = "Classic Soviet red and gold: a gold hammer-and-sickle on banner red"
+
+[dark.palette]
+accent = "#e01b1b"
+muted = "#c9a227"
+border = "#7a1f1f"
+on_accent = "#ffd700"
+fg = "#f3e6c8"
+bg = "#1c0b0b"
+gold = "#ffd700"
+
+[dark.styles.link]
+fg = "@gold"
+underline = true
+
+[dark.styles.bar]
+bold = true
+
+[dark.styles.dialog]
+bg = "@bg"
+
+[dark.styles.selected]
+fg = "@on_accent"
+
+[light.palette]
+accent = "#b30000"
+muted = "#7a5c12"
+border = "#c9a227"
+on_accent = "#ffd700"
+fg = "#2a0a0a"
+bg = "#f7efd8"
+gold = "#8a6a00"
+
+[light.styles.link]
+fg = "@gold"
+underline = true
+
+[light.styles.bar]
+bold = true
+
+[light.styles.dialog]
+bg = "@bg"
+
+[light.styles.selected]
+fg = "@on_accent"
+
+[light.styles.post_tag]
+fg = "@bg"
+bg = "@fg"

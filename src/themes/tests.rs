@@ -214,3 +214,22 @@ fn contrast_ratios() {
     assert_eq!(rgb(Color::Indexed(196)), Some((255, 0, 0)));
     assert_eq!(rgb(Color::Indexed(232)), Some((8, 8, 8)));
 }
+
+#[test]
+fn every_shipped_theme_loads_cleanly_with_both_variants_and_readable_text() {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("themes");
+    let files = toml_files(&dir);
+    assert!(files.len() >= 7, "{files:?}");
+    for f in files {
+        let l = load_path(&f).unwrap_or_else(|e| panic!("{}", e.notice()));
+        assert!(l.warnings.is_empty(), "{}: {:?}", f.display(), l.warnings);
+        assert!(!l.file.description.is_empty() && l.file.light.is_some(), "{}", f.display());
+        assert_eq!(to_toml(&parse(&to_toml(&l.file), "x").unwrap().0), to_toml(&l.file), "round trip");
+        if l.file.name == DEFAULT_THEME { continue; }
+        for v in [Variant::Dark, Variant::Light] {
+            for r in crate::tui::editor::all_rows(&l.file, v) {
+                assert!(crate::tui::editor::warning(&l.file, v, &r).is_none(), "{} {}: {r:?} below 3:1", l.file.name, v.name());
+            }
+        }
+    }
+}

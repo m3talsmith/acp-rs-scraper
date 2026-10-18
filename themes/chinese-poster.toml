@@ -1,0 +1,44 @@
+# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+version = 1
+name = "chinese-poster"
+description = "Chinese propaganda poster: vermilion and golden yellow"
+
+[dark.palette]
+accent = "#d93a1f"
+muted = "#f0b429"
+border = "#8c2d19"
+on_accent = "#ffde00"
+fg = "#fff3d6"
+bg = "#1f0c06"
+yellow = "#ffde00"
+
+[dark.styles.bold]
+fg = "@yellow"
+
+[dark.styles.bar]
+bold = true
+
+[dark.styles.dialog]
+bg = "@bg"
+
+[light.palette]
+accent = "#c8321e"
+muted = "#8a5a00"
+border = "#e3a21a"
+on_accent = "#ffde00"
+fg = "#2b0f05"
+bg = "#fff4d6"
+yellow = "#8a5a00"
+
+[light.styles.bold]
+fg = "@yellow"
+
+[light.styles.bar]
+bold = true
+
+[light.styles.dialog]
+bg = "@bg"
+
+[light.styles.post_tag]
+fg = "@bg"
+bg = "@fg"

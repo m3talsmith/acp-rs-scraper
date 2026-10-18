@@ -1,0 +1,36 @@
+# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+version = 1
+name = "plattenbau"
+description = "East German Plattenbau: concrete greys with a red accent"
+
+[dark.palette]
+accent = "#e0443a"
+muted = "#9a9c9e"
+border = "#55585b"
+on_accent = "#ffffff"
+fg = "#d8d8d4"
+bg = "#2b2d2f"
+
+[dark.styles.card_focused]
+border = "@accent"
+
+[dark.styles.dialog]
+bg = "@bg"
+
+[light.palette]
+accent = "#c0392b"
+muted = "#5f6366"
+border = "#a3a5a8"
+on_accent = "#ffffff"
+fg = "#2b2d2f"
+bg = "#e4e4e0"
+
+[light.styles.card_focused]
+border = "@accent"
+
+[light.styles.dialog]
+bg = "@bg"
+
+[light.styles.post_tag]
+fg = "@bg"
+bg = "@fg"

@@ -1,0 +1,48 @@
+# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+version = 1
+name = "constructivist"
+description = "Constructivist posters after Rodchenko and Lissitzky: red, black and cream"
+
+[dark.palette]
+accent = "#e2231a"
+muted = "#b8ad96"
+border = "#5a5048"
+on_accent = "#111111"
+fg = "#efe6d2"
+bg = "#111111"
+
+[dark.styles.bold]
+fg = "@accent"
+
+[dark.styles.bar]
+bold = true
+
+[dark.styles.accent_bold]
+underline = true
+
+[dark.styles.dialog]
+bg = "@bg"
+
+[dark.styles.post_tag]
+fg = "@bg"
+bg = "@fg"
+
+[light.palette]
+accent = "#c4161c"
+muted = "#5c5348"
+border = "#111111"
+on_accent = "#efe6d2"
+fg = "#111111"
+bg = "#efe6d2"
+
+[light.styles.bold]
+fg = "@accent"
+
+[light.styles.bar]
+bold = true
+
+[light.styles.accent_bold]
+underline = true
+
+[light.styles.dialog]
+bg = "@bg"

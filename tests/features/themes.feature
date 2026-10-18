@@ -12,6 +12,9 @@ Feature: Theme files
     And stdout contains "Themes in"
     And stdout contains "● default"
     And stdout contains "ACP red on your terminal's own colours"
+    And stdout contains "soviet"
+    And stdout contains "plattenbau"
+    And the file "$HOME/.acp/themes/cuba.toml" exists
     And the file "$HOME/.acp/themes/default.toml" contains "#dc2626"
 
   Scenario: --theme marks the theme for this run only

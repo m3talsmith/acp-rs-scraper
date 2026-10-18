@@ -6,6 +6,19 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.13.0] - 2026-10-17
+
+### Added
+- Six communist-themed themes, each with dark and light variants and at least 3:1 text contrast,
+  shipped in `themes/` (and the packages) so the first run installs them:
+  `soviet` (Soviet red and gold), `constructivist` (red, black and cream after Rodchenko and
+  Lissitzky), `cuba` (olive green, red and black), `red-star` (deep crimson with ACP red),
+  `chinese-poster` (vermilion and golden yellow) and `plattenbau` (East German concrete greys with
+  a red accent). Pick one with F5 or `--theme NAME`. An existing
+  `~/.acp/themes` is left alone; copy the new files from `/usr/share/acp-rs-scraper/themes/` (or
+  the source tree's `themes/`) to get them there.
+- A test that every shipped theme loads without warnings and stays above 3:1 contrast in both variants.
+
 ## [2.12.0] - 2026-10-17
 
 ### Added

@@ -143,6 +143,11 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   directory is empty, the shipped themes are copied there from the first of
   `/usr/share/acp-rs-scraper/themes/`, `themes/` next to the binary, `../share/acp-rs-scraper/themes/`
   next to the binary, or the source tree's `themes/`.
+- **Shipped themes.** `default` (ACP red on the terminal's colours), `soviet` (red and gold),
+  `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (deep
+  crimson), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
+  accent); each has dark and light variants with text contrast of at least 3:1. Only an empty
+  `~/.acp/themes` gets them automatically; copy newer ones by hand.
 - **Choosing.** `[ui] theme = "name"` (written by the picker), `[ui] theme_mode = "dark" | "light"
   | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
   (`OSC 11`), else dark. `--theme NAME` overrides for one run; `--list-themes`

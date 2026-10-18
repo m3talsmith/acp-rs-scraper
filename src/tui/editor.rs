@@ -554,6 +554,15 @@ fn assumed(t: &Theme, v: Variant) -> (Color, Color) {
     (fg, bg)
 }
 
+/// Every palette and element row of `f`'s `v` variant (nothing expanded), e.g. to check all
+/// of a theme's contrast warnings at once.
+pub fn all_rows(f: &ThemeFile, v: Variant) -> Vec<Row> {
+    let s = f.section(v);
+    let mut names: Vec<String> = PALETTE_KEYS.iter().map(|(k, _)| k.to_string()).collect();
+    for (n, _) in &s.palette { if !names.contains(n) { names.push(n.clone()); } }
+    names.into_iter().map(Row::Palette).chain(Element::ALL.iter().map(|e| Row::Element(*e))).collect()
+}
+
 /// A row's text contrast in `f` when below [`THEME_MIN_CONTRAST`].
 pub fn warning(f: &ThemeFile, v: Variant, r: &Row) -> Option<f64> {
     let t = Theme::from_file(f, v);

@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.12.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.13.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -254,7 +254,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.12.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.13.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -418,6 +418,21 @@ Themes are TOML files in `~/.acp/themes/`, one per theme (names: lowercase lette
 and `_`, up to 32). The packages install the shipped themes in `/usr/share/acp-rs-scraper/themes/`
 and the first run copies them into `~/.acp/themes/` when that directory is empty. `default` is
 the classic look: ACP red `#dc2626` on your terminal's own colours.
+
+Shipped themes (each has a dark and a light variant, text contrast at least 3:1):
+
+| Theme | Look |
+|---|---|
+| `default` | ACP red on your terminal's own colours (the classic look) |
+| `soviet` | Classic Soviet red and gold: a gold hammer-and-sickle on banner red |
+| `constructivist` | Constructivist posters after Rodchenko and Lissitzky: red, black and cream |
+| `cuba` | Cuban revolutionary: olive green fatigues, red and black |
+| `red-star` | Red Star: deep crimson with ACP red as the accent |
+| `chinese-poster` | Chinese propaganda poster: vermilion and golden yellow |
+| `plattenbau` | East German Plattenbau: concrete greys with a red accent |
+
+The first run copies them only into an empty `~/.acp/themes`; to add themes shipped by a newer
+version, copy them from `/usr/share/acp-rs-scraper/themes/` (existing files are yours to keep).
 
 ```toml
 version = 1

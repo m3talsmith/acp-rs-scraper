@@ -1,0 +1,40 @@
+# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+version = 1
+name = "cuba"
+description = "Cuban revolutionary: olive green fatigues, red and black"
+
+[dark.palette]
+accent = "#d32f2f"
+muted = "#a3ad6f"
+border = "#556b2f"
+on_accent = "#ffffff"
+fg = "#e9e4d0"
+bg = "#1b1f14"
+olive = "#a3ad6f"
+
+[dark.styles.post_tag]
+bg = "@border"
+
+[dark.styles.code]
+fg = "@olive"
+
+[dark.styles.dialog]
+bg = "@bg"
+
+[light.palette]
+accent = "#b71c1c"
+muted = "#4b5320"
+border = "#6b8e23"
+on_accent = "#ffffff"
+fg = "#1b1f14"
+bg = "#eef0e2"
+olive = "#4b5320"
+
+[light.styles.post_tag]
+bg = "@border"
+
+[light.styles.code]
+fg = "@olive"
+
+[light.styles.dialog]
+bg = "@bg"
