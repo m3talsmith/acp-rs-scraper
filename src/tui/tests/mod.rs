@@ -20,6 +20,7 @@ mod sync;
 mod views;
 mod history;
 mod nick_filter;
+mod reads;
 mod theming;
 mod editor;
 

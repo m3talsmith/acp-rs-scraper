@@ -295,6 +295,11 @@ pub async fn run() -> Result<()> {
     if let Err(e) = load_session(&jar) { err!("warning: ignoring saved session: {e:#}"); }
     let http = client(jar.clone())?;
     login(&http, &jar).await?;
+    if let Some(period) = args.top {
+        let n = read_top(&http, &jar, period, args.top_replies).await?;
+        info!("== top {}: {n} posts", period.as_str());
+        return Ok(());
+    }
     let mut nicks = args.nick_list()?;
     if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
         let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;

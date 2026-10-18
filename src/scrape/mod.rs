@@ -4,6 +4,7 @@
 pub mod feed;
 pub mod mentions;
 pub mod profile;
+pub mod reads;
 pub mod refetch;
 pub mod thread;
 

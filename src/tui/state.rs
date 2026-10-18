@@ -90,6 +90,8 @@ pub struct BodyView {
     pub bookmarks: bool,
     /// The research project this view shows.
     pub research: Option<String>,
+    /// The site read this view shows (`top:week`, …), when it is one.
+    pub site_key: Option<String>,
     /// Frames closed with prev / Esc, nearest last: `next` reopens them.
     pub forward: Vec<DetailFrame>,
 }
@@ -391,6 +393,8 @@ pub struct App {
     pub theme_editor: Option<Box<crate::tui::editor::ThemeEditor>>,
     /// The theme being downloaded in the background, if any.
     pub theme_downloading: Option<String>,
+    /// Site-feed key to open when the running read job ends.
+    pub pending_feed: Option<String>,
 }
 
 impl App {
@@ -405,6 +409,7 @@ impl App {
             job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
+            pending_feed: None,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -539,6 +544,45 @@ impl App {
         self.search = Some(BodyView { title: "★ Bookmarks".into(), posts, bookmarks: true, ..BodyView::default() });
         self.focus = Focus::Body;
         self.anim = None;
+    }
+    /// Show a saved site read, in the site's order. Returns whether it was stored.
+    pub fn show_site_feed(&mut self, key: &str) -> bool {
+        match self.store.site_feed(key) {
+            Ok(Some(f)) => {
+                let posts: Vec<Post> = f.post_ids.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
+                let missing = f.post_ids.len() - posts.len();
+                if missing > 0 { self.push_status(format!("{missing} posts from {} are not in the database", f.title)); }
+                self.search = Some(BodyView { title: f.title, posts, site_key: Some(key.into()), ..BodyView::default() });
+                self.focus = Focus::Body;
+                self.anim = None;
+                true
+            }
+            Ok(None) => false,
+            Err(e) => { self.push_status(format!("error: reading {key}: {e:#}")); false }
+        }
+    }
+    /// Show the saved view at once (offline), then refresh it from the site.
+    pub fn open_site_read(&mut self, key: &str, argv: Vec<String>) {
+        let had = self.show_site_feed(key);
+        if self.job.is_some() {
+            self.push_status(if had { format!("showing saved {key}; a job is already running") }
+                else { "another job is still running; wait for it or cancel it (F6)".into() });
+            return;
+        }
+        self.pending_feed = Some(key.into());
+        self.push_status(if had { format!("showing saved {key}; refreshing from the site…") }
+            else { format!("fetching {key} from the site…") });
+        self.start_online_job(JobKind::Read, argv);
+    }
+    /// View › Site Top: the period and replies checkbox in the View menu.
+    pub fn open_top(&mut self) {
+        let replies = self.menu.menu.check(crate::tui::commands::CommandId::View, "top_replies");
+        let period = TopPeriod::parse(self.menu.menu.choice(crate::tui::commands::CommandId::View, "top_period"))
+            .unwrap_or(TopPeriod::Week);
+        match self.menu.menu.top_argv() {
+            Ok(argv) => self.open_site_read(&top_key(period, replies), argv),
+            Err(e) => self.error("Site Top", &e),
+        }
     }
     /// The post `b` / the menu toggles: the top detail, else the highlighted card.
     pub fn current_post_id(&self) -> Option<String> {
@@ -1016,6 +1060,7 @@ impl App {
             Action::CycleView => { self.close_menu(); let m = self.view_mode.cycle(1); self.set_view_mode(m); }
             Action::SetView(m) => { self.close_menu(); self.set_view_mode(m); }
             Action::ShowBookmarks => { self.close_menu(); self.open_bookmarks(); }
+            Action::OpenTop => self.open_top(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }
@@ -1117,7 +1162,7 @@ impl App {
         match r {
             Ok(true) => { self.session = SessionState::Valid; self.effects.push(Effect::RunJob(kind, argv)); }
             Ok(false) => { self.session = SessionState::LoggedOut; self.open_login(Some((kind, argv))); }
-            Err(e) => { self.session = SessionState::Saved; self.error("Cannot reach acp.us", &e); }
+            Err(e) => { self.session = SessionState::Saved; self.pending_feed = None; self.error("Cannot reach acp.us", &e); }
         }
     }
     /// The site sent the login code.
@@ -1151,9 +1196,14 @@ impl App {
     pub fn job_finished(&mut self, ok: bool, code: Option<i32>, tail: &[String]) {
         let Some(j) = self.job.take() else { return };
         let auto = std::mem::take(&mut self.auto_running);
+        let feed = self.pending_feed.take();
         self.refresh_nicks();
         self.load_base_keep();
         self.reload_marks();
+        if let Some(key) = feed.as_deref() {
+            let had = self.show_site_feed(key);
+            if !ok && had { self.push_status(format!("showing the saved {key}; the refresh failed")); }
+        }
         if ok {
             self.push_status(format!("{} finished", j.kind.name()));
         } else if auto {
@@ -1168,6 +1218,7 @@ impl App {
     /// The job was cancelled.
     pub fn job_cancelled(&mut self) {
         self.auto_running = false;
+        self.pending_feed = None;
         if let Some(j) = self.job.take() { self.push_status(format!("{} cancelled (pid {})", j.kind.name(), j.pid)); }
         self.refresh_nicks();
         self.load_base_keep();
@@ -1212,6 +1263,7 @@ impl App {
             }
             (Modal::Login(m), ModalResult::ClosedCancelled) => {
                 self.pending_job = None;
+                self.pending_feed = None;
                 if self.session == SessionState::Checking { self.session = SessionState::LoggedOut; }
                 let _ = m;
                 self.effects.push(Effect::LoginCancel);

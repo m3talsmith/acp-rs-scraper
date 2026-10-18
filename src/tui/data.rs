@@ -116,6 +116,8 @@ pub trait Store {
     fn research_projects(&self) -> Result<Vec<ResearchProject>> { Ok(Vec::new()) }
     /// Items of research project `name`, in the order added.
     fn research_items(&self, _name: &str) -> Result<Vec<ResearchItem>> { Ok(Vec::new()) }
+    /// A saved site read (posts in site order), when this store has one.
+    fn site_feed(&self, _key: &str) -> Result<Option<SiteFeed>> { Ok(None) }
 }
 
 /// The stored file of research item `research:<id>`, as an attachment (local files, page snapshots).
@@ -237,6 +239,10 @@ impl Store for SqliteStore {
         if !crate::maintenance::table_exists(&c, "research_items")? { return Ok(Vec::new()); }
         match project_id(&c, name)? { Some(id) => project_items(&c, id), None => Ok(Vec::new()) }
     }
+    fn site_feed(&self, key: &str) -> Result<Option<SiteFeed>> {
+        let Some(c) = self.conn()? else { return Ok(None) };
+        load_site_feed(&c, key)
+    }
 }
 
 /// In-memory store (tests, headless renders).
@@ -252,6 +258,8 @@ pub struct MemStore {
     pub projects: Vec<ResearchProject>,
     /// Research items: (project name, item).
     pub research: Vec<(String, ResearchItem)>,
+    /// Saved site reads (tests and headless renders).
+    pub feeds: Vec<SiteFeed>,
 }
 
 impl Store for MemStore {
@@ -292,6 +300,9 @@ impl Store for MemStore {
     fn research_projects(&self) -> Result<Vec<ResearchProject>> { Ok(self.projects.clone()) }
     fn research_items(&self, name: &str) -> Result<Vec<ResearchItem>> {
         Ok(self.research.iter().filter(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, i)| i.clone()).collect())
+    }
+    fn site_feed(&self, key: &str) -> Result<Option<SiteFeed>> {
+        Ok(self.feeds.iter().find(|f| f.key == key).cloned())
     }
 }
 

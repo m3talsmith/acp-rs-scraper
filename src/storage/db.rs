@@ -365,6 +365,45 @@ pub fn posts_by_ids(db: &Path, ids: &[String]) -> Result<(Vec<Post>, Vec<Attachm
     Ok((out, atts, missing))
 }
 
+/// One saved site read: the posts in the order the site returned them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SiteFeed {
+    /// Stable key (`top:week`, `top:all:replies`, …).
+    pub key: String,
+    /// Title shown in the Body.
+    pub title: String,
+    /// When this view was last read from the site (RFC 3339).
+    pub fetched_at: String,
+    /// Post ids, in site order.
+    pub post_ids: Vec<String>,
+}
+
+/// Insert or replace a site read. Creates the table.
+pub fn save_site_feed(c: &Connection, feed: &SiteFeed) -> Result<()> {
+    c.execute_batch(SITE_FEEDS_SCHEMA)?;
+    let ids = serde_json::to_string(&feed.post_ids)?;
+    c.execute(
+        "INSERT INTO site_feeds (key, title, fetched_at, post_ids) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(key) DO UPDATE SET title = excluded.title, fetched_at = excluded.fetched_at, post_ids = excluded.post_ids",
+        params![feed.key, feed.title, feed.fetched_at, ids])?;
+    Ok(())
+}
+
+/// The saved site read `key`, if that table and row exist.
+pub fn load_site_feed(c: &Connection, key: &str) -> Result<Option<SiteFeed>> {
+    let has: bool = c.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='site_feeds'",
+        [], |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
+    if !has { return Ok(None); }
+    let row: Option<(String, String, String)> = c.query_row(
+        "SELECT title, fetched_at, post_ids FROM site_feeds WHERE key = ?1",
+        params![key], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+    let Some((title, fetched_at, ids)) = row else { return Ok(None) };
+    let post_ids: Vec<String> = serde_json::from_str(&ids)
+        .with_context(|| format!("site feed {key} has a broken post list"))?;
+    Ok(Some(SiteFeed { key: key.into(), title, fetched_at, post_ids }))
+}
+
 /// Open (creating) the database at `db`, creating its directory first so the
 /// very first write on a fresh `$HOME` works whichever table is written first.
 pub fn open_db(db: &Path) -> Result<Connection> {

@@ -52,12 +52,21 @@ acp-rs-scraper --nick alice -v
 acp-rs-scraper --nicks @hazaldin --latest
   \
 acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 200
+  \
+acp-rs-scraper --top week
+  \
+acp-rs-scraper --top all --top-replies
 ",
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("reading").args(["top"]).multiple(false).conflicts_with_all([
+    "nick", "nicks", "scrape", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
+    "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
+    "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
+])))]
 /// Command-line arguments (see `--help`).
 pub struct Args {
     /// Site feed: Latest tab (/rs/latest). Default — even though the site opens on Trending.
@@ -66,6 +75,12 @@ pub struct Args {
     /// Site feed: Trending tab (/rs). Opt-in; incremental early-stop disabled (not chronological).
     #[arg(long, group = "mode", help_heading = "Mode")]
     pub trending: bool,
+    /// Site-wide Top feed (/rs/top). PERIOD is day, week, month, year or all (default: week). Stored locally; View › Site Top opens it.
+    #[arg(long, value_name = "PERIOD", num_args = 0..=1, default_missing_value = "week", value_parser = parse_top_period, help_heading = "Reading")]
+    pub top: Option<TopPeriod>,
+    /// With --top: include replies (the feed's replies filter).
+    #[arg(long, requires = "top", help_heading = "Reading")]
+    pub top_replies: bool,
 
     /// Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it.
     #[arg(long, help_heading = "Interface")]

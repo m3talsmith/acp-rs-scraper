@@ -84,6 +84,14 @@ fn feed_mode_flags() {
     let a = Args::try_parse_from(["x", "--trending"]).unwrap();
     assert_eq!(a.feed_mode(), FeedMode::Trending);
     assert!(Args::try_parse_from(["x", "--latest", "--trending"]).is_err());
+    let a = Args::try_parse_from(["x", "--top"]).unwrap();
+    assert_eq!(a.top, Some(TopPeriod::Week));
+    assert!(!a.top_replies);
+    let a = Args::try_parse_from(["x", "--top", "all", "--top-replies"]).unwrap();
+    assert_eq!((a.top, a.top_replies), (Some(TopPeriod::All), true));
+    assert!(Args::try_parse_from(["x", "--top", "hour"]).is_err());
+    assert!(Args::try_parse_from(["x", "--top", "week", "--nick", "alice"]).is_err());
+    assert!(!parse_with_mode(["x", "--top", "day"]).unwrap().1);
     assert_eq!(FeedMode::Latest.site_feed_url(), feed_latest_url());
     assert_eq!(FeedMode::Trending.site_feed_url(), feed_trending_url());
     assert!(FeedMode::Latest.allow_incremental_stop());

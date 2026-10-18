@@ -133,6 +133,8 @@ pub enum Action {
     ThemeExport,
     /// Download the default theme from the repo (kept if it exists).
     ThemeInit,
+    /// Open the site-wide Top feed (View › Site Top).
+    OpenTop,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
 }
@@ -252,6 +254,8 @@ pub const MODE_CHOICES: &[&str] = &["Latest", "Trending"];
 pub const FORMAT_CHOICES: &[&str] = &["json", "html", "json,html"];
 /// Export scope choices.
 pub const SCOPE_CHOICES: &[&str] = &["Selected nicks", "Current view", "Everything", "Basket"];
+/// Site Top periods (`/rs/top?t=`). Week is first: the default.
+pub const TOP_PERIODS: &[&str] = &["week", "day", "month", "year", "all"];
 
 /// The whole menu bar, with every option's current value.
 #[derive(Clone, Debug, PartialEq)]
@@ -355,6 +359,9 @@ impl Menu {
                 opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
                 opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
                 opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
+                opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
+                opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
+                opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
                 opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
                 opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
             ]},
@@ -523,6 +530,15 @@ impl Menu {
     pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
         if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for View › Site Top.
+    pub fn top_argv(&self) -> std::result::Result<Vec<String>, String> {
+        use CommandId::View as V;
+        let mut v = vec![ARGV0.to_string(), "--top".into(), self.choice(V, "top_period").into()];
+        if self.check(V, "top_replies") { v.push("--top-replies".into()); }
         v.extend(self.debug_args());
         validate(v)
     }

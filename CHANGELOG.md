@@ -6,6 +6,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.18.0] - 2026-10-18
+
+### Added
+
+- **Site-wide Top** (`/rs/top`): `--top [PERIOD]` with the five periods `day`, `week`, `month`,
+  `year` and `all` (default `week`), and `--top-replies` for the feed's replies filter. The posts
+  are stored and the order is kept in `site_feeds`, so View › Site Top (period and replies) opens
+  the saved view at once and refreshes it from the site. The direct URL is read first; if it has
+  no feed, the same `t` / `replies` fields are sent with `configure-feed`.
+
 ## [2.17.0] - 2026-10-18
 
 ### Added

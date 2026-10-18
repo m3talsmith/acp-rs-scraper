@@ -90,6 +90,16 @@ pub const BOOKMARKS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
             deleted INTEGER NOT NULL DEFAULT 0
         );";
 
+/// A named site read (Top, and later the other read-parity feeds), in the
+/// order the site returned. `post_ids` is a JSON array of post ids. The posts
+/// themselves live in `posts`, so the view still opens offline. Created on first use.
+pub const SITE_FEEDS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_feeds (
+            key TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            fetched_at TEXT NOT NULL,
+            post_ids TEXT NOT NULL
+        );";
+
 /// Research projects and their items (see `research`). Items are unique per
 /// project, kind and ref; deleting a project deletes its items.
 pub const RESEARCH_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS research_projects (

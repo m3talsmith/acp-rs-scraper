@@ -131,10 +131,15 @@ impl Lv {
 
     /// Submit a LiveView form event (`field=val`, URL-encoded), optionally to component `cid`.
     pub async fn form(&mut self, event: &str, field: &str, val: &str, cid: Option<u64>) -> Result<Value> {
+        self.form_fields(event, &[(field, val)], cid).await
+    }
+
+    /// Submit a LiveView form event with several fields (`k=v&…`, URL-encoded), optionally to component `cid`.
+    pub async fn form_fields(&mut self, event: &str, fields: &[(&str, &str)], cid: Option<u64>) -> Result<Value> {
         let mut p = json!({
             "type": "form",
             "event": event,
-            "value": format!("{}={}", urlenc(field), urlenc(val)),
+            "value": form_query(fields),
         });
         if let Some(c) = cid {
             p["cid"] = json!(c);
@@ -146,6 +151,11 @@ impl Lv {
 /// `application/x-www-form-urlencoded` encoding of `s`.
 pub fn urlenc(s: &str) -> String {
     url::form_urlencoded::byte_serialize(s.as_bytes()).collect()
+}
+
+/// URL-encoded `k=v&…` body of a LiveView form event.
+pub fn form_query(fields: &[(&str, &str)]) -> String {
+    fields.iter().map(|(k, v)| format!("{}={}", urlenc(k), urlenc(v))).collect::<Vec<_>>().join("&")
 }
 
 /// Parse the JSON `data-props` of the first element matching CSS `sel` (a Svelte mount point).
