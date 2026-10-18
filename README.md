@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.11.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.12.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -45,6 +45,12 @@ Mode:
 Interface:
       --tui
           Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it
+
+      --theme <NAME>
+          Use this theme (a file in ~/.acp/themes, without .toml) in the terminal UI for this run; ui.theme in preferences.toml sets it for good
+
+      --list-themes
+          List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit
 
 Scraping:
       --scrape
@@ -209,6 +215,8 @@ Debug:
 Examples:
   acp-rs-scraper                      # terminal UI
   acp-rs-scraper --tui --nicks @hazaldin -v
+  acp-rs-scraper --theme default      # terminal UI with this theme
+  acp-rs-scraper --list-themes
   acp-rs-scraper --scrape             # headless scrape; asks for nicks
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
@@ -246,7 +254,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.11.1 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.12.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -282,7 +290,8 @@ headless scrape is now `--scrape`.
   star drawn in white across all four rows, square on screen), a big "ACP"
   ([tui-big-text](https://crates.io/crates/tui-big-text), one-third-height pixels) on the lower
   three rows so it has a row of room above it, then the name, version, session and running job on
-  the middle row of the "ACP".
+  the middle row of the "ACP". At the right of the header the theme switch `‹default› ▾` shows
+  the theme in use; click it (or press `F5`) to pick another (see *Themes* below).
 - **Images in the terminal.** At start the TUI asks the terminal which graphics protocol it speaks
   (a kitty graphics query, sixel in the device attributes, the cell size in pixels); iTerm2 and
   WezTerm get iTerm2 inline images. Terminals that don't answer (the Linux console, tmux, many SSH,
@@ -301,7 +310,7 @@ headless scrape is now `--scrape`.
   text fields `[…]` and buttons `< … >`; `*` marks a required one. Keyboard: `m`/`F10` or
   `Alt`+the underlined letter, `↑↓` to pick, `Space`/`Enter` to change, `Esc` to close.
   `Ctrl-Space` (or `Ctrl-P`) opens a command palette. Selecting nicks fills Scrape › Nicks.
-- **Start Scanning** (pinned right, or `F5`) builds the same argv the CLI takes, checks it with
+- **Start Scanning** (pinned right, or `F6`; it was `F5` before 2.12) builds the same argv the CLI takes, checks it with
   clap, and runs the headless scraper as a background process, with its progress in the status
   line (`l` shows a 10-line log panel). Its full log is in `~/.acp/logs/tui-scan-<time>.log`
   (mode 0600; nothing secret is logged). While it runs the button becomes **Cancel**, which kills
@@ -392,23 +401,72 @@ headless scrape is now `--scrape`.
   tools/acp-anim ~/Videos/clip.mp4                      # first 10 s, 12 fps, 120x34
   tools/acp-anim https://youtu.be/VIDEO --seconds 6 --start 30 --cols 100 --rows 28
   ```
-- **Theme.** All TUI styling (text styles, borders, border colours, padding) is defined once in
-  `src/tui/theme.rs` with [ratatui-lipgloss](https://crates.io/crates/ratatui-lipgloss), a Lip
-  Gloss port for ratatui. The accent is ACP red `#dc2626`, as in the HTML export. Override any
-  colour in `~/.acp/preferences.toml`:
-
-  ```toml
-  [theme]
-  accent = "#dc2626"     # reply links, selection, focused borders, Start Scanning
-  muted = "#9ca3af"      # dates, ids, hints
-  border = "#4b5563"     # unfocused borders
-  on_accent = "#ffffff"  # text on the accent colour
-  ```
+- **Themes.** Every colour comes from a theme file in `~/.acp/themes/<name>.toml`; nothing is
+  built into the binary. `F5` (or the `‹name› ▾` switch in the header) opens a picker that previews
+  each theme as you move over it (`Enter` keeps it, `Esc` goes back) and ends in **Edit themes…**.
+  `Shift-F5` opens the **theme editor** full screen. The command palette has *Theme: use / list /
+  edit / reload / export*. See [Themes](#themes) below.
 
 Keys: `?`/`F1` help (the full `--help` plus every key), `Tab` cycles Nicks → Body → Menu,
 `↑↓`/`jk`, `PgUp`/`PgDn`, `Home`/`End`, `Ctrl-R` re-reads nicks, `q` or `Ctrl-C` quits.
 The TUI needs at least 60×19 cells and a terminal on stdin/stdout; without one it tells you which
 headless flags to use.
+
+## Themes
+
+Themes are TOML files in `~/.acp/themes/`, one per theme (names: lowercase letters, digits, `-`
+and `_`, up to 32). The packages install the shipped themes in `/usr/share/acp-rs-scraper/themes/`
+and the first run copies them into `~/.acp/themes/` when that directory is empty. `default` is
+the classic look: ACP red `#dc2626` on your terminal's own colours.
+
+```toml
+version = 1
+name = "mine"
+description = "Green on black"
+
+[dark.palette]          # named colours; anything can refer to them as "@name"
+accent = "#16a34a"
+muted = "#9ca3af"
+border = "#4b5563"
+on_accent = "#ffffff"
+fg = "reset"            # "reset": the terminal's own colour
+bg = "reset"
+gold = 220              # extra entries are fine
+
+[dark.styles.link]      # optional per-element overrides
+fg = "@gold"
+underline = true
+
+[light.palette]         # optional; missing keys come from [dark]
+accent = "#15803d"
+```
+
+Colours are `#rrggbb`, `#rgb`, `0`–`255`, the 16 ANSI names (`red`, `bright_blue`, …), `reset`
+or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underline`, `reverse`,
+`dim`. Borders and padding stay in code. The full list of elements is in
+[docs/USAGE.md](docs/USAGE.md#themes).
+
+- **Choosing.** `F5` / the header switch / *Theme: use…* saves your choice as `[ui] theme` in
+  `~/.acp/preferences.toml`. `[ui] theme_mode = "dark" | "light" | "system"` picks the variant;
+  `system` (the default) uses `COLORFGBG` when set, else asks the terminal (`OSC 11`), else
+  dark. `--theme NAME` uses a theme for one run without saving it;
+  `--list-themes` prints them all.
+- **Editor** (`Shift-F5`). Left: the palette and every element, with colour swatches, `*` for
+  changed values and `⚠2.1:1` when text contrast is below 3:1. Right: a live preview drawn by the
+  real UI with sample posts. `Tab` flips dark/light, `Enter` edits (hex or a colour grid: 16 /
+  216 cube / 24 greys / `@refs`), `Del` clears an override, `a` adds a palette colour, `[`/`]` go
+  to the previous / next theme. `Ctrl-S` saves, `Ctrl-R` reverts, `Ctrl-N` new, `Ctrl-D`
+  duplicate, `Ctrl-X` deletes (asks first; not the theme in use). `Esc` with unsaved changes asks
+  Save / Discard / Cancel.
+- **Safety.** A missing or broken theme file never stops the TUI: it falls back to the terminal's
+  colours and a notice names the file and how to fix it. Broken files are never overwritten
+  automatically. Unknown keys give a warning each, files over 64 KiB or from a newer format are
+  refused, names that would leave the directory are rejected, and writes are atomic (mode 0600).
+- **Old `[theme]` colours.** Before 2.12 colours lived in `[theme]` of `preferences.toml`. On the
+  first run of 2.12 they become the theme `custom` (`custom-2` if that exists), which is
+  selected; the TUI says so once. The old keys are left in place but no longer read.
+- **Export.** *Theme: export* writes the current theme to
+  `~/.acp/ai/data/exports/themes/<name>-<time>.toml`.
 
 ## Bookmarks
 

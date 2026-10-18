@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ANSI","PALETTE_KEYS","STYLE_KEYS"],"enum":["ColorSpec","Element","Variant"],"fn":["ansi_colors","color_text","color_toml","contrast","is_reset_chain","luminance","parse","parse_color","parse_color_str","parse_section","rgb","to_toml","valid_name"],"macro":[["elements",1]],"struct":["Section","StyleSpec","ThemeFile"]};

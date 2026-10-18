@@ -19,6 +19,7 @@
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`bookmarks`]: local bookmarks and `--sync-bookmarks` with the site.
 //! - [`maintenance`]: `--remove-nick` and `--clear-all`.
+//! - [`themes`]: theme files in `~/.acp/themes` (format, loading, first-run install, migration).
 //! - [`tui`]: the terminal UI (the default with no flags): browse nicks and posts,
 //!   drive scrape/search/export/import/maintenance from a menu bar.
 //! - [`app`]: wires the above into the command-line program.
@@ -41,6 +42,7 @@ pub mod media;
 pub mod research;
 pub mod scrape;
 pub mod storage;
+pub mod themes;
 pub mod tui;
 
 /// Everything most modules need, re-exported in one place: the crate's own

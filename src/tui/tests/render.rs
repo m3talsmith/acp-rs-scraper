@@ -38,7 +38,7 @@ fn base_layout_renders_title_menu_nicks_and_empty_state() {
 
 #[test]
 fn empty_database_has_friendly_state() {
-    let mut a = App::new(Box::new(crate::tui::data::MemStore::default()), &no_args(), crate::tui::theme::Theme::default(), false);
+    let mut a = App::new(Box::new(crate::tui::data::MemStore::default()), &no_args(), crate::tui::theme::Theme::acp(), false);
     let s = render(&mut a, 100, 24);
     assert!(s.contains("No nicks yet"));
 }
@@ -122,7 +122,7 @@ fn modals_render_over_dimmed_layout() {
     on_key(&mut a, KeyEvent::new(KeyCode::Char(' '), KeyModifiers::CONTROL));
     assert!(matches!(a.modal, Some(Modal::Palette(_))));
     let s = render(&mut a, 100, 30);
-    assert!(s.contains("Start Scanning (F5)"));
+    assert!(s.contains("Start Scanning (F6)"));
     key(&mut a, KeyCode::Esc);
     a.open_login(Some((crate::tui::jobs::JobKind::Scan, vec!["x".into()])));
     let s = render(&mut a, 100, 30);
@@ -171,7 +171,7 @@ fn too_small_terminal() {
 #[ignore]
 fn smoke_real_db() {
     let db = home().unwrap().join(DB_REL_PATH);
-    let mut a = App::new(Box::new(crate::tui::data::SqliteStore::new(db)), &no_args(), crate::tui::theme::Theme::default(), false);
+    let mut a = App::new(Box::new(crate::tui::data::SqliteStore::new(db)), &no_args(), crate::tui::theme::Theme::acp(), false);
     let hz = a.nicks.iter().position(|n| n.nick.eq_ignore_ascii_case("hazaldin")).unwrap_or(0);
     a.select_only(hz);
     a.open_post(0);

@@ -3,6 +3,7 @@
 
 pub mod body;
 pub mod detail;
+pub mod editor;
 pub mod menu;
 pub mod modal;
 pub mod nicks;
@@ -10,7 +11,7 @@ pub mod text;
 
 use crate::prelude::*;
 use crate::tui::layout::areas;
-use crate::tui::state::{App, SessionState};
+use crate::tui::state::{App, Hit, SessionState};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
@@ -26,6 +27,14 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     if area.width < TUI_MIN_SIZE.0 || area.height < TUI_MIN_SIZE.1 {
         f.render_widget(Paragraph::new(format!("Terminal too small: {}×{} (need {}×{}). q quits.",
             area.width, area.height, TUI_MIN_SIZE.0, TUI_MIN_SIZE.1)), area);
+        return;
+    }
+    // The whole screen in the theme's base colours (the terminal's when unset).
+    f.buffer_mut().set_style(area, ratatui::style::Style::from(&app.theme.base()));
+    if let Some(mut ed) = app.theme_editor.take() {
+        editor::draw(f, app, &mut ed, now);
+        app.theme_editor = Some(ed);
+        if app.modal.is_some() { modal::draw(f, app, area); }
         return;
     }
     let log_rows = if app.show_log { 10 } else { 1 };
@@ -77,11 +86,19 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
         SessionState::Checking => "… checking session",
     };
     let job = app.job.as_ref().map(|j| format!("⟳ {} running (pid {})  ", j.kind.name(), j.pid)).unwrap_or_default();
-    let right = format!("{job}{session} ");
+    // The theme switch: ‹name› ▾ (⚠ when its file can't be used); a click opens the picker.
+    let switch = format!("‹{}{}› ▾", app.theme_name, if app.theme_error.is_some() { " ⚠" } else { "" });
+    let right = format!("  {session} ");
     let rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
-    let pad = (rest.width as usize).saturating_sub(left.chars().count() + right.chars().count());
+    let used = left.chars().count() + job.chars().count() + switch.chars().count() + right.chars().count();
+    let pad = (rest.width as usize).saturating_sub(used);
+    let sw_x = rest.x + (left.chars().count() + pad + job.chars().count()) as u16;
+    if (used as u16) < rest.width {
+        app.hits.push((Rect { x: sw_x, y: rest.y, width: switch.chars().count() as u16, height: 1 }, Hit::ThemeSwitch));
+    }
     f.render_widget(Paragraph::new(Line::from(vec![
-        Span::styled(left, t.bar().bold(true)), Span::styled(" ".repeat(pad), &bar), Span::styled(right, &bar),
+        Span::styled(left, t.bar().bold(true)), Span::styled(" ".repeat(pad), &bar), Span::styled(job, &bar),
+        Span::styled(switch, t.bar().underline(true)), Span::styled(right, &bar),
     ])), rest);
 }
 
@@ -89,7 +106,7 @@ fn status(f: &mut Frame, app: &App, r: Rect) {
     let t = app.theme;
     let n = r.height as usize;
     let lines: Vec<Line> = if app.status.is_empty() {
-        vec![Line::styled("? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F5 scan · q quit", t.muted())]
+        vec![Line::styled("? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit", t.muted())]
     } else {
         app.status.iter().rev().take(n).rev().map(|l| {
             let st = if l.starts_with("error") || l.starts_with("warning") { t.accent() } else { t.muted() };

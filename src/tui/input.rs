@@ -21,17 +21,24 @@ fn after_modal(app: &mut App, r: Option<ModalResult>) {
             app.effects.push(match req { LoginRequest::SendEmail(e) => Effect::LoginEmail(e), LoginRequest::SubmitCode(c) => Effect::LoginCode(c) });
         }
     if let Some(r) = r { app.close_modal(r); }
+    else if matches!(app.modal, Some(Modal::ThemePicker(_))) { app.preview_picker(); }
+}
+
+fn editor_key(app: &mut App, k: KeyEvent) {
+    let Some(mut ed) = app.theme_editor.take() else { return };
+    if ed.on_key(app, k) == crate::tui::editor::Outcome::Stay { app.theme_editor = Some(ed); }
 }
 
 /// Handle a key.
 pub fn on_key(app: &mut App, k: KeyEvent) {
     let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
-    if ctrl && k.code == KeyCode::Char('c') && app.modal.is_none() { app.act(Action::Quit); return; }
+    if ctrl && k.code == KeyCode::Char('c') && app.modal.is_none() && app.theme_editor.is_none() { app.act(Action::Quit); return; }
     if let Some(m) = &mut app.modal {
         let r = m.state().on_key(k);
         after_modal(app, r);
         return;
     }
+    if app.theme_editor.is_some() { editor_key(app, k); return; }
     if app.filter_editing { filter_key(app, k); return; }
     if app.focus == Focus::Menu && app.menu.editing { menu_edit_key(app, k); return; }
     // Global keys.
@@ -52,7 +59,10 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         KeyCode::Char('S') => { app.act(Action::OpenSearchModal); return; }
         KeyCode::Char('B') => { app.act(Action::ShowBookmarks); return; }
         KeyCode::Char('?') | KeyCode::F(1) => { app.act(Action::Help); return; }
-        KeyCode::F(5) => { app.act(Action::StartScan); return; }
+        KeyCode::F(5) if k.modifiers.contains(KeyModifiers::SHIFT) => { app.act(Action::ThemeEditor); return; }
+        KeyCode::F(17) => { app.act(Action::ThemeEditor); return; }
+        KeyCode::F(5) => { app.act(Action::ThemePicker); return; }
+        KeyCode::F(6) => { app.act(Action::StartScan); return; }
         KeyCode::F(10) => { app.focus = Focus::Menu; return; }
         KeyCode::Tab => { app.close_menu_dropdown(); app.focus = next_focus(app.focus, 1); return; }
         KeyCode::BackTab => { app.close_menu_dropdown(); app.focus = next_focus(app.focus, -1); return; }
@@ -238,6 +248,11 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         }
         return;
     }
+    if let Some(ed) = app.theme_editor.as_mut() {
+        if wheel != 0 { ed.scroll = (ed.scroll as i64 + wheel as i64 * 3).max(0) as usize; return; }
+        if let (MouseEventKind::Down(MouseButton::Left), Some(Hit::EditorRow(i))) = (m.kind, hit) { ed.click_row(i); }
+        return;
+    }
     if wheel != 0 {
         match hit {
             Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
@@ -273,6 +288,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::MenuItem(i)) => app.open_menu(i),
         Some(Hit::MenuOpt(i)) => { app.menu.editing = false; app.activate_opt(i); }
         Some(Hit::StartScan) => app.act(Action::StartScan),
+        Some(Hit::ThemeSwitch) => app.act(Action::ThemePicker),
         Some(Hit::Back) => { app.search_back(); }
         Some(Hit::Link(i)) => { app.focus = Focus::Body; app.open_link(i); }
         Some(Hit::Frame(d)) => { app.focus = Focus::Body; app.pop_to(d); }

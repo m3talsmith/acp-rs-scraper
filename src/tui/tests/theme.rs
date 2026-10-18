@@ -11,7 +11,7 @@ fn rs(g: crate::tui::theme::Gloss) -> Style { Style::from(&g) }
 
 #[test]
 fn text_styles_match_the_ratatui_ones() {
-    let t = Theme::default();
+    let t = Theme::acp();
     let red = Color::Rgb(0xdc, 0x26, 0x26);
     assert_eq!(rs(t.plain()), Style::default());
     assert_eq!(rs(t.accent()), Style::default().fg(red));
@@ -28,12 +28,47 @@ fn text_styles_match_the_ratatui_ones() {
 }
 
 #[test]
-fn prefs_flow_into_every_style() {
-    let p = crate::prelude::ThemePrefs { accent: Some("#00ff00".into()), ..Default::default() };
-    let t = Theme::from_prefs(Some(&p));
+fn the_default_file_is_the_old_look_exactly() {
+    let t = Theme::acp();
+    assert_eq!((t.accent, t.muted, t.border, t.on_accent), (Color::Rgb(0xdc, 0x26, 0x26), Color::Rgb(0x9c, 0xa3, 0xaf), Color::Rgb(0x4b, 0x55, 0x63), Color::Rgb(255, 255, 255)));
+    assert_eq!((t.fg, t.bg), (Color::Reset, Color::Reset));
+    assert_eq!(rs(t.base()), Style::default(), "no base colours: the terminal's own");
+    let (f, _) = crate::themes::parse(include_str!("../../../themes/default.toml"), "default").unwrap();
+    assert_eq!(Theme::from_file(&f, crate::themes::Variant::Light), t, "light is the same look");
+}
+
+#[test]
+fn a_palette_flows_into_every_style() {
+    let (f, w) = crate::themes::parse("version = 1\n[dark.palette]\naccent = \"#00ff00\"\n", "g").unwrap();
+    assert!(w.is_empty());
+    let t = Theme::from_file(&f, crate::themes::Variant::Dark);
     assert_eq!(rs(t.accent()).fg, Some(Color::Rgb(0, 255, 0)));
     assert_eq!(rs(t.selected()).bg, Some(Color::Rgb(0, 255, 0)));
     assert_eq!(rs(t.reply_tag()).bg, Some(Color::Rgb(0, 255, 0)));
+    assert_eq!(t.muted, Color::Reset, "missing keys: the terminal's colour");
+}
+
+#[test]
+fn element_overrides_apply_on_top_of_the_built_in_style() {
+    let src = "version = 1\n[dark.palette]\naccent = \"#dc2626\"\ngold = \"#ffd700\"\n[dark.styles.link]\nfg = \"@gold\"\nunderline = false\nitalic = true\n[dark.styles.pane_focused]\nborder = \"@gold\"\n[dark.styles.selected]\nreverse = true\ndim = true\nbold = false\n";
+    let (f, w) = crate::themes::parse(src, "x").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    let t = Theme::from_file(&f, crate::themes::Variant::Dark);
+    assert_eq!(rs(t.link()), Style::default().fg(Color::Rgb(255, 215, 0)).add_modifier(Modifier::ITALIC).remove_modifier(Modifier::UNDERLINED));
+    assert_eq!(rs(t.accent()).fg, Some(Color::Rgb(0xdc, 0x26, 0x26)), "other elements untouched");
+    let s = rs(t.selected());
+    assert!(s.add_modifier.contains(Modifier::REVERSED | Modifier::DIM) && s.sub_modifier.contains(Modifier::BOLD));
+    let (b, _) = draw(&t.pane(true), 6, 3);
+    assert_eq!(b[(0, 0)].fg, Color::Rgb(255, 215, 0));
+    assert_eq!(t.element(crate::themes::Element::PaneFocused), t.pane(true));
+}
+
+#[test]
+fn no_theme_is_the_terminals_colours() {
+    let t = Theme::reset();
+    assert_eq!(t, Theme::default());
+    assert_eq!(rs(t.accent()), Style::default().fg(Color::Reset));
+    assert_eq!(crate::tui::theme::ELEMENTS, crate::themes::Element::ALL.len());
 }
 
 fn draw(g: &crate::tui::theme::Gloss, w: u16, h: u16) -> (Buffer, Rect) {
@@ -47,7 +82,7 @@ fn draw(g: &crate::tui::theme::Gloss, w: u16, h: u16) -> (Buffer, Rect) {
 
 #[test]
 fn boxes_have_the_right_borders_colours_and_padding() {
-    let t = Theme::default();
+    let t = Theme::acp();
     let (b, inner) = draw(&t.card(true, true), 8, 3);
     assert_eq!(b[(0, 0)].symbol(), "┏");
     assert_eq!(b[(0, 0)].fg, t.accent);

@@ -8,6 +8,7 @@ pub mod message;
 pub mod palette;
 pub mod research;
 pub mod search;
+pub mod theme_picker;
 
 use crossterm::event::KeyEvent;
 
@@ -18,6 +19,7 @@ pub use message::*;
 pub use palette::*;
 pub use research::*;
 pub use search::*;
+pub use theme_picker::*;
 
 /// How a modal closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -68,6 +70,8 @@ pub enum Modal {
     Palette(PaletteModal),
     /// Pick / create a research project (and add to it).
     Research(ResearchModal),
+    /// Pick a theme (F5).
+    ThemePicker(Box<ThemePickerModal>),
 }
 
 impl Modal {
@@ -75,7 +79,7 @@ impl Modal {
     pub fn state(&mut self) -> &mut dyn ModalState {
         match self {
             Modal::Login(m) => m, Modal::Help(m) => m, Modal::Confirm(m) => m,
-            Modal::Message(m) => m, Modal::Search(m) => m, Modal::Palette(m) => m, Modal::Research(m) => m,
+            Modal::Message(m) => m, Modal::Search(m) => m, Modal::Palette(m) => m, Modal::Research(m) => m, Modal::ThemePicker(m) => m.as_mut(),
         }
     }
 }

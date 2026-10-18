@@ -20,6 +20,8 @@ mod sync;
 mod views;
 mod history;
 mod nick_filter;
+mod theming;
+mod editor;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;
@@ -44,11 +46,20 @@ pub fn fixture() -> MemStore {
         local_path: PathBuf::from("/nonexistent/x.jpg"), mime_type: "image/jpeg".into() }], marks: vec!["BOB000002".into()], ..MemStore::default() }
 }
 
+impl Theme {
+    /// The shipped default theme (`themes/default.toml`), dark variant: today's look.
+    pub fn acp() -> Theme {
+        let (f, w) = crate::themes::parse(include_str!("../../../themes/default.toml"), "default").expect("default theme parses");
+        assert!(w.is_empty(), "{w:?}");
+        Theme::from_file(&f, crate::themes::Variant::Dark)
+    }
+}
+
 /// Default parsed args (no flags).
 pub fn no_args() -> Args { use clap::Parser; Args::parse_from(["acp-rs-scraper"]) }
 
 /// App over the fixture.
-pub fn app() -> App { App::new(Box::new(fixture()), &no_args(), Theme::default(), false) }
+pub fn app() -> App { App::new(Box::new(fixture()), &no_args(), Theme::acp(), false) }
 
 /// Index of `nick` in the nick bar.
 pub fn nick_idx(a: &App, nick: &str) -> usize { a.nicks.iter().position(|n| n.nick == nick).unwrap() }

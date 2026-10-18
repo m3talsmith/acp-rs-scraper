@@ -20,6 +20,8 @@ pub fn prompt(msg: &str) -> Result<String> {
     after_help = "Examples:
   acp-rs-scraper                      # terminal UI
   acp-rs-scraper --tui --nicks @hazaldin -v
+  acp-rs-scraper --theme default      # terminal UI with this theme
+  acp-rs-scraper --list-themes
   acp-rs-scraper --scrape             # headless scrape; asks for nicks
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
@@ -66,6 +68,12 @@ pub struct Args {
     /// Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it.
     #[arg(long, help_heading = "Interface")]
     pub tui: bool,
+    /// Use this theme (a file in ~/.acp/themes, without .toml) in the terminal UI for this run; ui.theme in preferences.toml sets it for good.
+    #[arg(long, value_name = "NAME", help_heading = "Interface")]
+    pub theme: Option<String>,
+    /// List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit.
+    #[arg(long, help_heading = "Interface")]
+    pub list_themes: bool,
     /// Scrape headlessly, without the terminal UI (what a bare invocation did before 2.0). Asks for nicks when no --nick/--nicks is given. Implied by any other scraping flag.
     #[arg(long, help_heading = "Scraping")]
     pub scrape: bool,

@@ -85,7 +85,7 @@ fn detail_stack_depth_is_capped() {
         let prev = if k == 0 { "ALICE0001".to_string() } else { format!("CHAIN{k:04}") };
         s.posts.push(post(&format!("CHAIN{:04}", k + 1), "ALICE0001", &prev, "carol", &format!("2026-10-05T10:{k:02}:00Z"), "deeper"));
     }
-    let mut a = App::new(Box::new(s), &no_args(), Theme::default(), false);
+    let mut a = App::new(Box::new(s), &no_args(), Theme::acp(), false);
     a.select_only(nick_idx(&a, "carol"));
     let i = a.view().posts.iter().position(|p| p.post_id == "CHAIN0001").unwrap();
     a.open_post(i);
@@ -293,7 +293,7 @@ fn menu_open_activate_options() {
 fn args_nicks_preselect() {
     use clap::Parser;
     let args = Args::parse_from(["acp-rs-scraper", "--tui", "--nicks", "bob,ghost"]);
-    let a = App::new(Box::new(fixture()), &args, Theme::default(), true);
+    let a = App::new(Box::new(fixture()), &args, Theme::acp(), true);
     assert_eq!(a.selected, ["bob"]);
     assert_eq!(a.session, SessionState::Saved);
     assert_eq!(a.view().posts.len(), 2);

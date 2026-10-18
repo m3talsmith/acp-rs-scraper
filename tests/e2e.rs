@@ -346,8 +346,9 @@ async fn main() {
 
 #[given(expr = "a local file {string} containing {string}")]
 async fn local_file(w: &mut E2e, f: String, text: String) {
-    let p = f.replace("$HOME", &w.home.to_string_lossy());
-    std::fs::write(p, text).unwrap();
+    let p = std::path::PathBuf::from(f.replace("$HOME", &w.home.to_string_lossy()));
+    if let Some(d) = p.parent() { std::fs::create_dir_all(d).unwrap(); }
+    std::fs::write(p, text.replace("\\n", "\n")).unwrap();
 }
 
 #[then(expr = "research project {string} has {int} items")]

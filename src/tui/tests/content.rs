@@ -36,7 +36,7 @@ fn an_existing_attachment_opens_and_is_an_osc8_link() {
     std::fs::write(&f, b"x").unwrap();
     let mut store = fixture();
     store.atts[0].local_path = f.clone();
-    let mut a = App::new(Box::new(store), &no_args(), crate::tui::theme::Theme::default(), false);
+    let mut a = App::new(Box::new(store), &no_args(), crate::tui::theme::Theme::acp(), false);
     open_alice1(&mut a);
     render(&mut a);
     let k = a.top().unwrap().links.iter().position(|l| l.kind == LinkKind::Attachment).unwrap();
@@ -57,7 +57,7 @@ fn osc8_sequence_strips_control_chars() {
 fn detail_renders_markdown_with_padding() {
     let mut store = fixture();
     store.posts[1].content = "## Plan\n\n- **march** at noon".into();
-    let mut a = App::new(Box::new(store), &no_args(), crate::tui::theme::Theme::default(), false);
+    let mut a = App::new(Box::new(store), &no_args(), crate::tui::theme::Theme::acp(), false);
     a.select_only(nick_idx(&a, "alice"));
     let s = render(&mut a);
     assert!(s.contains("│ Plan") || s.contains("┃ Plan"), "card text is padded one column from the border:\n{s}");

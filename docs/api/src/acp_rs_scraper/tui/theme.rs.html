@@ -1,129 +1,203 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tui/theme.rs`."><title>theme.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="acp_rs_scraper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.97.1 (8bab26f4f 2026-07-14)" data-channel="1.97.1" data-search-js="search-fd9372ac.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fcd733ba.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">acp_rs_scraper/tui/</div>theme.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! The single source of TUI styling. Colours: ACP red (`#dc2626`) accent by
-<a href=#2 id=2 data-nosnippet>2</a>//! default, overridable from the `[theme]` table of `~/.acp/preferences.toml`.
-<a href=#3 id=3 data-nosnippet>3</a>//!
-<a href=#4 id=4 data-nosnippet>4</a>//! Every text style and every box (border kind, border colour, padding) is a
-<a href=#5 id=5 data-nosnippet>5</a>//! [`ratatui_lipgloss`] [`Gloss`] style built here; widgets only pick one.
-<a href=#6 id=6 data-nosnippet>6</a>//! `&amp;Gloss` / `Gloss` convert into ratatui styles (`Span::styled(s, t.muted())`),
-<a href=#7 id=7 data-nosnippet>7</a>//! and [`frame`] turns a box style into a ratatui `Block` so callers can add a
-<a href=#8 id=8 data-nosnippet>8</a>//! border title (Lip Gloss has no border titles).
-<a href=#9 id=9 data-nosnippet>9</a>
-<a href=#10 id=10 data-nosnippet>10</a></span><span class="kw">use </span><span class="kw">crate</span>::prelude::<span class="kw-2">*</span>;
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>ratatui::style::Color;
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>ratatui::widgets::Block;
-<a href=#13 id=13 data-nosnippet>13</a><span class="kw">pub use </span>ratatui_lipgloss::{Border, Style <span class="kw">as </span>Gloss};
-<a href=#14 id=14 data-nosnippet>14</a>
-<a href=#15 id=15 data-nosnippet>15</a><span class="doccomment">/// Resolved colours used by every widget.
-<a href=#16 id=16 data-nosnippet>16</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq)]
-<a href=#17 id=17 data-nosnippet>17</a></span><span class="kw">pub struct </span>Theme {
-<a href=#18 id=18 data-nosnippet>18</a>    <span class="doccomment">/// Accent: reply links, selection, focused borders, Start Scanning.
-<a href=#19 id=19 data-nosnippet>19</a>    </span><span class="kw">pub </span>accent: Color,
-<a href=#20 id=20 data-nosnippet>20</a>    <span class="doccomment">/// Secondary text.
-<a href=#21 id=21 data-nosnippet>21</a>    </span><span class="kw">pub </span>muted: Color,
-<a href=#22 id=22 data-nosnippet>22</a>    <span class="doccomment">/// Unfocused borders.
-<a href=#23 id=23 data-nosnippet>23</a>    </span><span class="kw">pub </span>border: Color,
-<a href=#24 id=24 data-nosnippet>24</a>    <span class="doccomment">/// Text drawn on an accent background.
-<a href=#25 id=25 data-nosnippet>25</a>    </span><span class="kw">pub </span>on_accent: Color,
-<a href=#26 id=26 data-nosnippet>26</a>}
-<a href=#27 id=27 data-nosnippet>27</a>
-<a href=#28 id=28 data-nosnippet>28</a><span class="kw">fn </span>rgb((r, g, b): (u8, u8, u8)) -&gt; Color { Color::Rgb(r, g, b) }
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `src/tui/theme.rs`."><title>theme.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-17e0aaed.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="acp_rs_scraper" data-themes="" data-resource-suffix="" data-rustdoc-version="1.97.1 (8bab26f4f 2026-07-14)" data-channel="1.97.1" data-search-js="search-fd9372ac.js" data-stringdex-js="stringdex-2da4960a.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fcd733ba.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">acp_rs_scraper/tui/</div>theme.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! The single source of TUI styling. Colours come from a theme file
+<a href=#2 id=2 data-nosnippet>2</a>//! (`~/.acp/themes/&lt;name&gt;.toml`, see [`crate::themes`]); without one every colour
+<a href=#3 id=3 data-nosnippet>3</a>//! is the terminal's own (`Color::Reset`) and the layout still works.
+<a href=#4 id=4 data-nosnippet>4</a>//!
+<a href=#5 id=5 data-nosnippet>5</a>//! Every text style and every box (border kind, border colour, padding) is a
+<a href=#6 id=6 data-nosnippet>6</a>//! [`ratatui_lipgloss`] [`Gloss`] style built here; widgets only pick one. A theme
+<a href=#7 id=7 data-nosnippet>7</a>//! sets the palette and may override any [`Element`]'s colours and attributes;
+<a href=#8 id=8 data-nosnippet>8</a>//! borders and padding stay here. `&amp;Gloss` / `Gloss` convert into ratatui styles
+<a href=#9 id=9 data-nosnippet>9</a>//! (`Span::styled(s, t.muted())`), and [`frame`] turns a box style into a ratatui
+<a href=#10 id=10 data-nosnippet>10</a>//! `Block` so callers can add a border title (Lip Gloss has no border titles).
+<a href=#11 id=11 data-nosnippet>11</a>
+<a href=#12 id=12 data-nosnippet>12</a></span><span class="kw">use </span><span class="kw">crate</span>::themes::{Element, StyleSpec, ThemeFile, Variant};
+<a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>ratatui::style::Color;
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>ratatui::widgets::Block;
+<a href=#15 id=15 data-nosnippet>15</a><span class="kw">pub use </span>ratatui_lipgloss::{Border, Style <span class="kw">as </span>Gloss};
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a><span class="doccomment">/// One element's resolved overrides.
+<a href=#18 id=18 data-nosnippet>18</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq)]
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">pub struct </span>Over {
+<a href=#20 id=20 data-nosnippet>20</a>    <span class="doccomment">/// Text colour.
+<a href=#21 id=21 data-nosnippet>21</a>    </span><span class="kw">pub </span>fg: <span class="prelude-ty">Option</span>&lt;Color&gt;,
+<a href=#22 id=22 data-nosnippet>22</a>    <span class="doccomment">/// Background.
+<a href=#23 id=23 data-nosnippet>23</a>    </span><span class="kw">pub </span>bg: <span class="prelude-ty">Option</span>&lt;Color&gt;,
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="doccomment">/// Border colour.
+<a href=#25 id=25 data-nosnippet>25</a>    </span><span class="kw">pub </span>border: <span class="prelude-ty">Option</span>&lt;Color&gt;,
+<a href=#26 id=26 data-nosnippet>26</a>    <span class="doccomment">/// Attributes: bold, italic, underline, reverse, dim.
+<a href=#27 id=27 data-nosnippet>27</a>    </span><span class="kw">pub </span>flags: [<span class="prelude-ty">Option</span>&lt;bool&gt;; <span class="number">5</span>],
+<a href=#28 id=28 data-nosnippet>28</a>}
 <a href=#29 id=29 data-nosnippet>29</a>
-<a href=#30 id=30 data-nosnippet>30</a><span class="doccomment">/// A colour as RGB bytes (named colours map to white, black, or grey).
-<a href=#31 id=31 data-nosnippet>31</a></span><span class="kw">pub fn </span>rgb_bytes(c: Color) -&gt; [u8; <span class="number">3</span>] {
-<a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">match </span>c {
-<a href=#33 id=33 data-nosnippet>33</a>        Color::Rgb(r, g, b) =&gt; [r, g, b],
-<a href=#34 id=34 data-nosnippet>34</a>        Color::Black =&gt; [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
-<a href=#35 id=35 data-nosnippet>35</a>        Color::White =&gt; [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>],
-<a href=#36 id=36 data-nosnippet>36</a>        <span class="kw">_ </span>=&gt; [<span class="number">200</span>, <span class="number">200</span>, <span class="number">200</span>],
-<a href=#37 id=37 data-nosnippet>37</a>    }
-<a href=#38 id=38 data-nosnippet>38</a>}
-<a href=#39 id=39 data-nosnippet>39</a>
-<a href=#40 id=40 data-nosnippet>40</a><span class="doccomment">/// `#rrggbb` (or `rrggbb`) to a colour.
-<a href=#41 id=41 data-nosnippet>41</a></span><span class="kw">pub fn </span>parse_hex(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Color&gt; {
-<a href=#42 id=42 data-nosnippet>42</a>    <span class="kw">let </span>h = s.trim().trim_start_matches(<span class="string">'#'</span>);
-<a href=#43 id=43 data-nosnippet>43</a>    <span class="kw">if </span>h.len() != <span class="number">6 </span>|| !h.chars().all(|c| c.is_ascii_hexdigit()) { <span class="kw">return </span><span class="prelude-val">None</span>; }
-<a href=#44 id=44 data-nosnippet>44</a>    <span class="kw">let </span>p = |i: usize| u8::from_str_radix(<span class="kw-2">&amp;</span>h[i..i + <span class="number">2</span>], <span class="number">16</span>).ok();
-<a href=#45 id=45 data-nosnippet>45</a>    <span class="prelude-val">Some</span>(Color::Rgb(p(<span class="number">0</span>)<span class="question-mark">?</span>, p(<span class="number">2</span>)<span class="question-mark">?</span>, p(<span class="number">4</span>)<span class="question-mark">?</span>))
-<a href=#46 id=46 data-nosnippet>46</a>}
-<a href=#47 id=47 data-nosnippet>47</a>
-<a href=#48 id=48 data-nosnippet>48</a><span class="kw">impl </span>Default <span class="kw">for </span>Theme {
-<a href=#49 id=49 data-nosnippet>49</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#50 id=50 data-nosnippet>50</a>        Theme { accent: rgb(ACP_RED), muted: rgb(TUI_MUTED), border: rgb(TUI_BORDER), on_accent: rgb(TUI_ON_ACCENT) }
-<a href=#51 id=51 data-nosnippet>51</a>    }
-<a href=#52 id=52 data-nosnippet>52</a>}
-<a href=#53 id=53 data-nosnippet>53</a>
-<a href=#54 id=54 data-nosnippet>54</a><span class="kw">impl </span>Theme {
-<a href=#55 id=55 data-nosnippet>55</a>    <span class="doccomment">/// Defaults with any valid colour from `prefs` applied (invalid values are ignored).
-<a href=#56 id=56 data-nosnippet>56</a>    </span><span class="kw">pub fn </span>from_prefs(prefs: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ThemePrefs&gt;) -&gt; <span class="self">Self </span>{
-<a href=#57 id=57 data-nosnippet>57</a>        <span class="kw">let </span><span class="kw-2">mut </span>t = Theme::default();
-<a href=#58 id=58 data-nosnippet>58</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(p) = prefs <span class="kw">else </span>{ <span class="kw">return </span>t };
-<a href=#59 id=59 data-nosnippet>59</a>        <span class="kw">let </span>pick = |v: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;String&gt;, d: Color| v.as_deref().and_then(parse_hex).unwrap_or(d);
-<a href=#60 id=60 data-nosnippet>60</a>        t.accent = pick(<span class="kw-2">&amp;</span>p.accent, t.accent);
-<a href=#61 id=61 data-nosnippet>61</a>        t.muted = pick(<span class="kw-2">&amp;</span>p.muted, t.muted);
-<a href=#62 id=62 data-nosnippet>62</a>        t.border = pick(<span class="kw-2">&amp;</span>p.border, t.border);
-<a href=#63 id=63 data-nosnippet>63</a>        t.on_accent = pick(<span class="kw-2">&amp;</span>p.on_accent, t.on_accent);
-<a href=#64 id=64 data-nosnippet>64</a>        t
-<a href=#65 id=65 data-nosnippet>65</a>    }
-<a href=#66 id=66 data-nosnippet>66</a>
-<a href=#67 id=67 data-nosnippet>67</a>    <span class="comment">// ----- text ------------------------------------------------------------
-<a href=#68 id=68 data-nosnippet>68</a>    </span><span class="doccomment">/// Unstyled text (the terminal's own colours).
-<a href=#69 id=69 data-nosnippet>69</a>    </span><span class="kw">pub fn </span>plain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new() }
-<a href=#70 id=70 data-nosnippet>70</a>    <span class="doccomment">/// Bold text (headings, titles, nicks).
-<a href=#71 id=71 data-nosnippet>71</a>    </span><span class="kw">pub fn </span>bold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().bold(<span class="bool-val">true</span>) }
-<a href=#72 id=72 data-nosnippet>72</a>    <span class="doccomment">/// Accent-coloured text.
-<a href=#73 id=73 data-nosnippet>73</a>    </span><span class="kw">pub fn </span>accent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().foreground(<span class="self">self</span>.accent) }
-<a href=#74 id=74 data-nosnippet>74</a>    <span class="doccomment">/// Bold accent text.
-<a href=#75 id=75 data-nosnippet>75</a>    </span><span class="kw">pub fn </span>accent_bold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.accent().bold(<span class="bool-val">true</span>) }
-<a href=#76 id=76 data-nosnippet>76</a>    <span class="doccomment">/// A link: underlined accent.
-<a href=#77 id=77 data-nosnippet>77</a>    </span><span class="kw">pub fn </span>link(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.accent().underline(<span class="bool-val">true</span>) }
-<a href=#78 id=78 data-nosnippet>78</a>    <span class="doccomment">/// Muted text.
-<a href=#79 id=79 data-nosnippet>79</a>    </span><span class="kw">pub fn </span>muted(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().foreground(<span class="self">self</span>.muted) }
-<a href=#80 id=80 data-nosnippet>80</a>    <span class="doccomment">/// Something that is gone (a missing file): muted, struck through.
-<a href=#81 id=81 data-nosnippet>81</a>    </span><span class="kw">pub fn </span>gone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.muted().strikethrough(<span class="bool-val">true</span>) }
-<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// Inline code: bold muted.
-<a href=#83 id=83 data-nosnippet>83</a>    </span><span class="kw">pub fn </span>code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.muted().bold(<span class="bool-val">true</span>) }
-<a href=#84 id=84 data-nosnippet>84</a>    <span class="doccomment">/// Highlighted (selected) row.
-<a href=#85 id=85 data-nosnippet>85</a>    </span><span class="kw">pub fn </span>selected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().background(<span class="self">self</span>.accent).foreground(<span class="self">self</span>.on_accent).bold(<span class="bool-val">true</span>) }
-<a href=#86 id=86 data-nosnippet>86</a>    <span class="doccomment">/// A text field's value.
-<a href=#87 id=87 data-nosnippet>87</a>    </span><span class="kw">pub fn </span>field(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().underline(<span class="bool-val">true</span>) }
-<a href=#88 id=88 data-nosnippet>88</a>    <span class="doccomment">/// A form label, accent when its field has focus.
-<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">pub fn </span>label(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss { <span class="kw">if </span>focused { <span class="self">self</span>.accent_bold() } <span class="kw">else </span>{ <span class="self">self</span>.plain() } }
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="doccomment">/// The header bar and its text: on-accent over accent.
-<a href=#91 id=91 data-nosnippet>91</a>    </span><span class="kw">pub fn </span>bar(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().background(<span class="self">self</span>.accent).foreground(<span class="self">self</span>.on_accent) }
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="doccomment">/// A filled button (Start Scanning).
-<a href=#93 id=93 data-nosnippet>93</a>    </span><span class="kw">pub fn </span>button(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.bar().bold(<span class="bool-val">true</span>) }
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="doccomment">/// The "Post" badge of a card.
-<a href=#95 id=95 data-nosnippet>95</a>    </span><span class="kw">pub fn </span>post_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().foreground(<span class="self">self</span>.on_accent).background(<span class="self">self</span>.border).bold(<span class="bool-val">true</span>) }
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="doccomment">/// The "Reply" badge of a card.
-<a href=#97 id=97 data-nosnippet>97</a>    </span><span class="kw">pub fn </span>reply_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().foreground(<span class="self">self</span>.on_accent).background(<span class="self">self</span>.accent).bold(<span class="bool-val">true</span>) }
-<a href=#98 id=98 data-nosnippet>98</a>    <span class="doccomment">/// The background under an open modal.
-<a href=#99 id=99 data-nosnippet>99</a>    </span><span class="kw">pub fn </span>dimmed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().faint(<span class="bool-val">true</span>) }
-<a href=#100 id=100 data-nosnippet>100</a>
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="comment">// ----- boxes -----------------------------------------------------------
-<a href=#102 id=102 data-nosnippet>102</a>    </span><span class="doccomment">/// Border colour of a pane: accent when focused.
-<a href=#103 id=103 data-nosnippet>103</a>    </span><span class="kw">pub fn </span>border(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss { Gloss::new().foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border }) }
-<a href=#104 id=104 data-nosnippet>104</a>    <span class="doccomment">/// A pane (Nicks, Body, carousel sides): plain border, accent when focused.
-<a href=#105 id=105 data-nosnippet>105</a>    </span><span class="kw">pub fn </span>pane(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
-<a href=#106 id=106 data-nosnippet>106</a>        Gloss::new().border(Border::normal()).border_foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border })
-<a href=#107 id=107 data-nosnippet>107</a>    }
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="doccomment">/// A post card with one column of padding: thick when selected (accent
-<a href=#109 id=109 data-nosnippet>109</a>    /// when the Body has focus), plain and muted otherwise.
-<a href=#110 id=110 data-nosnippet>110</a>    </span><span class="kw">pub fn </span>card(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: bool, focused: bool) -&gt; Gloss {
-<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">let </span>g = Gloss::new().border(<span class="kw">if </span>selected { Border::thick() } <span class="kw">else </span>{ Border::normal() }).padding((<span class="number">0</span>, <span class="number">1</span>));
-<a href=#112 id=112 data-nosnippet>112</a>        <span class="kw">match </span>(selected, focused) {
-<a href=#113 id=113 data-nosnippet>113</a>            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; g.border_foreground(<span class="self">self</span>.accent),
-<a href=#114 id=114 data-nosnippet>114</a>            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; g,
-<a href=#115 id=115 data-nosnippet>115</a>            <span class="kw">_ </span>=&gt; g.border_foreground(<span class="self">self</span>.border),
-<a href=#116 id=116 data-nosnippet>116</a>        }
-<a href=#117 id=117 data-nosnippet>117</a>    }
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="doccomment">/// A detail / content pane: double border, accent when focused.
-<a href=#119 id=119 data-nosnippet>119</a>    </span><span class="kw">pub fn </span>detail(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
-<a href=#120 id=120 data-nosnippet>120</a>        Gloss::new().border(Border::double()).border_foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border })
-<a href=#121 id=121 data-nosnippet>121</a>    }
-<a href=#122 id=122 data-nosnippet>122</a>    <span class="doccomment">/// Dialogs, dropdown menus and nested details: double accent border.
-<a href=#123 id=123 data-nosnippet>123</a>    </span><span class="kw">pub fn </span>dialog(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { Gloss::new().border(Border::double()).border_foreground(<span class="self">self</span>.accent) }
-<a href=#124 id=124 data-nosnippet>124</a>}
-<a href=#125 id=125 data-nosnippet>125</a>
-<a href=#126 id=126 data-nosnippet>126</a><span class="doccomment">/// The ratatui `Block` for a box style (borders, border colour, padding), to
-<a href=#127 id=127 data-nosnippet>127</a>/// render or to give a title.
-<a href=#128 id=128 data-nosnippet>128</a></span><span class="kw">pub fn </span>frame(g: <span class="kw-2">&amp;</span>Gloss) -&gt; Block&lt;<span class="lifetime">'static</span>&gt; { g.to_block() }
+<a href=#30 id=30 data-nosnippet>30</a><span class="doccomment">/// Number of [`Element`]s.
+<a href=#31 id=31 data-nosnippet>31</a></span><span class="kw">pub const </span>ELEMENTS: usize = <span class="number">27</span>;
+<a href=#32 id=32 data-nosnippet>32</a>
+<a href=#33 id=33 data-nosnippet>33</a><span class="doccomment">/// Resolved colours used by every widget.
+<a href=#34 id=34 data-nosnippet>34</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq)]
+<a href=#35 id=35 data-nosnippet>35</a></span><span class="kw">pub struct </span>Theme {
+<a href=#36 id=36 data-nosnippet>36</a>    <span class="doccomment">/// Accent: reply links, selection, focused borders, Start Scanning.
+<a href=#37 id=37 data-nosnippet>37</a>    </span><span class="kw">pub </span>accent: Color,
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="doccomment">/// Secondary text.
+<a href=#39 id=39 data-nosnippet>39</a>    </span><span class="kw">pub </span>muted: Color,
+<a href=#40 id=40 data-nosnippet>40</a>    <span class="doccomment">/// Unfocused borders.
+<a href=#41 id=41 data-nosnippet>41</a>    </span><span class="kw">pub </span>border: Color,
+<a href=#42 id=42 data-nosnippet>42</a>    <span class="doccomment">/// Text drawn on an accent background.
+<a href=#43 id=43 data-nosnippet>43</a>    </span><span class="kw">pub </span>on_accent: Color,
+<a href=#44 id=44 data-nosnippet>44</a>    <span class="doccomment">/// Base text colour of the whole screen.
+<a href=#45 id=45 data-nosnippet>45</a>    </span><span class="kw">pub </span>fg: Color,
+<a href=#46 id=46 data-nosnippet>46</a>    <span class="doccomment">/// Base background of the whole screen.
+<a href=#47 id=47 data-nosnippet>47</a>    </span><span class="kw">pub </span>bg: Color,
+<a href=#48 id=48 data-nosnippet>48</a>    <span class="doccomment">/// Per-element overrides, by [`Element::index`].
+<a href=#49 id=49 data-nosnippet>49</a>    </span><span class="kw">pub </span>over: [Over; ELEMENTS],
+<a href=#50 id=50 data-nosnippet>50</a>}
+<a href=#51 id=51 data-nosnippet>51</a>
+<a href=#52 id=52 data-nosnippet>52</a><span class="doccomment">/// A colour as RGB bytes (the terminal's own colour reads as light grey).
+<a href=#53 id=53 data-nosnippet>53</a></span><span class="kw">pub fn </span>rgb_bytes(c: Color) -&gt; [u8; <span class="number">3</span>] {
+<a href=#54 id=54 data-nosnippet>54</a>    <span class="kw">crate</span>::themes::rgb(c).map(|(r, g, b)| [r, g, b]).unwrap_or([<span class="number">200</span>, <span class="number">200</span>, <span class="number">200</span>])
+<a href=#55 id=55 data-nosnippet>55</a>}
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a><span class="doccomment">/// `#rrggbb` (or `rrggbb`) to a colour.
+<a href=#58 id=58 data-nosnippet>58</a></span><span class="kw">pub fn </span>parse_hex(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Color&gt; {
+<a href=#59 id=59 data-nosnippet>59</a>    <span class="kw">let </span>h = s.trim().trim_start_matches(<span class="string">'#'</span>);
+<a href=#60 id=60 data-nosnippet>60</a>    <span class="kw">if </span>h.len() != <span class="number">6 </span>|| !h.chars().all(|c| c.is_ascii_hexdigit()) { <span class="kw">return </span><span class="prelude-val">None</span>; }
+<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">let </span>p = |i: usize| u8::from_str_radix(<span class="kw-2">&amp;</span>h[i..i + <span class="number">2</span>], <span class="number">16</span>).ok();
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="prelude-val">Some</span>(Color::Rgb(p(<span class="number">0</span>)<span class="question-mark">?</span>, p(<span class="number">2</span>)<span class="question-mark">?</span>, p(<span class="number">4</span>)<span class="question-mark">?</span>))
+<a href=#63 id=63 data-nosnippet>63</a>}
+<a href=#64 id=64 data-nosnippet>64</a>
+<a href=#65 id=65 data-nosnippet>65</a><span class="doccomment">/// No theme: every colour is the terminal's own.
+<a href=#66 id=66 data-nosnippet>66</a></span><span class="kw">impl </span>Default <span class="kw">for </span>Theme {
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{ Theme::reset() }
+<a href=#68 id=68 data-nosnippet>68</a>}
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a><span class="kw">fn </span>over_from(s: <span class="kw-2">&amp;</span><span class="kw">crate</span>::themes::Section, st: <span class="kw-2">&amp;</span>StyleSpec) -&gt; Over {
+<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">let </span>c = |x: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::themes::ColorSpec&gt;| x.as_ref().map(|c| s.resolve(c));
+<a href=#72 id=72 data-nosnippet>72</a>    Over { fg: c(<span class="kw-2">&amp;</span>st.fg), bg: c(<span class="kw-2">&amp;</span>st.bg), border: c(<span class="kw-2">&amp;</span>st.border), flags: [st.bold, st.italic, st.underline, st.reverse, st.dim] }
+<a href=#73 id=73 data-nosnippet>73</a>}
+<a href=#74 id=74 data-nosnippet>74</a>
+<a href=#75 id=75 data-nosnippet>75</a><span class="kw">impl </span>Theme {
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="doccomment">/// The fallback when no theme file can be used: `Color::Reset` everywhere.
+<a href=#77 id=77 data-nosnippet>77</a>    </span><span class="kw">pub fn </span>reset() -&gt; <span class="self">Self </span>{
+<a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">let </span>r = Color::Reset;
+<a href=#79 id=79 data-nosnippet>79</a>        Theme { accent: r, muted: r, border: r, on_accent: r, fg: r, bg: r, over: [Over::default(); ELEMENTS] }
+<a href=#80 id=80 data-nosnippet>80</a>    }
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// The `v` variant of a theme file (missing entries: the terminal's colour).
+<a href=#83 id=83 data-nosnippet>83</a>    </span><span class="kw">pub fn </span>from_file(f: <span class="kw-2">&amp;</span>ThemeFile, v: Variant) -&gt; <span class="self">Self </span>{
+<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">let </span>s = f.section(v);
+<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">let </span><span class="kw-2">mut </span>t = Theme { accent: s.color(<span class="string">"accent"</span>), muted: s.color(<span class="string">"muted"</span>), border: s.color(<span class="string">"border"</span>),
+<a href=#86 id=86 data-nosnippet>86</a>            on_accent: s.color(<span class="string">"on_accent"</span>), fg: s.color(<span class="string">"fg"</span>), bg: s.color(<span class="string">"bg"</span>), over: [Over::default(); ELEMENTS] };
+<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">for </span>e <span class="kw">in </span>Element::ALL { t.over[e.index()] = over_from(<span class="kw-2">&amp;</span>s, <span class="kw-2">&amp;</span>s.style(<span class="kw-2">*</span>e)); }
+<a href=#88 id=88 data-nosnippet>88</a>        t
+<a href=#89 id=89 data-nosnippet>89</a>    }
+<a href=#90 id=90 data-nosnippet>90</a>
+<a href=#91 id=91 data-nosnippet>91</a>    <span class="doccomment">/// A palette colour by key (`accent`, `muted`, `border`, `on_accent`, `fg`, `bg`).
+<a href=#92 id=92 data-nosnippet>92</a>    </span><span class="kw">pub fn </span>palette(<span class="kw-2">&amp;</span><span class="self">self</span>, k: <span class="kw-2">&amp;</span>str) -&gt; Color {
+<a href=#93 id=93 data-nosnippet>93</a>        <span class="kw">match </span>k { <span class="string">"accent" </span>=&gt; <span class="self">self</span>.accent, <span class="string">"muted" </span>=&gt; <span class="self">self</span>.muted, <span class="string">"border" </span>=&gt; <span class="self">self</span>.border, <span class="string">"on_accent" </span>=&gt; <span class="self">self</span>.on_accent, <span class="string">"fg" </span>=&gt; <span class="self">self</span>.fg, <span class="string">"bg" </span>=&gt; <span class="self">self</span>.bg, <span class="kw">_ </span>=&gt; Color::Reset }
+<a href=#94 id=94 data-nosnippet>94</a>    }
+<a href=#95 id=95 data-nosnippet>95</a>
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="doccomment">/// `g` with the theme's overrides for `e` applied.
+<a href=#97 id=97 data-nosnippet>97</a>    </span><span class="kw">pub fn </span>el(<span class="kw-2">&amp;</span><span class="self">self</span>, e: Element, g: Gloss) -&gt; Gloss {
+<a href=#98 id=98 data-nosnippet>98</a>        <span class="kw">let </span>o = <span class="kw-2">&amp;</span><span class="self">self</span>.over[e.index()];
+<a href=#99 id=99 data-nosnippet>99</a>        <span class="kw">let </span><span class="kw-2">mut </span>g = g;
+<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = o.fg { g = g.foreground(c); }
+<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = o.bg { g = g.background(c); }
+<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = o.border { g = g.border_foreground(c); }
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">let </span>[b, i, u, r, d] = o.flags;
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = b { g = g.bold(v); }
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = i { g = g.italic(v); }
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = u { g = g.underline(v); }
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = r { g = g.reverse(v); }
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = d { g = g.faint(v); }
+<a href=#109 id=109 data-nosnippet>109</a>        g
+<a href=#110 id=110 data-nosnippet>110</a>    }
+<a href=#111 id=111 data-nosnippet>111</a>
+<a href=#112 id=112 data-nosnippet>112</a>    <span class="doccomment">/// The whole screen's base colours (`fg` / `bg`).
+<a href=#113 id=113 data-nosnippet>113</a>    </span><span class="kw">pub fn </span>base(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss {
+<a href=#114 id=114 data-nosnippet>114</a>        <span class="kw">let </span><span class="kw-2">mut </span>g = Gloss::new();
+<a href=#115 id=115 data-nosnippet>115</a>        <span class="kw">if </span><span class="self">self</span>.fg != Color::Reset { g = g.foreground(<span class="self">self</span>.fg); }
+<a href=#116 id=116 data-nosnippet>116</a>        <span class="kw">if </span><span class="self">self</span>.bg != Color::Reset { g = g.background(<span class="self">self</span>.bg); }
+<a href=#117 id=117 data-nosnippet>117</a>        g
+<a href=#118 id=118 data-nosnippet>118</a>    }
+<a href=#119 id=119 data-nosnippet>119</a>
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="doccomment">/// The style of an element as drawn (for the theme editor's swatches).
+<a href=#121 id=121 data-nosnippet>121</a>    </span><span class="kw">pub fn </span>element(<span class="kw-2">&amp;</span><span class="self">self</span>, e: Element) -&gt; Gloss {
+<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">match </span>e {
+<a href=#123 id=123 data-nosnippet>123</a>            Element::Text =&gt; <span class="self">self</span>.plain(), Element::Bold =&gt; <span class="self">self</span>.bold(), Element::Accent =&gt; <span class="self">self</span>.accent(),
+<a href=#124 id=124 data-nosnippet>124</a>            Element::AccentBold =&gt; <span class="self">self</span>.accent_bold(), Element::Link =&gt; <span class="self">self</span>.link(), Element::Muted =&gt; <span class="self">self</span>.muted(),
+<a href=#125 id=125 data-nosnippet>125</a>            Element::Gone =&gt; <span class="self">self</span>.gone(), Element::Code =&gt; <span class="self">self</span>.code(), Element::Selected =&gt; <span class="self">self</span>.selected(),
+<a href=#126 id=126 data-nosnippet>126</a>            Element::Field =&gt; <span class="self">self</span>.field(), Element::Label =&gt; <span class="self">self</span>.label(<span class="bool-val">false</span>), Element::LabelFocused =&gt; <span class="self">self</span>.label(<span class="bool-val">true</span>),
+<a href=#127 id=127 data-nosnippet>127</a>            Element::Bar =&gt; <span class="self">self</span>.bar(), Element::Button =&gt; <span class="self">self</span>.button(), Element::PostTag =&gt; <span class="self">self</span>.post_tag(),
+<a href=#128 id=128 data-nosnippet>128</a>            Element::ReplyTag =&gt; <span class="self">self</span>.reply_tag(), Element::Dimmed =&gt; <span class="self">self</span>.dimmed(), Element::Border =&gt; <span class="self">self</span>.border(<span class="bool-val">false</span>),
+<a href=#129 id=129 data-nosnippet>129</a>            Element::BorderFocused =&gt; <span class="self">self</span>.border(<span class="bool-val">true</span>), Element::Pane =&gt; <span class="self">self</span>.pane(<span class="bool-val">false</span>), Element::PaneFocused =&gt; <span class="self">self</span>.pane(<span class="bool-val">true</span>),
+<a href=#130 id=130 data-nosnippet>130</a>            Element::Card =&gt; <span class="self">self</span>.card(<span class="bool-val">false</span>, <span class="bool-val">false</span>), Element::CardSelected =&gt; <span class="self">self</span>.card(<span class="bool-val">true</span>, <span class="bool-val">false</span>), Element::CardFocused =&gt; <span class="self">self</span>.card(<span class="bool-val">true</span>, <span class="bool-val">true</span>),
+<a href=#131 id=131 data-nosnippet>131</a>            Element::Detail =&gt; <span class="self">self</span>.detail(<span class="bool-val">false</span>), Element::DetailFocused =&gt; <span class="self">self</span>.detail(<span class="bool-val">true</span>), Element::Dialog =&gt; <span class="self">self</span>.dialog(),
+<a href=#132 id=132 data-nosnippet>132</a>        }
+<a href=#133 id=133 data-nosnippet>133</a>    }
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a>    <span class="comment">// ----- text ------------------------------------------------------------
+<a href=#136 id=136 data-nosnippet>136</a>    </span><span class="doccomment">/// Unstyled text (the terminal's own colours).
+<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">pub fn </span>plain(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Text, Gloss::new()) }
+<a href=#138 id=138 data-nosnippet>138</a>    <span class="doccomment">/// Bold text (headings, titles, nicks).
+<a href=#139 id=139 data-nosnippet>139</a>    </span><span class="kw">pub fn </span>bold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Bold, Gloss::new().bold(<span class="bool-val">true</span>)) }
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="doccomment">/// Accent-coloured text.
+<a href=#141 id=141 data-nosnippet>141</a>    </span><span class="kw">pub fn </span>accent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Accent, Gloss::new().foreground(<span class="self">self</span>.accent)) }
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="doccomment">/// Bold accent text.
+<a href=#143 id=143 data-nosnippet>143</a>    </span><span class="kw">pub fn </span>accent_bold(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::AccentBold, Gloss::new().foreground(<span class="self">self</span>.accent).bold(<span class="bool-val">true</span>)) }
+<a href=#144 id=144 data-nosnippet>144</a>    <span class="doccomment">/// A link: underlined accent.
+<a href=#145 id=145 data-nosnippet>145</a>    </span><span class="kw">pub fn </span>link(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Link, Gloss::new().foreground(<span class="self">self</span>.accent).underline(<span class="bool-val">true</span>)) }
+<a href=#146 id=146 data-nosnippet>146</a>    <span class="doccomment">/// Muted text.
+<a href=#147 id=147 data-nosnippet>147</a>    </span><span class="kw">pub fn </span>muted(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Muted, Gloss::new().foreground(<span class="self">self</span>.muted)) }
+<a href=#148 id=148 data-nosnippet>148</a>    <span class="doccomment">/// Something that is gone (a missing file): muted, struck through.
+<a href=#149 id=149 data-nosnippet>149</a>    </span><span class="kw">pub fn </span>gone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Gone, Gloss::new().foreground(<span class="self">self</span>.muted).strikethrough(<span class="bool-val">true</span>)) }
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="doccomment">/// Inline code: bold muted.
+<a href=#151 id=151 data-nosnippet>151</a>    </span><span class="kw">pub fn </span>code(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Code, Gloss::new().foreground(<span class="self">self</span>.muted).bold(<span class="bool-val">true</span>)) }
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="doccomment">/// Highlighted (selected) row.
+<a href=#153 id=153 data-nosnippet>153</a>    </span><span class="kw">pub fn </span>selected(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Selected, Gloss::new().background(<span class="self">self</span>.accent).foreground(<span class="self">self</span>.on_accent).bold(<span class="bool-val">true</span>)) }
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="doccomment">/// A text field's value.
+<a href=#155 id=155 data-nosnippet>155</a>    </span><span class="kw">pub fn </span>field(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Field, Gloss::new().underline(<span class="bool-val">true</span>)) }
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="doccomment">/// A form label, accent when its field has focus.
+<a href=#157 id=157 data-nosnippet>157</a>    </span><span class="kw">pub fn </span>label(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
+<a href=#158 id=158 data-nosnippet>158</a>        <span class="kw">if </span>focused { <span class="self">self</span>.el(Element::LabelFocused, <span class="self">self</span>.accent_bold()) } <span class="kw">else </span>{ <span class="self">self</span>.el(Element::Label, <span class="self">self</span>.plain()) }
+<a href=#159 id=159 data-nosnippet>159</a>    }
+<a href=#160 id=160 data-nosnippet>160</a>    <span class="doccomment">/// The header bar and its text: on-accent over accent.
+<a href=#161 id=161 data-nosnippet>161</a>    </span><span class="kw">pub fn </span>bar(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Bar, Gloss::new().background(<span class="self">self</span>.accent).foreground(<span class="self">self</span>.on_accent)) }
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="doccomment">/// A filled button (Start Scanning).
+<a href=#163 id=163 data-nosnippet>163</a>    </span><span class="kw">pub fn </span>button(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Button, <span class="self">self</span>.bar().bold(<span class="bool-val">true</span>)) }
+<a href=#164 id=164 data-nosnippet>164</a>    <span class="doccomment">/// The "Post" badge of a card.
+<a href=#165 id=165 data-nosnippet>165</a>    </span><span class="kw">pub fn </span>post_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::PostTag, Gloss::new().foreground(<span class="self">self</span>.on_accent).background(<span class="self">self</span>.border).bold(<span class="bool-val">true</span>)) }
+<a href=#166 id=166 data-nosnippet>166</a>    <span class="doccomment">/// The "Reply" badge of a card.
+<a href=#167 id=167 data-nosnippet>167</a>    </span><span class="kw">pub fn </span>reply_tag(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::ReplyTag, Gloss::new().foreground(<span class="self">self</span>.on_accent).background(<span class="self">self</span>.accent).bold(<span class="bool-val">true</span>)) }
+<a href=#168 id=168 data-nosnippet>168</a>    <span class="doccomment">/// The background under an open modal.
+<a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">pub fn </span>dimmed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Dimmed, Gloss::new().faint(<span class="bool-val">true</span>)) }
+<a href=#170 id=170 data-nosnippet>170</a>
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="comment">// ----- boxes -----------------------------------------------------------
+<a href=#172 id=172 data-nosnippet>172</a>    </span><span class="doccomment">/// Border colour of a pane: accent when focused.
+<a href=#173 id=173 data-nosnippet>173</a>    </span><span class="kw">pub fn </span>border(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
+<a href=#174 id=174 data-nosnippet>174</a>        <span class="self">self</span>.el(<span class="kw">if </span>focused { Element::BorderFocused } <span class="kw">else </span>{ Element::Border }, Gloss::new().foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border }))
+<a href=#175 id=175 data-nosnippet>175</a>    }
+<a href=#176 id=176 data-nosnippet>176</a>    <span class="doccomment">/// A pane (Nicks, Body, carousel sides): plain border, accent when focused.
+<a href=#177 id=177 data-nosnippet>177</a>    </span><span class="kw">pub fn </span>pane(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
+<a href=#178 id=178 data-nosnippet>178</a>        <span class="self">self</span>.el(<span class="kw">if </span>focused { Element::PaneFocused } <span class="kw">else </span>{ Element::Pane },
+<a href=#179 id=179 data-nosnippet>179</a>            Gloss::new().border(Border::normal()).border_foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border }))
+<a href=#180 id=180 data-nosnippet>180</a>    }
+<a href=#181 id=181 data-nosnippet>181</a>    <span class="doccomment">/// A post card with one column of padding: thick when selected (accent
+<a href=#182 id=182 data-nosnippet>182</a>    /// when the Body has focus), plain and muted otherwise.
+<a href=#183 id=183 data-nosnippet>183</a>    </span><span class="kw">pub fn </span>card(<span class="kw-2">&amp;</span><span class="self">self</span>, selected: bool, focused: bool) -&gt; Gloss {
+<a href=#184 id=184 data-nosnippet>184</a>        <span class="kw">let </span>g = Gloss::new().border(<span class="kw">if </span>selected { Border::thick() } <span class="kw">else </span>{ Border::normal() }).padding((<span class="number">0</span>, <span class="number">1</span>));
+<a href=#185 id=185 data-nosnippet>185</a>        <span class="kw">match </span>(selected, focused) {
+<a href=#186 id=186 data-nosnippet>186</a>            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="self">self</span>.el(Element::CardFocused, g.border_foreground(<span class="self">self</span>.accent)),
+<a href=#187 id=187 data-nosnippet>187</a>            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; <span class="self">self</span>.el(Element::CardSelected, g),
+<a href=#188 id=188 data-nosnippet>188</a>            <span class="kw">_ </span>=&gt; <span class="self">self</span>.el(Element::Card, g.border_foreground(<span class="self">self</span>.border)),
+<a href=#189 id=189 data-nosnippet>189</a>        }
+<a href=#190 id=190 data-nosnippet>190</a>    }
+<a href=#191 id=191 data-nosnippet>191</a>    <span class="doccomment">/// A detail / content pane: double border, accent when focused.
+<a href=#192 id=192 data-nosnippet>192</a>    </span><span class="kw">pub fn </span>detail(<span class="kw-2">&amp;</span><span class="self">self</span>, focused: bool) -&gt; Gloss {
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="self">self</span>.el(<span class="kw">if </span>focused { Element::DetailFocused } <span class="kw">else </span>{ Element::Detail },
+<a href=#194 id=194 data-nosnippet>194</a>            Gloss::new().border(Border::double()).border_foreground(<span class="kw">if </span>focused { <span class="self">self</span>.accent } <span class="kw">else </span>{ <span class="self">self</span>.border }))
+<a href=#195 id=195 data-nosnippet>195</a>    }
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="doccomment">/// Dialogs, dropdown menus and nested details: double accent border.
+<a href=#197 id=197 data-nosnippet>197</a>    </span><span class="kw">pub fn </span>dialog(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Gloss { <span class="self">self</span>.el(Element::Dialog, Gloss::new().border(Border::double()).border_foreground(<span class="self">self</span>.accent)) }
+<a href=#198 id=198 data-nosnippet>198</a>}
+<a href=#199 id=199 data-nosnippet>199</a>
+<a href=#200 id=200 data-nosnippet>200</a><span class="doccomment">/// The ratatui `Block` for a box style (borders, border colour, padding), to
+<a href=#201 id=201 data-nosnippet>201</a>/// render or to give a title.
+<a href=#202 id=202 data-nosnippet>202</a></span><span class="kw">pub fn </span>frame(g: <span class="kw-2">&amp;</span>Gloss) -&gt; Block&lt;<span class="lifetime">'static</span>&gt; { g.to_block() }
 </code></pre></div></section></main></body></html>

@@ -95,6 +95,42 @@ pub fn run_bookmarks(args: &Args) -> Result<()> {
     Ok(())
 }
 
+/// `--theme NAME`: the name must be valid and the file usable.
+fn check_theme(name: &str) -> Result<()> {
+    let dir = crate::themes::themes_dir()?;
+    crate::themes::prepare(&dir, &load_prefs());
+    match crate::themes::load(&dir, name) {
+        Ok(_) => Ok(()),
+        Err(crate::themes::LoadError::Missing(p)) => {
+            let have: Vec<String> = crate::themes::list(&dir).into_iter().map(|e| e.name).collect();
+            bail!("no theme {name}: {} does not exist (themes: {})", p.display(), if have.is_empty() { "none".into() } else { have.join(", ") })
+        }
+        Err(e) => bail!("{}", e.notice()),
+    }
+}
+
+/// `--list-themes`: every theme file, the one in use marked.
+fn run_list_themes(args: &Args) -> Result<()> {
+    let dir = crate::themes::themes_dir()?;
+    let prefs = load_prefs();
+    let (migrated, notes) = crate::themes::prepare(&dir, &prefs);
+    if let Some(m) = &migrated { save_ui_theme(m)?; }
+    for n in notes { info!("{n}"); }
+    let current = args.theme.clone().or(migrated).or_else(|| prefs.ui.as_ref().and_then(|u| u.theme.clone())).unwrap_or_else(|| DEFAULT_THEME.into());
+    let entries = crate::themes::list(&dir);
+    println!("Themes in {}:", dir.display());
+    if entries.is_empty() { println!("  (none)"); }
+    for e in &entries {
+        let mark = if e.name == current { "●" } else { " " };
+        match &e.error {
+            Some(err) => println!("{mark} {:<20} BROKEN: {err}", e.name),
+            None => println!("{mark} {:<20} {}{}", e.name, e.description, if e.warnings > 0 { format!(" ({} warnings)", e.warnings) } else { String::new() }),
+        }
+    }
+    if !entries.iter().any(|e| e.name == current) { println!("(selected theme {current} is missing: the terminal UI uses the terminal's colours)"); }
+    Ok(())
+}
+
 /// Run the program for the current process arguments.
 pub async fn run() -> Result<()> {
     let (args, tui) = match parse_with_mode(std::env::args_os()) {
@@ -120,6 +156,8 @@ pub async fn run() -> Result<()> {
             .map_err(|e| anyhow!("cannot open log files {} / {}: {e}", ok.display(), bad.display()))?;
         verbose!("logging to {} and {}", ok.display(), bad.display());
     }
+    if args.list_themes { return run_list_themes(&args); }
+    if let Some(t) = &args.theme { check_theme(t)?; }
     if tui {
         return crate::tui::run(args).await;
     }

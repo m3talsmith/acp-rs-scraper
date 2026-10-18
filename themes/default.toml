@@ -1,0 +1,30 @@
+# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+#
+# The look acp-rs-scraper always had: ACP red (#dc2626) on the terminal's own
+# text and background colours. Copy this file to make your own theme, or use
+# the theme editor (Shift-F5 in the terminal UI).
+#
+# Colours: 0-255, "#rrggbb" or "#rgb", an ANSI name ("black" ... "white",
+# "bright_black" ... "bright_white"), "reset" (the terminal's colour), or
+# "@name" for an entry of the same palette. Per-element overrides go under
+# [dark.styles.<element>] with fg, bg, border, bold, italic, underline,
+# reverse and dim.
+version = 1
+name = "default"
+description = "ACP red on your terminal's own colours"
+
+[dark.palette]
+accent = "#dc2626"
+muted = "#9ca3af"
+border = "#4b5563"
+on_accent = "#ffffff"
+fg = "reset"
+bg = "reset"
+
+[light.palette]
+accent = "#dc2626"
+muted = "#9ca3af"
+border = "#4b5563"
+on_accent = "#ffffff"
+fg = "reset"
+bg = "reset"

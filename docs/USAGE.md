@@ -68,7 +68,7 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 
   | Menu | Flags it builds |
   |---|---|
-  | Scrape (Start Scanning, `F5`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format` |
+  | Scrape (Start Scanning, `F6`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format` |
   | Search | in-app search (same matching as `--search`, plus the filters above) |
   | Export | `--export PATH` + `--nicks` (selection) or `--search`/`--nicks` (current view) or nothing (everything) or `--post-ids` (Basket, and the Export basket button), `--format`, `--name`, `--compress --tar-gz` |
   | Import | `--import PATH` `--compress --tar-gz` |
@@ -130,10 +130,79 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   [--out PATH]` makes a frames file from a local video or a URL (yt-dlp downloads only the
   section needed into a temporary directory, which is deleted); the format is gzip'd text:
   `ACPANIM 1`, `fps N`, `size COLS ROWS`, then each frame after a `%%` line.
-- **Theme:** `[theme]` in `~/.acp/preferences.toml` (`accent`, `muted`, `border`, `on_accent`,
-  `#rrggbb`); the default accent is ACP red `#dc2626`. Every style and box comes from
-  `src/tui/theme.rs`, built with [ratatui-lipgloss](https://crates.io/crates/ratatui-lipgloss).
+- **Themes:** files in `~/.acp/themes/`; `F5` or the header `‹name› ▾` switch picks one, `Shift-F5`
+  edits them. See [Themes](#themes).
 - **Keys:** `?`/`F1` lists them all next to the full `--help`.
+
+## Themes
+
+Every colour of the terminal UI comes from a theme file; nothing is compiled in.
+
+- **Where.** `~/.acp/themes/<name>.toml`. Names are lowercase letters, digits, `-` and `_`, at
+  most 32 characters; anything else (such as `../x`) is refused. On the first run, if that
+  directory is empty, the shipped themes are copied there from the first of
+  `/usr/share/acp-rs-scraper/themes/`, `themes/` next to the binary, `../share/acp-rs-scraper/themes/`
+  next to the binary, or the source tree's `themes/`.
+- **Choosing.** `[ui] theme = "name"` (written by the picker), `[ui] theme_mode = "dark" | "light"
+  | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
+  (`OSC 11`), else dark. `--theme NAME` overrides for one run; `--list-themes`
+  lists them.
+- **Format v1.**
+
+  ```toml
+  version = 1                 # files from a newer format are refused
+  name = "default"
+  description = "ACP red on your terminal's own colours"
+
+  [dark.palette]
+  accent = "#dc2626"          # focused borders, selection, links, buttons
+  muted = "#9ca3af"           # dates, ids, hints
+  border = "#4b5563"          # unfocused borders
+  on_accent = "#ffffff"       # text on the accent colour
+  fg = "reset"                # text; also fills the screen
+  bg = "reset"                # background; also fills the screen
+
+  [dark.styles.button]        # per-element overrides
+  fg = "@on_accent"
+  bg = "@accent"
+  bold = true
+
+  [light.palette]             # optional: missing keys come from [dark]
+  ```
+
+  Colours: `#rrggbb`, `#rgb`, `0`–`255` (xterm palette), `black` `red` `green` `yellow` `blue`
+  `magenta` `cyan` `white` and their `bright_` forms (`light_…`, `gray`/`grey` and `dark_gray` work too), `reset`, or
+  `@entry` for a palette entry (palette entries may refer to each other). Style keys: `fg`, `bg`,
+  `border` (box elements), and the flags `bold`, `italic`, `underline`, `reverse`, `dim`. Unknown
+  keys are warned about one by one and ignored; missing keys fall back to the built-in style
+  (from the palette), then to the terminal's colour. Files over 64 KiB are refused.
+- **Elements.** Text: `text`, `bold`, `accent`, `accent_bold`, `link`, `muted`, `gone` (deleted
+  or missing posts), `code`, `selected`, `field`, `label`, `label_focused`, `bar` (the header and
+  status bars), `button`, `post_tag`, `reply_tag`, `dimmed` (behind a modal), `border`,
+  `border_focused`. Boxes (`border` sets the border colour): `pane`, `pane_focused`, `card`,
+  `card_selected`, `card_focused`, `detail`, `detail_focused`, `dialog`. Border shapes and padding
+  are fixed in code.
+- **Editor** (`Shift-F5`, or *Edit themes…* in the picker). The left list holds the palette and
+  every element (`→` expands an element into its keys) with swatches, `*` for values that differ
+  from the saved file and `⚠x.x:1` when an element's text/background contrast is under 3:1. The
+  right side is the real UI drawn with sample posts, updated as you edit. Keys: `Tab` dark/light,
+  `Enter`/`Space` edit or toggle, `Del`/`Backspace` clear, `a`/`+` add a palette colour, `[`/`]`
+  previous/next theme, `Ctrl-S` save, `Ctrl-R` revert, `Ctrl-N` new, `Ctrl-D` duplicate, `Ctrl-X`
+  delete (asks; the theme in use can't be deleted), `Esc` close (asks Save / Discard / Cancel when
+  there are unsaved changes). The colour picker takes hex input or a grid with tabs for the 16
+  ANSI colours, the 216-colour cube, the 24 greys and the palette `@refs`.
+- **When something is wrong.** A missing, unreadable or broken file never stops the UI: the
+  layout stays and uses the terminal's own colours, and a notice names the file, the problem and
+  how to fix it (fix the file, pick another theme with `F5`, or move it away and restart to get
+  a shipped theme back). Broken files are never rewritten automatically; opening one in the editor
+  starts a fresh theme of that name, saved only when you press `Ctrl-S`. All writes are atomic
+  (temporary file, fsync, rename) with mode 0600.
+- **Migration from `[theme]`.** Up to 2.11 colours lived in `[theme]` (`accent`, `muted`, `border`,
+  `on_accent`). On the first 2.12 run they are converted into `~/.acp/themes/custom.toml`
+  (`custom-2` and so on if taken), on top of the default, and `[ui] theme = "custom"` is set; a
+  notice says so. The `[theme]` keys are left untouched but are no longer read.
+- **Export.** *Theme: export* in the command palette writes the current theme to
+  `~/.acp/ai/data/exports/themes/<name>-<time>.toml`.
 
 ## First run and login
 
@@ -177,6 +246,8 @@ These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`
 | *(no flags)* | Open the terminal UI. Logging flags (`-q`, `-v`, `--debug`, `--enable-logging`, `--log`, `--error-log`) don't count as flags here. |
 | `--tui` | Open the terminal UI even with other flags; `--nick`/`--nicks` pre-select those nicks, logging flags pre-tick the Debug menu. |
 | `--scrape` | Headless scrape without other scraping flags; asks for nicks when none are given (what a bare run did before 2.0). |
+| `--theme NAME` | Use the theme `~/.acp/themes/NAME.toml` for this run (not saved). Fails if it is missing or broken. |
+| `--list-themes` | List the theme files (`●` marks the one in use, broken ones say why) and exit. |
 
 ### Mode
 
@@ -576,14 +647,19 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `tui/{state,input,layout,commands,data,jobs,theme,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
-TUI styling goes through `tui::theme` only: `Theme` holds the four colours (defaults plus
-`[theme]` overrides) and returns `ratatui_lipgloss::Style` values for text (`accent()`,
-`muted()`, `selected()`, `bar()`, …) and boxes (`pane()`, `card()`, `detail()`, `dialog()`:
-border kind, border colour and padding). `theme::frame(&style)` turns a box style into a
-ratatui `Block` (via the crate's `to_block`) so a title can be added. Widgets don't build
-`ratatui::style::Style`, `Modifier` or `BorderType` values themselves.
+TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
+colours, elements, contrast; `themes/mod.rs`: files, install, migration, background detection)
+loads a theme file into `tui::theme::Theme`: the palette colours plus one optional override per
+element. `Theme` returns `ratatui_lipgloss::Style` values for text (`accent()`, `muted()`,
+`selected()`, `bar()`, …) and boxes (`pane()`, `card()`, `detail()`, `dialog()`: border kind,
+border colour and padding), each built from the palette and then the element's override.
+`theme::frame(&style)` turns a box style into a ratatui `Block` (via the crate's `to_block`) so a
+title can be added. Widgets don't build `ratatui::style::Style`, `Modifier` or `BorderType`
+values themselves. The picker is `tui/modals/theme_picker.rs`, the editor `tui/editor.rs` (state)
+and `tui/widgets/editor.rs` (drawing; the preview runs the real `widgets::draw` on sample data
+from `tui/sample.rs` in an off-screen terminal).
 
 The end-to-end suite is Gherkin (`cucumber`). The scenarios are in `tests/features/*.feature` and the steps in `tests/e2e.rs`. It runs the real binary against a **mock acp.us** (`tests/support/mock.rs`: HTTP pages, the LiveView websocket, OTP sign-in, threads and media) with a temporary `HOME`. It covers:
 - login (right and wrong code);

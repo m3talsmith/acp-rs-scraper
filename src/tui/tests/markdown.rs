@@ -4,7 +4,7 @@ use crate::tui::markdown::{plain, render};
 use crate::tui::theme::Theme;
 use ratatui::style::Modifier;
 
-fn r(s: &str, w: usize) -> Vec<String> { plain(&render(s, w, &Theme::default())) }
+fn r(s: &str, w: usize) -> Vec<String> { plain(&render(s, w, &Theme::acp())) }
 
 #[test]
 fn paragraphs_and_line_breaks_are_kept() {
@@ -20,7 +20,7 @@ fn wraps_words_to_the_width() {
 
 #[test]
 fn headings_emphasis_code_and_links_are_styled() {
-    let t = Theme::default();
+    let t = Theme::acp();
     let lines = render("# Title\n\nsome **bold** and *it* and `code` [site](https://acp.us)", 80, &t);
     let txt = plain(&lines);
     assert_eq!(txt[0], "Title");

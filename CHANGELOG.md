@@ -6,6 +6,41 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.12.0] - 2026-10-17
+
+### Added
+- **Theme files.** Every TUI theme, the default included, is a TOML file in `~/.acp/themes/<name>.toml`
+  (names: `a-z`, `0-9`, `-`, `_`, at most 32). Nothing is built into the binary: the default ships
+  as `themes/default.toml` (packages: `/usr/share/acp-rs-scraper/themes/`) and the first run copies the
+  shipped themes into an empty `~/.acp/themes` (looking in `/usr/share/acp-rs-scraper/themes`, then
+  `themes/` next to the executable, then the source tree). It reproduces the old look exactly
+  (`#dc2626` accent). Format v1: `version`, `name`, `description`, then `[dark]` and `[light]`, each
+  with a `palette` (colours as `0`–`255`, `#rrggbb`/`#rgb`, the 16 ANSI names or `reset`; `"@name"`
+  references another entry) and optional per-element `styles` (`fg`, `bg`, `border`, `bold`,
+  `italic`, `underline`, `reverse`, `dim`) for 27 elements. Borders and padding stay in code.
+- `[ui] theme` and `[ui] theme_mode = "dark" | "light" | "system"` in `preferences.toml`; `system`
+  reads `COLORFGBG`, else asks the terminal for its background (OSC 11), else dark.
+- **Switching:** a `‹name› ▾` switch in the header and **F5** open the theme picker (moving previews,
+  Enter uses and remembers, Esc keeps the old one), which ends in "Edit themes…". Command palette:
+  Theme: use / list / edit / reload / export. CLI: `--theme NAME` (this run) and `--list-themes`.
+- **Theme editor (Shift-F5):** full screen; the palette and every element on the left with swatches,
+  `*` for unsaved changes and `⚠` below 3:1 contrast; a live preview on the right drawn by the real UI
+  code over sample posts (never your database). Tab flips dark / light; colours by typing (hex,
+  0-255, names, `@refs`) or from a grid (16 colours, the 216 cube, 24 greys, palette references).
+  `^S` save, `^R` revert, `^N` new, `^D` duplicate, `^X` delete (asks first), `[` `]` other themes,
+  Esc asks Save / Discard / Cancel when there are unsaved changes.
+- Theme files are written atomically with mode 0600; Theme: export writes a copy to
+  `~/.acp/ai/data/exports/themes/`.
+- **Safety:** A missing, broken (not TOML), too big (over 64 KiB) or newer-format theme falls back to the
+  terminal's own colours (`Color::Reset`), so the layout still works, with a notice naming the file
+  and how to fix it; such files are never overwritten automatically. Unknown keys give one warning
+  each; missing keys fall back. Names that could leave the themes folder are refused.
+
+### Changed
+- **Start Scanning moved from F5 to F6**; F5 is the theme picker.
+- The old `[theme]` colours in `preferences.toml` are converted once into `~/.acp/themes/custom.toml`
+  (selected, with a notice); the old keys stay in the file but are ignored.
+
 ## [2.11.1] - 2026-10-17
 
 ### Changed

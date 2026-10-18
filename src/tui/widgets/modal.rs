@@ -185,6 +185,32 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let focus = match m.focus { RField::Button(b) => Some(b), _ => None };
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &m.buttons(), focus);
         }
+        Modal::ThemePicker(p) => {
+            let rows = p.rows() as u16;
+            let r = modal_rect(area, 76, (rows + 4).min(area.height.saturating_sub(2)));
+            let inner = frame(f, &t, r, &p.title());
+            let list = Rect { y: inner.y + 1, height: inner.height.saturating_sub(1), ..inner };
+            let skip = p.cursor.saturating_sub(list.height.saturating_sub(1) as usize);
+            for (row, i) in (0..p.rows()).skip(skip).take(list.height as usize).enumerate() {
+                let rr = Rect { y: list.y + row as u16, height: 1, ..list };
+                let sel = i == p.cursor;
+                let (text, bad) = match p.entries.get(i) {
+                    Some(e) => {
+                        let cur = if e.name == p.current { "●" } else { " " };
+                        match &e.error {
+                            Some(err) => (format!(" {cur} {:<16} ⚠ {err}", e.name), true),
+                            None => (format!(" {cur} {:<16} {}", e.name, e.description), false),
+                        }
+                    }
+                    None => ("   Edit themes…  (Shift-F5)".to_string(), false),
+                };
+                let st = if sel { t.selected() } else if bad { t.muted() } else { t.plain() };
+                let w = rr.width as usize;
+                let text: String = if text.chars().count() > w { text.chars().take(w.saturating_sub(1)).chain(['…']).collect() } else { text };
+                f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
+                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+        }
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

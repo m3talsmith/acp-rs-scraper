@@ -149,16 +149,22 @@ pub const HTML_DATA_ID: &str = "acp-data";
 // ---------------------------------------------------------------- terminal UI
 /// Arguments that do not count as "a flag was given" when deciding whether a bare
 /// invocation opens the terminal UI (logging only; they carry over to TUI scans).
-pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log"];
+pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log", "theme"];
 
-/// ACP red (`#dc2626`, the HTML export's reply-link colour): the default TUI accent.
-pub const ACP_RED: (u8, u8, u8) = (0xdc, 0x26, 0x26);
-/// Default muted text colour (dates, ids, hints).
-pub const TUI_MUTED: (u8, u8, u8) = (0x9c, 0xa3, 0xaf);
-/// Default border colour of unfocused panes.
-pub const TUI_BORDER: (u8, u8, u8) = (0x4b, 0x55, 0x63);
-/// Default text colour on accent backgrounds.
-pub const TUI_ON_ACCENT: (u8, u8, u8) = (0xff, 0xff, 0xff);
+/// Theme files (`<name>.toml`), under `$HOME`. Every theme, the default included, lives here.
+pub const THEMES_REL_DIR: &str = ".acp/themes";
+/// Where packages install the shipped themes (copied to [`THEMES_REL_DIR`] on first run).
+pub const THEMES_SYSTEM_DIR: &str = "/usr/share/acp-rs-scraper/themes";
+/// The theme used when `[ui] theme` is not set.
+pub const DEFAULT_THEME: &str = "default";
+/// Theme file format written by this build (files with a newer `version` are refused).
+pub const THEME_FORMAT_VERSION: i64 = 1;
+/// Largest theme file read (bigger ones are refused).
+pub const THEME_MAX_BYTES: u64 = 64 * 1024;
+/// Name a migrated `[theme]` table from preferences.toml is saved as.
+pub const MIGRATED_THEME: &str = "custom";
+/// Lowest text contrast the theme editor accepts without a warning.
+pub const THEME_MIN_CONTRAST: f64 = 3.0;
 
 /// Title shown in the TUI top bar.
 pub const TUI_TITLE: &str = "ACP Red Star Scraper";
@@ -219,7 +225,9 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("B", "Show bookmarks (the ★ Bookmarks row on the nick bar)"),
     ("PgUp PgDn Home End", "Page / jump"),
     ("m / F10 / Alt+letter", "Menu bar (underlined letter opens a command)"),
-    ("F5", "Start Scanning (Cancel while a job runs)"),
+    ("F6", "Start Scanning (Cancel while a job runs)"),
+    ("F5", "Theme picker (also the ‹theme› ▾ switch in the header)"),
+    ("Shift-F5", "Theme editor"),
     ("Shift-S", "Search modal: keyword, nicks, post id, dates, posts/replies"),
     ("Ctrl-S (Ctrl-Shift-S)", "Clear the search"),
     ("Ctrl-Space / Ctrl-P", "Command palette"),

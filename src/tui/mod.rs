@@ -9,10 +9,11 @@
 //! Layout: `mod.rs` (event loop), [`state`] (pure state + transitions),
 //! [`input`] (keys/mouse), [`layout`] (geometry), [`widgets`] (drawing),
 //! [`modals`], [`commands`] (menu ↔ flags), [`data`] (read-only DB), [`jobs`],
-//! [`theme`].
+//! [`theme`] (styles), [`theming`] (theme files in the app), [`editor`] (Shift-F5).
 
 pub mod commands;
 pub mod data;
+pub mod editor;
 pub mod empty_anim;
 pub mod images;
 pub mod input;
@@ -20,8 +21,10 @@ pub mod jobs;
 pub mod layout;
 pub mod markdown;
 pub mod modals;
+pub mod sample;
 pub mod state;
 pub mod theme;
+pub mod theming;
 pub mod widgets;
 
 use crate::prelude::*;
@@ -56,8 +59,9 @@ pub async fn run(args: Args) -> Result<()> {
     }
     let db = home()?.join(DB_REL_PATH);
     let prefs = load_prefs();
-    let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::from_prefs(prefs.theme.as_ref()),
+    let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
         session_path().map(|p| p.exists()).unwrap_or(false));
+    setup_themes(&mut app, &args, &prefs)?;
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
     (app.empty_anim, app.empty_anim_accent) = empty_anim::from_prefs(prefs.ui.as_ref());
@@ -73,6 +77,26 @@ pub async fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
+/// Theme files at startup: install the shipped ones into an empty `~/.acp/themes`,
+/// convert an old `[theme]` table once, then select `--theme`, `[ui] theme` or the default.
+fn setup_themes(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
+    let dir = crate::themes::themes_dir()?;
+    let (migrated, notes) = crate::themes::prepare(&dir, prefs);
+    for n in &notes { app.push_status(n.clone()); }
+    if let Some(m) = &migrated {
+        if let Err(e) = save_ui_theme(m) { app.push_status(format!("warning: could not select {m} in preferences.toml: {e:#}")); }
+        if let Some(n) = notes.iter().find(|n| n.starts_with("Your [theme]")) {
+            app.modal = Some(modals::Modal::Message(modals::MessageModal::info("Theme converted", n)));
+        }
+    }
+    app.themes_dir = Some(dir);
+    app.theme_mode = crate::themes::Mode::parse(prefs.ui.as_ref().and_then(|u| u.theme_mode.as_deref()));
+    app.dark_bg = crate::themes::colorfgbg_dark(std::env::var("COLORFGBG").ok().as_deref());
+    let name = args.theme.clone().or(migrated).or_else(|| prefs.ui.as_ref().and_then(|u| u.theme.clone())).unwrap_or_else(|| DEFAULT_THEME.into());
+    app.use_theme(&name, false);
+    Ok(())
+}
+
 async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) -> Result<Option<(&'static str, u32, PathBuf)>> {
     use crossterm::{event::EnableMouseCapture, execute, terminal::{EnterAlternateScreen, enable_raw_mode}};
     let jar = Arc::new(Jar::default());
@@ -83,6 +107,11 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
     let prev = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| { restore_terminal(); prev(info); }));
+    // `theme_mode = "system"` without COLORFGBG: ask the terminal for its background.
+    if app.theme_mode == crate::themes::Mode::System && app.dark_bg.is_none() {
+        app.dark_bg = images::query_background();
+        if app.dark_bg == Some(false) { app.refresh_theme(); }
+    }
     // Ask the terminal for its graphics protocol before the input thread starts reading.
     app.images = images::Images::detect(theme::rgb_bytes(app.theme.on_accent), theme::rgb_bytes(app.theme.accent));
     let osc8 = osc8_supported();
@@ -191,6 +220,14 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Ok(()) => app.push_status("sync defaults saved to ~/.acp/preferences.toml"),
                     Err(e) => app.error("Cannot save", &format!("{e:#}")),
                 },
+                Effect::SaveUiTheme(name) => match save_ui_theme(&name) {
+                    Ok(()) => app.push_status(format!("theme {name} selected (saved to ~/.acp/preferences.toml)")),
+                    Err(e) => app.error("Cannot save the theme choice", &format!("{e:#}")),
+                },
+                Effect::ExportTheme(f) => match export_theme(&f) {
+                    Ok(p) => app.modal = Some(modals::Modal::Message(modals::MessageModal::info("Theme exported", &format!("Wrote {}", p.display())))),
+                    Err(e) => app.error("Cannot export the theme", &format!("{e:#}")),
+                },
                 Effect::RunSideJob(kind, argv) => match jobs::Job::spawn(kind, &argv) {
                     Ok(j) => side.push(j),
                     Err(e) => app.error("Cannot start", &format!("{e:#}")),
@@ -243,6 +280,14 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     drop((code_tx, login_task));
     drop(term);
     Ok(detached)
+}
+
+/// Write a copy of theme `f` to `~/.acp/ai/data/exports/themes/<name>-<stamp>.toml`.
+pub fn export_theme(f: &crate::themes::ThemeFile) -> Result<PathBuf> {
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let p = home()?.join(EXPORTS_REL_PATH).join("themes").join(format!("{}-{stamp}.toml", f.name));
+    crate::themes::atomic_write(&p, crate::themes::to_toml(f).as_bytes()).with_context(|| format!("writing {}", p.display()))?;
+    Ok(p)
 }
 
 /// Whether to re-emit attachment links as OSC 8 hyperlinks (off for the Linux console,

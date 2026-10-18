@@ -17,6 +17,10 @@ for f in README.md CHANGELOG.md docs/USAGE.md docs/INSTALL.md assets/empty-body.
 done
 # The empty-Body animation converter (the built-in frames are inside the binary).
 install -Dm755 "$root/tools/acp-anim" "$d/share/$name/tools/acp-anim"
+# Shipped themes; the first run copies them into ~/.acp/themes.
+for f in "$root"/themes/*.toml; do
+  install -Dm644 "$f" "$d/share/$name/themes/$(basename "$f")"
+done
 install -d "$d/share/man/man1" "$d/share/bash-completion/completions" \
   "$d/share/zsh/site-functions" "$d/share/fish/vendor_completions.d"
 "$bin" --generate man  > "$d/share/man/man1/$name.1"

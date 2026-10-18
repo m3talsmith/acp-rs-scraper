@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LoadError","Mode"],"fn":["atomic_write","atomic_write_new","colorfgbg_dark","create_dir_private","delete","from_legacy","install_defaults","legacy_set","list","load","load_path","migrate_legacy","osc11_dark","prepare","save","source_dirs","theme_path","themes_dir","toml_files","write_tmp"],"mod":["format"],"struct":["Entry","Loaded"]};

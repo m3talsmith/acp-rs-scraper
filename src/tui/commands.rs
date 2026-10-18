@@ -121,6 +121,16 @@ pub enum Action {
     ComingLater(u8),
     /// `--research-export` with Research › Export to / Format / Compress.
     ExportResearch,
+    /// The theme picker (F5, the header's `‹theme› ▾`).
+    ThemePicker,
+    /// The theme editor (Shift-F5).
+    ThemeEditor,
+    /// List the theme files.
+    ThemeList,
+    /// Read the theme files again.
+    ThemeReload,
+    /// Export the current theme.
+    ThemeExport,
 }
 
 /// What a research add takes from (one `--research-add` source).

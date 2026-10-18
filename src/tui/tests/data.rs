@@ -69,15 +69,18 @@ fn sqlite_store_missing_db_is_empty() {
 }
 
 #[test]
-fn theme_from_prefs() {
+fn old_theme_prefs_convert_like_before() {
     use crate::tui::theme::*;
     use ratatui::style::Color;
     assert_eq!(parse_hex("#dc2626"), Some(Color::Rgb(0xdc, 0x26, 0x26)));
     assert_eq!(parse_hex("zzzzzz"), None);
-    assert_eq!(Theme::default().accent, Color::Rgb(0xdc, 0x26, 0x26));
-    let t = Theme::from_prefs(Some(&ThemePrefs { accent: Some("00ff00".into()), muted: Some("bad".into()), ..Default::default() }));
+    assert_eq!(Theme::acp().accent, Color::Rgb(0xdc, 0x26, 0x26));
+    let base = crate::themes::parse(include_str!("../../../themes/default.toml"), "default").unwrap().0;
+    let (f, warn) = crate::themes::from_legacy("custom", &ThemePrefs { accent: Some("00ff00".into()), muted: Some("bad".into()), ..Default::default() }, Some(&base));
+    assert_eq!(warn.len(), 1, "{warn:?}");
+    let t = Theme::from_file(&f, crate::themes::Variant::Dark);
     assert_eq!(t.accent, Color::Rgb(0, 255, 0));
-    assert_eq!(t.muted, Theme::default().muted);
+    assert_eq!(t.muted, Theme::acp().muted);
     let p: Prefs = toml::from_str("email = \"a@b\"\n[theme]\naccent = \"#112233\"\n").unwrap();
     assert_eq!(p.theme.unwrap().accent.as_deref(), Some("#112233"));
 }

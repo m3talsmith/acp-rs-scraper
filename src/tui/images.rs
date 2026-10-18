@@ -141,6 +141,15 @@ impl Images {
             transmitted: HashSet::new(), scaled: HashMap::new(), encoded: HashMap::new() }
     }
 
+    /// Recolour the logo (a theme switch); a no-op when the colours are the same.
+    pub fn set_logo_colors(&mut self, fg: [u8; 3], bg: [u8; 3]) {
+        if (fg, bg) == (self.logo_fg, self.logo_bg) { return; }
+        (self.logo_fg, self.logo_bg) = (fg, bg);
+        self.next_id += 1;
+        self.logo = logo_image(fg, bg).map(|img| Pic { id: self.next_id, img });
+        self.invalidate();
+    }
+
     /// Detect the terminal's graphics support (call in raw mode, before the input
     /// thread reads stdin). `ACP_IMAGES=off` disables pictures;
     /// `ACP_IMAGE_PROTOCOL=halfblocks|sixel|kitty|iterm2` forces a protocol.
@@ -441,8 +450,23 @@ pub fn sixel(img: &RgbaImage) -> String {
 /// report (`CSI 16 t`) and the primary device attributes (DA1, answered by
 /// everything, so it ends the wait). Gives up after 400 ms.
 #[cfg(unix)]
-fn query_terminal() -> String {
-    let q = b"\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\\x1b[16t\x1b[c";
+fn query_terminal() -> String { ask_terminal(b"\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\\x1b[16t\x1b[c") }
+
+/// Ask the terminal for its background colour (OSC 11) in raw mode, before the
+/// input thread starts: `Some(true)` for a dark one, `None` when it doesn't answer.
+#[cfg(unix)]
+pub fn query_background() -> Option<bool> {
+    if std::env::var_os("TMUX").is_some() { return None; }
+    crate::themes::osc11_dark(&ask_terminal(b"\x1b]11;?\x1b\\\x1b[c"))
+}
+
+/// Not on this platform.
+#[cfg(not(unix))]
+pub fn query_background() -> Option<bool> { None }
+
+/// Write `q` (ending in a DA1 request, which every terminal answers) and read the replies.
+#[cfg(unix)]
+fn ask_terminal(q: &[u8]) -> String {
     let mut out = std::io::stdout();
     if out.write_all(q).and_then(|_| out.flush()).is_err() { return String::new(); }
     let deadline = std::time::Instant::now() + std::time::Duration::from_millis(400);

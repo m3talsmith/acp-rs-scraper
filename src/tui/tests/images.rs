@@ -14,7 +14,7 @@ fn draw(a: &mut App, w: u16, h: u16) -> Buffer {
 fn row(b: &Buffer, y: u16, x0: u16, x1: u16) -> String { (x0..x1).map(|x| b[(x, y)].symbol().to_string()).collect() }
 
 fn with_images(store: MemStore) -> App {
-    let mut a = App::new(Box::new(store), &no_args(), Theme::default(), false);
+    let mut a = App::new(Box::new(store), &no_args(), Theme::acp(), false);
     a.images = Some(Images::new(Protocol::Halfblocks, DEFAULT_CELL, false, [255, 255, 255], [0xdc, 0x26, 0x26]));
     a
 }
@@ -37,14 +37,14 @@ fn header_is_four_rows_with_big_acp_centred_and_room_above() {
     assert!(mid.contains(TUI_SUBTITLE) && mid.contains(env!("CARGO_PKG_VERSION")) && mid.contains("logged out"), "{mid}");
     for y in [0, 1, 3] { assert!(!row(&b, y, 36, 110).contains(TUI_SUBTITLE)); }
     assert!(row(&b, 4, 0, 110).contains("Scrape"), "menu under the header");
-    assert_eq!(b[(40, 0)].bg, Theme::default().accent, "red bar");
+    assert_eq!(b[(40, 0)].bg, Theme::acp().accent, "red bar");
 }
 
 fn logo_rows(b: &Buffer) -> Vec<String> { (0..4).map(|y| row(b, y, 1, 9)).collect() }
 
 #[test]
 fn logo_is_the_png_silhouette_in_sextants_on_the_red_bar() {
-    let t = Theme::default();
+    let t = Theme::acp();
     for mut a in [with_images(fixture()), app()] {
         let b = draw(&mut a, 110, 30);
         let logo = logo_rows(&b);
@@ -154,7 +154,7 @@ fn base64_and_sixel_encoders() {
 
 #[test]
 fn graphics_protocols_place_after_the_frame_and_only_on_change() {
-    let mut a = App::new(Box::new(fixture()), &no_args(), Theme::default(), false);
+    let mut a = App::new(Box::new(fixture()), &no_args(), Theme::acp(), false);
     a.images = Some(Images::new(Protocol::Kitty, DEFAULT_CELL, false, [255, 255, 255], [0xdc, 0x26, 0x26]));
     let b = draw(&mut a, 110, 30);
     assert_eq!(row(&b, 1, 1, 9), "        ", "cells left blank for the picture");
@@ -169,7 +169,7 @@ fn graphics_protocols_place_after_the_frame_and_only_on_change() {
     a.images.as_mut().unwrap().flush(&mut again);
     assert!(again.is_empty(), "unchanged frame writes nothing");
     // Sixel asks for a repaint when the pictures change.
-    let mut s = App::new(Box::new(fixture()), &no_args(), Theme::default(), false);
+    let mut s = App::new(Box::new(fixture()), &no_args(), Theme::acp(), false);
     s.images = Some(Images::new(Protocol::Sixel, DEFAULT_CELL, false, [255, 255, 255], [0xdc, 0x26, 0x26]));
     draw(&mut s, 110, 30);
     let mut o = Vec::new();

@@ -1,4 +1,4 @@
-//! `~/.acp/preferences.toml`: the remembered login email and the terminal UI theme.
+//! `~/.acp/preferences.toml`: the remembered login email and terminal UI settings.
 
 use crate::prelude::*;
 
@@ -7,7 +7,8 @@ use crate::prelude::*;
 pub struct Prefs {
     /// Login email.
     pub email: Option<String>,
-    /// Terminal UI colours (`[theme]` table); every key is optional.
+    /// The old (before 2.12) terminal UI colours (`[theme]` table). Converted once into
+    /// `~/.acp/themes/custom.toml`, then ignored; the keys are left in the file.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<ThemePrefs>,
     /// Terminal UI sync defaults (`[sync]` table).
@@ -28,6 +29,25 @@ pub struct UiPrefs {
     pub empty_animation_path: Option<String>,
     /// `"muted"` (default) or `"accent"`.
     pub empty_animation_color: Option<String>,
+    /// The theme: a file name in `~/.acp/themes` without `.toml` (default `"default"`).
+    pub theme: Option<String>,
+    /// `"dark"`, `"light"` or `"system"` (default: from the terminal's background).
+    pub theme_mode: Option<String>,
+}
+
+/// Set `[ui] theme` in `~/.acp/preferences.toml`, keeping every other key (also unknown
+/// ones). Refuses to touch a file that isn't valid TOML. Atomic, mode 0600.
+pub fn save_ui_theme(name: &str) -> Result<()> {
+    let path = home()?.join(PREFS_REL_PATH);
+    let mut t: toml::Table = match std::fs::read_to_string(&path) {
+        Ok(s) => toml::from_str(&s).with_context(|| format!("{} is not valid TOML; not changing it", path.display()))?,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => toml::Table::new(),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    };
+    let ui = t.entry("ui").or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    let Some(ui) = ui.as_table_mut() else { bail!("[ui] in {} is not a table; not changing it", path.display()) };
+    ui.insert("theme".into(), toml::Value::String(name.into()));
+    crate::themes::atomic_write(&path, toml::to_string(&t)?.as_bytes()).with_context(|| format!("writing {}", path.display()))
 }
 
 
@@ -57,7 +77,7 @@ pub fn save_sync_prefs(s: &SyncPrefs) -> Result<()> {
 }
 
 #[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
-/// `[theme]` in `~/.acp/preferences.toml`: `#rrggbb` colours for the terminal UI.
+/// `[theme]` in `~/.acp/preferences.toml` (before 2.12): `#rrggbb` colours for the terminal UI.
 pub struct ThemePrefs {
     /// Accent (reply links, selection, Start Scanning). Default `#dc2626` (ACP red).
     pub accent: Option<String>,

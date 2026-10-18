@@ -208,6 +208,10 @@ pub enum Effect {
     LoginCancel,
     /// Forget the session.
     Logout,
+    /// Store `[ui] theme` in preferences.toml.
+    SaveUiTheme(String),
+    /// Write a copy of this theme into the exports folder.
+    ExportTheme(crate::themes::ThemeFile),
     /// Leave; `cancel_job` kills a running job first (else it is detached).
     Quit {
         /// Kill the job before leaving.
@@ -270,6 +274,10 @@ pub enum Hit {
     Research(usize),
     /// The add-to-research button of the top detail.
     ResearchTop,
+    /// The header's `‹theme› ▾` switch.
+    ThemeSwitch,
+    /// n-th row of the theme editor's list.
+    EditorRow(usize),
 }
 
 /// Menu bar state.
@@ -363,6 +371,20 @@ pub struct App {
     pub page_rows: usize,
     /// Login email pre-fill.
     pub email: Option<String>,
+    /// `~/.acp/themes` (None: theme files are off, e.g. in tests and previews).
+    pub themes_dir: Option<PathBuf>,
+    /// The selected theme's name.
+    pub theme_name: String,
+    /// The selected theme's file, when it loaded.
+    pub theme_file: Option<crate::themes::ThemeFile>,
+    /// Why the selected theme couldn't be used.
+    pub theme_error: Option<String>,
+    /// `[ui] theme_mode`.
+    pub theme_mode: crate::themes::Mode,
+    /// The terminal's background is dark (`None`: unknown).
+    pub dark_bg: Option<bool>,
+    /// The full-screen theme editor (Shift-F5).
+    pub theme_editor: Option<Box<crate::tui::editor::ThemeEditor>>,
 }
 
 impl App {
@@ -375,7 +397,8 @@ impl App {
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
-            page_rows: 5, email: None,
+            page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None,
+            theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -685,7 +708,7 @@ impl App {
     }
     /// Run `argv` (a network job) after making sure we're logged in.
     fn start_online_job(&mut self, kind: JobKind, argv: Vec<String>) {
-        if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F5)"); return; }
+        if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F6)"); return; }
         self.close_menu();
         if self.session == SessionState::Valid { self.effects.push(Effect::RunJob(kind, argv)); }
         else { self.session = SessionState::Checking; self.effects.push(Effect::CheckSessionThen(kind, argv)); }
@@ -1021,6 +1044,11 @@ impl App {
                 let what = if which == 0 { "Google Drive" } else { "Telegram" };
                 self.push_status(format!("{what} as a research source is pinned for later; add files from disk or web pages for now"));
             }
+            Action::ThemePicker => self.open_theme_picker(),
+            Action::ThemeEditor => self.open_theme_editor(),
+            Action::ThemeList => self.list_themes(),
+            Action::ThemeReload => self.reload_theme(),
+            Action::ThemeExport => self.export_theme(),
             Action::ExportResearch => match self.research_name().ok_or_else(|| "pick a research project first (Research › Projects…)".to_string())
                 .and_then(|n| self.menu.menu.research_export_argv(&n)) {
                 Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
@@ -1067,7 +1095,7 @@ impl App {
         self.base.offset = o.min(self.base.cursor);
     }
     fn start_job(&mut self, kind: JobKind, argv: Vec<String>) {
-        if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F5)"); return; }
+        if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F6)"); return; }
         self.effects.push(Effect::RunJob(kind, argv));
     }
     /// Open the Login modal; `then` runs after a successful login.
@@ -1189,6 +1217,7 @@ impl App {
                 else if let Ok(f) = s.filter() { self.run_search(f); }
             }
             (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),
+            (Modal::ThemePicker(p), r) => self.theme_picked(*p, r),
             (Modal::Palette(p), ModalResult::ClosedSubmitted) => match p.chosen() {
                 Some(PaletteCmd::Action(a)) => self.act(a),
                 Some(PaletteCmd::OpenMenu(i)) => self.open_menu(i),
@@ -1201,7 +1230,12 @@ impl App {
     pub fn palette_entries(&self) -> Vec<(String, PaletteCmd)> {
         use crate::tui::commands::Widget;
         let mut v = vec![
-            ("Start Scanning (F5)".to_string(), PaletteCmd::Action(Action::StartScan)),
+            ("Start Scanning (F6)".to_string(), PaletteCmd::Action(Action::StartScan)),
+            ("Theme: use… (F5)".into(), PaletteCmd::Action(Action::ThemePicker)),
+            ("Theme: list".into(), PaletteCmd::Action(Action::ThemeList)),
+            ("Theme: edit… (Shift-F5)".into(), PaletteCmd::Action(Action::ThemeEditor)),
+            ("Theme: reload".into(), PaletteCmd::Action(Action::ThemeReload)),
+            ("Theme: export".into(), PaletteCmd::Action(Action::ThemeExport)),
             ("Search… (Shift-S)".into(), PaletteCmd::Action(Action::OpenSearchModal)),
             ("Clear search (Ctrl-S)".into(), PaletteCmd::Action(Action::ClearSearch)),
             ("Toggle log panel (l)".into(), PaletteCmd::Action(Action::ToggleLog)),

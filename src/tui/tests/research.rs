@@ -38,7 +38,7 @@ fn with_projects() -> App {
     post.kind = ItemKind::Post;
     post.r#ref = "ALICE0002".into();
     s.research = vec![("Strikes".into(), post), ("Strikes".into(), web(6, "key source"))];
-    App::new(Box::new(s), &no_args(), Theme::default(), false)
+    App::new(Box::new(s), &no_args(), Theme::acp(), false)
 }
 
 fn modal(a: &App) -> &crate::tui::modals::ResearchModal {
