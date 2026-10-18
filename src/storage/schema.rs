@@ -17,7 +17,8 @@ pub const POSTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS posts (
             title TEXT NOT NULL,
             content TEXT NOT NULL,
             posted_at TEXT NOT NULL,
-            body_state TEXT NOT NULL DEFAULT 'unknown'
+            body_state TEXT NOT NULL DEFAULT 'unknown',
+            body_json TEXT NOT NULL DEFAULT ''
         );
         CREATE UNIQUE INDEX IF NOT EXISTS posts_post_id_uq ON posts(post_id);";
 
@@ -31,6 +32,19 @@ pub const POSTS_ADD_IN_REPLY_TO: &str = "ALTER TABLE posts ADD COLUMN in_reply_t
 /// was available) and `unknown` (stored before 1.26.0, could be either;
 /// `--refetch-truncated` checks these against their thread page).
 pub const POSTS_ADD_BODY_STATE: &str = "ALTER TABLE posts ADD COLUMN body_state TEXT NOT NULL DEFAULT 'unknown';";
+
+/// Run when `posts` lacks `body_json` (databases before 2.21.0). The ProseMirror
+/// body, compact JSON; `""` until a thread page or a feed item supplies it.
+pub const POSTS_ADD_BODY_JSON: &str = "ALTER TABLE posts ADD COLUMN body_json TEXT NOT NULL DEFAULT '';";
+
+/// Tags on a post (`#strike`). Filled from mention nodes and from `#word` in the
+/// body. Created on first use. `tag` is stored without the `#`.
+pub const POST_TAGS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_tags (
+            post_id TEXT NOT NULL,
+            tag TEXT NOT NULL,
+            PRIMARY KEY (post_id, tag)
+        );
+        CREATE INDEX IF NOT EXISTS post_tags_tag_idx ON post_tags(tag);";
 
 /// Indexes on the relationship columns (safe to re-run).
 pub const POSTS_MIGRATIONS: &str = "CREATE INDEX IF NOT EXISTS posts_parent_idx ON posts(parent_post_id);

@@ -102,6 +102,13 @@ fn feed_mode_flags() {
     assert!(Args::try_parse_from(["x", "--explore", "--explore-latest"]).is_err());
     assert_eq!(Args::try_parse_from(["x", "--site-search", "strike"]).unwrap().site_search.as_deref(), Some("strike"));
     assert!(Args::try_parse_from(["x", "--site-search", "strike", "--search", "x"]).is_err());
+    assert_eq!(Args::try_parse_from(["x", "--tag", "strike"]).unwrap().tag.as_deref(), Some("strike"));
+    assert!(Args::try_parse_from(["x", "--tag", "strike", "--top"]).is_err());
+    assert!(Args::try_parse_from(["x", "--tag", "strike", "--nick", "alice"]).is_err());
+    let a = Args::try_parse_from(["x", "--backfill-tags", "--nick", "alice"]).unwrap();
+    assert!(a.backfill_tags && a.nick.as_deref() == Some("alice"));
+    assert!(Args::try_parse_from(["x", "--backfill-tags", "--tag", "strike"]).is_err());
+    assert!(!parse_with_mode(["x", "--tag", "strike"]).unwrap().1);
     assert_eq!(FeedMode::Latest.site_feed_url(), feed_latest_url());
     assert_eq!(FeedMode::Trending.site_feed_url(), feed_trending_url());
     assert!(FeedMode::Latest.allow_incremental_stop());

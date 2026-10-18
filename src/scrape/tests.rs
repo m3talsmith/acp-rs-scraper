@@ -25,6 +25,46 @@ fn fallback_fields_and_wrapped_posts() {
 }
 
 #[test]
+fn body_json_keeps_an_object_and_drops_plain_text() {
+    let doc = json!({"type":"doc","content":[{"type":"text","text":"hi"}]});
+    let got = body_json_of(&json!({"body": doc}));
+    assert!(got.starts_with('{') && got.contains("\"type\":\"doc\""));
+    assert_eq!(body_json_of(&json!({"body": "just text"})), "");
+    assert_eq!(body_json_of(&json!({"body": "<p>x</p>"})), "");
+    let p = to_post(&json!({"id": "p", "body": {"type": "doc", "content": []}, "author": {"username": "a"}}), "", "a");
+    assert!(p.body_json.contains("\"type\":\"doc\""));
+}
+
+#[test]
+fn tags_come_from_mentions_and_words_not_headings_or_anchors() {
+    let body = json!({"type":"doc","content":[
+        {"type":"mention","attrs":{"mentionSuggestionChar":"#","label":"#Strike"}},
+        {"type":"mention","attrs":{"mentionSuggestionChar":"@","label":"@ada"}},
+        {"type":"text","text":"also #strike and #Other"}
+    ]}).to_string();
+    let tags = extract_tags(&body, "## Heading\nsee #post-abc and #Other and #strike");
+    assert_eq!(tags, ["Strike", "Other"]);
+    assert!(extract_tags("", "no hash here").is_empty());
+    assert!(extract_tags("", "#post-123").is_empty());
+}
+
+#[test]
+fn hashtag_links_skip_code_fences_inline_code_and_anchors() {
+    let src = "Join #strike now\n`keep #nope`\n```\n#hidden\n```\n## Title\n#post-abc #Ok";
+    let linked = link_hashtags(src);
+    assert!(linked.contains("[#strike](acp-tag:strike)"));
+    assert!(linked.contains("[#Ok](acp-tag:Ok)"));
+    assert!(linked.contains("`keep #nope`"));
+    assert!(linked.contains("#hidden"));
+    assert!(linked.contains("## Title"));
+    assert!(linked.contains("#post-abc"));
+    assert!(!linked.contains("acp-tag:nope"));
+    assert!(!linked.contains("acp-tag:hidden"));
+    assert!(!linked.contains("acp-tag:post-abc"));
+    assert!(!linked.contains("acp-tag:Title"));
+}
+
+#[test]
 fn empty_body_stays_empty() {
     assert_eq!(body_text(&json!({"id": "r1", "body": null})), "");
 }

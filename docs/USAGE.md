@@ -335,6 +335,8 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--explore` | Explore (`/rs/explore`). The **Explore** row of the nick bar, or View › Explore. |
 | `--explore-latest` | Explore's Latest tab (`/rs/explore/latest`). View › Explore latest. |
 | `--site-search TEXT` | Search the site (`/rs/explore?q=`, form `search`, field `q`). The Search modal's **Where: Site** does the same and uses only the keyword; nicks, dates, post id and kind stay local. |
+| `--tag TAG` | Tag feed (`/rs/tag/TAG`). A `#tag` in a post body, or the Tags row on the detail, opens the same view. `#post-…` anchors, `##` headings and tags inside code are not links. |
+| `--backfill-tags` | Rewrite `post_tags` from stored bodies, then re-read threads whose `body_json` is still empty (one page per thread, with a pause). `--nick` / `--nicks` limit the rows. Stored post text is not replaced. |
 
 ### Scraping
 
@@ -561,8 +563,16 @@ CREATE TABLE posts (
   content TEXT NOT NULL,          -- ProseMirror body flattened to text; paragraphs
                                   -- separated by a blank line (1.26.0)
   posted_at TEXT NOT NULL,        -- inserted_at (ISO 8601)
-  body_state TEXT NOT NULL DEFAULT 'unknown'  -- 'full' | 'truncated' | 'unknown' (1.26.0)
+  body_state TEXT NOT NULL DEFAULT 'unknown', -- 'full' | 'truncated' | 'unknown' (1.26.0)
+  body_json TEXT NOT NULL DEFAULT ''  -- ProseMirror body, compact JSON (2.21.0); '' until a feed or thread supplies it
 );
+
+CREATE TABLE post_tags (             -- 2.21.0; #tag without the hash
+  post_id TEXT NOT NULL,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (post_id, tag)
+);
+CREATE INDEX post_tags_tag_idx ON post_tags(tag);
 
 -- body_state (1.26.0, index posts_body_state_idx): 'full' = complete body;
 -- 'truncated' = only the feed's shortened preview could be read (the thread page
@@ -621,7 +631,7 @@ Research (2.9.0):
 
 ```sql
 CREATE TABLE site_feeds (          -- 2.18.0; created on first site read
-    key TEXT PRIMARY KEY,         -- top:week, eb, explore, explore:latest, search:…, …
+    key TEXT PRIMARY KEY,         -- top:week, eb, explore, explore:latest, search:…, tag:strike, …
     title TEXT NOT NULL,
     fetched_at TEXT NOT NULL,     -- RFC 3339
     post_ids TEXT NOT NULL        -- JSON array, in the site's order

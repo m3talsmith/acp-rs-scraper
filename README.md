@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.20.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.21.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -63,6 +63,12 @@ Reading:
 
       --site-search <TEXT>
           Search the site (/rs/explore?q=). The Search modal's Where: Site does this too
+
+      --tag <TAG>
+          Tag feed (/rs/tag/TAG). A #tag in a post opens the same view. Stored locally
+
+      --backfill-tags
+          Fill post_tags from stored bodies, then re-read threads whose ProseMirror JSON is still empty. --nick / --nicks limit the rows. Does not change stored text
 
 Interface:
       --tui
@@ -284,7 +290,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.20.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.21.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -380,6 +386,9 @@ headless scrape is now `--scrape`.
     `/rs/explore/latest` (`--explore`, `--explore-latest`).
 - **Site search.** Shift-S (the search modal) has **Where**: Local (the database, as before) or
   Site (`--site-search`). Site searches with the keyword only.
+- **Tags.** A `#tag` in a post (outside code) and the Tags row on the detail open `/rs/tag/{tag}`
+  (`--tag`). `--backfill-tags` fills `post_tags` and `body_json` from threads that don't have the
+  JSON body yet.
 - **Bookmarks.** Every card and detail has a star: `☆` click (or `b`) to bookmark it, `★` click
   again to remove it. It shows at once and is stored by a small background job, so it works
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows

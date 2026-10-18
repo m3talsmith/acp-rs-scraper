@@ -6,6 +6,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.21.0] - 2026-10-18
+
+### Added
+
+- **Tag feeds** (`/rs/tag/{tag}`): `--tag TAG`. A `#tag` in a post body (and a Tags row on the detail) opens that feed, saved locally and refreshed from the site. `#post-…` anchors and `##` headings are not tags. Tags inside fenced or inline code are not clickable.
+- **`body_json` and `post_tags`:** posts store the ProseMirror body as compact JSON when the site sends one, and tags from mention nodes plus `#word` in the text. A later save does not blank a JSON body or a tag list that this write doesn't carry.
+- **`--backfill-tags`:** rewrites `post_tags` from what is already stored, then re-reads threads whose JSON body is still empty (one page per thread, with a pause). Optional `--nick` / `--nicks`. Stored post text is left as it is.
+
 ## [2.20.0] - 2026-10-18
 
 ### Added

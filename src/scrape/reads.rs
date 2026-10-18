@@ -308,6 +308,141 @@ pub fn search_title(query: &str) -> String {
     format!("Site search · {}", query.trim())
 }
 
+/// Tag name without a leading `#` and surrounding space.
+pub fn tag_name(tag: &str) -> String {
+    tag.trim().trim_start_matches('#').trim().to_string()
+}
+
+/// Tag feed (`/rs/tag/{tag}`).
+pub fn feed_tag_url(tag: &str) -> String {
+    format!("{}/rs/tag/{}", base_url(), urlenc(&tag_name(tag)))
+}
+
+/// Database key for a tag feed. Case is folded so `#Strike` and `#strike` share a view.
+pub fn tag_key(tag: &str) -> String {
+    format!("tag:{}", tag_name(tag).to_lowercase())
+}
+
+/// Body title for a tag feed (the spelling that was asked for, with `#`).
+pub fn tag_title(tag: &str) -> String {
+    format!("#{}", tag_name(tag))
+}
+
+/// `--tag`: read `/rs/tag/{tag}` and store it.
+pub async fn read_tag(http: &reqwest::Client, jar: &Jar, tag: &str) -> Result<usize> {
+    let name = tag_name(tag);
+    if name.is_empty() { bail!("a tag needs a name"); }
+    let url = feed_tag_url(&name);
+    read_view(http, jar, &url, &url, PROFILE_FILTER_EVENT, &[], &tag_key(&name), &tag_title(&name))
+        .await
+        .with_context(|| format!("reading #{name}"))
+}
+
+/// Counts from [`backfill_tags`].
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct BackfillStats {
+    /// Rows looked at.
+    pub scanned: usize,
+    /// Rows whose `post_tags` were rewritten from what is already stored.
+    pub tagged: usize,
+    /// Thread pages fetched for a row that still had no JSON body.
+    pub threads: usize,
+    /// Rows that gained a JSON body from their thread page.
+    pub json_filled: usize,
+    /// Rows still without a JSON body after that page (or the page failed).
+    pub missing: usize,
+}
+
+struct JsonGap {
+    post_id: String,
+    thread_id: String,
+    content: String,
+}
+
+fn in_nicks(nick: &str, want: &HashSet<String>) -> bool {
+    want.is_empty() || want.contains(&nick.trim_start_matches('@').to_lowercase())
+}
+
+/// Replace `post_tags` for `post_id` when this body has JSON or at least one tag.
+/// An empty feed item leaves a previous backfill alone. Returns whether tags were rewritten.
+fn replace_post_tags(c: &Connection, post_id: &str, body_json: &str, content: &str) -> Result<bool> {
+    let tags = extract_tags(body_json, content);
+    if body_json.is_empty() && tags.is_empty() { return Ok(false); }
+    c.execute("DELETE FROM post_tags WHERE post_id = ?1", params![post_id])?;
+    for t in &tags {
+        c.execute("INSERT OR IGNORE INTO post_tags (post_id, tag) VALUES (?1, ?2)", params![post_id, t])?;
+    }
+    Ok(true)
+}
+
+/// `--backfill-tags`: tag what is already stored, then re-read threads whose
+/// `body_json` is still empty. Post text already stored is not replaced.
+/// `nicks` (optional, case-insensitive) limits the rows.
+pub async fn backfill_tags(http: &reqwest::Client, jar: &Jar, db: &Path, nicks: &[String]) -> Result<BackfillStats> {
+    if !db.exists() {
+        info!("backfill-tags: no database yet");
+        return Ok(BackfillStats::default());
+    }
+    let c = Connection::open(db)?;
+    ensure_posts_schema(&c)?;
+    let want: HashSet<String> = nicks.iter().map(|n| n.trim_start_matches('@').to_lowercase()).collect();
+    let mut stats = BackfillStats::default();
+    {
+        let mut st = c.prepare("SELECT post_id, body_json, content, nick FROM posts")?;
+        let rows = st.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?)))?;
+        for row in rows {
+            let (id, json, content, nick) = row?;
+            if !in_nicks(&nick, &want) { continue; }
+            stats.scanned += 1;
+            if replace_post_tags(&c, &id, &json, &content)? { stats.tagged += 1; }
+        }
+    }
+    let mut gaps: Vec<JsonGap> = Vec::new();
+    {
+        let mut st = c.prepare(
+            "SELECT post_id, CASE WHEN parent_post_id = '' THEN post_id ELSE parent_post_id END, content, nick
+             FROM posts WHERE body_json = '' ORDER BY 2, posted_at")?;
+        let rows = st.query_map([], |r| Ok((JsonGap { post_id: r.get(0)?, thread_id: r.get(1)?, content: r.get(2)? }, r.get::<_, String>(3)?)))?;
+        for row in rows {
+            let (g, nick) = row?;
+            if in_nicks(&nick, &want) { gaps.push(g); }
+        }
+    }
+    let mut by_thread: Vec<(String, Vec<JsonGap>)> = Vec::new();
+    for g in gaps {
+        match by_thread.last_mut() {
+            Some((t, v)) if *t == g.thread_id => v.push(g),
+            _ => by_thread.push((g.thread_id.clone(), vec![g])),
+        }
+    }
+    info!("backfill-tags: {} rows, {} threads still without a JSON body", stats.scanned, by_thread.len());
+    for (i, (tid, rows)) in by_thread.iter().enumerate() {
+        if i > 0 { polite_pause().await; }
+        stats.threads += 1;
+        let items = match fetch_thread(http, jar, tid).await {
+            Ok((th, mut r)) => { if let Some(root) = th.get("root") { r.push(root.clone()); } r }
+            Err(e) => { err!("warning: backfill-tags thread {tid}: {e:#}"); stats.missing += rows.len(); continue; }
+        };
+        for row in rows {
+            let Some(item) = items.iter().find(|x| s(x, "id") == row.post_id) else {
+                stats.missing += 1;
+                continue;
+            };
+            let parent = if row.thread_id == row.post_id { "" } else { row.thread_id.as_str() };
+            let fp = to_post(item, parent, "");
+            if fp.body_json.is_empty() { stats.missing += 1; continue; }
+            c.execute("UPDATE posts SET body_json = ?1 WHERE post_id = ?2 AND body_json = ''", params![fp.body_json, row.post_id])?;
+            let text = if fp.content.len() > row.content.len() { fp.content.as_str() } else { row.content.as_str() };
+            replace_post_tags(&c, &row.post_id, &fp.body_json, text)?;
+            stats.json_filled += 1;
+        }
+        if (i + 1) % 25 == 0 { info!("backfill-tags: {}/{} threads", i + 1, by_thread.len()); }
+    }
+    info!("backfill-tags: {} scanned, {} tagged, {} json filled, {} still missing ({} threads)",
+        stats.scanned, stats.tagged, stats.json_filled, stats.missing, stats.threads);
+    Ok(stats)
+}
+
 /// `--site-search`: read the Explore search results and store them.
 pub async fn read_site_search(http: &reqwest::Client, jar: &Jar, query: &str) -> Result<usize> {
     let q = query.trim();

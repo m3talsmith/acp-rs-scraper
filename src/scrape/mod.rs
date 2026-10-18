@@ -33,6 +33,9 @@ pub struct Post {
     /// The body is the feed's shortened preview (`body_truncated: true`),
     /// not the full text; stored as `body_state = 'truncated'`.
     pub truncated: bool,
+    /// Canonical JSON of the ProseMirror `body` object, or `""` when the site
+    /// sent plain text. A later save does not blank a JSON body already stored.
+    pub body_json: String,
 }
 
 /// Whether a site post JSON (or its `post`/`reply` wrapper) only carries a
@@ -188,7 +191,136 @@ pub fn to_post(v: &Value, parent: &str, fallback_nick: &str) -> Post {
         posted_at: s(v, "inserted_at"),
         media: { let mut m = Vec::new(); collect_media(v, &mut m); m },
         truncated: is_truncated(v),
+        body_json: { let j = body_json_of(v); if j.is_empty() { inner.map(body_json_of).unwrap_or_default() } else { j } },
     }
+}
+
+/// Compact JSON of a post's ProseMirror `body`, when that body is an object
+/// (or a string holding one). Plain text and HTML bodies return `""`.
+pub fn body_json_of(v: &Value) -> String {
+    fn canon(b: &Value) -> String {
+        match b {
+            Value::Object(_) => serde_json::to_string(b).unwrap_or_default(),
+            Value::String(raw) => {
+                let t = raw.trim();
+                if t.starts_with('{') && let Ok(j) = serde_json::from_str::<Value>(t) && j.is_object() {
+                    return serde_json::to_string(&j).unwrap_or_default();
+                }
+                String::new()
+            }
+            _ => String::new(),
+        }
+    }
+    v.get("body").map(canon).filter(|s| !s.is_empty()).unwrap_or_default()
+}
+
+/// Tags on a post: TipTap `mention` nodes whose suggestion character or label
+/// is `#…`, then `#word` in the plain text. `#post-…` anchors and `##` headings
+/// are not tags. Order kept, duplicates (ignoring case) dropped.
+pub fn extract_tags(body_json: &str, content: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    let push = |raw: &str, out: &mut Vec<String>, seen: &mut HashSet<String>| {
+        let tag = raw.trim().trim_start_matches('#').trim();
+        if !TAG_NAME.is_match(tag) || tag.to_ascii_lowercase().starts_with("post-") { return; }
+        if seen.insert(tag.to_ascii_lowercase()) { out.push(tag.to_string()); }
+    };
+    if let Ok(v) = serde_json::from_str::<Value>(body_json) { walk_tag_mentions(&v, &mut |t| push(t, &mut out, &mut seen)); }
+    for c in TAG_WORD.captures_iter(content) {
+        if let Some(t) = c.get(1) { push(t.as_str(), &mut out, &mut seen); }
+    }
+    out
+}
+
+fn walk_tag_mentions(v: &Value, push: &mut dyn FnMut(&str)) {
+    match v {
+        Value::Object(m) => {
+            if m.get("type").and_then(Value::as_str) == Some("mention") {
+                let attrs = m.get("attrs");
+                let ch = attrs.and_then(|a| a.get("mentionSuggestionChar")).and_then(Value::as_str).unwrap_or("");
+                let label = attrs.and_then(|a| a.get("label")).and_then(Value::as_str)
+                    .or_else(|| m.get("label").and_then(Value::as_str)).unwrap_or("");
+                if ch == "#" || label.starts_with('#') { push(label); }
+            }
+            if let Some(c) = m.get("content") { walk_tag_mentions(c, push); }
+        }
+        Value::Array(a) => { for x in a { walk_tag_mentions(x, push); } }
+        _ => {}
+    }
+}
+
+static TAG_NAME: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"^[A-Za-z][A-Za-z0-9_-]{0,63}$").expect("tag name")
+});
+static TAG_WORD: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| {
+    regex::Regex::new(r"(?i)(?:^|[^A-Za-z0-9_#])#([A-Za-z][A-Za-z0-9_-]{0,63})").expect("tag word")
+});
+
+/// Turn `#tag` outside code into `[#tag](acp-tag:tag)` so a click opens that tag's feed.
+/// Fenced and inline code, `##` headings and `#post-…` anchors are left as written.
+pub fn link_hashtags(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    let mut fenced = false;
+    for line in text.split_inclusive('\n') {
+        let body = line.trim_end_matches(['\n', '\r']);
+        let nl = &line[body.len()..];
+        let trimmed = body.trim_start();
+        let is_fence = trimmed.starts_with("```") || trimmed.starts_with("~~~");
+        if fenced || is_fence {
+            out.push_str(body);
+            out.push_str(nl);
+            if is_fence { fenced = !fenced; }
+            continue;
+        }
+        out.push_str(&link_hashtags_line(body));
+        out.push_str(nl);
+    }
+    out
+}
+
+fn link_hashtags_line(line: &str) -> String {
+    let spans = inline_code_spans(line);
+    let mut out = String::new();
+    let mut last = 0;
+    for c in TAG_WORD.captures_iter(line) {
+        let Some(name) = c.get(1) else { continue };
+        let hash_at = name.start() - 1;
+        if spans.iter().any(|&(a, b)| hash_at >= a && hash_at < b) { continue; }
+        if name.as_str().to_ascii_lowercase().starts_with("post-") { continue; }
+        out.push_str(&line[last..hash_at]);
+        let tag = name.as_str();
+        out.push_str("[#");
+        out.push_str(tag);
+        out.push_str("](acp-tag:");
+        out.push_str(tag);
+        out.push(')');
+        last = name.end();
+    }
+    out.push_str(&line[last..]);
+    out
+}
+
+/// Byte spans of inline code on one line (an unclosed run runs to the end).
+fn inline_code_spans(line: &str) -> Vec<(usize, usize)> {
+    let b = line.as_bytes();
+    let mut spans = Vec::new();
+    let mut i = 0;
+    while i < b.len() {
+        if b[i] != b'`' { i += 1; continue; }
+        let mut n = 0;
+        while i + n < b.len() && b[i + n] == b'`' { n += 1; }
+        let mut j = i + n;
+        let mut closed = false;
+        while j < b.len() {
+            if b[j] != b'`' { j += 1; continue; }
+            let mut m = 0;
+            while j + m < b.len() && b[j + m] == b'`' { m += 1; }
+            if m == n { spans.push((i, j + m)); i = j + m; closed = true; break; }
+            j += m;
+        }
+        if !closed { spans.push((i, b.len())); break; }
+    }
+    spans
 }
 
 /// Scrape a nick: their feed (root posts + their replies elsewhere) and all

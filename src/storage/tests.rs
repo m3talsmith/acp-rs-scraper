@@ -32,6 +32,38 @@ fn old_posts_table_gains_body_state_unknown() {
 }
 
 #[test]
+fn a_later_empty_body_does_not_wipe_json_or_tags() {
+    let mut c = Connection::open_in_memory().unwrap();
+    let json = r##"{"type":"doc","content":[{"type":"mention","attrs":{"mentionSuggestionChar":"#","label":"#Strike"}}]}"##;
+    let p = Post {
+        post_id: "T1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(),
+        nick: "a".into(), title: "t".into(), content: "see #Strike".into(), posted_at: "1".into(),
+        media: Vec::new(), truncated: false, body_json: json.into(),
+    };
+    crate::storage::db::save_posts(&mut c, &[p.clone()]).unwrap();
+    let stored: String = c.query_row("SELECT body_json FROM posts WHERE post_id='T1'", [], |r| r.get(0)).unwrap();
+    assert_eq!(stored, json);
+    let tags_of = |c: &Connection| {
+        let mut st = c.prepare("SELECT tag FROM post_tags WHERE post_id='T1' ORDER BY tag").unwrap();
+        st.query_map([], |r| r.get::<_, String>(0)).unwrap().map(|r| r.unwrap()).collect::<Vec<_>>()
+    };
+    assert_eq!(tags_of(&c), ["Strike"]);
+    let mut blank = p.clone();
+    blank.body_json.clear();
+    blank.content = "no hash".into();
+    crate::storage::db::save_posts(&mut c, &[blank]).unwrap();
+    let stored: String = c.query_row("SELECT body_json FROM posts WHERE post_id='T1'", [], |r| r.get(0)).unwrap();
+    assert_eq!(stored, json);
+    assert_eq!(tags_of(&c), ["Strike"]);
+    let other = r##"{"type":"doc","content":[{"type":"mention","attrs":{"mentionSuggestionChar":"#","label":"#Other"}}]}"##;
+    let mut next = p;
+    next.body_json = other.into();
+    next.content = "plain".into();
+    crate::storage::db::save_posts(&mut c, &[next]).unwrap();
+    assert_eq!(tags_of(&c), ["Other"]);
+}
+
+#[test]
 fn posts_by_ids_keeps_the_order_and_reports_missing_ones() {
     let db = std::env::temp_dir().join(format!("acp-ids-{}.db", std::process::id()));
     let _ = std::fs::remove_file(&db);

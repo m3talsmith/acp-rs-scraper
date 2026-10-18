@@ -109,3 +109,12 @@ fn explore_and_site_search_urls() {
     assert_eq!(search_key("  strike "), "search:strike");
     assert_eq!(search_title("strike"), "Site search · strike");
 }
+
+#[test]
+fn tag_urls_fold_case_in_the_key_and_keep_the_spelling_in_the_title() {
+    assert_eq!(tag_name(" #Strike "), "Strike");
+    assert_eq!(feed_tag_url("#Strike"), format!("{}/rs/tag/Strike", base_url()));
+    assert_eq!(tag_key("#Strike"), "tag:strike");
+    assert_eq!(tag_key("strike"), tag_key("#STRIKE"));
+    assert_eq!(tag_title("#Strike"), "#Strike");
+}

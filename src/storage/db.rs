@@ -131,30 +131,47 @@ pub fn print_nicks_table(infos: &[NickInfo]) {
 pub fn save(posts: &[Post]) -> Result<usize> {
     let path = home()?.join(DB_REL_PATH);
     let mut db = open_db(&path)?;
-    ensure_posts_schema(&db)?;
+    let n = save_posts(&mut db, posts)?;
+    info!("DB: {}", path.display());
+    Ok(n)
+}
+
+/// Insert `posts` into an open database. Same rules as [`save`]: a blank
+/// `body_json` does not erase one already stored, and tags are replaced only
+/// when this write carries a JSON body or at least one tag.
+pub fn save_posts(db: &mut Connection, posts: &[Post]) -> Result<usize> {
+    ensure_posts_schema(db)?;
     let tx = db.transaction()?;
     let mut n = 0;
     {
         let mut st = tx.prepare(
-            "INSERT INTO posts (post_id,parent_post_id,in_reply_to_id,nick,title,content,posted_at,body_state)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
+            "INSERT INTO posts (post_id,parent_post_id,in_reply_to_id,nick,title,content,posted_at,body_state,body_json)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)
              ON CONFLICT(post_id) DO UPDATE SET
                title = CASE WHEN (posts.content = '' AND posts.title = '') OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND excluded.title <> '') THEN excluded.title ELSE posts.title END,
                content = CASE WHEN (posts.content = '' AND posts.title = '') OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND excluded.content <> '') THEN excluded.content ELSE posts.content END,
                body_state = CASE WHEN excluded.body_state = 'full' AND (excluded.content <> '' OR posts.content = '') THEN 'full' ELSE posts.body_state END,
+               body_json = CASE WHEN excluded.body_json <> '' THEN excluded.body_json ELSE posts.body_json END,
                in_reply_to_id = CASE WHEN excluded.in_reply_to_id <> '' AND excluded.in_reply_to_id <> excluded.parent_post_id
                                 THEN excluded.in_reply_to_id ELSE posts.in_reply_to_id END
              WHERE (posts.content = '' AND posts.title = '' AND (excluded.content <> '' OR excluded.title <> ''))
                 OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND (excluded.content <> '' OR posts.content = ''))
+                OR (excluded.body_json <> '' AND excluded.body_json <> posts.body_json)
                 OR (excluded.in_reply_to_id <> '' AND excluded.in_reply_to_id <> excluded.parent_post_id
                     AND excluded.in_reply_to_id <> posts.in_reply_to_id)")?;
+        let mut clear_tags = tx.prepare("DELETE FROM post_tags WHERE post_id = ?1")?;
+        let mut ins_tag = tx.prepare("INSERT OR IGNORE INTO post_tags (post_id, tag) VALUES (?1, ?2)")?;
         for p in posts {
             let state = if p.truncated { "truncated" } else { "full" };
-            n += st.execute(params![p.post_id, p.parent_post_id, p.in_reply_to_id, p.nick, p.title, p.content, p.posted_at, state])?;
+            n += st.execute(params![p.post_id, p.parent_post_id, p.in_reply_to_id, p.nick, p.title, p.content, p.posted_at, state, p.body_json])?;
+            let tags = extract_tags(&p.body_json, &p.content);
+            if !p.body_json.is_empty() || !tags.is_empty() {
+                clear_tags.execute(params![p.post_id])?;
+                for t in &tags { ins_tag.execute(params![p.post_id, t])?; }
+            }
         }
     }
     tx.commit()?;
-    info!("DB: {}", path.display());
     Ok(n)
 }
 
@@ -170,7 +187,12 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
         "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'body_state'", [],
         |r| r.get::<_, i64>(0))? > 0;
     if !has_state { c.execute_batch(POSTS_ADD_BODY_STATE)?; }
+    let has_json: bool = c.query_row(
+        "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'body_json'", [],
+        |r| r.get::<_, i64>(0))? > 0;
+    if !has_json { c.execute_batch(POSTS_ADD_BODY_JSON)?; }
     c.execute_batch(POSTS_MIGRATIONS)?;
+    c.execute_batch(POST_TAGS_SCHEMA)?;
     Ok(())
 }
 
@@ -292,11 +314,11 @@ pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Ve
     let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
     ensure_posts_schema(&c)?;
     let like = query.map(|q| format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")));
-    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state";
+    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state,body_json";
     let row = |r: &rusqlite::Row| -> rusqlite::Result<Post> {
         Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
                   content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new(),
-                  truncated: r.get::<_, String>(7)? == "truncated" })
+                  truncated: r.get::<_, String>(7)? == "truncated", body_json: r.get(8)? })
     };
     let mut st = c.prepare(&format!(
         "SELECT {cols} FROM posts WHERE (?1 IS NULL OR title LIKE ?1 ESCAPE '\\' OR content LIKE ?1 ESCAPE '\\')
@@ -351,14 +373,14 @@ fn attachments_for(c: &Connection, out: &[Post]) -> Result<Vec<Attachment>> {
 pub fn posts_by_ids(db: &Path, ids: &[String]) -> Result<(Vec<Post>, Vec<Attachment>, Vec<String>)> {
     let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
     ensure_posts_schema(&c)?;
-    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state";
+    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state,body_json";
     let mut by_id = c.prepare(&format!("SELECT {cols} FROM posts WHERE post_id = ?1"))?;
     let (mut out, mut missing, mut seen) = (Vec::new(), Vec::new(), HashSet::new());
     for id in ids {
         if !seen.insert(id.clone()) { continue; }
         let p = by_id.query_row(params![id], |r| Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
             content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new(),
-            truncated: r.get::<_, String>(7)? == "truncated" })).optional()?;
+            truncated: r.get::<_, String>(7)? == "truncated", body_json: r.get(8)? })).optional()?;
         match p { Some(p) => out.push(p), None => missing.push(id.clone()) }
     }
     let atts = attachments_for(&c, &out)?;

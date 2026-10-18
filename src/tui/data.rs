@@ -135,7 +135,7 @@ const COLS: &str = "post_id,parent_post_id,nick,title,content,posted_at,in_reply
 fn row(r: &rusqlite::Row) -> rusqlite::Result<Post> {
     Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
         content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new(),
-        truncated: r.get::<_, String>(7)? == "truncated" })
+        truncated: r.get::<_, String>(7)? == "truncated", body_json: r.get(8)? })
 }
 
 /// The real database, opened read-only. A missing database reads as empty.
@@ -161,6 +161,7 @@ impl SqliteStore {
         let mut s = COLS.to_string();
         if !Self::has_col(c, "in_reply_to_id") { s = s.replace("in_reply_to_id", "parent_post_id"); }
         if !Self::has_col(c, "body_state") { s = s.replace("body_state", "'unknown'"); }
+        if Self::has_col(c, "body_json") { s.push_str(",body_json"); } else { s.push_str(",''"); }
         s
     }
     fn query(&self, where_: &str, order: &str, p: &[&dyn rusqlite::ToSql]) -> Result<Vec<Post>> {

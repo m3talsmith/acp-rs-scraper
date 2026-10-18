@@ -39,6 +39,8 @@ pub enum LinkKind {
     Reply,
     /// A stored attachment file (`id` is its local path); opens with the desktop's opener.
     Attachment,
+    /// A `#tag` (`id` is the name without `#`). Opens that tag's feed.
+    Tag,
 }
 
 /// One cross-link inside a detail.
@@ -604,6 +606,13 @@ impl App {
             Err(e) => self.error("Explore", &e),
         }
     }
+    /// A `#tag` in a post: the saved tag feed, then a refresh from `/rs/tag/{tag}`.
+    pub fn open_tag(&mut self, tag: &str) {
+        match self.menu.menu.tag_argv(tag) {
+            Ok(argv) => self.open_site_read(&tag_key(tag), argv),
+            Err(e) => self.error("Tag", &e),
+        }
+    }
     /// Search modal › Where: Site. Other fields stay local and are named in the status line.
     pub fn open_site_search(&mut self, s: &crate::tui::modals::SearchModal) {
         let q = s.fields[0].value.trim();
@@ -924,6 +933,9 @@ impl App {
         for a in &attachments {
             links.push(Link { kind: LinkKind::Attachment, id: a.local_path.display().to_string(), target: None });
         }
+        for tag in extract_tags(&post.body_json, &post.content) {
+            links.push(Link { kind: LinkKind::Tag, id: tag, target: None });
+        }
         DetailFrame { attachments, post, links,
             link_cursor: 0, scroll: 0, follow_link: false, notice: None }
     }
@@ -947,6 +959,11 @@ impl App {
         let depth = self.view().stack.len();
         let Some(link) = self.top().and_then(|f| f.links.get(i)).cloned() else { return };
         if let Some(f) = self.top_mut() { f.link_cursor = i; }
+        if link.kind == LinkKind::Tag {
+            let tag = link.id.clone();
+            self.open_tag(&tag);
+            return;
+        }
         if link.kind == LinkKind::Attachment {
             let p = PathBuf::from(&link.id);
             if p.exists() { self.push_status(format!("opening {}", p.display())); self.effects.push(Effect::OpenFile(p)); }
@@ -1382,5 +1399,5 @@ pub fn research_post(it: &ResearchItem) -> Post {
     let nick = match it.kind { ItemKind::WebUrl => "web", ItemKind::LocalFile => "file", _ => "missing post" };
     let content = if it.kind.is_post() { format!("{} is not in the database any more.\n\n{body}", it.r#ref) } else { body };
     Post { post_id: format!("research:{}", it.id), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(),
-        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false }
+        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false, body_json: String::new() }
 }

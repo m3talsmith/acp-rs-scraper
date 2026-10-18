@@ -140,3 +140,29 @@ fn site_search_uses_the_keyword_and_says_when_other_fields_stay_local() {
     let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
     assert_eq!(argv[1..], ["--site-search", "strike"]);
 }
+
+#[test]
+fn clicking_a_hashtag_opens_its_tag_feed() {
+    use crate::tui::input::on_mouse;
+    use crate::tui::state::{Hit, LinkKind};
+    use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::{Terminal, backend::TestBackend};
+    let mut a = app();
+    a.select_only(nick_idx(&a, "alice"));
+    let i = a.view().posts.iter().position(|p| p.post_id == "ALICE0001").unwrap();
+    a.view_mut().posts[i].content = "Join the #strike today. ## Notes and #post-abc stay put.".into();
+    a.open_post(i);
+    let k = a.top().unwrap().links.iter().position(|l| l.kind == LinkKind::Tag && l.id == "strike").expect("tag link");
+    assert_eq!(a.top().unwrap().links.iter().filter(|l| l.kind == LinkKind::Tag).count(), 1);
+    let mut t = Terminal::new(TestBackend::new(120, 40)).unwrap();
+    let now = std::time::Instant::now() + std::time::Duration::from_secs(5);
+    t.draw(|f| crate::tui::widgets::draw(f, &mut a, now)).unwrap();
+    let (r, _) = *a.hits.iter().rev().find(|(r, h)| *h == Hit::Link(k) && r.width < 16).unwrap_or_else(|| {
+        let hits: Vec<_> = a.hits.iter().map(|(r, h)| (r.x, r.y, r.width, format!("{h:?}"))).collect();
+        panic!("no word hit; hits={hits:?}");
+    });
+    on_mouse(&mut a, MouseEvent { kind: MouseEventKind::Down(MouseButton::Left), column: r.x, row: r.y, modifiers: KeyModifiers::NONE });
+    assert_eq!(a.pending_feed.as_deref(), Some("tag:strike"));
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--tag", "strike"]);
+}

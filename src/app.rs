@@ -315,6 +315,18 @@ pub async fn run() -> Result<()> {
         info!("== site search {q:?}: {n} posts");
         return Ok(());
     }
+    if let Some(tag) = &args.tag {
+        let n = read_tag(&http, &jar, tag).await?;
+        info!("== tag {}: {n} posts", tag_title(tag));
+        return Ok(());
+    }
+    if args.backfill_tags {
+        let nicks = args.nick_list()?;
+        let st = backfill_tags(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;
+        info!("== backfill-tags: {} scanned, {} tagged, {} json filled, {} still missing ({} threads)",
+            st.scanned, st.tagged, st.json_filled, st.missing, st.threads);
+        return Ok(());
+    }
     let mut nicks = args.nick_list()?;
     if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
         let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;

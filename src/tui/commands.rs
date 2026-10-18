@@ -550,6 +550,15 @@ impl Menu {
         validate(v)
     }
 
+    /// argv for a tag feed (`--tag`).
+    pub fn tag_argv(&self, tag: &str) -> std::result::Result<Vec<String>, String> {
+        let t = tag.trim().trim_start_matches('#').trim();
+        if t.is_empty() { return Err("a tag needs a name".into()); }
+        let mut v = vec![ARGV0.to_string(), "--tag".into(), t.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
     /// argv for a site search (Search modal › Where: Site).
     pub fn site_search_argv(&self, query: &str) -> std::result::Result<Vec<String>, String> {
         let q = query.trim();

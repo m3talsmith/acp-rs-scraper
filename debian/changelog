@@ -1,3 +1,9 @@
+acp-rs-scraper (2.21.0) unstable; urgency=medium
+
+  * Tag feeds (/rs/tag/TAG): --tag, clickable #tags, body_json and post_tags, --backfill-tags.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 19:30:00 +0000
+
 acp-rs-scraper (2.20.0) unstable; urgency=medium
 
   * Explore (/rs/explore and /rs/explore/latest) and site search (--site-search, Search modal Where: Site).

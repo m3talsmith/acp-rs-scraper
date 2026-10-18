@@ -143,7 +143,7 @@ fn post_titles_are_one_short_line() {
 
 fn post(nick: &str, title: &str, content: &str) -> Post {
     Post { post_id: "A1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(), title: title.into(),
-        content: content.into(), posted_at: String::new(), media: Vec::new(), truncated: false }
+        content: content.into(), posted_at: String::new(), media: Vec::new(), truncated: false, body_json: String::new() }
 }
 
 fn sample() -> (ResearchProject, Vec<ResearchItem>) {
