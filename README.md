@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.13.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.14.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -51,6 +51,9 @@ Interface:
 
       --list-themes
           List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit
+
+      --theme-init [<NAME>]
+          Download a theme from the acp-rs-scraper repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), or all. Never replaces an existing file
 
 Scraping:
       --scrape
@@ -217,6 +220,7 @@ Examples:
   acp-rs-scraper --tui --nicks @hazaldin -v
   acp-rs-scraper --theme default      # terminal UI with this theme
   acp-rs-scraper --list-themes
+  acp-rs-scraper --theme-init all     # download every theme in the repo into ~/.acp/themes
   acp-rs-scraper --scrape             # headless scrape; asks for nicks
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
@@ -254,7 +258,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.13.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.14.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -405,7 +409,7 @@ headless scrape is now `--scrape`.
   built into the binary. `F5` (or the `‹name› ▾` switch in the header) opens a picker that previews
   each theme as you move over it (`Enter` keeps it, `Esc` goes back) and ends in **Edit themes…**.
   `Shift-F5` opens the **theme editor** full screen. The command palette has *Theme: use / list /
-  edit / reload / export*. See [Themes](#themes) below.
+  edit / reload / export / init*. See [Themes](#themes) below.
 
 Keys: `?`/`F1` help (the full `--help` plus every key), `Tab` cycles Nicks → Body → Menu,
 `↑↓`/`jk`, `PgUp`/`PgDn`, `Home`/`End`, `Ctrl-R` re-reads nicks, `q` or `Ctrl-C` quits.
@@ -415,11 +419,23 @@ headless flags to use.
 ## Themes
 
 Themes are TOML files in `~/.acp/themes/`, one per theme (names: lowercase letters, digits, `-`
-and `_`, up to 32). The packages install the shipped themes in `/usr/share/acp-rs-scraper/themes/`
-and the first run copies them into `~/.acp/themes/` when that directory is empty. `default` is
-the classic look: ACP red `#dc2626` on your terminal's own colours.
+and `_`, up to 32). That folder is the only place themes are read from: packages don't install
+any and none is built into the binary. On the first run, when `~/.acp/themes/` is empty, the TUI
+downloads `default.toml` from the repo in the background
+(`https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`;
+3 s timeout, 64 KiB at most, no cookies sent), checks that it is a valid theme, saves it
+(never replacing a file) and switches to it as soon as it arrives, unless you picked another
+theme meanwhile. Until then, and if the download fails (offline), the TUI uses your terminal's
+own colours and a notice says how to fix it. `--list-themes` and `--theme` do the same first-run
+download before they answer. `default` is the classic look: ACP red `#dc2626` on your terminal's
+own colours.
 
-Shipped themes (each has a dark and a light variant, text contrast at least 3:1):
+- `acp-rs-scraper --theme-init [NAME|all]` (or *Theme: init* in the command palette, for the
+  default) downloads a theme by hand; an existing file is kept.
+- `ACP_THEME_DOWNLOAD=off` or `[ui] theme_download = false` turns the automatic download off.
+
+Themes in the repo's `themes/` (each has a dark and a light variant, text contrast at least 3:1);
+get them with `--theme-init NAME` or `--theme-init all`:
 
 | Theme | Look |
 |---|---|
@@ -431,8 +447,6 @@ Shipped themes (each has a dark and a light variant, text contrast at least 3:1)
 | `chinese-poster` | Chinese propaganda poster: vermilion and golden yellow |
 | `plattenbau` | East German Plattenbau: concrete greys with a red accent |
 
-The first run copies them only into an empty `~/.acp/themes`; to add themes shipped by a newer
-version, copy them from `/usr/share/acp-rs-scraper/themes/` (existing files are yours to keep).
 
 ```toml
 version = 1

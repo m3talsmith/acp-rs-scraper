@@ -153,8 +153,25 @@ pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "ena
 
 /// Theme files (`<name>.toml`), under `$HOME`. Every theme, the default included, lives here.
 pub const THEMES_REL_DIR: &str = ".acp/themes";
-/// Where packages install the shipped themes (copied to [`THEMES_REL_DIR`] on first run).
-pub const THEMES_SYSTEM_DIR: &str = "/usr/share/acp-rs-scraper/themes";
+/// Where themes are downloaded from: the repo's `themes/` at this version's tag
+/// (`<base><name>.toml`). Themes are never installed by packages or built into the binary.
+pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/");
+/// The default theme's download URL (fetched on the first run into an empty themes folder).
+pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
+/// Overrides [`THEME_DOWNLOAD_BASE`] (a URL ending in `/`), e.g. the mocked tests' server.
+pub const THEME_URL_ENV: &str = "ACP_THEME_URL";
+/// `off` / `0` / `false` / `no` turns the automatic first-run theme download off.
+pub const THEME_DOWNLOAD_ENV: &str = "ACP_THEME_DOWNLOAD";
+/// How long a theme download may take.
+pub const THEME_DOWNLOAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+/// Themes in the repo's `themes/` that `--theme-init` and the palette offer by name.
+pub const SHIPPED_THEMES: &[&str] = &["default", "soviet", "constructivist", "cuba", "red-star", "chinese-poster", "plattenbau"];
+
+/// Download URL of theme `name`: [`THEME_URL_ENV`] (or [`THEME_DOWNLOAD_BASE`]) + `name.toml`.
+pub fn theme_download_url(name: &str) -> String {
+    let base = std::env::var(THEME_URL_ENV).ok().filter(|b| !b.trim().is_empty()).unwrap_or_else(|| THEME_DOWNLOAD_BASE.into());
+    format!("{}{}{name}.toml", base.trim_end(), if base.trim_end().ends_with('/') { "" } else { "/" })
+}
 /// The theme used when `[ui] theme` is not set.
 pub const DEFAULT_THEME: &str = "default";
 /// Theme file format written by this build (files with a newer `version` are refused).

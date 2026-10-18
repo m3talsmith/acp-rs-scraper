@@ -37,6 +37,7 @@ enum Msg {
     LoginNeedCode(u64),
     LoginDone(u64, std::result::Result<(), String>),
     AutoSyncChecked(std::result::Result<bool, String>, Vec<String>),
+    ThemeDownloaded(String, bool, std::result::Result<crate::themes::download::Fetched, String>),
 }
 
 struct Terminal(ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>);
@@ -77,10 +78,12 @@ pub async fn run(args: Args) -> Result<()> {
     Ok(())
 }
 
-/// Theme files at startup: install the shipped ones into an empty `~/.acp/themes`,
-/// convert an old `[theme]` table once, then select `--theme`, `[ui] theme` or the default.
+/// Theme files at startup: convert an old `[theme]` table once, select `--theme`,
+/// `[ui] theme` or the default, and on a first run (empty `~/.acp/themes`) start the
+/// background download of the default theme (unless it is turned off).
 fn setup_themes(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
     let dir = crate::themes::themes_dir()?;
+    let first = !crate::themes::has_themes(&dir);
     let (migrated, notes) = crate::themes::prepare(&dir, prefs);
     for n in &notes { app.push_status(n.clone()); }
     if let Some(m) = &migrated {
@@ -89,11 +92,22 @@ fn setup_themes(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
             app.modal = Some(modals::Modal::Message(modals::MessageModal::info("Theme converted", n)));
         }
     }
-    app.themes_dir = Some(dir);
+    app.themes_dir = Some(dir.clone());
     app.theme_mode = crate::themes::Mode::parse(prefs.ui.as_ref().and_then(|u| u.theme_mode.as_deref()));
     app.dark_bg = crate::themes::colorfgbg_dark(std::env::var("COLORFGBG").ok().as_deref());
     let name = args.theme.clone().or(migrated).or_else(|| prefs.ui.as_ref().and_then(|u| u.theme.clone())).unwrap_or_else(|| DEFAULT_THEME.into());
-    app.use_theme(&name, false);
+    let download = first && !dir.join(format!("{DEFAULT_THEME}.toml")).exists();
+    let enabled = crate::themes::download::auto_enabled_now(prefs);
+    let before = app.modal.take();
+    let ok = app.use_theme(&name, false);
+    if download && enabled {
+        // Not an error yet: the default is on its way (drawn with the terminal's colours until then).
+        if !ok { app.modal = before; }
+        app.start_theme_download(DEFAULT_THEME, false);
+    } else {
+        if ok { app.modal = before; }
+        if download { app.push_status(format!("warning: {}", crate::themes::download::off_notice(&dir))); }
+    }
     Ok(())
 }
 
@@ -169,6 +183,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 Msg::LoginNeedCode(g) if g == login_gen => app.login_need_code(),
                 Msg::LoginDone(g, r) if g == login_gen => { code_tx = None; login_task = None; app.login_done(r); }
                 Msg::AutoSyncChecked(r, argv) => app.auto_sync_checked(r, argv),
+                Msg::ThemeDownloaded(name, manual, r) => app.theme_downloaded(&name, manual, r),
                 Msg::LoginNeedCode(_) | Msg::LoginDone(..) => {}
             },
             _ = tokio::time::sleep(wait) => {}
@@ -228,6 +243,14 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Ok(p) => app.modal = Some(modals::Modal::Message(modals::MessageModal::info("Theme exported", &format!("Wrote {}", p.display())))),
                     Err(e) => app.error("Cannot export the theme", &format!("{e:#}")),
                 },
+                Effect::DownloadTheme(name, manual) => {
+                    let Some(dir) = app.themes_dir.clone() else { continue };
+                    let tx = msg_tx.clone();
+                    tokio::spawn(async move {
+                        let r = crate::themes::download::download(&dir, &name).await.map_err(|e| format!("{e:#}"));
+                        let _ = tx.send(Msg::ThemeDownloaded(name, manual, r));
+                    });
+                }
                 Effect::RunSideJob(kind, argv) => match jobs::Job::spawn(kind, &argv) {
                     Ok(j) => side.push(j),
                     Err(e) => app.error("Cannot start", &format!("{e:#}")),

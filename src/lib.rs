@@ -19,7 +19,7 @@
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`bookmarks`]: local bookmarks and `--sync-bookmarks` with the site.
 //! - [`maintenance`]: `--remove-nick` and `--clear-all`.
-//! - [`themes`]: theme files in `~/.acp/themes` (format, loading, first-run install, migration).
+//! - [`themes`]: theme files in `~/.acp/themes` (format, loading, first-run download, migration).
 //! - [`tui`]: the terminal UI (the default with no flags): browse nicks and posts,
 //!   drive scrape/search/export/import/maintenance from a menu bar.
 //! - [`app`]: wires the above into the command-line program.

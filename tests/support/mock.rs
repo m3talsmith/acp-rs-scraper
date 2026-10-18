@@ -50,6 +50,12 @@ pub struct Inner {
     pub site_bookmarks: Vec<String>,
     /// `toggle-bookmark` events received.
     pub bookmark_toggles: usize,
+    /// How `/themes/default.toml` answers: "ok" (the repo file), "big", "bad", "slow", "missing".
+    pub theme_mode: String,
+    /// `/themes/...` requests received.
+    pub theme_gets: usize,
+    /// Cookie headers sent with `/themes/...` requests (there must be none).
+    pub theme_cookies: Vec<String>,
 }
 
 /// Shared mock state.
@@ -227,6 +233,32 @@ async fn media(Path(name): Path<String>) -> Response {
     ([(header::CONTENT_TYPE, "image/png")], PNG).into_response()
 }
 
+/// The repo's `themes/` as raw.githubusercontent.com would serve it (`theme_mode`
+/// changes how `default.toml` answers).
+async fn theme_file(State(m): State<Mock>, headers: HeaderMap, Path(file): Path<String>) -> Response {
+    let mode = {
+        let mut i = m.inner.lock().unwrap();
+        i.theme_gets += 1;
+        if let Some(c) = headers.get(header::COOKIE).and_then(|v| v.to_str().ok()) { i.theme_cookies.push(c.to_string()); }
+        i.theme_mode.clone()
+    };
+    let plain = |s: String| ([(header::CONTENT_TYPE, "text/plain; charset=utf-8")], s).into_response();
+    let repo = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("themes").join(&file);
+    if file == "default.toml" {
+        match mode.as_str() {
+            "big" => return plain(format!("version = 1\n#{}\n", "x".repeat(70 * 1024))),
+            "bad" => return plain("version = [oops".into()),
+            "missing" => return (StatusCode::NOT_FOUND, "404: Not Found").into_response(),
+            "slow" => tokio::time::sleep(std::time::Duration::from_secs(5)).await,
+            _ => {}
+        }
+    }
+    match std::fs::read_to_string(&repo) {
+        Ok(s) if !file.contains('/') => plain(s),
+        _ => (StatusCode::NOT_FOUND, "404: Not Found").into_response(),
+    }
+}
+
 /// A third-party article for research `--url` tests.
 async fn web_article(State(m): State<Mock>, headers: axum::http::HeaderMap) -> Response {
     if let Some(c) = headers.get(header::COOKIE).and_then(|v| v.to_str().ok()) { m.inner.lock().unwrap().web_cookies.push(c.to_string()); }
@@ -314,6 +346,7 @@ impl Mock {
             .route("/media/{name}", get(media))
             .route("/live/websocket", get(live))
             .route("/web/article", get(web_article))
+            .route("/themes/{file}", get(theme_file))
             .with_state(m.clone());
         tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
         m

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["check_theme","run","run_bookmarks","run_clear_all","run_list_themes","run_remove_nick"]};
+window.SIDEBAR_ITEMS = {"fn":["check_theme","first_run_download","run","run_bookmarks","run_clear_all","run_list_themes","run_remove_nick","run_theme_init"]};

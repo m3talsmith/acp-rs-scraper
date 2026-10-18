@@ -1,6 +1,7 @@
 //! Theme files inside the TUI: selecting, previewing, reloading and exporting
 //! themes, and the picker behind F5 and the header's `‹theme› ▾` switch.
 
+use crate::config::DEFAULT_THEME;
 use crate::themes::{self, Variant};
 use crate::tui::modals::*;
 use crate::tui::state::{App, Effect};
@@ -116,6 +117,45 @@ impl App {
         match self.theme_file.clone() {
             Some(f) => self.effects.push(Effect::ExportTheme(f)),
             None => self.error("Export theme", self.theme_error.clone().as_deref().unwrap_or("no theme loaded")),
+        }
+    }
+
+    /// Theme: init: download the default theme (an existing file is kept).
+    pub fn init_theme(&mut self) {
+        if self.themes_dir.is_none() { return self.error("Theme: init", "no themes folder"); }
+        if self.theme_downloading.is_some() { return self.push_status("a theme download is already running"); }
+        self.start_theme_download(DEFAULT_THEME, true);
+    }
+
+    /// Download `name` in the background; the result arrives in [`App::theme_downloaded`].
+    pub fn start_theme_download(&mut self, name: &str, manual: bool) {
+        self.theme_downloading = Some(name.to_string());
+        self.push_status(format!("downloading the {name} theme from {}…", crate::config::theme_download_url(name)));
+        self.effects.push(Effect::DownloadTheme(name.to_string(), manual));
+    }
+
+    /// A background download finished. On success the theme is applied when it is still
+    /// the selected one and could not be loaded (the user hasn't picked another);
+    /// on failure the terminal's colours stay and a notice says how to fix it.
+    pub fn theme_downloaded(&mut self, name: &str, manual: bool, r: Result<themes::download::Fetched, String>) {
+        self.theme_downloading = None;
+        let Some(dir) = self.themes_dir.clone() else { return };
+        let waiting = self.theme_name == name && self.theme_error.is_some();
+        match r {
+            Ok(f) => {
+                let mut n = themes::download::done_notice(name, &f);
+                if waiting && self.theme_editor.is_none() && self.use_theme(name, false) { n.push_str(" and applied it"); }
+                self.push_status(n.clone());
+                if manual && self.modal.is_none() { self.modal = Some(Modal::Message(MessageModal::info("Theme", &n))); }
+            }
+            Err(e) => {
+                let n = themes::download::failure_notice(&dir, name, &e);
+                if waiting { self.theme_error = Some(n.clone()); }
+                self.push_status(format!("warning: {n}"));
+                if (manual || waiting) && self.modal.is_none() && self.theme_editor.is_none() {
+                    self.modal = Some(Modal::Message(MessageModal::error("Theme", &n)));
+                }
+            }
         }
     }
 }

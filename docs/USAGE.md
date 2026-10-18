@@ -139,15 +139,29 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 
 - **Where.** `~/.acp/themes/<name>.toml`. Names are lowercase letters, digits, `-` and `_`, at
-  most 32 characters; anything else (such as `../x`) is refused. On the first run, if that
-  directory is empty, the shipped themes are copied there from the first of
-  `/usr/share/acp-rs-scraper/themes/`, `themes/` next to the binary, `../share/acp-rs-scraper/themes/`
-  next to the binary, or the source tree's `themes/`.
-- **Shipped themes.** `default` (ACP red on the terminal's colours), `soviet` (red and gold),
+  most 32 characters; anything else (such as `../x`) is refused. This folder (under `$HOME`) is
+  the only place themes are read from: no system folder, nothing next to the binary, nothing
+  installed by the packages, nothing built in.
+- **First run: downloading the default.** When `~/.acp/themes` is empty the TUI starts at once with
+  the terminal's colours and downloads `default.toml` in the background from
+  `https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`
+  (`ACP_THEME_URL` replaces everything before `default.toml`, for tests). The download uses the
+  program's HTTP client with an empty cookie jar (no cookies), gives up after 3 seconds, refuses
+  more than 64 KiB, must parse as a theme file, and is written atomically with mode 0600, never
+  over an existing file. When it arrives it is applied live if `default` is still the theme you
+  want (you haven't picked another). If it fails (offline, timeout, too big, not a theme) the
+  terminal's colours stay and a notice names the problem and the fix. `--list-themes` and
+  `--theme` do the same download (and wait for it) on a first run.
+- **Turning it off.** `ACP_THEME_DOWNLOAD=off` (also `0`, `false`, `no`) or `[ui] theme_download =
+  false` in `preferences.toml`. Downloads you ask for still work.
+- **`--theme-init [NAME|all]`.** Download a theme (default `default`) or every theme in the repo's
+  `themes/` into `~/.acp/themes`, keeping files that are already there; exits non-zero if a
+  download fails. *Theme: init* in the command palette downloads the default.
+- **Themes in the repo.** `default` (ACP red on the terminal's colours), `soviet` (red and gold),
   `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (deep
   crimson), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
-  accent); each has dark and light variants with text contrast of at least 3:1. Only an empty
-  `~/.acp/themes` gets them automatically; copy newer ones by hand.
+  accent); each has dark and light variants with text contrast of at least 3:1. Only `default`
+  is downloaded automatically; get the rest with `--theme-init NAME` or `--theme-init all`.
 - **Choosing.** `[ui] theme = "name"` (written by the picker), `[ui] theme_mode = "dark" | "light"
   | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
   (`OSC 11`), else dark. `--theme NAME` overrides for one run; `--list-themes`
@@ -198,13 +212,14 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   ANSI colours, the 216-colour cube, the 24 greys and the palette `@refs`.
 - **When something is wrong.** A missing, unreadable or broken file never stops the UI: the
   layout stays and uses the terminal's own colours, and a notice names the file, the problem and
-  how to fix it (fix the file, pick another theme with `F5`, or move it away and restart to get
-  a shipped theme back). Broken files are never rewritten automatically; opening one in the editor
+  how to fix it (fix the file, pick another theme with `F5`, or move it away and run
+  `--theme-init` to download the default again). Broken files are never rewritten automatically; opening one in the editor
   starts a fresh theme of that name, saved only when you press `Ctrl-S`. All writes are atomic
   (temporary file, fsync, rename) with mode 0600.
 - **Migration from `[theme]`.** Up to 2.11 colours lived in `[theme]` (`accent`, `muted`, `border`,
   `on_accent`). On the first 2.12 run they are converted into `~/.acp/themes/custom.toml`
-  (`custom-2` and so on if taken), on top of the default, and `[ui] theme = "custom"` is set; a
+  (`custom-2` and so on if taken), on top of the default theme file when there is one (otherwise
+  only the old colours are set), and `[ui] theme = "custom"` is set; a
   notice says so. The `[theme]` keys are left untouched but are no longer read.
 - **Export.** *Theme: export* in the command palette writes the current theme to
   `~/.acp/ai/data/exports/themes/<name>-<time>.toml`.
@@ -252,6 +267,7 @@ These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`
 | `--tui` | Open the terminal UI even with other flags; `--nick`/`--nicks` pre-select those nicks, logging flags pre-tick the Debug menu. |
 | `--scrape` | Headless scrape without other scraping flags; asks for nicks when none are given (what a bare run did before 2.0). |
 | `--theme NAME` | Use the theme `~/.acp/themes/NAME.toml` for this run (not saved). Fails if it is missing or broken. |
+| `--theme-init [NAME\|all]` | Download a theme (default `default`) or all the repo's themes into `~/.acp/themes` and exit; existing files are kept. |
 | `--list-themes` | List the theme files (`●` marks the one in use, broken ones say why) and exit. |
 
 ### Mode
@@ -652,10 +668,11 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
-colours, elements, contrast; `themes/mod.rs`: files, install, migration, background detection)
+colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;
+`themes/download.rs`: fetching theme files from the repo)
 loads a theme file into `tui::theme::Theme`: the palette colours plus one optional override per
 element. `Theme` returns `ratatui_lipgloss::Style` values for text (`accent()`, `muted()`,
 `selected()`, `bar()`, …) and boxes (`pane()`, `card()`, `detail()`, `dialog()`: border kind,

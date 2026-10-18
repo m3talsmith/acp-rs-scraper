@@ -33,6 +33,9 @@ pub struct UiPrefs {
     pub theme: Option<String>,
     /// `"dark"`, `"light"` or `"system"` (default: from the terminal's background).
     pub theme_mode: Option<String>,
+    /// `false` stops the first run from downloading the default theme into an empty
+    /// `~/.acp/themes` (default `true`; `ACP_THEME_DOWNLOAD=off` does the same).
+    pub theme_download: Option<bool>,
 }
 
 /// Set `[ui] theme` in `~/.acp/preferences.toml`, keeping every other key (also unknown

@@ -212,6 +212,8 @@ pub enum Effect {
     SaveUiTheme(String),
     /// Write a copy of this theme into the exports folder.
     ExportTheme(crate::themes::ThemeFile),
+    /// Download a theme from the repo into the themes folder (`true`: asked for by hand).
+    DownloadTheme(String, bool),
     /// Leave; `cancel_job` kills a running job first (else it is detached).
     Quit {
         /// Kill the job before leaving.
@@ -385,6 +387,8 @@ pub struct App {
     pub dark_bg: Option<bool>,
     /// The full-screen theme editor (Shift-F5).
     pub theme_editor: Option<Box<crate::tui::editor::ThemeEditor>>,
+    /// The theme being downloaded in the background, if any.
+    pub theme_downloading: Option<String>,
 }
 
 impl App {
@@ -398,7 +402,7 @@ impl App {
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None,
-            theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None,
+            theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -1049,6 +1053,7 @@ impl App {
             Action::ThemeList => self.list_themes(),
             Action::ThemeReload => self.reload_theme(),
             Action::ThemeExport => self.export_theme(),
+            Action::ThemeInit => self.init_theme(),
             Action::ExportResearch => match self.research_name().ok_or_else(|| "pick a research project first (Research › Projects…)".to_string())
                 .and_then(|n| self.menu.menu.research_export_argv(&n)) {
                 Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
@@ -1236,6 +1241,7 @@ impl App {
             ("Theme: edit… (Shift-F5)".into(), PaletteCmd::Action(Action::ThemeEditor)),
             ("Theme: reload".into(), PaletteCmd::Action(Action::ThemeReload)),
             ("Theme: export".into(), PaletteCmd::Action(Action::ThemeExport)),
+            ("Theme: init (download the default)".into(), PaletteCmd::Action(Action::ThemeInit)),
             ("Search… (Shift-S)".into(), PaletteCmd::Action(Action::OpenSearchModal)),
             ("Clear search (Ctrl-S)".into(), PaletteCmd::Action(Action::ClearSearch)),
             ("Toggle log panel (l)".into(), PaletteCmd::Action(Action::ToggleLog)),

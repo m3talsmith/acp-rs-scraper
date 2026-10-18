@@ -31,6 +31,10 @@ struct E2e {
     code: String,
     counters_before: (usize, usize),
     menu: Option<Menu>,
+    /// Extra environment for the runs (`KEY` → value).
+    env: Vec<(String, String)>,
+    /// Theme downloads go here instead of the mock (e.g. a closed port: offline).
+    theme_url: Option<String>,
 }
 
 impl E2e {
@@ -39,7 +43,7 @@ impl E2e {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         std::fs::create_dir_all(home.join(".acp")).unwrap();
         std::fs::write(home.join(".acp/preferences.toml"), "email = \"alice@example.test\"\n").unwrap();
-        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None }
+        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None }
     }
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
@@ -56,7 +60,8 @@ impl E2e {
         let base = self.mock.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "http://127.0.0.1:9".into());
         let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &self.home.to_string_lossy()).replace("$SITE", &base)).collect();
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_acp-rs-scraper"))
-            .args(&args).env("HOME", &self.home).env("ACP_BASE_URL", base).env_remove("ACP_DEBUG")
+            .args(&args).env("HOME", &self.home).env("ACP_THEME_URL", self.theme_url.clone().unwrap_or_else(|| format!("{base}/themes/")))
+            .env("ACP_BASE_URL", base).env_remove("ACP_DEBUG").env_remove("ACP_THEME_DOWNLOAD").envs(self.env.iter().cloned())
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
             .spawn().unwrap();
         let mut stdin = child.stdin.take().unwrap();
@@ -375,4 +380,21 @@ async fn web_no_cookies(w: &mut E2e) {
 async fn tui_research_add(w: &mut E2e, id: String, name: String) {
     let argv = acp_rs_scraper::tui::commands::research_add_argv(&name, "", &acp_rs_scraper::tui::commands::ResearchSource::Posts(vec![id]), "").unwrap();
     w.run_argv(&argv[1..]).await;
+}
+
+#[given(expr = "the theme server answers {string}")]
+async fn theme_server(w: &mut E2e, mode: String) {
+    if mode == "offline" { w.theme_url = Some("http://127.0.0.1:9/themes/".into()); } else { w.mock().inner.lock().unwrap().theme_mode = mode; }
+}
+
+#[given(expr = "the environment has {string} set to {string}")]
+async fn env_set(w: &mut E2e, k: String, v: String) { w.env.push((k, v)); }
+
+#[then(expr = "the theme server was asked {int} times")]
+async fn theme_gets(w: &mut E2e, n: usize) { assert_eq!(w.mock().inner.lock().unwrap().theme_gets, n); }
+
+#[then("no cookies were sent for themes")]
+async fn theme_no_cookies(w: &mut E2e) {
+    let c = w.mock().inner.lock().unwrap().theme_cookies.clone();
+    assert!(c.is_empty(), "{c:?}");
 }

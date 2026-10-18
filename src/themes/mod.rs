@@ -1,10 +1,11 @@
 //! Theme files: every theme, the default included, is `~/.acp/themes/<name>.toml`
-//! ([`format`] describes the file). Nothing is built into the binary: the packages
-//! ship `themes/*.toml` in `/usr/share/acp-rs-scraper/themes/`, and the first run
-//! copies them into an empty `~/.acp/themes`. A missing or broken theme falls back
-//! to the terminal's own colours (`Color::Reset`) with a notice; broken files are
-//! never overwritten.
+//! ([`format`] describes the file). Themes are read from that folder only: nothing
+//! is built into the binary or installed by the packages. The first run with an empty
+//! folder downloads `default.toml` from the repo ([`download`]). A missing or broken
+//! theme falls back to the terminal's own colours (`Color::Reset`) with a notice;
+//! broken files are never overwritten.
 
+pub mod download;
 pub mod format;
 
 pub use format::*;
@@ -36,9 +37,10 @@ impl LoadError {
         match self {
             LoadError::BadName(e) => e.clone(),
             LoadError::Missing(p) => format!("theme file {} is missing; using the terminal's colours. Pick a theme with F5, \
-                create one in the theme editor (Shift-F5), or reinstall acp-rs-scraper to get the default back.", p.display()),
+                create one in the theme editor (Shift-F5), or download the default with `acp-rs-scraper --theme-init` \
+                (Theme: init in the command palette).", p.display()),
             LoadError::Broken(p, e) => format!("theme file {} can't be used: {e}. Using the terminal's colours; fix the file \
-                (or move it away and restart to restore a shipped theme), or pick another theme with F5. It is never overwritten.", p.display()),
+                (or move it away and run `acp-rs-scraper --theme-init` to download the default again), or pick another theme with F5. It is never overwritten.", p.display()),
         }
     }
 }
@@ -162,19 +164,6 @@ pub fn delete(dir: &Path, name: &str) -> Result<()> {
     std::fs::remove_file(&p).with_context(|| format!("deleting {}", p.display()))
 }
 
-/// Where shipped themes are looked for, in order: the package folder, `themes/` next
-/// to the executable (and `../share/acp-rs-scraper/themes`), then the source tree's
-/// `themes/` (development builds).
-pub fn source_dirs() -> Vec<PathBuf> {
-    let mut v = vec![PathBuf::from(THEMES_SYSTEM_DIR)];
-    if let Some(d) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
-        v.push(d.join("themes"));
-        v.push(d.join("../share/acp-rs-scraper/themes"));
-    }
-    v.push(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("themes"));
-    v
-}
-
 fn toml_files(dir: &Path) -> Vec<PathBuf> {
     let mut v: Vec<PathBuf> = std::fs::read_dir(dir).into_iter().flatten().flatten().map(|e| e.path())
         .filter(|p| p.extension().is_some_and(|x| x == "toml") && p.file_stem().and_then(|s| s.to_str()).is_some_and(valid_name))
@@ -183,21 +172,8 @@ fn toml_files(dir: &Path) -> Vec<PathBuf> {
     v
 }
 
-/// When `dir` has no theme files, copy the shipped ones from the first of `sources`
-/// that has any. Returns the source folder and the names copied (none when `dir`
-/// already had themes or nothing was found). Never replaces a file.
-pub fn install_defaults(dir: &Path, sources: &[PathBuf]) -> Result<Option<(PathBuf, Vec<String>)>> {
-    if !toml_files(dir).is_empty() { return Ok(None); }
-    let Some(src) = sources.iter().find(|s| !toml_files(s).is_empty()) else { return Ok(None) };
-    let mut names = Vec::new();
-    for f in toml_files(src) {
-        let Ok(l) = load_path(&f) else { continue };
-        let dest = dir.join(f.file_name().expect("a file"));
-        let bytes = std::fs::read(&f).with_context(|| format!("reading {}", f.display()))?;
-        if atomic_write_new(&dest, &bytes).with_context(|| format!("writing {}", dest.display()))? { names.push(l.file.name); }
-    }
-    Ok(Some((src.clone(), names)))
-}
+/// Whether `dir` holds any theme file (an empty or missing folder means a first run).
+pub fn has_themes(dir: &Path) -> bool { !toml_files(dir).is_empty() }
 
 /// Whether the old `[theme]` table of preferences.toml sets anything.
 pub fn legacy_set(p: &ThemePrefs) -> bool { p.accent.is_some() || p.muted.is_some() || p.border.is_some() || p.on_accent.is_some() }
@@ -281,16 +257,11 @@ pub fn osc11_dark(reply: &str) -> Option<bool> {
     Some(0.2126 * r + 0.7152 * g + 0.0722 * b < 0.5)
 }
 
-/// The startup work: copy the shipped themes into an empty `dir`, and turn an old
-/// `[theme]` table into a theme file once (when `[ui] theme` is unset). Returns the
-/// migrated theme's name (to select and save) and notices for the user.
+/// The startup work: turn an old `[theme]` table into a theme file once (when
+/// `[ui] theme` is unset). Returns the migrated theme's name (to select and save) and
+/// notices for the user. Downloading the default is separate ([`download`]).
 pub fn prepare(dir: &Path, prefs: &Prefs) -> (Option<String>, Vec<String>) {
     let mut notes = Vec::new();
-    match install_defaults(dir, &source_dirs()) {
-        Ok(Some((src, names))) if !names.is_empty() => notes.push(format!("installed themes {} from {} into {}", names.join(", "), src.display(), dir.display())),
-        Ok(_) => {}
-        Err(e) => notes.push(format!("warning: could not install the shipped themes: {e:#}")),
-    }
     let ui_theme = prefs.ui.as_ref().and_then(|u| u.theme.clone());
     let mut migrated = None;
     if ui_theme.is_none() && let Some(old) = prefs.theme.as_ref().filter(|t| legacy_set(t)) {
@@ -303,11 +274,6 @@ pub fn prepare(dir: &Path, prefs: &Prefs) -> (Option<String>, Vec<String>) {
             }
             Err(e) => notes.push(format!("warning: could not convert the [theme] colours: {e:#}")),
         }
-    }
-    if toml_files(dir).is_empty() {
-        notes.push(format!("warning: no theme files in {} and no shipped themes found (looked in {}); using the terminal's colours. \
-            Reinstall acp-rs-scraper or copy its themes/default.toml there.", dir.display(),
-            source_dirs().iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ")));
     }
     (migrated, notes)
 }

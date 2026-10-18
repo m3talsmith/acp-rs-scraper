@@ -6,6 +6,33 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.14.0] - 2026-10-17
+
+### Added
+- **First-run theme download.** When `~/.acp/themes` is empty, the TUI starts at once with the
+  terminal's colours and downloads `default.toml` in the background from
+  `https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`
+  with the program's HTTP client and no cookies (3 s timeout, 64 KiB cap). The file must parse as
+  a theme, is written atomically with mode 0600 without replacing an existing file, and is applied
+  live once it arrives unless you picked another theme meanwhile. Offline or on any failure the
+  terminal's colours stay, with a notice explaining the fix. `--list-themes` and `--theme` do the
+  same download on a first run.
+- `--theme-init [NAME|all]` and *Theme: init* in the command palette download a theme (the
+  default, any theme in the repo's `themes/`, or all of them) on request.
+- Opt-out: `ACP_THEME_DOWNLOAD=off` or `[ui] theme_download = false`. `ACP_THEME_URL` points
+  the download somewhere else (used by the tests' mock server).
+
+### Changed
+- Themes are read only from `~/.acp/themes/<name>.toml` (under `$HOME`).
+- Missing- and broken-theme notices now point to `--theme-init` instead of reinstalling.
+
+### Removed
+- The system theme folders (`/usr/share/acp-rs-scraper/themes`, `themes/` and
+  `../share/acp-rs-scraper/themes` next to the binary, the source tree's `themes/`) and the
+  first-run copy from them.
+- Packages (debian, Fedora, Arch, `scripts/stage.sh`) no longer install theme files. The repo
+  still has `themes/*.toml`; that is where the download comes from.
+
 ## [2.13.0] - 2026-10-17
 
 ### Added

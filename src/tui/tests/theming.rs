@@ -158,3 +158,65 @@ fn light_mode_uses_the_light_variant() {
     a.refresh_theme();
     assert_eq!(a.theme.accent, Color::Rgb(0x11, 0x11, 0x11));
 }
+
+/// An app on a first run: an empty themes folder, `default` selected but missing.
+fn first_run_app(tag: &str) -> (App, PathBuf) {
+    let d = std::env::temp_dir().join(format!("acp-tui-dl-{tag}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&d);
+    std::fs::create_dir_all(&d).unwrap();
+    let mut a = App::new(Box::new(fixture()), &no_args(), Theme::reset(), false);
+    a.themes_dir = Some(d.clone());
+    assert!(!a.use_theme("default", false));
+    a.modal = None;
+    (a, d)
+}
+
+#[test]
+fn theme_init_starts_a_background_download_of_the_default() {
+    let (mut a, d) = first_run_app("init");
+    a.act(crate::tui::commands::Action::ThemeInit);
+    assert!(matches!(&a.effects[..], [Effect::DownloadTheme(n, true)] if n == "default"));
+    assert_eq!(a.theme_downloading.as_deref(), Some("default"));
+    a.effects.clear();
+    a.act(crate::tui::commands::Action::ThemeInit);
+    assert!(a.effects.is_empty(), "one download at a time");
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
+fn a_downloaded_default_is_applied_live_when_it_is_still_the_one_wanted() {
+    let (mut a, d) = first_run_app("apply");
+    a.start_theme_download("default", false);
+    assert_eq!(a.theme.accent, Color::Reset, "terminal colours meanwhile");
+    std::fs::write(d.join("default.toml"), include_str!("../../../themes/default.toml")).unwrap();
+    a.theme_downloaded("default", false, Ok(themes::download::Fetched::Written(d.join("default.toml"))));
+    assert_eq!(a.theme.accent, Theme::acp().accent);
+    assert!(a.theme_error.is_none() && a.theme_downloading.is_none());
+    assert!(a.modal.is_none(), "an automatic download only notes it in the status line");
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
+fn a_download_does_not_override_a_theme_the_user_picked_meanwhile() {
+    let (mut a, d) = first_run_app("picked");
+    a.start_theme_download("default", false);
+    std::fs::write(d.join("green.toml"), "version = 1\n[dark.palette]\naccent = \"#00aa00\"\n").unwrap();
+    assert!(a.use_theme("green", true));
+    std::fs::write(d.join("default.toml"), include_str!("../../../themes/default.toml")).unwrap();
+    a.theme_downloaded("default", false, Ok(themes::download::Fetched::Written(d.join("default.toml"))));
+    assert_eq!((a.theme_name.as_str(), a.theme.accent), ("green", Color::Rgb(0, 0xaa, 0)));
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
+fn a_failed_download_keeps_the_terminal_colours_and_explains_the_fix() {
+    let (mut a, d) = first_run_app("fail");
+    a.start_theme_download("default", false);
+    a.theme_downloaded("default", false, Err("no answer within 3 s (timed out)".into()));
+    assert_eq!(a.theme.accent, Color::Reset);
+    let n = a.theme_error.clone().unwrap();
+    assert!(n.contains("timed out") && n.contains("--theme-init"), "{n}");
+    assert!(matches!(&a.modal, Some(Modal::Message(_))));
+    assert!(!d.join("default.toml").exists());
+    let _ = std::fs::remove_dir_all(d);
+}

@@ -131,6 +131,8 @@ pub enum Action {
     ThemeReload,
     /// Export the current theme.
     ThemeExport,
+    /// Download the default theme from the repo (kept if it exists).
+    ThemeInit,
 }
 
 /// What a research add takes from (one `--research-add` source).

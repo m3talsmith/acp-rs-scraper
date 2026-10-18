@@ -96,8 +96,9 @@ pub fn run_bookmarks(args: &Args) -> Result<()> {
 }
 
 /// `--theme NAME`: the name must be valid and the file usable.
-fn check_theme(name: &str) -> Result<()> {
+async fn check_theme(name: &str) -> Result<()> {
     let dir = crate::themes::themes_dir()?;
+    first_run_download(&dir).await;
     crate::themes::prepare(&dir, &load_prefs());
     match crate::themes::load(&dir, name) {
         Ok(_) => Ok(()),
@@ -109,9 +110,38 @@ fn check_theme(name: &str) -> Result<()> {
     }
 }
 
-/// `--list-themes`: every theme file, the one in use marked.
-fn run_list_themes(args: &Args) -> Result<()> {
+/// The first run of a headless theme command (empty `~/.acp/themes`): download the
+/// default theme unless that is turned off, reporting what happened on stderr.
+async fn first_run_download(dir: &Path) {
+    use crate::themes::download::*;
+    if crate::themes::has_themes(dir) { return; }
+    if !auto_enabled_now(&load_prefs()) { info!("{}", off_notice(dir)); return; }
+    match download(dir, DEFAULT_THEME).await {
+        Ok(f) => info!("{}", done_notice(DEFAULT_THEME, &f)),
+        Err(e) => info!("warning: {}", failure_notice(dir, DEFAULT_THEME, &format!("{e:#}"))),
+    }
+}
+
+/// `--theme-init [NAME|all]`: download themes from the repo into `~/.acp/themes`.
+async fn run_theme_init(what: &str) -> Result<()> {
+    use crate::themes::download::*;
     let dir = crate::themes::themes_dir()?;
+    let names: Vec<String> = if what == "all" { SHIPPED_THEMES.iter().map(|s| s.to_string()).collect() } else { vec![what.to_string()] };
+    let mut failed = Vec::new();
+    for n in &names {
+        match download(&dir, n).await {
+            Ok(f) => println!("{}", done_notice(n, &f)),
+            Err(e) => { eprintln!("error: {}", failure_notice(&dir, n, &format!("{e:#}"))); failed.push(n.clone()); }
+        }
+    }
+    if !failed.is_empty() { bail!("could not download {}", failed.join(", ")); }
+    Ok(())
+}
+
+/// `--list-themes`: every theme file, the one in use marked.
+async fn run_list_themes(args: &Args) -> Result<()> {
+    let dir = crate::themes::themes_dir()?;
+    first_run_download(&dir).await;
     let prefs = load_prefs();
     let (migrated, notes) = crate::themes::prepare(&dir, &prefs);
     if let Some(m) = &migrated { save_ui_theme(m)?; }
@@ -156,8 +186,9 @@ pub async fn run() -> Result<()> {
             .map_err(|e| anyhow!("cannot open log files {} / {}: {e}", ok.display(), bad.display()))?;
         verbose!("logging to {} and {}", ok.display(), bad.display());
     }
-    if args.list_themes { return run_list_themes(&args); }
-    if let Some(t) = &args.theme { check_theme(t)?; }
+    if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
+    if args.list_themes { return run_list_themes(&args).await; }
+    if let Some(t) = &args.theme { check_theme(t).await?; }
     if tui {
         return crate::tui::run(args).await;
     }

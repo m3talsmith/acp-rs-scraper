@@ -1,4 +1,4 @@
-//! Theme files: the parser, colours, fallbacks, and save / load / install /
+//! Theme files: the parser, colours, fallbacks, and save / load / download /
 //! migration in temporary folders (never the real ~/.acp).
 
 use super::*;
@@ -144,26 +144,6 @@ fn save_is_atomic_private_and_lists_back() {
 }
 
 #[test]
-fn first_run_copies_the_shipped_themes_only_into_an_empty_folder() {
-    let root = tmp("install");
-    let (none, src, dest) = (root.join("none"), root.join("src"), root.join("home/.acp/themes"));
-    std::fs::create_dir_all(&src).unwrap();
-    std::fs::write(src.join("default.toml"), repo_default()).unwrap();
-    std::fs::write(src.join("broken.toml"), "x = [").unwrap();
-    let (from, names) = install_defaults(&dest, &[none.clone(), src.clone()]).unwrap().unwrap();
-    assert_eq!((from, names), (src.clone(), vec!["default".to_string()]), "broken shipped files are skipped");
-    assert_eq!(std::fs::read_to_string(dest.join("default.toml")).unwrap(), repo_default());
-    // A user's (even broken) file means the folder is in use: nothing is copied or replaced.
-    std::fs::write(dest.join("default.toml"), "broken = [").unwrap();
-    assert_eq!(install_defaults(&dest, std::slice::from_ref(&src)).unwrap(), None);
-    assert_eq!(std::fs::read_to_string(dest.join("default.toml")).unwrap(), "broken = [");
-    assert_eq!(install_defaults(&root.join("empty"), &[none]).unwrap(), None);
-    assert!(source_dirs().first().is_some_and(|p| p == Path::new(THEMES_SYSTEM_DIR)));
-    assert!(source_dirs().last().unwrap().join("default.toml").exists(), "the repo's themes/ in development");
-    let _ = std::fs::remove_dir_all(root);
-}
-
-#[test]
 fn old_theme_prefs_become_a_custom_theme_file_once() {
     let d = tmp("migrate");
     std::fs::write(d.join("default.toml"), repo_default()).unwrap();
@@ -232,4 +212,130 @@ fn every_shipped_theme_loads_cleanly_with_both_variants_and_readable_text() {
             }
         }
     }
+}
+
+// ---------------------------------------------------------------- downloads
+
+/// A one-route HTTP server on localhost: answers every request with `status`, `body`
+/// (sent without a Content-Length when `chunked`) after `delay`, and records the
+/// request heads it saw.
+async fn serve(status: &'static str, body: Vec<u8>, chunked: bool, delay: std::time::Duration) -> (String, Arc<std::sync::Mutex<Vec<String>>>) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let l = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let url = format!("http://{}/themes/", l.local_addr().unwrap());
+    let seen = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let seen2 = seen.clone();
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut c, _)) = l.accept().await else { break };
+            let (body, seen) = (body.clone(), seen2.clone());
+            tokio::spawn(async move {
+                let mut head = Vec::new();
+                let mut b = [0u8; 1024];
+                while !head.windows(4).any(|w| w == b"\r\n\r\n") {
+                    match c.read(&mut b).await { Ok(0) | Err(_) => return, Ok(n) => head.extend_from_slice(&b[..n]) }
+                }
+                seen.lock().unwrap().push(String::from_utf8_lossy(&head).to_string());
+                tokio::time::sleep(delay).await;
+                if chunked {
+                    let _ = c.write_all(format!("HTTP/1.1 {status}\r\nTransfer-Encoding: chunked\r\nConnection: close\r\n\r\n").as_bytes()).await;
+                    for part in body.chunks(8192) {
+                        let _ = c.write_all(format!("{:x}\r\n", part.len()).as_bytes()).await;
+                        let _ = c.write_all(part).await;
+                        let _ = c.write_all(b"\r\n").await;
+                    }
+                    let _ = c.write_all(b"0\r\n\r\n").await;
+                } else {
+                    let _ = c.write_all(format!("HTTP/1.1 {status}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", body.len()).as_bytes()).await;
+                    let _ = c.write_all(&body).await;
+                }
+            });
+        }
+    });
+    (url, seen)
+}
+
+const QUICK: std::time::Duration = std::time::Duration::from_millis(400);
+
+#[tokio::test]
+async fn a_download_is_checked_written_0600_and_sends_no_cookies() {
+    use download::*;
+    let d = tmp("dl-ok");
+    let (url, seen) = serve("200 OK", repo_default().as_bytes().to_vec(), false, std::time::Duration::ZERO).await;
+    let f = download_from(&d, "default", &format!("{url}default.toml"), QUICK).await.unwrap();
+    assert_eq!(f, Fetched::Written(d.join("default.toml")));
+    assert_eq!(std::fs::read_to_string(d.join("default.toml")).unwrap(), repo_default());
+    #[cfg(unix)]
+    { use std::os::unix::fs::PermissionsExt; assert_eq!(std::fs::metadata(d.join("default.toml")).unwrap().permissions().mode() & 0o777, 0o600); }
+    assert!(load(&d, "default").unwrap().warnings.is_empty());
+    let heads = seen.lock().unwrap().clone();
+    assert_eq!(heads.len(), 1);
+    assert!(heads[0].starts_with("GET /themes/default.toml "), "{}", heads[0]);
+    assert!(!heads[0].to_ascii_lowercase().contains("\ncookie:"), "no cookies: {}", heads[0]);
+    // A second download keeps the file and doesn't even ask the server.
+    assert_eq!(download_from(&d, "default", &format!("{url}default.toml"), QUICK).await.unwrap(), Fetched::Kept(d.join("default.toml")));
+    assert_eq!(seen.lock().unwrap().len(), 1);
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[tokio::test]
+async fn an_existing_file_is_never_replaced_even_a_broken_one() {
+    use download::*;
+    let d = tmp("dl-keep");
+    std::fs::write(d.join("default.toml"), "mine = [").unwrap();
+    let (url, seen) = serve("200 OK", repo_default().as_bytes().to_vec(), false, std::time::Duration::ZERO).await;
+    assert_eq!(download_from(&d, "default", &format!("{url}default.toml"), QUICK).await.unwrap(), Fetched::Kept(d.join("default.toml")));
+    assert_eq!(std::fs::read_to_string(d.join("default.toml")).unwrap(), "mine = [");
+    assert!(seen.lock().unwrap().is_empty());
+    // store() itself also refuses to replace a file that appeared meanwhile.
+    assert_eq!(store(&d, "default", repo_default().as_bytes()).unwrap(), Fetched::Kept(d.join("default.toml")));
+    assert_eq!(std::fs::read_to_string(d.join("default.toml")).unwrap(), "mine = [");
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[tokio::test]
+async fn oversize_invalid_missing_slow_and_offline_downloads_write_nothing() {
+    use download::*;
+    let d = tmp("dl-bad");
+    let big = format!("version = 1\n#{}\n", "x".repeat(THEME_MAX_BYTES as usize)).into_bytes();
+    type Case = (&'static str, &'static str, Vec<u8>, bool, std::time::Duration, &'static str);
+    let cases: Vec<Case> = vec![
+        ("big", "200 OK", big.clone(), false, std::time::Duration::ZERO, "KiB"),
+        ("chunked", "200 OK", big, true, std::time::Duration::ZERO, "KiB"),
+        ("bad", "200 OK", b"version = [oops".to_vec(), false, std::time::Duration::ZERO, "not a valid theme"),
+        ("newer", "200 OK", b"version = 99\n".to_vec(), false, std::time::Duration::ZERO, "not a valid theme"),
+        ("missing", "404 Not Found", b"nope".to_vec(), false, std::time::Duration::ZERO, "404"),
+        ("slow", "200 OK", repo_default().as_bytes().to_vec(), false, std::time::Duration::from_secs(3), "timed out"),
+    ];
+    for (name, status, body, chunked, delay, want) in cases {
+        let (url, _) = serve(status, body, chunked, delay).await;
+        let e = format!("{:#}", download_from(&d, name, &format!("{url}{name}.toml"), QUICK).await.unwrap_err());
+        assert!(e.contains(want), "{name}: {e}");
+        assert!(!d.join(format!("{name}.toml")).exists(), "{name}");
+    }
+    let e = format!("{:#}", download_from(&d, "default", "http://127.0.0.1:9/themes/default.toml", QUICK).await.unwrap_err());
+    assert!(!d.join("default.toml").exists(), "offline: {e}");
+    assert!(std::fs::read_dir(&d).unwrap().next().is_none(), "no temp files left");
+    assert!(download_from(&d, "../x", "http://127.0.0.1:9/x", QUICK).await.is_err(), "names can't leave the folder");
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
+fn the_download_can_be_turned_off_and_its_notices_say_how_to_fix_things() {
+    use download::*;
+    let on = Prefs::default();
+    let off: Prefs = toml::from_str("[ui]\ntheme_download = false\n").unwrap();
+    assert!(auto_enabled(None, &on));
+    assert!(auto_enabled(Some("on"), &on));
+    for v in ["off", "OFF", "0", "false", "no"] { assert!(!auto_enabled(Some(v), &on), "{v}"); }
+    assert!(!auto_enabled(None, &off));
+    let d = Path::new("/h/.acp/themes");
+    let n = failure_notice(d, "default", "offline");
+    assert!(n.contains("--theme-init") && n.contains("/h/.acp/themes/default.toml") && n.contains("default.toml"), "{n}");
+    assert!(off_notice(d).contains("ACP_THEME_DOWNLOAD") && off_notice(d).contains("--theme-init"));
+    assert!(THEME_DOWNLOAD_BASE.ends_with(&format!("/v{}/themes/", env!("CARGO_PKG_VERSION"))));
+    assert_eq!(DEFAULT_THEME_URL, format!("{THEME_DOWNLOAD_BASE}default.toml"));
+    assert!(THEME_DOWNLOAD_BASE.starts_with("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v"));
+    assert!(SHIPPED_THEMES.iter().all(|n| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("themes").join(format!("{n}.toml")).exists()));
+    assert!(!has_themes(Path::new("/nonexistent/acp/themes")));
 }

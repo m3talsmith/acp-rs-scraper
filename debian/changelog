@@ -1,3 +1,9 @@
+acp-rs-scraper (2.14.0) unstable; urgency=medium
+
+  * Themes are read only from ~/.acp/themes; the first run downloads the default theme in the background; --theme-init; packages no longer install themes.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 23:56:33 -0400
+
 acp-rs-scraper (2.13.0) unstable; urgency=medium
 
   * Six communist themes (soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), dark and light.
