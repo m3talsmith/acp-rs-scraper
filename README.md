@@ -432,7 +432,8 @@ downloads `default.toml` from the repo in the background
 theme meanwhile. Until then, and if the download fails (offline), the TUI uses your terminal's
 own colours and a notice says how to fix it. `--list-themes` and `--theme` do the same first-run
 download before they answer. `default` is the classic look: ACP red `#dc2626` on your terminal's
-own colours.
+own colours. `F5` (or the `‹name› ▾` switch in the header) opens the theme picker, which
+previews each theme live as you move through it.
 
 - `acp-rs-scraper --theme-init [NAME|all]` (or *Theme: init* in the command palette, for the
   default) downloads a theme by hand; an existing file is kept. If the download fails, the notice
@@ -449,16 +450,28 @@ own colours.
 Themes in the repo's `themes/` (each has a dark and a light variant, text contrast at least 3:1);
 get them with `--theme-init NAME` or `--theme-init all`:
 
-| Theme | Look |
-|---|---|
-| `default` | ACP red on your terminal's own colours (the classic look) |
-| `soviet` | Classic Soviet red and gold: a gold hammer-and-sickle on banner red |
-| `constructivist` | Constructivist posters after Rodchenko and Lissitzky: red, black and cream |
-| `cuba` | Cuban revolutionary: olive green fatigues, red and black |
-| `red-star` | Red Star: deep crimson with ACP red as the accent |
-| `chinese-poster` | Chinese propaganda poster: vermilion and golden yellow |
-| `plattenbau` | East German Plattenbau: concrete greys with a red accent |
+Screenshots (dark variants, a 160×45 true-colour terminal):
 
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/themes/default.png" alt="default theme"><br><b><code>default</code></b>: ACP red on your terminal's own colours (the classic look)</td>
+<td width="50%"><img src="docs/screenshots/themes/red-star.png" alt="red-star theme"><br><b><code>red-star</code></b>: deep crimson with ACP red as the accent</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/themes/soviet.png" alt="soviet theme"><br><b><code>soviet</code></b>: classic Soviet red and gold, a gold hammer-and-sickle on banner red</td>
+<td><img src="docs/screenshots/themes/constructivist.png" alt="constructivist theme"><br><b><code>constructivist</code></b>: Constructivist posters after Rodchenko and Lissitzky: red, black and cream</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/themes/cuba.png" alt="cuba theme"><br><b><code>cuba</code></b>: Cuban revolutionary: olive green fatigues, red and black</td>
+<td><img src="docs/screenshots/themes/chinese-poster.png" alt="chinese-poster theme"><br><b><code>chinese-poster</code></b>: Chinese propaganda poster: vermilion and golden yellow</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/themes/plattenbau.png" alt="plattenbau theme"><br><b><code>plattenbau</code></b>: East German Plattenbau: concrete greys with a red accent</td>
+<td><img src="docs/screenshots/themes/red-star-picker.png" alt="the F5 theme picker"><br>The <code>F5</code> picker (here with <code>red-star</code>)</td>
+</tr>
+</table>
+
+Write your own:
 
 ```toml
 version = 1
@@ -492,19 +505,7 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   `system` (the default) uses `COLORFGBG` when set, else asks the terminal (`OSC 11`), else
   dark. `--theme NAME` uses a theme for one run without saving it;
   `--list-themes` prints them all.
-- **Editor** (`Shift-F5`). Left: the palette and every element, with colour swatches, `*` for
-  changed values and `⚠2.1:1` when text contrast is below 3:1. Right: a live preview drawn by the
-  real UI with sample posts, plus a *Sample dialog* frame (dialog, labels, field, tags, link,
-  deleted post, code, dimmed text, button, selection). `Tab` flips dark/light, `Enter` edits (hex or a colour grid: 16 /
-  216 cube / 24 greys / `@refs`), `Del` clears an override, `a` adds a palette colour, `[`/`]` go
-  to the previous / next theme, `→`/`←` show or hide an element's keys. The selected colour or
-  element is **highlighted in the preview** (the cells it paints in reverse video; the preview
-  title says when it isn't on screen); `h` toggles that. `r` reverts the selected row only. `Ctrl-S` saves, `Ctrl-R` reverts
-  everything, `Ctrl-N` new, `Ctrl-D` duplicate, `Ctrl-X` deletes (asks first; not the theme in
-  use). `Esc` with unsaved changes asks Save / Discard / Cancel. Saving asks before overwriting a
-  file that changed on disk meanwhile (or loads it instead) and before replacing a broken file.
-  Without a true-colour terminal (`$COLORTERM`) the preview notes that `#rrggbb` colours show as
-  the nearest of 256.
+- **Editor** (`Shift-F5`): see [Theme editor](#theme-editor) below.
 - **Safety.** A missing or broken theme file never stops the TUI: it falls back to the terminal's
   colours and a notice names the file and how to fix it. Broken files are never overwritten
   automatically. Unknown keys are skipped with one warning notice per file, files over 64 KiB or from a newer format are
@@ -514,6 +515,32 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   selected; the TUI says so once. The old keys are left in place but no longer read.
 - **Export.** *Theme: export* writes the current theme to
   `~/.acp/ai/data/exports/themes/<name>-<time>.toml`.
+
+### Theme editor
+
+`Shift-F5` (or *Edit themes…* at the end of the `F5` picker) opens the editor on the current theme.
+
+![The theme editor with red-star, @accent highlighted in the preview](docs/screenshots/themes/red-star-editor.png)
+
+- **Left:** the palette and every element, with colour swatches, `*` for values changed since the
+  last save and `⚠2.1:1` when an element's text contrast is below 3:1. `→`/`←` show or hide an
+  element's keys (`fg`, `bg`, `border`, `bold`, …).
+- **Right:** a live preview drawn by the real UI with sample posts, plus a *Sample dialog* frame
+  for the parts the post view doesn't show (dialog, labels, field, Post/Reply tags, link, deleted
+  post, code, dimmed text, button, selection). The selected colour or element is **highlighted**:
+  every cell it paints is shown in reverse video, and the preview title says when it isn't on
+  screen. `h` turns the highlight off and on.
+- **Editing:** `Enter` edits a value: type a hex colour, or pick from the grid's tabs (the 16 ANSI
+  colours, the 216-colour cube, the 24 greys and the palette `@refs`). `Del` clears an override,
+  `a` adds a palette colour, `Tab` flips dark/light, `[`/`]` go to the previous / next theme.
+- **Reverting:** `r` reverts only the selected palette colour, element or key to the saved file;
+  `Ctrl-R` reverts everything.
+- **Saving:** `Ctrl-S`. It asks first when the file changed on disk since the editor read it
+  (overwrite it, load it and drop your changes, or cancel) and before replacing a broken file.
+  `Ctrl-N` new, `Ctrl-D` duplicate, `Ctrl-X` delete (asks; not the theme in use). `Esc` with
+  unsaved changes asks Save / Discard / Cancel.
+- Without a true-colour terminal (`$COLORTERM` isn't `truecolor`/`24bit`) the preview notes that
+  `#rrggbb` colours show as the nearest of 256.
 
 ## Bookmarks
 
