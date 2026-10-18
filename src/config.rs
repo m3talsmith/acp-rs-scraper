@@ -106,6 +106,8 @@ pub const FEED_NEXT_EVENT: &str = "page-next";
 /// GUESSED: thread replies use the generic InfiniteScroll hook
 /// (`pushEventTo(this.el, "next-page", {})`), target cid read from the page.
 pub const THREAD_NEXT_EVENT: &str = "next-page";
+/// Thread sort hook (`sort {sort:"oldest"|"top"}`). Newest is the page default and sends nothing.
+pub const THREAD_SORT_EVENT: &str = "sort";
 
 /// Safety cap on pages fetched from any one feed or thread.
 pub const MAX_PAGES: u32 = 10_000;

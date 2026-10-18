@@ -38,7 +38,7 @@ fn a_later_empty_body_does_not_wipe_json_or_tags() {
     let p = Post {
         post_id: "T1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(),
         nick: "a".into(), title: "t".into(), content: "see #Strike".into(), posted_at: "1".into(),
-        media: Vec::new(), truncated: false, body_json: json.into(),
+        media: Vec::new(), truncated: false, body_json: json.into(), score: None,
     };
     crate::storage::db::save_posts(&mut c, &[p.clone()]).unwrap();
     let stored: String = c.query_row("SELECT body_json FROM posts WHERE post_id='T1'", [], |r| r.get(0)).unwrap();
@@ -61,6 +61,26 @@ fn a_later_empty_body_does_not_wipe_json_or_tags() {
     next.content = "plain".into();
     crate::storage::db::save_posts(&mut c, &[next]).unwrap();
     assert_eq!(tags_of(&c), ["Other"]);
+}
+
+#[test]
+fn a_missing_score_does_not_wipe_one_already_stored() {
+    let mut c = Connection::open_in_memory().unwrap();
+    let mut p = Post {
+        post_id: "T1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(),
+        nick: "a".into(), title: "t".into(), content: "x".into(), posted_at: "1".into(),
+        media: Vec::new(), truncated: false, body_json: String::new(), score: Some(7),
+    };
+    crate::storage::db::save_posts(&mut c, &[p.clone()]).unwrap();
+    p.score = None;
+    p.content = "x".into();
+    crate::storage::db::save_posts(&mut c, &[p.clone()]).unwrap();
+    let score: Option<i64> = c.query_row("SELECT score FROM posts WHERE post_id='T1'", [], |r| r.get(0)).unwrap();
+    assert_eq!(score, Some(7));
+    p.score = Some(2);
+    crate::storage::db::save_posts(&mut c, &[p]).unwrap();
+    let score: Option<i64> = c.query_row("SELECT score FROM posts WHERE post_id='T1'", [], |r| r.get(0)).unwrap();
+    assert_eq!(score, Some(2));
 }
 
 #[test]

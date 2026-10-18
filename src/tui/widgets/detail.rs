@@ -145,12 +145,17 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
     let replies: Vec<usize> = (0..f.links.len()).filter(|i| matches!(f.links[*i].kind, LinkKind::Reply)).collect();
     if !replies.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled(format!("Replies ({})", replies.len()), t.bold()));
+        let heading = match f.sort {
+            ThreadSort::Newest => format!("Replies ({})", replies.len()),
+            ThreadSort::Oldest => format!("Replies ({}) · oldest", replies.len()),
+            ThreadSort::Top => format!("Replies ({}) · top", replies.len()),
+        };
+        lines.push(Line::styled(heading, t.bold()));
         for i in replies { link_line(i, &mut lines, &mut links); }
     }
     if !f.links.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled("←/→ choose a link · Enter opens it · Esc closes", t.muted()));
+        lines.push(Line::styled("←/→ choose a link · Enter opens it · s sorts replies · Esc closes", t.muted()));
     }
     (lines, links, slots, md_links)
 }

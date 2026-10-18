@@ -1,3 +1,9 @@
+acp-rs-scraper (2.22.0) unstable; urgency=medium
+
+  * Thread sort: s cycles newest, oldest and top; --sort-thread stores scores.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 20:00:00 +0000
+
 acp-rs-scraper (2.21.0) unstable; urgency=medium
 
   * Tag feeds (/rs/tag/TAG): --tag, clickable #tags, body_json and post_tags, --backfill-tags.

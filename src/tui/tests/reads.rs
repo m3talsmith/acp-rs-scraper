@@ -166,3 +166,36 @@ fn clicking_a_hashtag_opens_its_tag_feed() {
     let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
     assert_eq!(argv[1..], ["--tag", "strike"]);
 }
+
+#[test]
+fn s_cycles_reply_order_and_asks_the_site_for_oldest_and_top() {
+    use crate::tui::input::on_key;
+    use crate::tui::state::LinkKind;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut store = fixture();
+    store.posts.push(post("ALICE0004", "ALICE0001", "ALICE0001", "carol", "2026-10-04T10:00:00Z", "later"));
+    store.posts.push(post("ALICE0005", "ALICE0001", "ALICE0001", "dave", "2026-10-01T11:00:00Z", "earlier"));
+    store.posts.iter_mut().find(|p| p.post_id == "ALICE0004").unwrap().score = Some(1);
+    store.posts.iter_mut().find(|p| p.post_id == "ALICE0005").unwrap().score = Some(9);
+    let mut a = App::new(Box::new(store), &no_args(), Theme::acp(), false);
+    a.select_only(nick_idx(&a, "alice"));
+    let i = a.view().posts.iter().position(|p| p.post_id == "ALICE0001").unwrap();
+    a.open_post(i);
+    let ids = |a: &App| a.top().unwrap().links.iter().filter(|l| l.kind == LinkKind::Reply).map(|l| l.id.clone()).collect::<Vec<_>>();
+    assert_eq!(ids(&a), vec!["ALICE0004".to_string(), "BOB000002".to_string(), "ALICE0005".to_string()]);
+    on_key(&mut a, KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
+    assert_eq!(ids(&a), vec!["ALICE0005".to_string(), "BOB000002".to_string(), "ALICE0004".to_string()]);
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--sort-thread", "ALICE0001", "--thread-sort", "oldest"]);
+    a.effects.clear();
+    a.job = None;
+    on_key(&mut a, KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
+    assert_eq!(ids(&a), vec!["ALICE0005".to_string(), "ALICE0004".to_string(), "BOB000002".to_string()]);
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--sort-thread", "ALICE0001", "--thread-sort", "top"]);
+    let n = a.effects.len();
+    a.job = None;
+    on_key(&mut a, KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
+    assert_eq!(ids(&a), vec!["ALICE0004".to_string(), "BOB000002".to_string(), "ALICE0005".to_string()]);
+    assert_eq!(a.effects.len(), n, "newest is the site default and sends no hook");
+}

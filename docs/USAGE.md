@@ -337,6 +337,8 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--site-search TEXT` | Search the site (`/rs/explore?q=`, form `search`, field `q`). The Search modal's **Where: Site** does the same and uses only the keyword; nicks, dates, post id and kind stay local. |
 | `--tag TAG` | Tag feed (`/rs/tag/TAG`). A `#tag` in a post body, or the Tags row on the detail, opens the same view. `#post-…` anchors, `##` headings and tags inside code are not links. |
 | `--backfill-tags` | Rewrite `post_tags` from stored bodies, then re-read threads whose `body_json` is still empty (one page per thread, with a pause). `--nick` / `--nicks` limit the rows. Stored post text is not replaced. |
+| `--sort-thread ID` | Re-read that thread after the `sort` hook and store scores. `s` in an open thread does this. |
+| `--thread-sort ORDER` | With `--sort-thread`: `oldest` or `top`. Newest is the page default and sends no hook. |
 
 ### Scraping
 
@@ -564,7 +566,8 @@ CREATE TABLE posts (
                                   -- separated by a blank line (1.26.0)
   posted_at TEXT NOT NULL,        -- inserted_at (ISO 8601)
   body_state TEXT NOT NULL DEFAULT 'unknown', -- 'full' | 'truncated' | 'unknown' (1.26.0)
-  body_json TEXT NOT NULL DEFAULT ''  -- ProseMirror body, compact JSON (2.21.0); '' until a feed or thread supplies it
+  body_json TEXT NOT NULL DEFAULT '', -- ProseMirror body, compact JSON (2.21.0); '' until a feed or thread supplies it
+  score INTEGER                  -- site score (2.22.0); NULL until a thread page sends one. A later save does not blank it
 );
 
 CREATE TABLE post_tags (             -- 2.21.0; #tag without the hash

@@ -550,6 +550,16 @@ impl Menu {
         validate(v)
     }
 
+    /// argv for `--sort-thread` (`oldest` or `top`).
+    pub fn sort_thread_argv(&self, thread_id: &str, order: &str) -> std::result::Result<Vec<String>, String> {
+        let id = thread_id.trim();
+        if id.is_empty() { return Err("a thread needs an id".into()); }
+        if !matches!(order, "oldest" | "top") { return Err("thread sort must be oldest or top".into()); }
+        let mut v = vec![ARGV0.to_string(), "--sort-thread".into(), id.into(), "--thread-sort".into(), order.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
     /// argv for a tag feed (`--tag`).
     pub fn tag_argv(&self, tag: &str) -> std::result::Result<Vec<String>, String> {
         let t = tag.trim().trim_start_matches('#').trim();

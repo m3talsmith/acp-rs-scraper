@@ -65,6 +65,39 @@ fn hashtag_links_skip_code_fences_inline_code_and_anchors() {
 }
 
 #[test]
+fn score_is_read_from_the_post_or_its_wrapper() {
+    assert_eq!(score_of(&json!({"score": 4})), Some(4));
+    assert_eq!(score_of(&json!({"score": "12"})), Some(12));
+    assert_eq!(score_of(&json!({"id": "p"})), None);
+    let p = to_post(&json!({"id": "p", "score": 3, "author": {"username": "a"}}), "", "a");
+    assert_eq!(p.score, Some(3));
+}
+
+#[test]
+fn reply_sort_is_newest_then_oldest_then_top() {
+    let mut posts = vec![
+        Post { post_id: "b".into(), posted_at: "2".into(), score: None, ..blank_post() },
+        Post { post_id: "a".into(), posted_at: "1".into(), score: Some(9), ..blank_post() },
+        Post { post_id: "c".into(), posted_at: "3".into(), score: Some(4), ..blank_post() },
+    ];
+    sort_replies(&mut posts, ThreadSort::Newest);
+    assert_eq!(posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["c", "b", "a"]);
+    sort_replies(&mut posts, ThreadSort::Oldest);
+    assert_eq!(posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["a", "b", "c"]);
+    sort_replies(&mut posts, ThreadSort::Top);
+    assert_eq!(posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["a", "c", "b"]);
+    assert_eq!(ThreadSort::Newest.cycle().label(), "oldest");
+    assert_eq!(ThreadSort::Oldest.hook(), Some("oldest"));
+    assert!(ThreadSort::Newest.hook().is_none());
+}
+
+fn blank_post() -> Post {
+    Post { post_id: String::new(), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: String::new(),
+        title: String::new(), content: String::new(), posted_at: String::new(), media: Vec::new(), truncated: false,
+        body_json: String::new(), score: None }
+}
+
+#[test]
 fn empty_body_stays_empty() {
     assert_eq!(body_text(&json!({"id": "r1", "body": null})), "");
 }

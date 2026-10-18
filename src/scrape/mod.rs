@@ -36,6 +36,8 @@ pub struct Post {
     /// Canonical JSON of the ProseMirror `body` object, or `""` when the site
     /// sent plain text. A later save does not blank a JSON body already stored.
     pub body_json: String,
+    /// Site score, when the post JSON carried one. A later save does not blank a score already stored.
+    pub score: Option<i64>,
 }
 
 /// Whether a site post JSON (or its `post`/`reply` wrapper) only carries a
@@ -192,7 +194,14 @@ pub fn to_post(v: &Value, parent: &str, fallback_nick: &str) -> Post {
         media: { let mut m = Vec::new(); collect_media(v, &mut m); m },
         truncated: is_truncated(v),
         body_json: { let j = body_json_of(v); if j.is_empty() { inner.map(body_json_of).unwrap_or_default() } else { j } },
+        score: score_of(v).or_else(|| inner.and_then(score_of)),
     }
+}
+
+/// `score` from a post JSON object, as an integer when the site sent one.
+pub fn score_of(v: &Value) -> Option<i64> {
+    let n = v.get("score")?;
+    n.as_i64().or_else(|| n.as_u64().and_then(|u| i64::try_from(u).ok())).or_else(|| n.as_str().and_then(|s| s.parse().ok()))
 }
 
 /// Compact JSON of a post's ProseMirror `body`, when that body is an object

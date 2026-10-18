@@ -5,7 +5,7 @@ use crate::tui::data::MemStore;
 
 fn post(id: &str, parent: &str, reply_to: &str, nick: &str, at: &str, title: &str, content: &str) -> Post {
     Post { post_id: id.into(), parent_post_id: parent.into(), in_reply_to_id: reply_to.into(), nick: nick.into(),
-        title: title.into(), content: content.into(), posted_at: at.into(), media: Vec::new(), truncated: false, body_json: String::new() }
+        title: title.into(), content: content.into(), posted_at: at.into(), media: Vec::new(), truncated: false, body_json: String::new(), score: None }
 }
 
 /// A small made-up forum: two members, posts, a reply and a cross-link.

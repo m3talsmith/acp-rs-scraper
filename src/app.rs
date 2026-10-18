@@ -320,6 +320,12 @@ pub async fn run() -> Result<()> {
         info!("== tag {}: {n} posts", tag_title(tag));
         return Ok(());
     }
+    if let Some(id) = &args.sort_thread {
+        let order = args.thread_sort.as_deref().unwrap_or("oldest");
+        let n = read_sorted_thread(&http, &jar, id, order).await?;
+        info!("== sort thread {id} {order}: {n} posts");
+        return Ok(());
+    }
     if args.backfill_tags {
         let nicks = args.nick_list()?;
         let st = backfill_tags(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;

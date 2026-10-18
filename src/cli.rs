@@ -72,13 +72,17 @@ acp-rs-scraper --tag strike
 acp-rs-scraper --backfill-tags
   \
 acp-rs-scraper --backfill-tags --nick alice
+  \
+acp-rs-scraper --sort-thread THREAD --thread-sort oldest
+  \
+acp-rs-scraper --sort-thread THREAD --thread-sort top
 ",
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag"]).multiple(false).conflicts_with_all([
+#[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread"]).multiple(false).conflicts_with_all([
     "nick", "nicks", "scrape", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
     "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
@@ -118,6 +122,12 @@ pub struct Args {
     /// Fill `post_tags` from stored bodies, then re-read threads whose ProseMirror JSON is still empty. `--nick` / `--nicks` limit the rows. Does not change stored text.
     #[arg(long, conflicts_with = "reading", help_heading = "Reading")]
     pub backfill_tags: bool,
+    /// Re-read a thread after the `sort` hook (`oldest` or `top`) and store scores. `s` in a thread does this.
+    #[arg(long, value_name = "ID", requires = "thread_sort", help_heading = "Reading")]
+    pub sort_thread: Option<String>,
+    /// With `--sort-thread`: `oldest` or `top`. Newest is the site default and sends no hook.
+    #[arg(long, value_name = "ORDER", requires = "sort_thread", value_parser = ["oldest", "top"], help_heading = "Reading")]
+    pub thread_sort: Option<String>,
 
     /// Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it.
     #[arg(long, help_heading = "Interface")]

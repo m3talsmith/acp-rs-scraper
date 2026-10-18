@@ -18,7 +18,8 @@ pub const POSTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS posts (
             content TEXT NOT NULL,
             posted_at TEXT NOT NULL,
             body_state TEXT NOT NULL DEFAULT 'unknown',
-            body_json TEXT NOT NULL DEFAULT ''
+            body_json TEXT NOT NULL DEFAULT '',
+            score INTEGER
         );
         CREATE UNIQUE INDEX IF NOT EXISTS posts_post_id_uq ON posts(post_id);";
 
@@ -36,6 +37,9 @@ pub const POSTS_ADD_BODY_STATE: &str = "ALTER TABLE posts ADD COLUMN body_state 
 /// Run when `posts` lacks `body_json` (databases before 2.21.0). The ProseMirror
 /// body, compact JSON; `""` until a thread page or a feed item supplies it.
 pub const POSTS_ADD_BODY_JSON: &str = "ALTER TABLE posts ADD COLUMN body_json TEXT NOT NULL DEFAULT '';";
+
+/// Run when `posts` lacks `score` (databases before 2.22.0). NULL until a thread page sends one.
+pub const POSTS_ADD_SCORE: &str = "ALTER TABLE posts ADD COLUMN score INTEGER;";
 
 /// Tags on a post (`#strike`). Filled from mention nodes and from `#word` in the
 /// body. Created on first use. `tag` is stored without the `#`.

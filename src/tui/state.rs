@@ -65,6 +65,8 @@ pub struct DetailFrame {
     pub links: Vec<Link>,
     /// Selected link.
     pub link_cursor: usize,
+    /// Reply order. `s` cycles newest → oldest → top.
+    pub sort: ThreadSort,
     /// First visible line.
     pub scroll: u16,
     /// Scroll so the selected link is visible on the next render.
@@ -401,6 +403,8 @@ pub struct App {
     pub theme_downloading: Option<String>,
     /// Site-feed key to open when the running read job ends.
     pub pending_feed: Option<String>,
+    /// Thread whose reply order a running sort job should restore.
+    pub pending_sort: Option<(String, ThreadSort)>,
 }
 
 impl App {
@@ -415,7 +419,7 @@ impl App {
             job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
-            pending_feed: None,
+            pending_feed: None, pending_sort: None,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -604,6 +608,53 @@ impl App {
         match self.menu.menu.explore_argv() {
             Ok(argv) => self.open_site_read(&explore_key(latest), argv),
             Err(e) => self.error("Explore", &e),
+        }
+    }
+    /// `s` in a thread: cycle reply order and, for oldest/top, refresh scores from the site.
+    pub fn cycle_thread_sort(&mut self) {
+        if self.top().is_none() { self.push_status("open a thread to sort its replies"); return; }
+        let next = self.top().map(|f| f.sort.cycle()).unwrap_or_default();
+        if let Some(f) = self.top_mut() { f.sort = next; }
+        self.apply_reply_sort();
+        self.push_status(format!("replies · {}", next.label()));
+        let Some(order) = next.hook() else { return };
+        let post = self.top().map(|f| f.post.clone());
+        let Some(post) = post else { return };
+        let thread = if post.parent_post_id.is_empty() { post.post_id.clone() } else { post.parent_post_id.clone() };
+        if self.job.is_some() {
+            self.push_status("reply order changed locally; a job is already running");
+            return;
+        }
+        match self.menu.menu.sort_thread_argv(&thread, order) {
+            Ok(argv) => {
+                self.pending_sort = Some((post.post_id.clone(), next));
+                self.start_online_job(JobKind::Read, argv);
+            }
+            Err(e) => self.error("Thread sort", &e),
+        }
+    }
+    /// Put the open detail's reply links in its current order, using stored scores.
+    pub fn apply_reply_sort(&mut self) {
+        let Some(sort) = self.top().map(|f| f.sort) else { return };
+        let id = self.top().unwrap().post.post_id.clone();
+        let mut replies = self.store.replies(&id).unwrap_or_default();
+        sort_replies(&mut replies, sort);
+        let Some(f) = self.top_mut() else { return };
+        let mut links: Vec<Link> = f.links.iter().filter(|l| l.kind != LinkKind::Reply).cloned().collect();
+        for r in replies {
+            links.push(Link { kind: LinkKind::Reply, id: r.post_id.clone(), target: Some(r) });
+        }
+        if f.link_cursor >= links.len() { f.link_cursor = 0; }
+        f.links = links;
+    }
+    /// After a sort job: reopen `id` if the list refresh closed it, then reapply `sort`.
+    fn restore_thread_sort(&mut self, id: &str, sort: ThreadSort) {
+        if self.top().is_none() {
+            if let Some(i) = self.view().posts.iter().position(|p| p.post_id == id) { self.open_post(i); }
+        }
+        if self.top().is_some_and(|f| f.post.post_id == id) {
+            if let Some(f) = self.top_mut() { f.sort = sort; }
+            self.apply_reply_sort();
         }
     }
     /// A `#tag` in a post: the saved tag feed, then a refresh from `/rs/tag/{tag}`.
@@ -926,7 +977,9 @@ impl App {
         add(LinkKind::ReplyTo, &direct, &mut links);
         add(LinkKind::Thread, &post.parent_post_id, &mut links);
         for id in crate::tui::data::linked_ids(&post.content) { add(LinkKind::Mentioned, &id, &mut links); }
-        for r in s.replies(&post.post_id).unwrap_or_default() {
+        let mut reply_posts = s.replies(&post.post_id).unwrap_or_default();
+        sort_replies(&mut reply_posts, ThreadSort::Newest);
+        for r in reply_posts {
             if seen.insert(r.post_id.clone()) { links.push(Link { kind: LinkKind::Reply, id: r.post_id.clone(), target: Some(r) }); }
         }
         let attachments = s.attachments(&post.post_id).unwrap_or_default();
@@ -937,7 +990,7 @@ impl App {
             links.push(Link { kind: LinkKind::Tag, id: tag, target: None });
         }
         DetailFrame { attachments, post, links,
-            link_cursor: 0, scroll: 0, follow_link: false, notice: None }
+            link_cursor: 0, scroll: 0, follow_link: false, notice: None, sort: ThreadSort::Newest }
     }
     /// Open the n-th post of the view as the root detail (replacing any open stack).
     pub fn open_post(&mut self, i: usize) {
@@ -1213,7 +1266,7 @@ impl App {
         match r {
             Ok(true) => { self.session = SessionState::Valid; self.effects.push(Effect::RunJob(kind, argv)); }
             Ok(false) => { self.session = SessionState::LoggedOut; self.open_login(Some((kind, argv))); }
-            Err(e) => { self.session = SessionState::Saved; self.pending_feed = None; self.error("Cannot reach acp.us", &e); }
+            Err(e) => { self.session = SessionState::Saved; self.pending_feed = None; self.pending_sort = None; self.error("Cannot reach acp.us", &e); }
         }
     }
     /// The site sent the login code.
@@ -1248,12 +1301,16 @@ impl App {
         let Some(j) = self.job.take() else { return };
         let auto = std::mem::take(&mut self.auto_running);
         let feed = self.pending_feed.take();
+        let sort = self.pending_sort.take();
         self.refresh_nicks();
         self.load_base_keep();
         self.reload_marks();
         if let Some(key) = feed.as_deref() {
             let had = self.show_site_feed(key);
             if !ok && had { self.push_status(format!("showing the saved {key}; the refresh failed")); }
+        }
+        if let Some((id, sort)) = sort {
+            self.restore_thread_sort(&id, sort);
         }
         if ok {
             self.push_status(format!("{} finished", j.kind.name()));
@@ -1270,6 +1327,7 @@ impl App {
     pub fn job_cancelled(&mut self) {
         self.auto_running = false;
         self.pending_feed = None;
+        self.pending_sort = None;
         if let Some(j) = self.job.take() { self.push_status(format!("{} cancelled (pid {})", j.kind.name(), j.pid)); }
         self.refresh_nicks();
         self.load_base_keep();
@@ -1315,6 +1373,7 @@ impl App {
             (Modal::Login(m), ModalResult::ClosedCancelled) => {
                 self.pending_job = None;
                 self.pending_feed = None;
+                self.pending_sort = None;
                 if self.session == SessionState::Checking { self.session = SessionState::LoggedOut; }
                 let _ = m;
                 self.effects.push(Effect::LoginCancel);
@@ -1399,5 +1458,5 @@ pub fn research_post(it: &ResearchItem) -> Post {
     let nick = match it.kind { ItemKind::WebUrl => "web", ItemKind::LocalFile => "file", _ => "missing post" };
     let content = if it.kind.is_post() { format!("{} is not in the database any more.\n\n{body}", it.r#ref) } else { body };
     Post { post_id: format!("research:{}", it.id), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(),
-        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false, body_json: String::new() }
+        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false, body_json: String::new(), score: None }
 }

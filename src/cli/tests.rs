@@ -109,6 +109,12 @@ fn feed_mode_flags() {
     assert!(a.backfill_tags && a.nick.as_deref() == Some("alice"));
     assert!(Args::try_parse_from(["x", "--backfill-tags", "--tag", "strike"]).is_err());
     assert!(!parse_with_mode(["x", "--tag", "strike"]).unwrap().1);
+    let a = Args::try_parse_from(["x", "--sort-thread", "T1", "--thread-sort", "top"]).unwrap();
+    assert_eq!((a.sort_thread.as_deref(), a.thread_sort.as_deref()), (Some("T1"), Some("top")));
+    assert!(Args::try_parse_from(["x", "--sort-thread", "T1"]).is_err());
+    assert!(Args::try_parse_from(["x", "--thread-sort", "oldest"]).is_err());
+    assert!(Args::try_parse_from(["x", "--sort-thread", "T1", "--thread-sort", "newest"]).is_err());
+    assert!(Args::try_parse_from(["x", "--sort-thread", "T1", "--thread-sort", "oldest", "--tag", "x"]).is_err());
     assert_eq!(FeedMode::Latest.site_feed_url(), feed_latest_url());
     assert_eq!(FeedMode::Trending.site_feed_url(), feed_trending_url());
     assert!(FeedMode::Latest.allow_incremental_stop());

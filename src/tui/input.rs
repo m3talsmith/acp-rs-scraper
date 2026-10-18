@@ -139,6 +139,7 @@ fn body_key(app: &mut App, k: KeyEvent) {
             KeyCode::Left | KeyCode::Char('[') => app.move_link(-1),
             KeyCode::Right | KeyCode::Char(']') => app.move_link(1),
             KeyCode::Enter => { if let Some(i) = app.top().map(|f| f.link_cursor) { app.open_link(i); } }
+            KeyCode::Char('s') => app.cycle_thread_sort(),
             KeyCode::Esc | KeyCode::Backspace => { app.pop_detail(); }
             _ => { common_key(app, k); }
         }
