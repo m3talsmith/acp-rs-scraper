@@ -71,7 +71,7 @@ fn a_missing_or_broken_theme_falls_back_with_a_notice() {
     assert_eq!(std::fs::read_to_string(dir.join("bad.toml")).unwrap(), "version = 9\n", "never overwritten");
     a.modal = None;
     let s = text(&draw(&mut a, 110, 30));
-    assert!(s.contains("‹bad ⚠› ▾") && s.contains("Scrape"), "the layout still works:\n{s}");
+    assert!(s.contains("‹bad: broken› ▾") && s.contains("Scrape"), "the layout still works:\n{s}");
     let _ = std::fs::remove_dir_all(dir);
 }
 
@@ -289,8 +289,21 @@ fn the_header_says_downloading_while_the_first_run_download_runs() {
     assert!(s.contains("‹default · downloading…› ▾"), "{s}");
     a.theme_downloaded("default", false, Err("offline".into()));
     let s = text(&draw(&mut a, 140, 30));
-    assert!(!s.contains("downloading…") && s.contains("‹default ⚠› ▾"), "{s}");
+    assert!(!s.contains("downloading…") && s.contains("‹default: missing› ▾"), "{s}");
     let n = a.theme_error.clone().unwrap();
     assert!(n.contains("--theme-starter"), "the failure suggests the starter: {n}");
     let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
+fn the_warnings_of_a_theme_are_one_status_line() {
+    let mut a = themed_app("grouped");
+    let dir = a.themes_dir.clone().unwrap();
+    std::fs::write(dir.join("w.toml"), "version = 1\n[dark.palette]\nx = 'nocolour'\n[dark.styles]\nnope = 'bold'\nlink = 'sparkly'\n").unwrap();
+    let before = a.status.len();
+    assert!(a.use_theme("w", false));
+    let new: Vec<_> = a.status.iter().skip(before).filter(|l| l.contains("w.toml")).collect();
+    assert_eq!(new.len(), 1, "{new:?}");
+    assert!(new[0].contains("3 keys skipped"), "{new:?}");
+    let _ = std::fs::remove_dir_all(dir);
 }

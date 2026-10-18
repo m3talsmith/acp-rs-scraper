@@ -361,3 +361,57 @@ fn the_starter_is_minimal_valid_written_0600_and_never_over_a_file() {
     assert_eq!(free_name(&d, "starter"), "starter");
     let _ = std::fs::remove_dir_all(d);
 }
+
+#[test]
+fn warnings_of_one_file_are_one_notice() {
+    let p = Path::new("/t/x.toml");
+    assert_eq!(warning_notice(p, &[]), None);
+    assert_eq!(warning_notice(p, &["a".into()]).unwrap(), "warning: /t/x.toml: a");
+    let n = warning_notice(p, &["a".into(), "b".into(), "c".into()]).unwrap();
+    assert_eq!(n, "warning: /t/x.toml: 3 keys skipped: a; b; c");
+}
+
+/// The shipped default, byte for byte: the old look (ACP red), the header, both variants.
+/// Changing themes/default.toml must change this test too.
+const EXPECTED_DEFAULT: &str = r##"# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+#
+# The look acp-rs-scraper always had: ACP red (#dc2626) on the terminal's own
+# text and background colours. Copy this file to make your own theme, or use
+# the theme editor (Shift-F5 in the terminal UI).
+#
+# Colours: 0-255, "#rrggbb" or "#rgb", an ANSI name ("black" ... "white",
+# "bright_black" ... "bright_white"), "reset" (the terminal's colour), or
+# "@name" for an entry of the same palette. Per-element overrides go under
+# [dark.styles.<element>] with fg, bg, border, bold, italic, underline,
+# reverse and dim.
+version = 1
+name = "default"
+description = "ACP red on your terminal's own colours"
+
+[dark.palette]
+accent = "#dc2626"
+muted = "#9ca3af"
+border = "#4b5563"
+on_accent = "#ffffff"
+fg = "reset"
+bg = "reset"
+
+[light.palette]
+accent = "#dc2626"
+muted = "#9ca3af"
+border = "#4b5563"
+on_accent = "#ffffff"
+fg = "reset"
+bg = "reset"
+"##;
+
+#[test]
+fn the_shipped_default_theme_has_not_drifted() {
+    assert_eq!(repo_default(), EXPECTED_DEFAULT);
+    let (f, w) = parse(EXPECTED_DEFAULT, "default").unwrap();
+    assert!(w.is_empty());
+    for v in [Variant::Dark, Variant::Light] {
+        let s = f.section(v);
+        assert_eq!(s.get("accent"), Some(&ColorSpec::Value(Color::Rgb(0xdc, 0x26, 0x26))), "{v:?}");
+    }
+}

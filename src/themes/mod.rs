@@ -172,6 +172,15 @@ fn toml_files(dir: &Path) -> Vec<PathBuf> {
     v
 }
 
+/// The warnings of one file as a single notice (`None` when there are none).
+pub fn warning_notice(path: &Path, warnings: &[String]) -> Option<String> {
+    match warnings {
+        [] => None,
+        [w] => Some(format!("warning: {}: {w}", path.display())),
+        ws => Some(format!("warning: {}: {} keys skipped: {}", path.display(), ws.len(), ws.join("; "))),
+    }
+}
+
 /// Whether `dir` holds any theme file (an empty or missing folder means a first run).
 pub fn has_themes(dir: &Path) -> bool { !toml_files(dir).is_empty() }
 
@@ -269,7 +278,7 @@ pub fn prepare(dir: &Path, prefs: &Prefs) -> (Option<String>, Vec<String>) {
             Ok((name, warn)) => {
                 notes.push(format!("Your [theme] colours in ~/.acp/preferences.toml were converted into {} and selected; \
                     the old [theme] keys are kept but no longer used (edit the theme with Shift-F5 instead).", dir.join(format!("{name}.toml")).display()));
-                notes.extend(warn.into_iter().map(|w| format!("warning: {w}")));
+                if let Some(n) = warning_notice(&dir.join(format!("{name}.toml")), &warn) { notes.push(n); }
                 migrated = Some(name);
             }
             Err(e) => notes.push(format!("warning: could not convert the [theme] colours: {e:#}")),

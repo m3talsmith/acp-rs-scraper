@@ -381,6 +381,8 @@ pub struct App {
     pub theme_file: Option<crate::themes::ThemeFile>,
     /// Why the selected theme couldn't be used.
     pub theme_error: Option<String>,
+    /// What is wrong with the selected theme's file, for the header: `missing` or `broken`.
+    pub theme_fault: Option<&'static str>,
     /// `[ui] theme_mode`.
     pub theme_mode: crate::themes::Mode,
     /// The terminal's background is dark (`None`: unknown).
@@ -401,7 +403,7 @@ impl App {
             modal: None, status: VecDeque::new(), show_log: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
-            page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None,
+            page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
         };
         app.refresh_nicks();

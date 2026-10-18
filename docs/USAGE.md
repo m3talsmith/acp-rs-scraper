@@ -167,7 +167,8 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   starter mine`; without one the first free `starter`, `starter-2`, … is used), and **Create
   starter theme** in the `F5` list (offered when there are no themes) writes one and selects it.
 - **Header.** While the first-run download runs the switch reads `‹default · downloading…› ▾`;
-  `⚠` marks a theme that can't be used.
+  a theme that can't be used reads `‹default: missing› ▾` (no file) or `‹mine: broken› ▾` (the
+  file can't be read as a theme).
 - **Themes in the repo.** `default` (ACP red on the terminal's colours), `soviet` (red and gold),
   `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (deep
   crimson), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
@@ -215,21 +216,31 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 - **Editor** (`Shift-F5`, or *Edit themes…* in the picker). The left list holds the palette and
   every element (`→` expands an element into its keys, `←` hides them) with swatches, `*` for values that differ
   from the saved file and `⚠x.x:1` when an element's text/background contrast is under 3:1. The
-  right side is the real UI drawn with sample posts, updated as you edit. The selected palette
+  right side is the real UI drawn with sample posts, updated as you edit, plus a *Sample dialog*
+  frame with the parts the post view doesn't show (dialog box, focused and plain labels, a text
+  field, the Post/Reply tags, a link, a deleted post, inline code, dimmed text, a button and a
+  selected row). The selected palette
   colour or element is highlighted there: the preview is drawn a second time with that row's
   colours swapped for unused sentinel colours, and every cell that changes is shown in reverse
   video. The preview title names it (`‹@accent› highlighted (h)`) or says `‹dialog› isn't on
-  screen`; `h` turns the highlight off and on. Keys: `Tab` dark/light,
+  screen`; `h` turns the highlight off and on. When the theme uses `#rrggbb` colours and
+  `$COLORTERM` isn't `truecolor`/`24bit`, the preview's bottom border notes that the terminal may
+  show the nearest of 256. Keys: `Tab` dark/light,
   `Enter`/`Space` edit or toggle, `Del`/`Backspace` clear, `a`/`+` add a palette colour, `[`/`]`
-  previous/next theme, `Ctrl-S` save, `Ctrl-R` revert, `Ctrl-N` new, `Ctrl-D` duplicate, `Ctrl-X`
+  previous/next theme, `Ctrl-S` save, `Ctrl-R` revert everything, `r` revert the selected palette colour, element
+  or key only, `Ctrl-N` new, `Ctrl-D` duplicate, `Ctrl-X`
   delete (asks; the theme in use can't be deleted), `Esc` close (asks Save / Discard / Cancel when
-  there are unsaved changes). The colour picker takes hex input or a grid with tabs for the 16
+  there are unsaved changes). Saving asks first when the file changed on disk since the editor
+  read it (*Overwrite* / *Load* it, dropping your changes / *Cancel*) and when the file on disk is
+  broken (*Overwrite* / *Cancel*). The colour picker takes hex input or a grid with tabs for the 16
   ANSI colours, the 216-colour cube, the 24 greys and the palette `@refs`.
 - **When something is wrong.** A missing, unreadable or broken file never stops the UI: the
   layout stays and uses the terminal's own colours, and a notice names the file, the problem and
   how to fix it (fix the file, pick another theme with `F5`, or move it away and run
   `--theme-init` to download the default again). Broken files are never rewritten automatically; opening one in the editor
-  starts a fresh theme of that name, saved only when you press `Ctrl-S`. All writes are atomic
+  starts a fresh theme of that name, saved only when you press `Ctrl-S` and confirm. Unknown or
+  bad keys are skipped; the warnings of one file are one notice (`warning: …/x.toml: 3 keys
+  skipped: …`). All writes are atomic
   (temporary file, fsync, rename) with mode 0600.
 - **Migration from `[theme]`.** Up to 2.11 colours lived in `[theme]` (`accent`, `muted`, `border`,
   `on_accent`). On the first 2.12 run they are converted into `~/.acp/themes/custom.toml`

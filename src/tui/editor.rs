@@ -69,6 +69,11 @@ pub enum Ask {
     PaletteName,
     /// Delete this theme file.
     Delete(String),
+    /// The file changed on disk since it was opened: overwrite it, reload it, or cancel
+    /// (then continue with the unsaved-changes question it came from, if any).
+    ChangedOnDisk(Option<Box<Ask>>),
+    /// The file on disk is broken: replace it, or cancel.
+    OverwriteBroken(Option<Box<Ask>>),
 }
 
 /// An open question at the bottom of the editor.
@@ -104,6 +109,13 @@ pub struct ThemeEditor {
     pub message: Option<(bool, String)>,
     /// Mark the selected colour or element in the preview (reverse video; `h` toggles).
     pub highlight: bool,
+    /// The file's text when it was opened or last saved (`None`: there was no file), to
+    /// notice changes made on disk meanwhile.
+    pub disk: Option<String>,
+    /// The file on disk could not be read as a theme (saving asks before replacing it).
+    pub broken: bool,
+    /// The terminal shows 24-bit colour (`$COLORTERM` is `truecolor` or `24bit`).
+    pub truecolor: bool,
     /// The preview: the real UI over sample posts.
     pub preview: Box<App>,
 }
@@ -134,12 +146,14 @@ impl ThemeEditor {
     /// opened as a new theme and only replaced if you save it).
     pub fn open(app: &App, name: &str) -> Self {
         let dir = app.themes_dir.clone().unwrap_or_default();
-        let (file, saved, message) = match themes::load(&dir, name) {
-            Ok(l) => (l.file.clone(), Some(l.file), None),
-            Err(e) => (ThemeFile::empty(name), None, Some((true, e.notice()))),
+        let disk = themes::theme_path(&dir, name).ok().and_then(|p| std::fs::read_to_string(p).ok());
+        let (file, saved, message, broken) = match themes::load(&dir, name) {
+            Ok(l) => (l.file.clone(), Some(l.file), None, false),
+            Err(e) => (ThemeFile::empty(name), None, Some((true, e.notice())), matches!(e, themes::LoadError::Broken(..))),
         };
         let t = Theme::from_file(&file, app.variant());
-        let mut ed = ThemeEditor { file, saved, variant: app.variant(), cursor: 1, scroll: 0, expanded: None, picker: None, prompt: None, message, highlight: true, preview: preview_app(t) };
+        let mut ed = ThemeEditor { file, saved, variant: app.variant(), cursor: 1, scroll: 0, expanded: None, picker: None, prompt: None, message, highlight: true,
+            disk, broken, truecolor: truecolor(std::env::var("COLORTERM").ok().as_deref()), preview: preview_app(t) };
         ed.sync_preview();
         ed
     }
@@ -418,10 +432,20 @@ impl ThemeEditor {
     fn ask(&mut self, ask: Ask) { self.prompt = Some(Prompt { ask, field: TextField::default(), error: None }); }
 
     /// Save to the themes folder (and use it at once when it is the selected theme).
-    pub fn save(&mut self, app: &mut App) -> bool {
+    pub fn save(&mut self, app: &mut App) -> bool { self.save_with(app, false, None) }
+
+    /// Save; unless `force`, ask first when the file on disk is broken or changed since it
+    /// was opened (`then`: the question to continue with after that one).
+    fn save_with(&mut self, app: &mut App, force: bool, then: Option<Ask>) -> bool {
         let Some(dir) = app.themes_dir.clone() else { self.message = Some((true, "no themes folder".into())); return false };
+        let path = match themes::theme_path(&dir, &self.file.name) { Ok(p) => p, Err(e) => { self.message = Some((true, e)); return false } };
+        let now = std::fs::read_to_string(&path).ok();
+        if !force && self.broken && now.is_some() { self.ask(Ask::OverwriteBroken(then.map(Box::new))); return false; }
+        if !force && now != self.disk { self.ask(Ask::ChangedOnDisk(then.map(Box::new))); return false; }
         match themes::save(&dir, &self.file) {
             Ok(p) => {
+                self.disk = std::fs::read_to_string(&p).ok();
+                self.broken = false;
                 self.saved = Some(self.file.clone());
                 self.message = Some((false, format!("saved {}", p.display())));
                 app.push_status(format!("theme saved: {}", p.display()));
@@ -430,6 +454,48 @@ impl ThemeEditor {
             }
             Err(e) => { self.message = Some((true, format!("{e:#}"))); false }
         }
+    }
+
+    /// Put the selected row back as saved (in the shown variant): a palette colour, an
+    /// element's overrides, or one key of an element.
+    pub fn revert_row(&mut self) {
+        let row = self.current();
+        let saved = self.saved.as_ref().map(|s| s.section(self.variant)).unwrap_or_default();
+        let s = self.file.section_mut(self.variant);
+        match &row {
+            Row::Heading(_) => return,
+            Row::Palette(n) => match saved.get(n) {
+                Some(c) => s.set(n, c.clone()),
+                None => s.palette.retain(|(k, _)| k != n),
+            },
+            Row::Element(e) => s.set_style(*e, saved.style(*e)),
+            Row::Field(e, k) => {
+                let (mut st, old) = (s.style(*e), saved.style(*e));
+                st.set_color(k, old.color(k).cloned());
+                st.set_flag(k, old.flag(k));
+                s.set_style(*e, st);
+            }
+        }
+        // Nothing left that differs: the file is the saved one again (e.g. no `[light]` copy).
+        if let Some(sv) = &self.saved
+            && [Variant::Dark, Variant::Light].iter().all(|v| self.file.section(*v) == sv.section(*v))
+            && self.file.name == sv.name && self.file.description == sv.description {
+            self.file = sv.clone();
+        }
+        self.message = Some((false, format!("{} reverted", self.row_name().unwrap_or_default())));
+        self.settle(1);
+        self.sync_preview();
+    }
+
+    /// The truecolor note: shown when the theme uses `#rrggbb` colours and the terminal
+    /// doesn't say it shows 24-bit colour.
+    pub fn truecolor_note(&self) -> Option<&'static str> {
+        if self.truecolor { return None; }
+        let s = self.file.section(self.variant);
+        let rgb = |c: &ColorSpec| matches!(c, ColorSpec::Value(Color::Rgb(..)));
+        let uses = s.palette.iter().any(|(_, c)| rgb(c))
+            || s.styles.iter().any(|(_, st)| [&st.fg, &st.bg, &st.border].into_iter().flatten().any(rgb));
+        uses.then_some("#rrggbb colours need a true-colour terminal ($COLORTERM isn't truecolor): you may see the nearest of 256")
     }
 
     fn revert(&mut self) {
@@ -483,6 +549,8 @@ impl ThemeEditor {
                             f.description = if p.ask == Ask::NewName { "A new theme".into() } else { format!("A copy of {}", self.file.name) };
                             self.file = f;
                             self.saved = None;
+                            self.disk = None;
+                            self.broken = false;
                             self.message = Some((false, format!("{name}: not saved yet (^S saves)")));
                             self.sync_preview();
                         }
@@ -512,8 +580,19 @@ impl ThemeEditor {
                 Outcome::Stay
             }
             (Ask::UnsavedClose | Ask::UnsavedOpen(_), KeyCode::Char('s') | KeyCode::Enter) => {
-                if !self.save(app) { return Outcome::Stay; }
+                if !self.save_with(app, false, Some(p.ask.clone())) { return Outcome::Stay; }
                 self.after_unsaved(app, p.ask)
+            }
+            (Ask::ChangedOnDisk(then) | Ask::OverwriteBroken(then), KeyCode::Char('o') | KeyCode::Char('y')) => {
+                let then = then.clone().map(|b| *b);
+                if !self.save_with(app, true, None) { return Outcome::Stay; }
+                match then { Some(a) => self.after_unsaved(app, a), None => Outcome::Stay }
+            }
+            (Ask::ChangedOnDisk(_), KeyCode::Char('l') | KeyCode::Char('r')) => {
+                let n = self.file.name.clone();
+                self.open_other(app, &n);
+                self.message = Some((false, format!("reloaded {n}.toml from disk (your changes were dropped)")));
+                Outcome::Stay
             }
             (Ask::UnsavedClose | Ask::UnsavedOpen(_), KeyCode::Char('d')) => self.after_unsaved(app, p.ask),
             _ => { self.prompt = Some(p); Outcome::Stay }
@@ -552,6 +631,7 @@ impl ThemeEditor {
             KeyCode::Enter | KeyCode::Char(' ') => self.activate(),
             KeyCode::Right | KeyCode::Char('l') => if let Row::Element(e) = self.current() { self.expanded = Some(e); },
             KeyCode::Char('h') => self.highlight = !self.highlight,
+            KeyCode::Char('r') => self.revert_row(),
             KeyCode::Left => {
                 if let Row::Field(e, _) = self.current() && let Some(i) = self.rows().iter().position(|r| *r == Row::Element(e)) { self.cursor = i; }
                 self.expanded = None;
@@ -628,4 +708,9 @@ pub fn warning(f: &ThemeFile, v: Variant, r: &Row) -> Option<f64> {
         Row::Heading(_) => None,
     };
     ratio.filter(|x| *x < THEME_MIN_CONTRAST)
+}
+
+/// Whether `$COLORTERM` says the terminal shows 24-bit colour.
+pub fn truecolor(colorterm: Option<&str>) -> bool {
+    colorterm.is_some_and(|v| { let v = v.to_ascii_lowercase(); v.contains("truecolor") || v.contains("24bit") })
 }

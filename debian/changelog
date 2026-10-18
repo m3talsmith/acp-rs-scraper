@@ -1,3 +1,9 @@
+acp-rs-scraper (2.16.0) unstable; urgency=medium
+
+  * Theme editor sample dialog, per-row revert, changed-on-disk and broken-file save prompts, truecolor note; header missing/broken marker; grouped theme warnings.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 00:15:48 -0400
+
 acp-rs-scraper (2.15.0) unstable; urgency=medium
 
   * Theme editor preview highlight, starter themes (--theme-starter), Download/Starter entries in the empty F5 list, downloading in the header.

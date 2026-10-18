@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["draw","draw_picker","highlight_changes","preview_buffer","swatch"]};
+window.SIDEBAR_ITEMS = {"fn":["draw","draw_picker","draw_samples","highlight_changes","preview_buffer","swatch"]};

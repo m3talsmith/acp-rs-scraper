@@ -172,112 +172,121 @@
 <a href=#172 id=172 data-nosnippet>172</a>    v
 <a href=#173 id=173 data-nosnippet>173</a>}
 <a href=#174 id=174 data-nosnippet>174</a>
-<a href=#175 id=175 data-nosnippet>175</a><span class="doccomment">/// Whether `dir` holds any theme file (an empty or missing folder means a first run).
-<a href=#176 id=176 data-nosnippet>176</a></span><span class="kw">pub fn </span>has_themes(dir: <span class="kw-2">&amp;</span>Path) -&gt; bool { !toml_files(dir).is_empty() }
-<a href=#177 id=177 data-nosnippet>177</a>
-<a href=#178 id=178 data-nosnippet>178</a><span class="doccomment">/// Whether the old `[theme]` table of preferences.toml sets anything.
-<a href=#179 id=179 data-nosnippet>179</a></span><span class="kw">pub fn </span>legacy_set(p: <span class="kw-2">&amp;</span>ThemePrefs) -&gt; bool { p.accent.is_some() || p.muted.is_some() || p.border.is_some() || p.on_accent.is_some() }
-<a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a><span class="doccomment">/// The old `[theme]` colours as a theme: `base` (normally the default theme) with
-<a href=#182 id=182 data-nosnippet>182</a>/// them applied to both variants. Invalid colours are reported and skipped.
-<a href=#183 id=183 data-nosnippet>183</a></span><span class="kw">pub fn </span>from_legacy(name: <span class="kw-2">&amp;</span>str, legacy: <span class="kw-2">&amp;</span>ThemePrefs, base: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ThemeFile&gt;) -&gt; (ThemeFile, Vec&lt;String&gt;) {
-<a href=#184 id=184 data-nosnippet>184</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = base.cloned().unwrap_or_else(|| ThemeFile::empty(name));
-<a href=#185 id=185 data-nosnippet>185</a>    f.name = name.into();
-<a href=#186 id=186 data-nosnippet>186</a>    f.description = <span class="string">"Converted from the [theme] colours in ~/.acp/preferences.toml"</span>.into();
-<a href=#187 id=187 data-nosnippet>187</a>    <span class="kw">let </span><span class="kw-2">mut </span>warn = Vec::new();
-<a href=#188 id=188 data-nosnippet>188</a>    <span class="kw">for </span>(k, v) <span class="kw">in </span>[(<span class="string">"accent"</span>, <span class="kw-2">&amp;</span>legacy.accent), (<span class="string">"muted"</span>, <span class="kw-2">&amp;</span>legacy.muted), (<span class="string">"border"</span>, <span class="kw-2">&amp;</span>legacy.border), (<span class="string">"on_accent"</span>, <span class="kw-2">&amp;</span>legacy.on_accent)] {
-<a href=#189 id=189 data-nosnippet>189</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(v) = v <span class="kw">else </span>{ <span class="kw">continue </span>};
-<a href=#190 id=190 data-nosnippet>190</a>        <span class="comment">// The old table took `#rrggbb` or bare `rrggbb`.
-<a href=#191 id=191 data-nosnippet>191</a>        </span><span class="kw">let </span>bare = v.len() == <span class="number">6 </span>&amp;&amp; v.chars().all(|c| c.is_ascii_hexdigit());
-<a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">match </span>parse_color_str(<span class="kw-2">&amp;</span><span class="kw">if </span>bare { <span class="macro">format!</span>(<span class="string">"#{v}"</span>) } <span class="kw">else </span>{ v.clone() }) {
-<a href=#193 id=193 data-nosnippet>193</a>            <span class="prelude-val">Ok</span>(ColorSpec::Value(c)) =&gt; {
-<a href=#194 id=194 data-nosnippet>194</a>                f.dark.set(k, ColorSpec::Value(c));
-<a href=#195 id=195 data-nosnippet>195</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(l) = f.light.as_mut() { l.set(k, ColorSpec::Value(c)); }
-<a href=#196 id=196 data-nosnippet>196</a>            }
-<a href=#197 id=197 data-nosnippet>197</a>            <span class="kw">_ </span>=&gt; warn.push(<span class="macro">format!</span>(<span class="string">"[theme] {k} = {v:?} is not a colour (skipped)"</span>)),
-<a href=#198 id=198 data-nosnippet>198</a>        }
-<a href=#199 id=199 data-nosnippet>199</a>    }
-<a href=#200 id=200 data-nosnippet>200</a>    (f, warn)
-<a href=#201 id=201 data-nosnippet>201</a>}
-<a href=#202 id=202 data-nosnippet>202</a>
-<a href=#203 id=203 data-nosnippet>203</a><span class="doccomment">/// Save the old `[theme]` colours as a new theme file in `dir`: [`MIGRATED_THEME`],
-<a href=#204 id=204 data-nosnippet>204</a>/// or `custom-2`, `custom-3`… when that name is taken. Returns the name and warnings.
-<a href=#205 id=205 data-nosnippet>205</a></span><span class="kw">pub fn </span>migrate_legacy(dir: <span class="kw-2">&amp;</span>Path, legacy: <span class="kw-2">&amp;</span>ThemePrefs) -&gt; <span class="prelude-ty">Result</span>&lt;(String, Vec&lt;String&gt;)&gt; {
-<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">let </span>base = load(dir, DEFAULT_THEME).ok().map(|l| l.file);
-<a href=#207 id=207 data-nosnippet>207</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..<span class="number">100 </span>{
-<a href=#208 id=208 data-nosnippet>208</a>        <span class="kw">let </span>name = <span class="kw">if </span>i == <span class="number">1 </span>{ MIGRATED_THEME.to_string() } <span class="kw">else </span>{ <span class="macro">format!</span>(<span class="string">"{MIGRATED_THEME}-{i}"</span>) };
-<a href=#209 id=209 data-nosnippet>209</a>        <span class="kw">let </span>(f, warn) = from_legacy(<span class="kw-2">&amp;</span>name, legacy, base.as_ref());
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">let </span>p = theme_path(dir, <span class="kw-2">&amp;</span>name).map_err(|e| <span class="macro">anyhow!</span>(e))<span class="question-mark">?</span>;
-<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">if </span>atomic_write_new(<span class="kw-2">&amp;</span>p, to_toml(<span class="kw-2">&amp;</span>f).as_bytes()).with_context(|| <span class="macro">format!</span>(<span class="string">"writing {}"</span>, p.display()))<span class="question-mark">? </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>((name, warn)); }
-<a href=#212 id=212 data-nosnippet>212</a>    }
-<a href=#213 id=213 data-nosnippet>213</a>    <span class="macro">bail!</span>(<span class="string">"no free name for the migrated theme in {}"</span>, dir.display())
-<a href=#214 id=214 data-nosnippet>214</a>}
-<a href=#215 id=215 data-nosnippet>215</a>
-<a href=#216 id=216 data-nosnippet>216</a><span class="doccomment">/// Theme mode from `[ui] theme_mode`.
-<a href=#217 id=217 data-nosnippet>217</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-<a href=#218 id=218 data-nosnippet>218</a></span><span class="kw">pub enum </span>Mode {
-<a href=#219 id=219 data-nosnippet>219</a>    <span class="doccomment">/// Always the dark variant.
-<a href=#220 id=220 data-nosnippet>220</a>    </span>Dark,
-<a href=#221 id=221 data-nosnippet>221</a>    <span class="doccomment">/// Always the light variant.
-<a href=#222 id=222 data-nosnippet>222</a>    </span>Light,
-<a href=#223 id=223 data-nosnippet>223</a>    <span class="doccomment">/// From the terminal's background (`COLORFGBG`, or asking the terminal); dark if unknown.
-<a href=#224 id=224 data-nosnippet>224</a>    </span><span class="attr">#[default]
-<a href=#225 id=225 data-nosnippet>225</a>    </span>System,
-<a href=#226 id=226 data-nosnippet>226</a>}
-<a href=#227 id=227 data-nosnippet>227</a>
-<a href=#228 id=228 data-nosnippet>228</a><span class="kw">impl </span>Mode {
-<a href=#229 id=229 data-nosnippet>229</a>    <span class="doccomment">/// `dark` / `light` / `system` (anything else: system).
-<a href=#230 id=230 data-nosnippet>230</a>    </span><span class="kw">pub fn </span>parse(s: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; Mode {
-<a href=#231 id=231 data-nosnippet>231</a>        <span class="kw">match </span>s.map(|s| s.trim().to_ascii_lowercase()).as_deref() { <span class="prelude-val">Some</span>(<span class="string">"dark"</span>) =&gt; Mode::Dark, <span class="prelude-val">Some</span>(<span class="string">"light"</span>) =&gt; Mode::Light, <span class="kw">_ </span>=&gt; Mode::System }
-<a href=#232 id=232 data-nosnippet>232</a>    }
-<a href=#233 id=233 data-nosnippet>233</a>    <span class="doccomment">/// The variant, given what the terminal's background looks like (`Some(true)`: dark).
-<a href=#234 id=234 data-nosnippet>234</a>    </span><span class="kw">pub fn </span>variant(<span class="self">self</span>, dark_bg: <span class="prelude-ty">Option</span>&lt;bool&gt;) -&gt; Variant {
-<a href=#235 id=235 data-nosnippet>235</a>        <span class="kw">match </span><span class="self">self </span>{ Mode::Dark =&gt; Variant::Dark, Mode::Light =&gt; Variant::Light, Mode::System =&gt; <span class="kw">if </span>dark_bg == <span class="prelude-val">Some</span>(<span class="bool-val">false</span>) { Variant::Light } <span class="kw">else </span>{ Variant::Dark } }
-<a href=#236 id=236 data-nosnippet>236</a>    }
-<a href=#237 id=237 data-nosnippet>237</a>}
-<a href=#238 id=238 data-nosnippet>238</a>
-<a href=#239 id=239 data-nosnippet>239</a><span class="doccomment">/// `COLORFGBG` ("fg;bg", set by rxvt, Konsole and others): `Some(true)` for a dark background.
-<a href=#240 id=240 data-nosnippet>240</a></span><span class="kw">pub fn </span>colorfgbg_dark(v: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;bool&gt; {
-<a href=#241 id=241 data-nosnippet>241</a>    <span class="kw">let </span>bg: u8 = v<span class="question-mark">?</span>.rsplit(<span class="string">';'</span>).next()<span class="question-mark">?</span>.trim().parse().ok()<span class="question-mark">?</span>;
-<a href=#242 id=242 data-nosnippet>242</a>    <span class="prelude-val">Some</span>(!<span class="macro">matches!</span>(bg, <span class="number">7 </span>| <span class="number">9</span>..=<span class="number">15</span>))
-<a href=#243 id=243 data-nosnippet>243</a>}
-<a href=#244 id=244 data-nosnippet>244</a>
-<a href=#245 id=245 data-nosnippet>245</a><span class="doccomment">/// An OSC 11 reply (`ESC ] 11 ; rgb:rrrr/gggg/bbbb`): `Some(true)` for a dark background.
-<a href=#246 id=246 data-nosnippet>246</a></span><span class="kw">pub fn </span>osc11_dark(reply: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;bool&gt; {
-<a href=#247 id=247 data-nosnippet>247</a>    <span class="kw">let </span>i = reply.find(<span class="string">"]11;rgb:"</span>)<span class="question-mark">?</span>;
-<a href=#248 id=248 data-nosnippet>248</a>    <span class="kw">let </span>rest = <span class="kw-2">&amp;</span>reply[i + <span class="number">8</span>..];
-<a href=#249 id=249 data-nosnippet>249</a>    <span class="kw">let </span><span class="kw-2">mut </span>it = rest.split([<span class="string">'/'</span>, <span class="string">'\x07'</span>, <span class="string">'\x1b'</span>]);
-<a href=#250 id=250 data-nosnippet>250</a>    <span class="kw">let </span><span class="kw-2">mut </span>ch = || -&gt; <span class="prelude-ty">Option</span>&lt;f64&gt; {
-<a href=#251 id=251 data-nosnippet>251</a>        <span class="kw">let </span>h = it.next()<span class="question-mark">?</span>;
-<a href=#252 id=252 data-nosnippet>252</a>        <span class="kw">let </span>h = <span class="kw-2">&amp;</span>h[..h.len().min(<span class="number">4</span>)];
-<a href=#253 id=253 data-nosnippet>253</a>        <span class="kw">let </span>v = u32::from_str_radix(h, <span class="number">16</span>).ok()<span class="question-mark">? </span><span class="kw">as </span>f64;
-<a href=#254 id=254 data-nosnippet>254</a>        <span class="prelude-val">Some</span>(v / ((<span class="number">1u32 </span>&lt;&lt; (<span class="number">4 </span>* h.len())) - <span class="number">1</span>) <span class="kw">as </span>f64)
-<a href=#255 id=255 data-nosnippet>255</a>    };
-<a href=#256 id=256 data-nosnippet>256</a>    <span class="kw">let </span>(r, g, b) = (ch()<span class="question-mark">?</span>, ch()<span class="question-mark">?</span>, ch()<span class="question-mark">?</span>);
-<a href=#257 id=257 data-nosnippet>257</a>    <span class="prelude-val">Some</span>(<span class="number">0.2126 </span>* r + <span class="number">0.7152 </span>* g + <span class="number">0.0722 </span>* b &lt; <span class="number">0.5</span>)
-<a href=#258 id=258 data-nosnippet>258</a>}
-<a href=#259 id=259 data-nosnippet>259</a>
-<a href=#260 id=260 data-nosnippet>260</a><span class="doccomment">/// The startup work: turn an old `[theme]` table into a theme file once (when
-<a href=#261 id=261 data-nosnippet>261</a>/// `[ui] theme` is unset). Returns the migrated theme's name (to select and save) and
-<a href=#262 id=262 data-nosnippet>262</a>/// notices for the user. Downloading the default is separate ([`download`]).
-<a href=#263 id=263 data-nosnippet>263</a></span><span class="kw">pub fn </span>prepare(dir: <span class="kw-2">&amp;</span>Path, prefs: <span class="kw-2">&amp;</span>Prefs) -&gt; (<span class="prelude-ty">Option</span>&lt;String&gt;, Vec&lt;String&gt;) {
-<a href=#264 id=264 data-nosnippet>264</a>    <span class="kw">let </span><span class="kw-2">mut </span>notes = Vec::new();
-<a href=#265 id=265 data-nosnippet>265</a>    <span class="kw">let </span>ui_theme = prefs.ui.as_ref().and_then(|u| u.theme.clone());
-<a href=#266 id=266 data-nosnippet>266</a>    <span class="kw">let </span><span class="kw-2">mut </span>migrated = <span class="prelude-val">None</span>;
-<a href=#267 id=267 data-nosnippet>267</a>    <span class="kw">if </span>ui_theme.is_none() &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(old) = prefs.theme.as_ref().filter(|t| legacy_set(t)) {
-<a href=#268 id=268 data-nosnippet>268</a>        <span class="kw">match </span>migrate_legacy(dir, old) {
-<a href=#269 id=269 data-nosnippet>269</a>            <span class="prelude-val">Ok</span>((name, warn)) =&gt; {
-<a href=#270 id=270 data-nosnippet>270</a>                notes.push(<span class="macro">format!</span>(<span class="string">"Your [theme] colours in ~/.acp/preferences.toml were converted into {} and selected; \
-<a href=#271 id=271 data-nosnippet>271</a>                    the old [theme] keys are kept but no longer used (edit the theme with Shift-F5 instead)."</span>, dir.join(<span class="macro">format!</span>(<span class="string">"{name}.toml"</span>)).display()));
-<a href=#272 id=272 data-nosnippet>272</a>                notes.extend(warn.into_iter().map(|w| <span class="macro">format!</span>(<span class="string">"warning: {w}"</span>)));
-<a href=#273 id=273 data-nosnippet>273</a>                migrated = <span class="prelude-val">Some</span>(name);
-<a href=#274 id=274 data-nosnippet>274</a>            }
-<a href=#275 id=275 data-nosnippet>275</a>            <span class="prelude-val">Err</span>(e) =&gt; notes.push(<span class="macro">format!</span>(<span class="string">"warning: could not convert the [theme] colours: {e:#}"</span>)),
-<a href=#276 id=276 data-nosnippet>276</a>        }
-<a href=#277 id=277 data-nosnippet>277</a>    }
-<a href=#278 id=278 data-nosnippet>278</a>    (migrated, notes)
-<a href=#279 id=279 data-nosnippet>279</a>}
-<a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a><span class="attr">#[cfg(test)]
-<a href=#282 id=282 data-nosnippet>282</a></span><span class="kw">mod </span>tests;
+<a href=#175 id=175 data-nosnippet>175</a><span class="doccomment">/// The warnings of one file as a single notice (`None` when there are none).
+<a href=#176 id=176 data-nosnippet>176</a></span><span class="kw">pub fn </span>warning_notice(path: <span class="kw-2">&amp;</span>Path, warnings: <span class="kw-2">&amp;</span>[String]) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="kw">match </span>warnings {
+<a href=#178 id=178 data-nosnippet>178</a>        [] =&gt; <span class="prelude-val">None</span>,
+<a href=#179 id=179 data-nosnippet>179</a>        [w] =&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"warning: {}: {w}"</span>, path.display())),
+<a href=#180 id=180 data-nosnippet>180</a>        ws =&gt; <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"warning: {}: {} keys skipped: {}"</span>, path.display(), ws.len(), ws.join(<span class="string">"; "</span>))),
+<a href=#181 id=181 data-nosnippet>181</a>    }
+<a href=#182 id=182 data-nosnippet>182</a>}
+<a href=#183 id=183 data-nosnippet>183</a>
+<a href=#184 id=184 data-nosnippet>184</a><span class="doccomment">/// Whether `dir` holds any theme file (an empty or missing folder means a first run).
+<a href=#185 id=185 data-nosnippet>185</a></span><span class="kw">pub fn </span>has_themes(dir: <span class="kw-2">&amp;</span>Path) -&gt; bool { !toml_files(dir).is_empty() }
+<a href=#186 id=186 data-nosnippet>186</a>
+<a href=#187 id=187 data-nosnippet>187</a><span class="doccomment">/// Whether the old `[theme]` table of preferences.toml sets anything.
+<a href=#188 id=188 data-nosnippet>188</a></span><span class="kw">pub fn </span>legacy_set(p: <span class="kw-2">&amp;</span>ThemePrefs) -&gt; bool { p.accent.is_some() || p.muted.is_some() || p.border.is_some() || p.on_accent.is_some() }
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a><span class="doccomment">/// The old `[theme]` colours as a theme: `base` (normally the default theme) with
+<a href=#191 id=191 data-nosnippet>191</a>/// them applied to both variants. Invalid colours are reported and skipped.
+<a href=#192 id=192 data-nosnippet>192</a></span><span class="kw">pub fn </span>from_legacy(name: <span class="kw-2">&amp;</span>str, legacy: <span class="kw-2">&amp;</span>ThemePrefs, base: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>ThemeFile&gt;) -&gt; (ThemeFile, Vec&lt;String&gt;) {
+<a href=#193 id=193 data-nosnippet>193</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = base.cloned().unwrap_or_else(|| ThemeFile::empty(name));
+<a href=#194 id=194 data-nosnippet>194</a>    f.name = name.into();
+<a href=#195 id=195 data-nosnippet>195</a>    f.description = <span class="string">"Converted from the [theme] colours in ~/.acp/preferences.toml"</span>.into();
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">let </span><span class="kw-2">mut </span>warn = Vec::new();
+<a href=#197 id=197 data-nosnippet>197</a>    <span class="kw">for </span>(k, v) <span class="kw">in </span>[(<span class="string">"accent"</span>, <span class="kw-2">&amp;</span>legacy.accent), (<span class="string">"muted"</span>, <span class="kw-2">&amp;</span>legacy.muted), (<span class="string">"border"</span>, <span class="kw-2">&amp;</span>legacy.border), (<span class="string">"on_accent"</span>, <span class="kw-2">&amp;</span>legacy.on_accent)] {
+<a href=#198 id=198 data-nosnippet>198</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(v) = v <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="comment">// The old table took `#rrggbb` or bare `rrggbb`.
+<a href=#200 id=200 data-nosnippet>200</a>        </span><span class="kw">let </span>bare = v.len() == <span class="number">6 </span>&amp;&amp; v.chars().all(|c| c.is_ascii_hexdigit());
+<a href=#201 id=201 data-nosnippet>201</a>        <span class="kw">match </span>parse_color_str(<span class="kw-2">&amp;</span><span class="kw">if </span>bare { <span class="macro">format!</span>(<span class="string">"#{v}"</span>) } <span class="kw">else </span>{ v.clone() }) {
+<a href=#202 id=202 data-nosnippet>202</a>            <span class="prelude-val">Ok</span>(ColorSpec::Value(c)) =&gt; {
+<a href=#203 id=203 data-nosnippet>203</a>                f.dark.set(k, ColorSpec::Value(c));
+<a href=#204 id=204 data-nosnippet>204</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(l) = f.light.as_mut() { l.set(k, ColorSpec::Value(c)); }
+<a href=#205 id=205 data-nosnippet>205</a>            }
+<a href=#206 id=206 data-nosnippet>206</a>            <span class="kw">_ </span>=&gt; warn.push(<span class="macro">format!</span>(<span class="string">"[theme] {k} = {v:?} is not a colour (skipped)"</span>)),
+<a href=#207 id=207 data-nosnippet>207</a>        }
+<a href=#208 id=208 data-nosnippet>208</a>    }
+<a href=#209 id=209 data-nosnippet>209</a>    (f, warn)
+<a href=#210 id=210 data-nosnippet>210</a>}
+<a href=#211 id=211 data-nosnippet>211</a>
+<a href=#212 id=212 data-nosnippet>212</a><span class="doccomment">/// Save the old `[theme]` colours as a new theme file in `dir`: [`MIGRATED_THEME`],
+<a href=#213 id=213 data-nosnippet>213</a>/// or `custom-2`, `custom-3`… when that name is taken. Returns the name and warnings.
+<a href=#214 id=214 data-nosnippet>214</a></span><span class="kw">pub fn </span>migrate_legacy(dir: <span class="kw-2">&amp;</span>Path, legacy: <span class="kw-2">&amp;</span>ThemePrefs) -&gt; <span class="prelude-ty">Result</span>&lt;(String, Vec&lt;String&gt;)&gt; {
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="kw">let </span>base = load(dir, DEFAULT_THEME).ok().map(|l| l.file);
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..<span class="number">100 </span>{
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>name = <span class="kw">if </span>i == <span class="number">1 </span>{ MIGRATED_THEME.to_string() } <span class="kw">else </span>{ <span class="macro">format!</span>(<span class="string">"{MIGRATED_THEME}-{i}"</span>) };
+<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>(f, warn) = from_legacy(<span class="kw-2">&amp;</span>name, legacy, base.as_ref());
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="kw">let </span>p = theme_path(dir, <span class="kw-2">&amp;</span>name).map_err(|e| <span class="macro">anyhow!</span>(e))<span class="question-mark">?</span>;
+<a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">if </span>atomic_write_new(<span class="kw-2">&amp;</span>p, to_toml(<span class="kw-2">&amp;</span>f).as_bytes()).with_context(|| <span class="macro">format!</span>(<span class="string">"writing {}"</span>, p.display()))<span class="question-mark">? </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>((name, warn)); }
+<a href=#221 id=221 data-nosnippet>221</a>    }
+<a href=#222 id=222 data-nosnippet>222</a>    <span class="macro">bail!</span>(<span class="string">"no free name for the migrated theme in {}"</span>, dir.display())
+<a href=#223 id=223 data-nosnippet>223</a>}
+<a href=#224 id=224 data-nosnippet>224</a>
+<a href=#225 id=225 data-nosnippet>225</a><span class="doccomment">/// Theme mode from `[ui] theme_mode`.
+<a href=#226 id=226 data-nosnippet>226</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+<a href=#227 id=227 data-nosnippet>227</a></span><span class="kw">pub enum </span>Mode {
+<a href=#228 id=228 data-nosnippet>228</a>    <span class="doccomment">/// Always the dark variant.
+<a href=#229 id=229 data-nosnippet>229</a>    </span>Dark,
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="doccomment">/// Always the light variant.
+<a href=#231 id=231 data-nosnippet>231</a>    </span>Light,
+<a href=#232 id=232 data-nosnippet>232</a>    <span class="doccomment">/// From the terminal's background (`COLORFGBG`, or asking the terminal); dark if unknown.
+<a href=#233 id=233 data-nosnippet>233</a>    </span><span class="attr">#[default]
+<a href=#234 id=234 data-nosnippet>234</a>    </span>System,
+<a href=#235 id=235 data-nosnippet>235</a>}
+<a href=#236 id=236 data-nosnippet>236</a>
+<a href=#237 id=237 data-nosnippet>237</a><span class="kw">impl </span>Mode {
+<a href=#238 id=238 data-nosnippet>238</a>    <span class="doccomment">/// `dark` / `light` / `system` (anything else: system).
+<a href=#239 id=239 data-nosnippet>239</a>    </span><span class="kw">pub fn </span>parse(s: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; Mode {
+<a href=#240 id=240 data-nosnippet>240</a>        <span class="kw">match </span>s.map(|s| s.trim().to_ascii_lowercase()).as_deref() { <span class="prelude-val">Some</span>(<span class="string">"dark"</span>) =&gt; Mode::Dark, <span class="prelude-val">Some</span>(<span class="string">"light"</span>) =&gt; Mode::Light, <span class="kw">_ </span>=&gt; Mode::System }
+<a href=#241 id=241 data-nosnippet>241</a>    }
+<a href=#242 id=242 data-nosnippet>242</a>    <span class="doccomment">/// The variant, given what the terminal's background looks like (`Some(true)`: dark).
+<a href=#243 id=243 data-nosnippet>243</a>    </span><span class="kw">pub fn </span>variant(<span class="self">self</span>, dark_bg: <span class="prelude-ty">Option</span>&lt;bool&gt;) -&gt; Variant {
+<a href=#244 id=244 data-nosnippet>244</a>        <span class="kw">match </span><span class="self">self </span>{ Mode::Dark =&gt; Variant::Dark, Mode::Light =&gt; Variant::Light, Mode::System =&gt; <span class="kw">if </span>dark_bg == <span class="prelude-val">Some</span>(<span class="bool-val">false</span>) { Variant::Light } <span class="kw">else </span>{ Variant::Dark } }
+<a href=#245 id=245 data-nosnippet>245</a>    }
+<a href=#246 id=246 data-nosnippet>246</a>}
+<a href=#247 id=247 data-nosnippet>247</a>
+<a href=#248 id=248 data-nosnippet>248</a><span class="doccomment">/// `COLORFGBG` ("fg;bg", set by rxvt, Konsole and others): `Some(true)` for a dark background.
+<a href=#249 id=249 data-nosnippet>249</a></span><span class="kw">pub fn </span>colorfgbg_dark(v: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;bool&gt; {
+<a href=#250 id=250 data-nosnippet>250</a>    <span class="kw">let </span>bg: u8 = v<span class="question-mark">?</span>.rsplit(<span class="string">';'</span>).next()<span class="question-mark">?</span>.trim().parse().ok()<span class="question-mark">?</span>;
+<a href=#251 id=251 data-nosnippet>251</a>    <span class="prelude-val">Some</span>(!<span class="macro">matches!</span>(bg, <span class="number">7 </span>| <span class="number">9</span>..=<span class="number">15</span>))
+<a href=#252 id=252 data-nosnippet>252</a>}
+<a href=#253 id=253 data-nosnippet>253</a>
+<a href=#254 id=254 data-nosnippet>254</a><span class="doccomment">/// An OSC 11 reply (`ESC ] 11 ; rgb:rrrr/gggg/bbbb`): `Some(true)` for a dark background.
+<a href=#255 id=255 data-nosnippet>255</a></span><span class="kw">pub fn </span>osc11_dark(reply: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;bool&gt; {
+<a href=#256 id=256 data-nosnippet>256</a>    <span class="kw">let </span>i = reply.find(<span class="string">"]11;rgb:"</span>)<span class="question-mark">?</span>;
+<a href=#257 id=257 data-nosnippet>257</a>    <span class="kw">let </span>rest = <span class="kw-2">&amp;</span>reply[i + <span class="number">8</span>..];
+<a href=#258 id=258 data-nosnippet>258</a>    <span class="kw">let </span><span class="kw-2">mut </span>it = rest.split([<span class="string">'/'</span>, <span class="string">'\x07'</span>, <span class="string">'\x1b'</span>]);
+<a href=#259 id=259 data-nosnippet>259</a>    <span class="kw">let </span><span class="kw-2">mut </span>ch = || -&gt; <span class="prelude-ty">Option</span>&lt;f64&gt; {
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="kw">let </span>h = it.next()<span class="question-mark">?</span>;
+<a href=#261 id=261 data-nosnippet>261</a>        <span class="kw">let </span>h = <span class="kw-2">&amp;</span>h[..h.len().min(<span class="number">4</span>)];
+<a href=#262 id=262 data-nosnippet>262</a>        <span class="kw">let </span>v = u32::from_str_radix(h, <span class="number">16</span>).ok()<span class="question-mark">? </span><span class="kw">as </span>f64;
+<a href=#263 id=263 data-nosnippet>263</a>        <span class="prelude-val">Some</span>(v / ((<span class="number">1u32 </span>&lt;&lt; (<span class="number">4 </span>* h.len())) - <span class="number">1</span>) <span class="kw">as </span>f64)
+<a href=#264 id=264 data-nosnippet>264</a>    };
+<a href=#265 id=265 data-nosnippet>265</a>    <span class="kw">let </span>(r, g, b) = (ch()<span class="question-mark">?</span>, ch()<span class="question-mark">?</span>, ch()<span class="question-mark">?</span>);
+<a href=#266 id=266 data-nosnippet>266</a>    <span class="prelude-val">Some</span>(<span class="number">0.2126 </span>* r + <span class="number">0.7152 </span>* g + <span class="number">0.0722 </span>* b &lt; <span class="number">0.5</span>)
+<a href=#267 id=267 data-nosnippet>267</a>}
+<a href=#268 id=268 data-nosnippet>268</a>
+<a href=#269 id=269 data-nosnippet>269</a><span class="doccomment">/// The startup work: turn an old `[theme]` table into a theme file once (when
+<a href=#270 id=270 data-nosnippet>270</a>/// `[ui] theme` is unset). Returns the migrated theme's name (to select and save) and
+<a href=#271 id=271 data-nosnippet>271</a>/// notices for the user. Downloading the default is separate ([`download`]).
+<a href=#272 id=272 data-nosnippet>272</a></span><span class="kw">pub fn </span>prepare(dir: <span class="kw-2">&amp;</span>Path, prefs: <span class="kw-2">&amp;</span>Prefs) -&gt; (<span class="prelude-ty">Option</span>&lt;String&gt;, Vec&lt;String&gt;) {
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="kw">let </span><span class="kw-2">mut </span>notes = Vec::new();
+<a href=#274 id=274 data-nosnippet>274</a>    <span class="kw">let </span>ui_theme = prefs.ui.as_ref().and_then(|u| u.theme.clone());
+<a href=#275 id=275 data-nosnippet>275</a>    <span class="kw">let </span><span class="kw-2">mut </span>migrated = <span class="prelude-val">None</span>;
+<a href=#276 id=276 data-nosnippet>276</a>    <span class="kw">if </span>ui_theme.is_none() &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(old) = prefs.theme.as_ref().filter(|t| legacy_set(t)) {
+<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">match </span>migrate_legacy(dir, old) {
+<a href=#278 id=278 data-nosnippet>278</a>            <span class="prelude-val">Ok</span>((name, warn)) =&gt; {
+<a href=#279 id=279 data-nosnippet>279</a>                notes.push(<span class="macro">format!</span>(<span class="string">"Your [theme] colours in ~/.acp/preferences.toml were converted into {} and selected; \
+<a href=#280 id=280 data-nosnippet>280</a>                    the old [theme] keys are kept but no longer used (edit the theme with Shift-F5 instead)."</span>, dir.join(<span class="macro">format!</span>(<span class="string">"{name}.toml"</span>)).display()));
+<a href=#281 id=281 data-nosnippet>281</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(n) = warning_notice(<span class="kw-2">&amp;</span>dir.join(<span class="macro">format!</span>(<span class="string">"{name}.toml"</span>)), <span class="kw-2">&amp;</span>warn) { notes.push(n); }
+<a href=#282 id=282 data-nosnippet>282</a>                migrated = <span class="prelude-val">Some</span>(name);
+<a href=#283 id=283 data-nosnippet>283</a>            }
+<a href=#284 id=284 data-nosnippet>284</a>            <span class="prelude-val">Err</span>(e) =&gt; notes.push(<span class="macro">format!</span>(<span class="string">"warning: could not convert the [theme] colours: {e:#}"</span>)),
+<a href=#285 id=285 data-nosnippet>285</a>        }
+<a href=#286 id=286 data-nosnippet>286</a>    }
+<a href=#287 id=287 data-nosnippet>287</a>    (migrated, notes)
+<a href=#288 id=288 data-nosnippet>288</a>}
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a><span class="attr">#[cfg(test)]
+<a href=#291 id=291 data-nosnippet>291</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

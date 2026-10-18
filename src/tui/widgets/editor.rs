@@ -30,7 +30,7 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
     f.render_widget(Clear, area);
     let dirty = if ed.dirty() { " *" } else { "" };
     let mode = match ed.variant { themes::Variant::Dark => "‹dark› light", themes::Variant::Light => "dark ‹light›" };
-    let title = format!(" Theme editor · {}{dirty} · {mode} (Tab) · ^S save ^R revert ^N new ^D duplicate ^X delete · [ ] other theme · h highlight · Esc close",
+    let title = format!(" Theme editor · {}{dirty} · {mode} (Tab) · ^S save ^R revert (r: row) ^N new ^D duplicate ^X delete · [ ] other theme · h highlight · Esc close",
         ed.file.name);
     f.render_widget(Paragraph::new(Span::styled(title, ui.bar().bold(true))).style(ui.bar()), Rect { height: 1, ..area });
     let body = Rect { y: area.y + 1, height: area.height.saturating_sub(2), ..area };
@@ -96,7 +96,8 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
         (true, Some(n)) if marked == 0 => format!(" · ‹{n}› isn't on screen"),
         (true, Some(n)) => format!(" · ‹{n}› highlighted (h)"),
     };
-    let pb = frame(&ui.pane(false)).title(format!(" Preview (sample posts){note} "));
+    let mut pb = frame(&ui.pane(false)).title(format!(" Preview (sample posts){note} "));
+    if let Some(n) = ed.truecolor_note() { pb = pb.title_bottom(Line::styled(format!(" ⚠ {n} "), ui.accent_bold())); }
     f.render_widget(pb, right);
     if let Some(src) = shown {
         let buf = f.buffer_mut();
@@ -109,7 +110,7 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
     let foot = Rect { y: area.y + area.height.saturating_sub(1), height: 1, ..area };
     let (err, text) = ed.message.clone().unwrap_or_else(|| (false, match ed.current() {
         Row::Palette(n) => PALETTE_KEYS.iter().find(|(k, _)| *k == n).map(|(_, a)| a.to_string()).unwrap_or_else(|| format!("@{n}: your own colour for references")) + " · Enter picks · Del resets · a adds a colour",
-        Row::Element(e) => format!("{} · Enter shows its keys · Del clears its overrides", e.about()),
+        Row::Element(e) => format!("{} · Enter shows its keys · Del clears its overrides · r reverts", e.about()),
         Row::Field(_, k) if ["fg", "bg", "border"].contains(&k) => "Enter picks a colour · Del clears (built-in)".into(),
         Row::Field(..) => "Enter cycles on / off / built-in · Del clears".into(),
         Row::Heading(_) => String::new(),
@@ -121,6 +122,8 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
         let (q, named) = match &p.ask {
             Ask::UnsavedClose | Ask::UnsavedOpen(_) => (format!("{} has unsaved changes: [S]ave · [D]iscard · [C]ancel", ed.file.name), false),
             Ask::Delete(n) => (format!("Delete {n}.toml? [y]es · [n]o"), false),
+            Ask::ChangedOnDisk(_) => (format!("{}.toml changed on disk since you opened it.\n[O]verwrite it · [L]oad it (drop your changes) · [C]ancel", ed.file.name), false),
+            Ask::OverwriteBroken(_) => (format!("{}.toml on disk is broken (it can't be read as a theme).\n[O]verwrite it · [C]ancel", ed.file.name), false),
             Ask::NewName => ("Name of the new theme:".into(), true),
             Ask::DuplicateName => (format!("Name of the copy of {}:", ed.file.name), true),
             Ask::PaletteName => ("Name of the new palette colour (use it as @name):".into(), true),
@@ -130,7 +133,7 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
         let b = frame(&ui.dialog()).title(" Theme editor ");
         let i = b.inner(r);
         f.render_widget(b, r);
-        let mut lines = vec![Line::raw(q)];
+        let mut lines: Vec<Line> = q.lines().map(|l| Line::raw(l.to_string())).collect();
         if named { lines.push(Line::styled(format!("› {}▏", p.field.value), ui.field())); }
         if let Some(e) = &p.error { lines.push(Line::styled(e.clone(), ui.accent_bold())); }
         f.render_widget(Paragraph::new(lines), i);
@@ -185,7 +188,7 @@ fn draw_picker(f: &mut Frame, ui: &Theme, ed: &ThemeEditor, area: Rect) {
 /// The real UI for `app`, drawn off screen at `w`×`h`.
 fn preview_buffer(app: &mut App, w: u16, h: u16, now: Instant) -> Option<ratatui::buffer::Buffer> {
     let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).ok()?;
-    term.draw(|pf| crate::tui::widgets::draw(pf, app, now)).ok()?;
+    term.draw(|pf| { crate::tui::widgets::draw(pf, app, now); draw_samples(pf, &app.theme); }).ok()?;
     Some(term.backend().buffer().clone())
 }
 
@@ -202,4 +205,26 @@ pub fn highlight_changes(shown: &mut ratatui::buffer::Buffer, marked: &ratatui::
         }
     } }
     n
+}
+
+/// Sample frames over the preview's lower right corner, so the parts the post view
+/// doesn't show are there to look at: a dialog with a field, labels, a button, tags,
+/// deleted-post text, code and text dimmed behind a modal.
+pub fn draw_samples(f: &mut Frame, t: &Theme) {
+    let a = f.area();
+    let (w, h) = (40.min(a.width.saturating_sub(2)), 9.min(a.height.saturating_sub(4)));
+    if w < 34 || h < 8 { return; }
+    let r = Rect::new(a.right() - w - 1, a.bottom() - h - 2, w, h);
+    f.render_widget(Clear, r);
+    let b = frame(&t.dialog()).title(" Sample dialog ");
+    let i = b.inner(r);
+    f.render_widget(b, r);
+    let lines = vec![
+        Line::from(vec![Span::styled("Nick ", t.label(true)), Span::styled("[comrade     ]", t.field()), Span::raw(" "), Span::styled("Format", t.label(false))]),
+        Line::from(vec![Span::styled(" Post ", t.post_tag()), Span::raw(" "), Span::styled(" Reply ", t.reply_tag()), Span::raw(" "), Span::styled("link", t.link())]),
+        Line::from(vec![Span::styled("(post deleted)", t.gone()), Span::raw(" "), Span::styled("`--nick`", t.code())]),
+        Line::from(vec![Span::styled("text behind a modal", t.dimmed())]),
+        Line::from(vec![Span::styled("< OK >", t.button()), Span::raw(" "), Span::styled("selected", t.selected())]),
+    ];
+    f.render_widget(Paragraph::new(lines).style(t.dialog()), i);
 }

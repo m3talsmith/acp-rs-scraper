@@ -24,16 +24,18 @@ impl App {
         self.theme_name = name.to_string();
         match themes::load(&dir, name) {
             Ok(l) => {
-                for w in &l.warnings { self.push_status(format!("warning: {}: {w}", l.path.display())); }
+                if let Some(n) = themes::warning_notice(&l.path, &l.warnings) { self.push_status(n); }
                 let t = Theme::from_file(&l.file, self.variant());
                 self.theme_file = Some(l.file);
                 self.theme_error = None;
+                self.theme_fault = None;
                 self.apply_theme(t);
                 if persist { self.effects.push(Effect::SaveUiTheme(name.to_string())); }
                 true
             }
             Err(e) => {
                 let n = e.notice();
+                self.theme_fault = Some(if matches!(e, themes::LoadError::Missing(_)) { "missing" } else { "broken" });
                 self.theme_file = None;
                 self.theme_error = Some(n.clone());
                 self.apply_theme(Theme::reset());

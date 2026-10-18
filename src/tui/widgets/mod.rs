@@ -86,9 +86,14 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
         SessionState::Checking => "… checking session",
     };
     let job = app.job.as_ref().map(|j| format!("⟳ {} running (pid {})  ", j.kind.name(), j.pid)).unwrap_or_default();
-    // The theme switch: ‹name› ▾ (⚠ when its file can't be used); a click opens the picker.
-    let switch = format!("‹{}{}› ▾", app.theme_name,
-        if app.theme_downloading.is_some() { " · downloading…" } else if app.theme_error.is_some() { " ⚠" } else { "" });
+    // The theme switch: ‹name› ▾; a click opens the picker.
+    // `‹default: missing› ▾` / `‹mine: broken› ▾` when the file can't be used.
+    let fault = app.theme_fault.or(app.theme_error.is_some().then_some("broken"));
+    let switch = match (app.theme_downloading.is_some(), fault) {
+        (true, _) => format!("‹{} · downloading…› ▾", app.theme_name),
+        (false, Some(f)) => format!("‹{}: {f}› ▾", app.theme_name),
+        (false, None) => format!("‹{}› ▾", app.theme_name),
+    };
     let right = format!("  {session} ");
     let rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
     let used = left.chars().count() + job.chars().count() + switch.chars().count() + right.chars().count();

@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.15.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.16.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -262,7 +262,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.15.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.16.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -440,7 +440,8 @@ own colours.
 - `acp-rs-scraper --theme-starter NAME` (or *Theme: starter [name]* in the command palette, e.g.
   `theme starter mine`; no name: `starter`, `starter-2`, …) writes a minimal starter theme with
   plain terminal colours, without downloading, never over an existing file.
-- While the first-run download runs, the header switch reads `‹default · downloading…› ▾`. With
+- While the first-run download runs, the header switch reads `‹default · downloading…› ▾`; a
+  theme that can't be used shows `‹default: missing› ▾` or `‹mine: broken› ▾`. With
   no theme files at all, the `F5` list offers **Download the default theme** and **Create
   starter theme** (which also selects it).
 - `ACP_THEME_DOWNLOAD=off` or `[ui] theme_download = false` turns the automatic download off.
@@ -493,16 +494,20 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   `--list-themes` prints them all.
 - **Editor** (`Shift-F5`). Left: the palette and every element, with colour swatches, `*` for
   changed values and `⚠2.1:1` when text contrast is below 3:1. Right: a live preview drawn by the
-  real UI with sample posts. `Tab` flips dark/light, `Enter` edits (hex or a colour grid: 16 /
+  real UI with sample posts, plus a *Sample dialog* frame (dialog, labels, field, tags, link,
+  deleted post, code, dimmed text, button, selection). `Tab` flips dark/light, `Enter` edits (hex or a colour grid: 16 /
   216 cube / 24 greys / `@refs`), `Del` clears an override, `a` adds a palette colour, `[`/`]` go
   to the previous / next theme, `→`/`←` show or hide an element's keys. The selected colour or
   element is **highlighted in the preview** (the cells it paints in reverse video; the preview
-  title says when it isn't on screen); `h` toggles that. `Ctrl-S` saves, `Ctrl-R` reverts, `Ctrl-N` new, `Ctrl-D`
-  duplicate, `Ctrl-X` deletes (asks first; not the theme in use). `Esc` with unsaved changes asks
-  Save / Discard / Cancel.
+  title says when it isn't on screen); `h` toggles that. `r` reverts the selected row only. `Ctrl-S` saves, `Ctrl-R` reverts
+  everything, `Ctrl-N` new, `Ctrl-D` duplicate, `Ctrl-X` deletes (asks first; not the theme in
+  use). `Esc` with unsaved changes asks Save / Discard / Cancel. Saving asks before overwriting a
+  file that changed on disk meanwhile (or loads it instead) and before replacing a broken file.
+  Without a true-colour terminal (`$COLORTERM`) the preview notes that `#rrggbb` colours show as
+  the nearest of 256.
 - **Safety.** A missing or broken theme file never stops the TUI: it falls back to the terminal's
   colours and a notice names the file and how to fix it. Broken files are never overwritten
-  automatically. Unknown keys give a warning each, files over 64 KiB or from a newer format are
+  automatically. Unknown keys are skipped with one warning notice per file, files over 64 KiB or from a newer format are
   refused, names that would leave the directory are rejected, and writes are atomic (mode 0600).
 - **Old `[theme]` colours.** Before 2.12 colours lived in `[theme]` of `preferences.toml`. On the
   first run of 2.12 they become the theme `custom` (`custom-2` if that exists), which is

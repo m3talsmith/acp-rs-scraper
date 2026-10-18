@@ -30,7 +30,7 @@
 <a href=#30 id=30 data-nosnippet>30</a>    f.render_widget(Clear, area);
 <a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">let </span>dirty = <span class="kw">if </span>ed.dirty() { <span class="string">" *" </span>} <span class="kw">else </span>{ <span class="string">"" </span>};
 <a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">let </span>mode = <span class="kw">match </span>ed.variant { themes::Variant::Dark =&gt; <span class="string">"‹dark› light"</span>, themes::Variant::Light =&gt; <span class="string">"dark ‹light›" </span>};
-<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>title = <span class="macro">format!</span>(<span class="string">" Theme editor · {}{dirty} · {mode} (Tab) · ^S save ^R revert ^N new ^D duplicate ^X delete · [ ] other theme · h highlight · Esc close"</span>,
+<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>title = <span class="macro">format!</span>(<span class="string">" Theme editor · {}{dirty} · {mode} (Tab) · ^S save ^R revert (r: row) ^N new ^D duplicate ^X delete · [ ] other theme · h highlight · Esc close"</span>,
 <a href=#34 id=34 data-nosnippet>34</a>        ed.file.name);
 <a href=#35 id=35 data-nosnippet>35</a>    f.render_widget(Paragraph::new(Span::styled(title, ui.bar().bold(<span class="bool-val">true</span>))).style(ui.bar()), Rect { height: <span class="number">1</span>, ..area });
 <a href=#36 id=36 data-nosnippet>36</a>    <span class="kw">let </span>body = Rect { y: area.y + <span class="number">1</span>, height: area.height.saturating_sub(<span class="number">2</span>), ..area };
@@ -96,111 +96,136 @@
 <a href=#96 id=96 data-nosnippet>96</a>        (<span class="bool-val">true</span>, <span class="prelude-val">Some</span>(n)) <span class="kw">if </span>marked == <span class="number">0 </span>=&gt; <span class="macro">format!</span>(<span class="string">" · ‹{n}› isn't on screen"</span>),
 <a href=#97 id=97 data-nosnippet>97</a>        (<span class="bool-val">true</span>, <span class="prelude-val">Some</span>(n)) =&gt; <span class="macro">format!</span>(<span class="string">" · ‹{n}› highlighted (h)"</span>),
 <a href=#98 id=98 data-nosnippet>98</a>    };
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">let </span>pb = frame(<span class="kw-2">&amp;</span>ui.pane(<span class="bool-val">false</span>)).title(<span class="macro">format!</span>(<span class="string">" Preview (sample posts){note} "</span>));
-<a href=#100 id=100 data-nosnippet>100</a>    f.render_widget(pb, right);
-<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(src) = shown {
-<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">let </span>buf = f.buffer_mut();
-<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">for </span>y <span class="kw">in </span><span class="number">0</span>..pin.height { <span class="kw">for </span>x <span class="kw">in </span><span class="number">0</span>..pin.width {
-<a href=#104 id=104 data-nosnippet>104</a>            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(c), <span class="prelude-val">Some</span>(d)) = (src.cell((x, y)), buf.cell_mut((pin.x + x, pin.y + y))) { <span class="kw-2">*</span>d = c.clone(); }
-<a href=#105 id=105 data-nosnippet>105</a>        } }
-<a href=#106 id=106 data-nosnippet>106</a>    }
-<a href=#107 id=107 data-nosnippet>107</a>
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="comment">// Footer: the result of the last action, or what the row is.
-<a href=#109 id=109 data-nosnippet>109</a>    </span><span class="kw">let </span>foot = Rect { y: area.y + area.height.saturating_sub(<span class="number">1</span>), height: <span class="number">1</span>, ..area };
-<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">let </span>(err, text) = ed.message.clone().unwrap_or_else(|| (<span class="bool-val">false</span>, <span class="kw">match </span>ed.current() {
-<a href=#111 id=111 data-nosnippet>111</a>        Row::Palette(n) =&gt; PALETTE_KEYS.iter().find(|(k, <span class="kw">_</span>)| <span class="kw-2">*</span>k == n).map(|(<span class="kw">_</span>, a)| a.to_string()).unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">"@{n}: your own colour for references"</span>)) + <span class="string">" · Enter picks · Del resets · a adds a colour"</span>,
-<a href=#112 id=112 data-nosnippet>112</a>        Row::Element(e) =&gt; <span class="macro">format!</span>(<span class="string">"{} · Enter shows its keys · Del clears its overrides"</span>, e.about()),
-<a href=#113 id=113 data-nosnippet>113</a>        Row::Field(<span class="kw">_</span>, k) <span class="kw">if </span>[<span class="string">"fg"</span>, <span class="string">"bg"</span>, <span class="string">"border"</span>].contains(<span class="kw-2">&amp;</span>k) =&gt; <span class="string">"Enter picks a colour · Del clears (built-in)"</span>.into(),
-<a href=#114 id=114 data-nosnippet>114</a>        Row::Field(..) =&gt; <span class="string">"Enter cycles on / off / built-in · Del clears"</span>.into(),
-<a href=#115 id=115 data-nosnippet>115</a>        Row::Heading(<span class="kw">_</span>) =&gt; String::new(),
-<a href=#116 id=116 data-nosnippet>116</a>    }));
-<a href=#117 id=117 data-nosnippet>117</a>    f.render_widget(Paragraph::new(Span::styled(<span class="macro">format!</span>(<span class="string">" {text}"</span>), <span class="kw">if </span>err { ui.accent_bold() } <span class="kw">else </span>{ ui.muted() })), foot);
-<a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a>    <span class="kw">if </span>ed.picker.is_some() { draw_picker(f, <span class="kw-2">&amp;</span>ui, ed, area); }
-<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="kw-2">&amp;</span>ed.prompt {
-<a href=#121 id=121 data-nosnippet>121</a>        <span class="kw">let </span>(q, named) = <span class="kw">match </span><span class="kw-2">&amp;</span>p.ask {
-<a href=#122 id=122 data-nosnippet>122</a>            Ask::UnsavedClose | Ask::UnsavedOpen(<span class="kw">_</span>) =&gt; (<span class="macro">format!</span>(<span class="string">"{} has unsaved changes: [S]ave · [D]iscard · [C]ancel"</span>, ed.file.name), <span class="bool-val">false</span>),
-<a href=#123 id=123 data-nosnippet>123</a>            Ask::Delete(n) =&gt; (<span class="macro">format!</span>(<span class="string">"Delete {n}.toml? [y]es · [n]o"</span>), <span class="bool-val">false</span>),
-<a href=#124 id=124 data-nosnippet>124</a>            Ask::NewName =&gt; (<span class="string">"Name of the new theme:"</span>.into(), <span class="bool-val">true</span>),
-<a href=#125 id=125 data-nosnippet>125</a>            Ask::DuplicateName =&gt; (<span class="macro">format!</span>(<span class="string">"Name of the copy of {}:"</span>, ed.file.name), <span class="bool-val">true</span>),
-<a href=#126 id=126 data-nosnippet>126</a>            Ask::PaletteName =&gt; (<span class="string">"Name of the new palette colour (use it as @name):"</span>.into(), <span class="bool-val">true</span>),
-<a href=#127 id=127 data-nosnippet>127</a>        };
-<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">let </span>r = <span class="kw">crate</span>::tui::layout::modal_rect(area, <span class="number">66</span>.min(area.width), <span class="number">6</span>);
-<a href=#129 id=129 data-nosnippet>129</a>        f.render_widget(Clear, r);
-<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">let </span>b = frame(<span class="kw-2">&amp;</span>ui.dialog()).title(<span class="string">" Theme editor "</span>);
-<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">let </span>i = b.inner(r);
-<a href=#132 id=132 data-nosnippet>132</a>        f.render_widget(b, r);
-<a href=#133 id=133 data-nosnippet>133</a>        <span class="kw">let </span><span class="kw-2">mut </span>lines = <span class="macro">vec!</span>[Line::raw(q)];
-<a href=#134 id=134 data-nosnippet>134</a>        <span class="kw">if </span>named { lines.push(Line::styled(<span class="macro">format!</span>(<span class="string">"› {}▏"</span>, p.field.value), ui.field())); }
-<a href=#135 id=135 data-nosnippet>135</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="kw-2">&amp;</span>p.error { lines.push(Line::styled(e.clone(), ui.accent_bold())); }
-<a href=#136 id=136 data-nosnippet>136</a>        f.render_widget(Paragraph::new(lines), i);
-<a href=#137 id=137 data-nosnippet>137</a>    }
-<a href=#138 id=138 data-nosnippet>138</a>}
-<a href=#139 id=139 data-nosnippet>139</a>
-<a href=#140 id=140 data-nosnippet>140</a><span class="kw">fn </span>draw_picker(f: <span class="kw-2">&amp;mut </span>Frame, ui: <span class="kw-2">&amp;</span>Theme, ed: <span class="kw-2">&amp;</span>ThemeEditor, area: Rect) {
-<a href=#141 id=141 data-nosnippet>141</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(p) = <span class="kw-2">&amp;</span>ed.picker <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#142 id=142 data-nosnippet>142</a>    <span class="kw">let </span>grid = ed.grid(p.tab);
-<a href=#143 id=143 data-nosnippet>143</a>    <span class="kw">let </span>cols = ThemeEditor::grid_cols(p.tab);
-<a href=#144 id=144 data-nosnippet>144</a>    <span class="kw">let </span>grid_rows = grid.len().div_ceil(cols) <span class="kw">as </span>u16;
-<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">let </span>r = <span class="kw">crate</span>::tui::layout::modal_rect(area, <span class="number">64</span>.min(area.width), (grid_rows + <span class="number">9</span>).min(area.height));
-<a href=#146 id=146 data-nosnippet>146</a>    f.render_widget(Clear, r);
-<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">let </span>what = <span class="kw">match </span><span class="kw-2">&amp;</span>p.target { <span class="kw">crate</span>::tui::editor::Target::Palette(n) =&gt; n.clone(), <span class="kw">crate</span>::tui::editor::Target::Field(e, k) =&gt; <span class="macro">format!</span>(<span class="string">"{}.{k}"</span>, e.name()) };
-<a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">let </span>b = frame(<span class="kw-2">&amp;</span>ui.dialog()).title(<span class="macro">format!</span>(<span class="string">" Colour for {what} · Tab: grid · arrows · Enter sets · Esc "</span>));
-<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">let </span>i = b.inner(r);
-<a href=#150 id=150 data-nosnippet>150</a>    f.render_widget(b, r);
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="kw">let </span>tabs: Vec&lt;Span&gt; = PICKER_TABS.iter().enumerate().map(|(k, t)| Span::styled(<span class="macro">format!</span>(<span class="string">" {t} "</span>), <span class="kw">if </span>k == p.tab { ui.selected() } <span class="kw">else </span>{ ui.plain() })).collect();
-<a href=#152 id=152 data-nosnippet>152</a>    f.render_widget(Paragraph::new(Line::from(tabs)), Rect { height: <span class="number">1</span>, ..i });
-<a href=#153 id=153 data-nosnippet>153</a>    f.render_widget(Paragraph::new(Line::from(<span class="macro">vec!</span>[Span::raw(<span class="string">"Type: "</span>), Span::styled(<span class="macro">format!</span>(<span class="string">"{}▏"</span>, p.hex.value), ui.field()),
-<a href=#154 id=154 data-nosnippet>154</a>        Span::styled(<span class="string">"  (#rrggbb, #rgb, 0-255, an ANSI name, @name, reset)"</span>, ui.muted())])), Rect { y: i.y + <span class="number">1</span>, height: <span class="number">1</span>, ..i });
-<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">let </span>gy = i.y + <span class="number">3</span>;
-<a href=#156 id=156 data-nosnippet>156</a>    <span class="kw">for </span>(k, (label, c)) <span class="kw">in </span>grid.iter().enumerate() {
-<a href=#157 id=157 data-nosnippet>157</a>        <span class="kw">let </span>(row, col) = ((k / cols) <span class="kw">as </span>u16, (k % cols) <span class="kw">as </span>u16);
-<a href=#158 id=158 data-nosnippet>158</a>        <span class="kw">let </span>sel = k == p.sel;
-<a href=#159 id=159 data-nosnippet>159</a>        <span class="kw">let </span>span = <span class="kw">if </span>cols == <span class="number">1 </span>{
-<a href=#160 id=160 data-nosnippet>160</a>            <span class="kw">let </span>v = ed.file.section(ed.variant).resolve(c);
-<a href=#161 id=161 data-nosnippet>161</a>            Line::from(<span class="macro">vec!</span>[swatch(<span class="prelude-val">Some</span>(v)), Span::styled(<span class="macro">format!</span>(<span class="string">" {label}"</span>), <span class="kw">if </span>sel { ui.selected() } <span class="kw">else </span>{ ui.plain() })])
-<a href=#162 id=162 data-nosnippet>162</a>        } <span class="kw">else </span>{
-<a href=#163 id=163 data-nosnippet>163</a>            <span class="kw">let </span>ColorSpec::Value(v) = c <span class="kw">else </span>{ <span class="kw">continue </span>};
-<a href=#164 id=164 data-nosnippet>164</a>            <span class="kw">let </span>cell = <span class="kw">if </span>sel { <span class="string">"▐▌" </span>} <span class="kw">else </span>{ <span class="string">"██" </span>};
-<a href=#165 id=165 data-nosnippet>165</a>            <span class="kw">let </span><span class="kw-2">mut </span>st = Gloss::new().foreground(<span class="kw-2">*</span>v);
-<a href=#166 id=166 data-nosnippet>166</a>            <span class="kw">if </span>sel { st = st.background(ui.on_accent); }
-<a href=#167 id=167 data-nosnippet>167</a>            Line::from(Span::styled(cell, st))
-<a href=#168 id=168 data-nosnippet>168</a>        };
-<a href=#169 id=169 data-nosnippet>169</a>        <span class="kw">let </span>w = <span class="kw">if </span>cols == <span class="number">1 </span>{ i.width } <span class="kw">else </span>{ <span class="number">3 </span>};
-<a href=#170 id=170 data-nosnippet>170</a>        <span class="kw">let </span>rr = Rect { x: i.x + col * w, y: gy + row, width: w, height: <span class="number">1 </span>};
-<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">if </span>rr.y &lt; i.y + i.height.saturating_sub(<span class="number">2</span>) { f.render_widget(Paragraph::new(span), rr); }
-<a href=#172 id=172 data-nosnippet>172</a>    }
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="kw">let </span>chosen = grid.get(p.sel).map(|(l, c)| (l.clone(), c.clone()));
-<a href=#174 id=174 data-nosnippet>174</a>    <span class="kw">let </span><span class="kw-2">mut </span>info = <span class="macro">vec!</span>[];
-<a href=#175 id=175 data-nosnippet>175</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>((l, c)) = chosen {
-<a href=#176 id=176 data-nosnippet>176</a>        info.push(Span::raw(<span class="macro">format!</span>(<span class="string">"Selected: {l} "</span>)));
-<a href=#177 id=177 data-nosnippet>177</a>        <span class="kw">let </span>v = ed.file.section(ed.variant).resolve(<span class="kw-2">&amp;</span>c);
-<a href=#178 id=178 data-nosnippet>178</a>        info.push(swatch(<span class="prelude-val">Some</span>(v)));
-<a href=#179 id=179 data-nosnippet>179</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = ed.picker_warning(<span class="kw-2">&amp;</span>c) { info.push(Span::styled(<span class="macro">format!</span>(<span class="string">"  ⚠ contrast {x:.1}:1 (below {THEME_MIN_CONTRAST}:1)"</span>), ui.accent_bold())); }
-<a href=#180 id=180 data-nosnippet>180</a>    }
-<a href=#181 id=181 data-nosnippet>181</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="kw-2">&amp;</span>p.error { info = <span class="macro">vec!</span>[Span::styled(e.clone(), ui.accent_bold())]; }
-<a href=#182 id=182 data-nosnippet>182</a>    f.render_widget(Paragraph::new(Line::from(info)), Rect { y: i.y + i.height.saturating_sub(<span class="number">1</span>), height: <span class="number">1</span>, ..i });
-<a href=#183 id=183 data-nosnippet>183</a>}
-<a href=#184 id=184 data-nosnippet>184</a>
-<a href=#185 id=185 data-nosnippet>185</a><span class="doccomment">/// The real UI for `app`, drawn off screen at `w`×`h`.
-<a href=#186 id=186 data-nosnippet>186</a></span><span class="kw">fn </span>preview_buffer(app: <span class="kw-2">&amp;mut </span>App, w: u16, h: u16, now: Instant) -&gt; <span class="prelude-ty">Option</span>&lt;ratatui::buffer::Buffer&gt; {
-<a href=#187 id=187 data-nosnippet>187</a>    <span class="kw">let </span><span class="kw-2">mut </span>term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).ok()<span class="question-mark">?</span>;
-<a href=#188 id=188 data-nosnippet>188</a>    term.draw(|pf| <span class="kw">crate</span>::tui::widgets::draw(pf, app, now)).ok()<span class="question-mark">?</span>;
-<a href=#189 id=189 data-nosnippet>189</a>    <span class="prelude-val">Some</span>(term.backend().buffer().clone())
-<a href=#190 id=190 data-nosnippet>190</a>}
-<a href=#191 id=191 data-nosnippet>191</a>
-<a href=#192 id=192 data-nosnippet>192</a><span class="doccomment">/// Flip reverse video on every cell of `shown` inside `within` whose colours or
-<a href=#193 id=193 data-nosnippet>193</a>/// attributes differ in `marked`; returns how many were flipped.
-<a href=#194 id=194 data-nosnippet>194</a></span><span class="kw">pub fn </span>highlight_changes(shown: <span class="kw-2">&amp;mut </span>ratatui::buffer::Buffer, marked: <span class="kw-2">&amp;</span>ratatui::buffer::Buffer, within: Rect) -&gt; usize {
-<a href=#195 id=195 data-nosnippet>195</a>    <span class="kw">use </span>ratatui::style::Modifier;
-<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">0</span>;
-<a href=#197 id=197 data-nosnippet>197</a>    <span class="kw">for </span>y <span class="kw">in </span>within.top()..within.bottom() { <span class="kw">for </span>x <span class="kw">in </span>within.left()..within.right() {
-<a href=#198 id=198 data-nosnippet>198</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(m) = marked.cell((x, y)).map(|m| (m.fg, m.bg, m.modifier)) <span class="kw">else </span>{ <span class="kw">continue </span>};
-<a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = shown.cell_mut((x, y)) &amp;&amp; (c.fg, c.bg, c.modifier) != m {
-<a href=#200 id=200 data-nosnippet>200</a>            c.modifier.toggle(Modifier::REVERSED);
-<a href=#201 id=201 data-nosnippet>201</a>            n += <span class="number">1</span>;
-<a href=#202 id=202 data-nosnippet>202</a>        }
-<a href=#203 id=203 data-nosnippet>203</a>    } }
-<a href=#204 id=204 data-nosnippet>204</a>    n
-<a href=#205 id=205 data-nosnippet>205</a>}
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">let </span><span class="kw-2">mut </span>pb = frame(<span class="kw-2">&amp;</span>ui.pane(<span class="bool-val">false</span>)).title(<span class="macro">format!</span>(<span class="string">" Preview (sample posts){note} "</span>));
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(n) = ed.truecolor_note() { pb = pb.title_bottom(Line::styled(<span class="macro">format!</span>(<span class="string">" ⚠ {n} "</span>), ui.accent_bold())); }
+<a href=#101 id=101 data-nosnippet>101</a>    f.render_widget(pb, right);
+<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(src) = shown {
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">let </span>buf = f.buffer_mut();
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="kw">for </span>y <span class="kw">in </span><span class="number">0</span>..pin.height { <span class="kw">for </span>x <span class="kw">in </span><span class="number">0</span>..pin.width {
+<a href=#105 id=105 data-nosnippet>105</a>            <span class="kw">if let </span>(<span class="prelude-val">Some</span>(c), <span class="prelude-val">Some</span>(d)) = (src.cell((x, y)), buf.cell_mut((pin.x + x, pin.y + y))) { <span class="kw-2">*</span>d = c.clone(); }
+<a href=#106 id=106 data-nosnippet>106</a>        } }
+<a href=#107 id=107 data-nosnippet>107</a>    }
+<a href=#108 id=108 data-nosnippet>108</a>
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="comment">// Footer: the result of the last action, or what the row is.
+<a href=#110 id=110 data-nosnippet>110</a>    </span><span class="kw">let </span>foot = Rect { y: area.y + area.height.saturating_sub(<span class="number">1</span>), height: <span class="number">1</span>, ..area };
+<a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">let </span>(err, text) = ed.message.clone().unwrap_or_else(|| (<span class="bool-val">false</span>, <span class="kw">match </span>ed.current() {
+<a href=#112 id=112 data-nosnippet>112</a>        Row::Palette(n) =&gt; PALETTE_KEYS.iter().find(|(k, <span class="kw">_</span>)| <span class="kw-2">*</span>k == n).map(|(<span class="kw">_</span>, a)| a.to_string()).unwrap_or_else(|| <span class="macro">format!</span>(<span class="string">"@{n}: your own colour for references"</span>)) + <span class="string">" · Enter picks · Del resets · a adds a colour"</span>,
+<a href=#113 id=113 data-nosnippet>113</a>        Row::Element(e) =&gt; <span class="macro">format!</span>(<span class="string">"{} · Enter shows its keys · Del clears its overrides · r reverts"</span>, e.about()),
+<a href=#114 id=114 data-nosnippet>114</a>        Row::Field(<span class="kw">_</span>, k) <span class="kw">if </span>[<span class="string">"fg"</span>, <span class="string">"bg"</span>, <span class="string">"border"</span>].contains(<span class="kw-2">&amp;</span>k) =&gt; <span class="string">"Enter picks a colour · Del clears (built-in)"</span>.into(),
+<a href=#115 id=115 data-nosnippet>115</a>        Row::Field(..) =&gt; <span class="string">"Enter cycles on / off / built-in · Del clears"</span>.into(),
+<a href=#116 id=116 data-nosnippet>116</a>        Row::Heading(<span class="kw">_</span>) =&gt; String::new(),
+<a href=#117 id=117 data-nosnippet>117</a>    }));
+<a href=#118 id=118 data-nosnippet>118</a>    f.render_widget(Paragraph::new(Span::styled(<span class="macro">format!</span>(<span class="string">" {text}"</span>), <span class="kw">if </span>err { ui.accent_bold() } <span class="kw">else </span>{ ui.muted() })), foot);
+<a href=#119 id=119 data-nosnippet>119</a>
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">if </span>ed.picker.is_some() { draw_picker(f, <span class="kw-2">&amp;</span>ui, ed, area); }
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="kw-2">&amp;</span>ed.prompt {
+<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">let </span>(q, named) = <span class="kw">match </span><span class="kw-2">&amp;</span>p.ask {
+<a href=#123 id=123 data-nosnippet>123</a>            Ask::UnsavedClose | Ask::UnsavedOpen(<span class="kw">_</span>) =&gt; (<span class="macro">format!</span>(<span class="string">"{} has unsaved changes: [S]ave · [D]iscard · [C]ancel"</span>, ed.file.name), <span class="bool-val">false</span>),
+<a href=#124 id=124 data-nosnippet>124</a>            Ask::Delete(n) =&gt; (<span class="macro">format!</span>(<span class="string">"Delete {n}.toml? [y]es · [n]o"</span>), <span class="bool-val">false</span>),
+<a href=#125 id=125 data-nosnippet>125</a>            Ask::ChangedOnDisk(<span class="kw">_</span>) =&gt; (<span class="macro">format!</span>(<span class="string">"{}.toml changed on disk since you opened it.\n[O]verwrite it · [L]oad it (drop your changes) · [C]ancel"</span>, ed.file.name), <span class="bool-val">false</span>),
+<a href=#126 id=126 data-nosnippet>126</a>            Ask::OverwriteBroken(<span class="kw">_</span>) =&gt; (<span class="macro">format!</span>(<span class="string">"{}.toml on disk is broken (it can't be read as a theme).\n[O]verwrite it · [C]ancel"</span>, ed.file.name), <span class="bool-val">false</span>),
+<a href=#127 id=127 data-nosnippet>127</a>            Ask::NewName =&gt; (<span class="string">"Name of the new theme:"</span>.into(), <span class="bool-val">true</span>),
+<a href=#128 id=128 data-nosnippet>128</a>            Ask::DuplicateName =&gt; (<span class="macro">format!</span>(<span class="string">"Name of the copy of {}:"</span>, ed.file.name), <span class="bool-val">true</span>),
+<a href=#129 id=129 data-nosnippet>129</a>            Ask::PaletteName =&gt; (<span class="string">"Name of the new palette colour (use it as @name):"</span>.into(), <span class="bool-val">true</span>),
+<a href=#130 id=130 data-nosnippet>130</a>        };
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">let </span>r = <span class="kw">crate</span>::tui::layout::modal_rect(area, <span class="number">66</span>.min(area.width), <span class="number">6</span>);
+<a href=#132 id=132 data-nosnippet>132</a>        f.render_widget(Clear, r);
+<a href=#133 id=133 data-nosnippet>133</a>        <span class="kw">let </span>b = frame(<span class="kw-2">&amp;</span>ui.dialog()).title(<span class="string">" Theme editor "</span>);
+<a href=#134 id=134 data-nosnippet>134</a>        <span class="kw">let </span>i = b.inner(r);
+<a href=#135 id=135 data-nosnippet>135</a>        f.render_widget(b, r);
+<a href=#136 id=136 data-nosnippet>136</a>        <span class="kw">let </span><span class="kw-2">mut </span>lines: Vec&lt;Line&gt; = q.lines().map(|l| Line::raw(l.to_string())).collect();
+<a href=#137 id=137 data-nosnippet>137</a>        <span class="kw">if </span>named { lines.push(Line::styled(<span class="macro">format!</span>(<span class="string">"› {}▏"</span>, p.field.value), ui.field())); }
+<a href=#138 id=138 data-nosnippet>138</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="kw-2">&amp;</span>p.error { lines.push(Line::styled(e.clone(), ui.accent_bold())); }
+<a href=#139 id=139 data-nosnippet>139</a>        f.render_widget(Paragraph::new(lines), i);
+<a href=#140 id=140 data-nosnippet>140</a>    }
+<a href=#141 id=141 data-nosnippet>141</a>}
+<a href=#142 id=142 data-nosnippet>142</a>
+<a href=#143 id=143 data-nosnippet>143</a><span class="kw">fn </span>draw_picker(f: <span class="kw-2">&amp;mut </span>Frame, ui: <span class="kw-2">&amp;</span>Theme, ed: <span class="kw-2">&amp;</span>ThemeEditor, area: Rect) {
+<a href=#144 id=144 data-nosnippet>144</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(p) = <span class="kw-2">&amp;</span>ed.picker <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">let </span>grid = ed.grid(p.tab);
+<a href=#146 id=146 data-nosnippet>146</a>    <span class="kw">let </span>cols = ThemeEditor::grid_cols(p.tab);
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">let </span>grid_rows = grid.len().div_ceil(cols) <span class="kw">as </span>u16;
+<a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">let </span>r = <span class="kw">crate</span>::tui::layout::modal_rect(area, <span class="number">64</span>.min(area.width), (grid_rows + <span class="number">9</span>).min(area.height));
+<a href=#149 id=149 data-nosnippet>149</a>    f.render_widget(Clear, r);
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">let </span>what = <span class="kw">match </span><span class="kw-2">&amp;</span>p.target { <span class="kw">crate</span>::tui::editor::Target::Palette(n) =&gt; n.clone(), <span class="kw">crate</span>::tui::editor::Target::Field(e, k) =&gt; <span class="macro">format!</span>(<span class="string">"{}.{k}"</span>, e.name()) };
+<a href=#151 id=151 data-nosnippet>151</a>    <span class="kw">let </span>b = frame(<span class="kw-2">&amp;</span>ui.dialog()).title(<span class="macro">format!</span>(<span class="string">" Colour for {what} · Tab: grid · arrows · Enter sets · Esc "</span>));
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="kw">let </span>i = b.inner(r);
+<a href=#153 id=153 data-nosnippet>153</a>    f.render_widget(b, r);
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="kw">let </span>tabs: Vec&lt;Span&gt; = PICKER_TABS.iter().enumerate().map(|(k, t)| Span::styled(<span class="macro">format!</span>(<span class="string">" {t} "</span>), <span class="kw">if </span>k == p.tab { ui.selected() } <span class="kw">else </span>{ ui.plain() })).collect();
+<a href=#155 id=155 data-nosnippet>155</a>    f.render_widget(Paragraph::new(Line::from(tabs)), Rect { height: <span class="number">1</span>, ..i });
+<a href=#156 id=156 data-nosnippet>156</a>    f.render_widget(Paragraph::new(Line::from(<span class="macro">vec!</span>[Span::raw(<span class="string">"Type: "</span>), Span::styled(<span class="macro">format!</span>(<span class="string">"{}▏"</span>, p.hex.value), ui.field()),
+<a href=#157 id=157 data-nosnippet>157</a>        Span::styled(<span class="string">"  (#rrggbb, #rgb, 0-255, an ANSI name, @name, reset)"</span>, ui.muted())])), Rect { y: i.y + <span class="number">1</span>, height: <span class="number">1</span>, ..i });
+<a href=#158 id=158 data-nosnippet>158</a>    <span class="kw">let </span>gy = i.y + <span class="number">3</span>;
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">for </span>(k, (label, c)) <span class="kw">in </span>grid.iter().enumerate() {
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw">let </span>(row, col) = ((k / cols) <span class="kw">as </span>u16, (k % cols) <span class="kw">as </span>u16);
+<a href=#161 id=161 data-nosnippet>161</a>        <span class="kw">let </span>sel = k == p.sel;
+<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>span = <span class="kw">if </span>cols == <span class="number">1 </span>{
+<a href=#163 id=163 data-nosnippet>163</a>            <span class="kw">let </span>v = ed.file.section(ed.variant).resolve(c);
+<a href=#164 id=164 data-nosnippet>164</a>            Line::from(<span class="macro">vec!</span>[swatch(<span class="prelude-val">Some</span>(v)), Span::styled(<span class="macro">format!</span>(<span class="string">" {label}"</span>), <span class="kw">if </span>sel { ui.selected() } <span class="kw">else </span>{ ui.plain() })])
+<a href=#165 id=165 data-nosnippet>165</a>        } <span class="kw">else </span>{
+<a href=#166 id=166 data-nosnippet>166</a>            <span class="kw">let </span>ColorSpec::Value(v) = c <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#167 id=167 data-nosnippet>167</a>            <span class="kw">let </span>cell = <span class="kw">if </span>sel { <span class="string">"▐▌" </span>} <span class="kw">else </span>{ <span class="string">"██" </span>};
+<a href=#168 id=168 data-nosnippet>168</a>            <span class="kw">let </span><span class="kw-2">mut </span>st = Gloss::new().foreground(<span class="kw-2">*</span>v);
+<a href=#169 id=169 data-nosnippet>169</a>            <span class="kw">if </span>sel { st = st.background(ui.on_accent); }
+<a href=#170 id=170 data-nosnippet>170</a>            Line::from(Span::styled(cell, st))
+<a href=#171 id=171 data-nosnippet>171</a>        };
+<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span>w = <span class="kw">if </span>cols == <span class="number">1 </span>{ i.width } <span class="kw">else </span>{ <span class="number">3 </span>};
+<a href=#173 id=173 data-nosnippet>173</a>        <span class="kw">let </span>rr = Rect { x: i.x + col * w, y: gy + row, width: w, height: <span class="number">1 </span>};
+<a href=#174 id=174 data-nosnippet>174</a>        <span class="kw">if </span>rr.y &lt; i.y + i.height.saturating_sub(<span class="number">2</span>) { f.render_widget(Paragraph::new(span), rr); }
+<a href=#175 id=175 data-nosnippet>175</a>    }
+<a href=#176 id=176 data-nosnippet>176</a>    <span class="kw">let </span>chosen = grid.get(p.sel).map(|(l, c)| (l.clone(), c.clone()));
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="kw">let </span><span class="kw-2">mut </span>info = <span class="macro">vec!</span>[];
+<a href=#178 id=178 data-nosnippet>178</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>((l, c)) = chosen {
+<a href=#179 id=179 data-nosnippet>179</a>        info.push(Span::raw(<span class="macro">format!</span>(<span class="string">"Selected: {l} "</span>)));
+<a href=#180 id=180 data-nosnippet>180</a>        <span class="kw">let </span>v = ed.file.section(ed.variant).resolve(<span class="kw-2">&amp;</span>c);
+<a href=#181 id=181 data-nosnippet>181</a>        info.push(swatch(<span class="prelude-val">Some</span>(v)));
+<a href=#182 id=182 data-nosnippet>182</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = ed.picker_warning(<span class="kw-2">&amp;</span>c) { info.push(Span::styled(<span class="macro">format!</span>(<span class="string">"  ⚠ contrast {x:.1}:1 (below {THEME_MIN_CONTRAST}:1)"</span>), ui.accent_bold())); }
+<a href=#183 id=183 data-nosnippet>183</a>    }
+<a href=#184 id=184 data-nosnippet>184</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(e) = <span class="kw-2">&amp;</span>p.error { info = <span class="macro">vec!</span>[Span::styled(e.clone(), ui.accent_bold())]; }
+<a href=#185 id=185 data-nosnippet>185</a>    f.render_widget(Paragraph::new(Line::from(info)), Rect { y: i.y + i.height.saturating_sub(<span class="number">1</span>), height: <span class="number">1</span>, ..i });
+<a href=#186 id=186 data-nosnippet>186</a>}
+<a href=#187 id=187 data-nosnippet>187</a>
+<a href=#188 id=188 data-nosnippet>188</a><span class="doccomment">/// The real UI for `app`, drawn off screen at `w`×`h`.
+<a href=#189 id=189 data-nosnippet>189</a></span><span class="kw">fn </span>preview_buffer(app: <span class="kw-2">&amp;mut </span>App, w: u16, h: u16, now: Instant) -&gt; <span class="prelude-ty">Option</span>&lt;ratatui::buffer::Buffer&gt; {
+<a href=#190 id=190 data-nosnippet>190</a>    <span class="kw">let </span><span class="kw-2">mut </span>term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).ok()<span class="question-mark">?</span>;
+<a href=#191 id=191 data-nosnippet>191</a>    term.draw(|pf| { <span class="kw">crate</span>::tui::widgets::draw(pf, app, now); draw_samples(pf, <span class="kw-2">&amp;</span>app.theme); }).ok()<span class="question-mark">?</span>;
+<a href=#192 id=192 data-nosnippet>192</a>    <span class="prelude-val">Some</span>(term.backend().buffer().clone())
+<a href=#193 id=193 data-nosnippet>193</a>}
+<a href=#194 id=194 data-nosnippet>194</a>
+<a href=#195 id=195 data-nosnippet>195</a><span class="doccomment">/// Flip reverse video on every cell of `shown` inside `within` whose colours or
+<a href=#196 id=196 data-nosnippet>196</a>/// attributes differ in `marked`; returns how many were flipped.
+<a href=#197 id=197 data-nosnippet>197</a></span><span class="kw">pub fn </span>highlight_changes(shown: <span class="kw-2">&amp;mut </span>ratatui::buffer::Buffer, marked: <span class="kw-2">&amp;</span>ratatui::buffer::Buffer, within: Rect) -&gt; usize {
+<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">use </span>ratatui::style::Modifier;
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">0</span>;
+<a href=#200 id=200 data-nosnippet>200</a>    <span class="kw">for </span>y <span class="kw">in </span>within.top()..within.bottom() { <span class="kw">for </span>x <span class="kw">in </span>within.left()..within.right() {
+<a href=#201 id=201 data-nosnippet>201</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(m) = marked.cell((x, y)).map(|m| (m.fg, m.bg, m.modifier)) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href=#202 id=202 data-nosnippet>202</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = shown.cell_mut((x, y)) &amp;&amp; (c.fg, c.bg, c.modifier) != m {
+<a href=#203 id=203 data-nosnippet>203</a>            c.modifier.toggle(Modifier::REVERSED);
+<a href=#204 id=204 data-nosnippet>204</a>            n += <span class="number">1</span>;
+<a href=#205 id=205 data-nosnippet>205</a>        }
+<a href=#206 id=206 data-nosnippet>206</a>    } }
+<a href=#207 id=207 data-nosnippet>207</a>    n
+<a href=#208 id=208 data-nosnippet>208</a>}
+<a href=#209 id=209 data-nosnippet>209</a>
+<a href=#210 id=210 data-nosnippet>210</a><span class="doccomment">/// Sample frames over the preview's lower right corner, so the parts the post view
+<a href=#211 id=211 data-nosnippet>211</a>/// doesn't show are there to look at: a dialog with a field, labels, a button, tags,
+<a href=#212 id=212 data-nosnippet>212</a>/// deleted-post text, code and text dimmed behind a modal.
+<a href=#213 id=213 data-nosnippet>213</a></span><span class="kw">pub fn </span>draw_samples(f: <span class="kw-2">&amp;mut </span>Frame, t: <span class="kw-2">&amp;</span>Theme) {
+<a href=#214 id=214 data-nosnippet>214</a>    <span class="kw">let </span>a = f.area();
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="kw">let </span>(w, h) = (<span class="number">40</span>.min(a.width.saturating_sub(<span class="number">2</span>)), <span class="number">9</span>.min(a.height.saturating_sub(<span class="number">4</span>)));
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">if </span>w &lt; <span class="number">34 </span>|| h &lt; <span class="number">8 </span>{ <span class="kw">return</span>; }
+<a href=#217 id=217 data-nosnippet>217</a>    <span class="kw">let </span>r = Rect::new(a.right() - w - <span class="number">1</span>, a.bottom() - h - <span class="number">2</span>, w, h);
+<a href=#218 id=218 data-nosnippet>218</a>    f.render_widget(Clear, r);
+<a href=#219 id=219 data-nosnippet>219</a>    <span class="kw">let </span>b = frame(<span class="kw-2">&amp;</span>t.dialog()).title(<span class="string">" Sample dialog "</span>);
+<a href=#220 id=220 data-nosnippet>220</a>    <span class="kw">let </span>i = b.inner(r);
+<a href=#221 id=221 data-nosnippet>221</a>    f.render_widget(b, r);
+<a href=#222 id=222 data-nosnippet>222</a>    <span class="kw">let </span>lines = <span class="macro">vec!</span>[
+<a href=#223 id=223 data-nosnippet>223</a>        Line::from(<span class="macro">vec!</span>[Span::styled(<span class="string">"Nick "</span>, t.label(<span class="bool-val">true</span>)), Span::styled(<span class="string">"[comrade     ]"</span>, t.field()), Span::raw(<span class="string">" "</span>), Span::styled(<span class="string">"Format"</span>, t.label(<span class="bool-val">false</span>))]),
+<a href=#224 id=224 data-nosnippet>224</a>        Line::from(<span class="macro">vec!</span>[Span::styled(<span class="string">" Post "</span>, t.post_tag()), Span::raw(<span class="string">" "</span>), Span::styled(<span class="string">" Reply "</span>, t.reply_tag()), Span::raw(<span class="string">" "</span>), Span::styled(<span class="string">"link"</span>, t.link())]),
+<a href=#225 id=225 data-nosnippet>225</a>        Line::from(<span class="macro">vec!</span>[Span::styled(<span class="string">"(post deleted)"</span>, t.gone()), Span::raw(<span class="string">" "</span>), Span::styled(<span class="string">"`--nick`"</span>, t.code())]),
+<a href=#226 id=226 data-nosnippet>226</a>        Line::from(<span class="macro">vec!</span>[Span::styled(<span class="string">"text behind a modal"</span>, t.dimmed())]),
+<a href=#227 id=227 data-nosnippet>227</a>        Line::from(<span class="macro">vec!</span>[Span::styled(<span class="string">"&lt; OK &gt;"</span>, t.button()), Span::raw(<span class="string">" "</span>), Span::styled(<span class="string">"selected"</span>, t.selected())]),
+<a href=#228 id=228 data-nosnippet>228</a>    ];
+<a href=#229 id=229 data-nosnippet>229</a>    f.render_widget(Paragraph::new(lines).style(t.dialog()), i);
+<a href=#230 id=230 data-nosnippet>230</a>}
 </code></pre></div></section></main></body></html>

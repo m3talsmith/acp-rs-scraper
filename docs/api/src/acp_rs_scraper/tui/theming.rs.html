@@ -24,165 +24,167 @@
 <a href=#24 id=24 data-nosnippet>24</a>        <span class="self">self</span>.theme_name = name.to_string();
 <a href=#25 id=25 data-nosnippet>25</a>        <span class="kw">match </span>themes::load(<span class="kw-2">&amp;</span>dir, name) {
 <a href=#26 id=26 data-nosnippet>26</a>            <span class="prelude-val">Ok</span>(l) =&gt; {
-<a href=#27 id=27 data-nosnippet>27</a>                <span class="kw">for </span>w <span class="kw">in </span><span class="kw-2">&amp;</span>l.warnings { <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"warning: {}: {w}"</span>, l.path.display())); }
+<a href=#27 id=27 data-nosnippet>27</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(n) = themes::warning_notice(<span class="kw-2">&amp;</span>l.path, <span class="kw-2">&amp;</span>l.warnings) { <span class="self">self</span>.push_status(n); }
 <a href=#28 id=28 data-nosnippet>28</a>                <span class="kw">let </span>t = Theme::from_file(<span class="kw-2">&amp;</span>l.file, <span class="self">self</span>.variant());
 <a href=#29 id=29 data-nosnippet>29</a>                <span class="self">self</span>.theme_file = <span class="prelude-val">Some</span>(l.file);
 <a href=#30 id=30 data-nosnippet>30</a>                <span class="self">self</span>.theme_error = <span class="prelude-val">None</span>;
-<a href=#31 id=31 data-nosnippet>31</a>                <span class="self">self</span>.apply_theme(t);
-<a href=#32 id=32 data-nosnippet>32</a>                <span class="kw">if </span>persist { <span class="self">self</span>.effects.push(Effect::SaveUiTheme(name.to_string())); }
-<a href=#33 id=33 data-nosnippet>33</a>                <span class="bool-val">true
-<a href=#34 id=34 data-nosnippet>34</a>            </span>}
-<a href=#35 id=35 data-nosnippet>35</a>            <span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#36 id=36 data-nosnippet>36</a>                <span class="kw">let </span>n = e.notice();
-<a href=#37 id=37 data-nosnippet>37</a>                <span class="self">self</span>.theme_file = <span class="prelude-val">None</span>;
-<a href=#38 id=38 data-nosnippet>38</a>                <span class="self">self</span>.theme_error = <span class="prelude-val">Some</span>(n.clone());
-<a href=#39 id=39 data-nosnippet>39</a>                <span class="self">self</span>.apply_theme(Theme::reset());
-<a href=#40 id=40 data-nosnippet>40</a>                <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"warning: {n}"</span>));
-<a href=#41 id=41 data-nosnippet>41</a>                <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Message(MessageModal::error(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n)));
-<a href=#42 id=42 data-nosnippet>42</a>                <span class="bool-val">false
-<a href=#43 id=43 data-nosnippet>43</a>            </span>}
-<a href=#44 id=44 data-nosnippet>44</a>        }
-<a href=#45 id=45 data-nosnippet>45</a>    }
-<a href=#46 id=46 data-nosnippet>46</a>
-<a href=#47 id=47 data-nosnippet>47</a>    <span class="doccomment">/// Redraw with the loaded theme in the current variant (after a background change).
-<a href=#48 id=48 data-nosnippet>48</a>    </span><span class="kw">pub fn </span>refresh_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#49 id=49 data-nosnippet>49</a>        <span class="kw">let </span>t = <span class="self">self</span>.theme_file.as_ref().map(|f| Theme::from_file(f, <span class="self">self</span>.variant())).unwrap_or_else(Theme::reset);
-<a href=#50 id=50 data-nosnippet>50</a>        <span class="self">self</span>.apply_theme(t);
-<a href=#51 id=51 data-nosnippet>51</a>    }
-<a href=#52 id=52 data-nosnippet>52</a>
-<a href=#53 id=53 data-nosnippet>53</a>    <span class="doccomment">/// Read the selected theme's file again.
-<a href=#54 id=54 data-nosnippet>54</a>    </span><span class="kw">pub fn </span>reload_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">let </span>n = <span class="self">self</span>.theme_name.clone();
-<a href=#56 id=56 data-nosnippet>56</a>        <span class="kw">if </span><span class="self">self</span>.use_theme(<span class="kw-2">&amp;</span>n, <span class="bool-val">false</span>) { <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"theme {n} reloaded"</span>)); }
-<a href=#57 id=57 data-nosnippet>57</a>    }
-<a href=#58 id=58 data-nosnippet>58</a>
-<a href=#59 id=59 data-nosnippet>59</a>    <span class="doccomment">/// Every theme file, for the picker.
-<a href=#60 id=60 data-nosnippet>60</a>    </span><span class="kw">pub fn </span>theme_entries(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;themes::Entry&gt; { <span class="self">self</span>.themes_dir.as_deref().map(themes::list).unwrap_or_default() }
-<a href=#61 id=61 data-nosnippet>61</a>
-<a href=#62 id=62 data-nosnippet>62</a>    <span class="doccomment">/// Open the theme picker (F5).
-<a href=#63 id=63 data-nosnippet>63</a>    </span><span class="kw">pub fn </span>open_theme_picker(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#64 id=64 data-nosnippet>64</a>        <span class="kw">let </span>entries = <span class="self">self</span>.theme_entries();
-<a href=#65 id=65 data-nosnippet>65</a>        <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::ThemePicker(Box::new(ThemePickerModal::new(entries, <span class="kw-2">&amp;</span><span class="self">self</span>.theme_name, <span class="self">self</span>.theme))));
-<a href=#66 id=66 data-nosnippet>66</a>    }
-<a href=#67 id=67 data-nosnippet>67</a>
-<a href=#68 id=68 data-nosnippet>68</a>    <span class="doccomment">/// Show the highlighted picker entry (without selecting it).
-<a href=#69 id=69 data-nosnippet>69</a>    </span><span class="kw">pub fn </span>preview_picker(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#70 id=70 data-nosnippet>70</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(Modal::ThemePicker(p)) = <span class="kw-2">&amp;</span><span class="self">self</span>.modal <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#71 id=71 data-nosnippet>71</a>        <span class="kw">let </span>(<span class="prelude-val">Some</span>(name), <span class="prelude-val">Some</span>(dir)) = (p.highlighted().map(str::to_string), <span class="self">self</span>.themes_dir.clone()) <span class="kw">else </span>{
-<a href=#72 id=72 data-nosnippet>72</a>            <span class="kw">let </span>t = p.restore;
-<a href=#73 id=73 data-nosnippet>73</a>            <span class="self">self</span>.apply_theme(t);
-<a href=#74 id=74 data-nosnippet>74</a>            <span class="kw">return</span>;
-<a href=#75 id=75 data-nosnippet>75</a>        };
-<a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">let </span>t = themes::load(<span class="kw-2">&amp;</span>dir, <span class="kw-2">&amp;</span>name).map(|l| Theme::from_file(<span class="kw-2">&amp;</span>l.file, <span class="self">self</span>.variant())).unwrap_or(p.restore);
-<a href=#77 id=77 data-nosnippet>77</a>        <span class="self">self</span>.apply_theme(t);
-<a href=#78 id=78 data-nosnippet>78</a>    }
-<a href=#79 id=79 data-nosnippet>79</a>
-<a href=#80 id=80 data-nosnippet>80</a>    <span class="doccomment">/// The picker closed.
-<a href=#81 id=81 data-nosnippet>81</a>    </span><span class="kw">pub fn </span>theme_picked(<span class="kw-2">&amp;mut </span><span class="self">self</span>, p: ThemePickerModal, r: ModalResult) {
-<a href=#82 id=82 data-nosnippet>82</a>        <span class="kw">let </span>restore = p.restore;
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">match </span>(r, p.chosen()) {
-<a href=#84 id=84 data-nosnippet>84</a>            (ModalResult::ClosedSubmitted, PickerChoice::Theme(name)) =&gt; { <span class="self">self</span>.use_theme(<span class="kw-2">&amp;</span>name, <span class="bool-val">true</span>); }
-<a href=#85 id=85 data-nosnippet>85</a>            (ModalResult::ClosedSubmitted, PickerChoice::Edit) =&gt; { <span class="self">self</span>.apply_theme(restore); <span class="self">self</span>.open_theme_editor(); }
-<a href=#86 id=86 data-nosnippet>86</a>            (ModalResult::ClosedSubmitted, PickerChoice::Download) =&gt; { <span class="self">self</span>.apply_theme(restore); <span class="self">self</span>.init_theme(); }
-<a href=#87 id=87 data-nosnippet>87</a>            (ModalResult::ClosedSubmitted, PickerChoice::Starter) =&gt; { <span class="self">self</span>.apply_theme(restore); <span class="self">self</span>.write_starter_theme(<span class="prelude-val">None</span>, <span class="bool-val">true</span>); }
-<a href=#88 id=88 data-nosnippet>88</a>            <span class="kw">_ </span>=&gt; <span class="self">self</span>.apply_theme(restore),
-<a href=#89 id=89 data-nosnippet>89</a>        }
-<a href=#90 id=90 data-nosnippet>90</a>    }
-<a href=#91 id=91 data-nosnippet>91</a>
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="doccomment">/// Open the full-screen theme editor (Shift-F5) on the selected theme.
-<a href=#93 id=93 data-nosnippet>93</a>    </span><span class="kw">pub fn </span>open_theme_editor(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">if </span><span class="self">self</span>.themes_dir.is_none() { <span class="self">self</span>.error(<span class="string">"Theme editor"</span>, <span class="string">"no themes folder (~/.acp/themes)"</span>); <span class="kw">return</span>; }
-<a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">let </span>name = <span class="self">self</span>.theme_name.clone();
-<a href=#96 id=96 data-nosnippet>96</a>        <span class="self">self</span>.theme_editor = <span class="prelude-val">Some</span>(Box::new(<span class="kw">crate</span>::tui::editor::ThemeEditor::open(<span class="self">self</span>, <span class="kw-2">&amp;</span>name)));
-<a href=#97 id=97 data-nosnippet>97</a>    }
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="doccomment">/// Show every theme file in a message.
-<a href=#100 id=100 data-nosnippet>100</a>    </span><span class="kw">pub fn </span>list_themes(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">let </span>dir = <span class="self">self</span>.themes_dir.clone().unwrap_or_default();
-<a href=#102 id=102 data-nosnippet>102</a>        <span class="kw">let </span><span class="kw-2">mut </span>lines = <span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"Themes in {}:"</span>, dir.display()), String::new()];
-<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">let </span>entries = <span class="self">self</span>.theme_entries();
-<a href=#104 id=104 data-nosnippet>104</a>        <span class="kw">if </span>entries.is_empty() { lines.push(<span class="string">"  (none)"</span>.into()); }
-<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">for </span>e <span class="kw">in </span>entries {
-<a href=#106 id=106 data-nosnippet>106</a>            <span class="kw">let </span>mark = <span class="kw">if </span>e.name == <span class="self">self</span>.theme_name { <span class="string">"●" </span>} <span class="kw">else </span>{ <span class="string">" " </span>};
-<a href=#107 id=107 data-nosnippet>107</a>            lines.push(<span class="kw">match </span>e.error {
-<a href=#108 id=108 data-nosnippet>108</a>                <span class="prelude-val">Some</span>(err) =&gt; <span class="macro">format!</span>(<span class="string">"{mark} {}  ⚠ can't be used: {err}"</span>, e.name),
-<a href=#109 id=109 data-nosnippet>109</a>                <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"{mark} {}  {}"</span>, e.name, e.description),
-<a href=#110 id=110 data-nosnippet>110</a>            });
-<a href=#111 id=111 data-nosnippet>111</a>        }
-<a href=#112 id=112 data-nosnippet>112</a>        lines.push(String::new());
-<a href=#113 id=113 data-nosnippet>113</a>        lines.push(<span class="macro">format!</span>(<span class="string">"Mode: {} ([ui] theme_mode). F5 switches, Shift-F5 edits."</span>, <span class="self">self</span>.variant().name()));
-<a href=#114 id=114 data-nosnippet>114</a>        <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Message(MessageModal::info(<span class="string">"Themes"</span>, <span class="kw-2">&amp;</span>lines.join(<span class="string">"\n"</span>))));
-<a href=#115 id=115 data-nosnippet>115</a>    }
-<a href=#116 id=116 data-nosnippet>116</a>
-<a href=#117 id=117 data-nosnippet>117</a>    <span class="doccomment">/// Export the selected theme (a copy in the exports folder).
-<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="kw">pub fn </span>export_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#119 id=119 data-nosnippet>119</a>        <span class="kw">match </span><span class="self">self</span>.theme_file.clone() {
-<a href=#120 id=120 data-nosnippet>120</a>            <span class="prelude-val">Some</span>(f) =&gt; <span class="self">self</span>.effects.push(Effect::ExportTheme(f)),
-<a href=#121 id=121 data-nosnippet>121</a>            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.error(<span class="string">"Export theme"</span>, <span class="self">self</span>.theme_error.clone().as_deref().unwrap_or(<span class="string">"no theme loaded"</span>)),
-<a href=#122 id=122 data-nosnippet>122</a>        }
-<a href=#123 id=123 data-nosnippet>123</a>    }
-<a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a>    <span class="doccomment">/// Theme: init: download the default theme (an existing file is kept).
-<a href=#126 id=126 data-nosnippet>126</a>    </span><span class="kw">pub fn </span>init_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#127 id=127 data-nosnippet>127</a>        <span class="kw">if </span><span class="self">self</span>.themes_dir.is_none() { <span class="kw">return </span><span class="self">self</span>.error(<span class="string">"Theme: init"</span>, <span class="string">"no themes folder"</span>); }
-<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">if </span><span class="self">self</span>.theme_downloading.is_some() { <span class="kw">return </span><span class="self">self</span>.push_status(<span class="string">"a theme download is already running"</span>); }
-<a href=#129 id=129 data-nosnippet>129</a>        <span class="self">self</span>.start_theme_download(DEFAULT_THEME, <span class="bool-val">true</span>);
-<a href=#130 id=130 data-nosnippet>130</a>    }
-<a href=#131 id=131 data-nosnippet>131</a>
-<a href=#132 id=132 data-nosnippet>132</a>    <span class="doccomment">/// Download `name` in the background; the result arrives in [`App::theme_downloaded`].
-<a href=#133 id=133 data-nosnippet>133</a>    </span><span class="kw">pub fn </span>start_theme_download(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, manual: bool) {
-<a href=#134 id=134 data-nosnippet>134</a>        <span class="self">self</span>.theme_downloading = <span class="prelude-val">Some</span>(name.to_string());
-<a href=#135 id=135 data-nosnippet>135</a>        <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"downloading the {name} theme from {}…"</span>, <span class="kw">crate</span>::config::theme_download_url(name)));
-<a href=#136 id=136 data-nosnippet>136</a>        <span class="self">self</span>.effects.push(Effect::DownloadTheme(name.to_string(), manual));
-<a href=#137 id=137 data-nosnippet>137</a>    }
-<a href=#138 id=138 data-nosnippet>138</a>
-<a href=#139 id=139 data-nosnippet>139</a>    <span class="doccomment">/// A background download finished. On success the theme is applied when it is still
-<a href=#140 id=140 data-nosnippet>140</a>    /// the selected one and could not be loaded (the user hasn't picked another);
-<a href=#141 id=141 data-nosnippet>141</a>    /// on failure the terminal's colours stay and a notice says how to fix it.
-<a href=#142 id=142 data-nosnippet>142</a>    </span><span class="kw">pub fn </span>theme_downloaded(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, manual: bool, r: <span class="prelude-ty">Result</span>&lt;themes::download::Fetched, String&gt;) {
-<a href=#143 id=143 data-nosnippet>143</a>        <span class="self">self</span>.theme_downloading = <span class="prelude-val">None</span>;
-<a href=#144 id=144 data-nosnippet>144</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(dir) = <span class="self">self</span>.themes_dir.clone() <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#145 id=145 data-nosnippet>145</a>        <span class="kw">let </span>waiting = <span class="self">self</span>.theme_name == name &amp;&amp; <span class="self">self</span>.theme_error.is_some();
-<a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">match </span>r {
-<a href=#147 id=147 data-nosnippet>147</a>            <span class="prelude-val">Ok</span>(f) =&gt; {
-<a href=#148 id=148 data-nosnippet>148</a>                <span class="kw">let </span><span class="kw-2">mut </span>n = themes::download::done_notice(name, <span class="kw-2">&amp;</span>f);
-<a href=#149 id=149 data-nosnippet>149</a>                <span class="kw">if </span>waiting &amp;&amp; <span class="self">self</span>.theme_editor.is_none() &amp;&amp; <span class="self">self</span>.use_theme(name, <span class="bool-val">false</span>) { n.push_str(<span class="string">" and applied it"</span>); }
-<a href=#150 id=150 data-nosnippet>150</a>                <span class="self">self</span>.push_status(n.clone());
-<a href=#151 id=151 data-nosnippet>151</a>                <span class="kw">if </span>manual &amp;&amp; <span class="self">self</span>.modal.is_none() { <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Message(MessageModal::info(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n))); }
-<a href=#152 id=152 data-nosnippet>152</a>            }
-<a href=#153 id=153 data-nosnippet>153</a>            <span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#154 id=154 data-nosnippet>154</a>                <span class="kw">let </span>n = themes::download::failure_notice(<span class="kw-2">&amp;</span>dir, name, <span class="kw-2">&amp;</span>e);
-<a href=#155 id=155 data-nosnippet>155</a>                <span class="kw">if </span>waiting { <span class="self">self</span>.theme_error = <span class="prelude-val">Some</span>(n.clone()); }
-<a href=#156 id=156 data-nosnippet>156</a>                <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"warning: {n}"</span>));
-<a href=#157 id=157 data-nosnippet>157</a>                <span class="kw">if </span>(manual || waiting) &amp;&amp; <span class="self">self</span>.modal.is_none() &amp;&amp; <span class="self">self</span>.theme_editor.is_none() {
-<a href=#158 id=158 data-nosnippet>158</a>                    <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Message(MessageModal::error(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n)));
-<a href=#159 id=159 data-nosnippet>159</a>                }
-<a href=#160 id=160 data-nosnippet>160</a>            }
-<a href=#161 id=161 data-nosnippet>161</a>        }
-<a href=#162 id=162 data-nosnippet>162</a>    }
-<a href=#163 id=163 data-nosnippet>163</a>
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="doccomment">/// `Theme: starter [name]`: write the minimal starter theme (no download, never over a
-<a href=#165 id=165 data-nosnippet>165</a>    /// file; without a name the first free `starter`, `starter-2`…). It is used at once
-<a href=#166 id=166 data-nosnippet>166</a>    /// when `select` is set (the F5 list's "Create starter theme") or when the selected
-<a href=#167 id=167 data-nosnippet>167</a>    /// theme can't be loaded.
-<a href=#168 id=168 data-nosnippet>168</a>    </span><span class="kw">pub fn </span>theme_starter(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="prelude-ty">Option</span>&lt;String&gt;) { <span class="self">self</span>.write_starter_theme(name, <span class="bool-val">false</span>) }
-<a href=#169 id=169 data-nosnippet>169</a>
-<a href=#170 id=170 data-nosnippet>170</a>    <span class="doccomment">/// See [`App::theme_starter`].
-<a href=#171 id=171 data-nosnippet>171</a>    </span><span class="kw">pub fn </span>write_starter_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="prelude-ty">Option</span>&lt;String&gt;, select: bool) {
-<a href=#172 id=172 data-nosnippet>172</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(dir) = <span class="self">self</span>.themes_dir.clone() <span class="kw">else </span>{ <span class="kw">return </span><span class="self">self</span>.error(<span class="string">"Theme: starter"</span>, <span class="string">"no themes folder (~/.acp/themes)"</span>) };
-<a href=#173 id=173 data-nosnippet>173</a>        <span class="kw">let </span>name = name.unwrap_or_else(|| themes::download::free_name(<span class="kw-2">&amp;</span>dir, <span class="string">"starter"</span>));
-<a href=#174 id=174 data-nosnippet>174</a>        <span class="kw">match </span>themes::download::write_starter(<span class="kw-2">&amp;</span>dir, <span class="kw-2">&amp;</span>name) {
-<a href=#175 id=175 data-nosnippet>175</a>            <span class="prelude-val">Ok</span>(f) =&gt; {
-<a href=#176 id=176 data-nosnippet>176</a>                <span class="kw">let </span>n = themes::download::starter_notice(<span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>f);
-<a href=#177 id=177 data-nosnippet>177</a>                <span class="self">self</span>.push_status(n.clone());
-<a href=#178 id=178 data-nosnippet>178</a>                <span class="kw">let </span>written = <span class="macro">matches!</span>(f, themes::download::Fetched::Written(<span class="kw">_</span>));
-<a href=#179 id=179 data-nosnippet>179</a>                <span class="kw">if </span>written &amp;&amp; (select || <span class="self">self</span>.theme_error.is_some()) { <span class="self">self</span>.use_theme(<span class="kw-2">&amp;</span>name, select); }
-<a href=#180 id=180 data-nosnippet>180</a>                <span class="kw">if </span><span class="self">self</span>.modal.is_none() {
-<a href=#181 id=181 data-nosnippet>181</a>                    <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(<span class="kw">if </span>written { Modal::Message(MessageModal::info(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n)) } <span class="kw">else </span>{ Modal::Message(MessageModal::error(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n)) });
-<a href=#182 id=182 data-nosnippet>182</a>                }
-<a href=#183 id=183 data-nosnippet>183</a>            }
-<a href=#184 id=184 data-nosnippet>184</a>            <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Theme: starter"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{e:#}"</span>)),
-<a href=#185 id=185 data-nosnippet>185</a>        }
-<a href=#186 id=186 data-nosnippet>186</a>    }
-<a href=#187 id=187 data-nosnippet>187</a>}
+<a href=#31 id=31 data-nosnippet>31</a>                <span class="self">self</span>.theme_fault = <span class="prelude-val">None</span>;
+<a href=#32 id=32 data-nosnippet>32</a>                <span class="self">self</span>.apply_theme(t);
+<a href=#33 id=33 data-nosnippet>33</a>                <span class="kw">if </span>persist { <span class="self">self</span>.effects.push(Effect::SaveUiTheme(name.to_string())); }
+<a href=#34 id=34 data-nosnippet>34</a>                <span class="bool-val">true
+<a href=#35 id=35 data-nosnippet>35</a>            </span>}
+<a href=#36 id=36 data-nosnippet>36</a>            <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#37 id=37 data-nosnippet>37</a>                <span class="kw">let </span>n = e.notice();
+<a href=#38 id=38 data-nosnippet>38</a>                <span class="self">self</span>.theme_fault = <span class="prelude-val">Some</span>(<span class="kw">if </span><span class="macro">matches!</span>(e, themes::LoadError::Missing(<span class="kw">_</span>)) { <span class="string">"missing" </span>} <span class="kw">else </span>{ <span class="string">"broken" </span>});
+<a href=#39 id=39 data-nosnippet>39</a>                <span class="self">self</span>.theme_file = <span class="prelude-val">None</span>;
+<a href=#40 id=40 data-nosnippet>40</a>                <span class="self">self</span>.theme_error = <span class="prelude-val">Some</span>(n.clone());
+<a href=#41 id=41 data-nosnippet>41</a>                <span class="self">self</span>.apply_theme(Theme::reset());
+<a href=#42 id=42 data-nosnippet>42</a>                <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"warning: {n}"</span>));
+<a href=#43 id=43 data-nosnippet>43</a>                <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Message(MessageModal::error(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n)));
+<a href=#44 id=44 data-nosnippet>44</a>                <span class="bool-val">false
+<a href=#45 id=45 data-nosnippet>45</a>            </span>}
+<a href=#46 id=46 data-nosnippet>46</a>        }
+<a href=#47 id=47 data-nosnippet>47</a>    }
+<a href=#48 id=48 data-nosnippet>48</a>
+<a href=#49 id=49 data-nosnippet>49</a>    <span class="doccomment">/// Redraw with the loaded theme in the current variant (after a background change).
+<a href=#50 id=50 data-nosnippet>50</a>    </span><span class="kw">pub fn </span>refresh_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#51 id=51 data-nosnippet>51</a>        <span class="kw">let </span>t = <span class="self">self</span>.theme_file.as_ref().map(|f| Theme::from_file(f, <span class="self">self</span>.variant())).unwrap_or_else(Theme::reset);
+<a href=#52 id=52 data-nosnippet>52</a>        <span class="self">self</span>.apply_theme(t);
+<a href=#53 id=53 data-nosnippet>53</a>    }
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a>    <span class="doccomment">/// Read the selected theme's file again.
+<a href=#56 id=56 data-nosnippet>56</a>    </span><span class="kw">pub fn </span>reload_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#57 id=57 data-nosnippet>57</a>        <span class="kw">let </span>n = <span class="self">self</span>.theme_name.clone();
+<a href=#58 id=58 data-nosnippet>58</a>        <span class="kw">if </span><span class="self">self</span>.use_theme(<span class="kw-2">&amp;</span>n, <span class="bool-val">false</span>) { <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"theme {n} reloaded"</span>)); }
+<a href=#59 id=59 data-nosnippet>59</a>    }
+<a href=#60 id=60 data-nosnippet>60</a>
+<a href=#61 id=61 data-nosnippet>61</a>    <span class="doccomment">/// Every theme file, for the picker.
+<a href=#62 id=62 data-nosnippet>62</a>    </span><span class="kw">pub fn </span>theme_entries(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;themes::Entry&gt; { <span class="self">self</span>.themes_dir.as_deref().map(themes::list).unwrap_or_default() }
+<a href=#63 id=63 data-nosnippet>63</a>
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="doccomment">/// Open the theme picker (F5).
+<a href=#65 id=65 data-nosnippet>65</a>    </span><span class="kw">pub fn </span>open_theme_picker(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#66 id=66 data-nosnippet>66</a>        <span class="kw">let </span>entries = <span class="self">self</span>.theme_entries();
+<a href=#67 id=67 data-nosnippet>67</a>        <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::ThemePicker(Box::new(ThemePickerModal::new(entries, <span class="kw-2">&amp;</span><span class="self">self</span>.theme_name, <span class="self">self</span>.theme))));
+<a href=#68 id=68 data-nosnippet>68</a>    }
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="doccomment">/// Show the highlighted picker entry (without selecting it).
+<a href=#71 id=71 data-nosnippet>71</a>    </span><span class="kw">pub fn </span>preview_picker(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(Modal::ThemePicker(p)) = <span class="kw-2">&amp;</span><span class="self">self</span>.modal <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#73 id=73 data-nosnippet>73</a>        <span class="kw">let </span>(<span class="prelude-val">Some</span>(name), <span class="prelude-val">Some</span>(dir)) = (p.highlighted().map(str::to_string), <span class="self">self</span>.themes_dir.clone()) <span class="kw">else </span>{
+<a href=#74 id=74 data-nosnippet>74</a>            <span class="kw">let </span>t = p.restore;
+<a href=#75 id=75 data-nosnippet>75</a>            <span class="self">self</span>.apply_theme(t);
+<a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">return</span>;
+<a href=#77 id=77 data-nosnippet>77</a>        };
+<a href=#78 id=78 data-nosnippet>78</a>        <span class="kw">let </span>t = themes::load(<span class="kw-2">&amp;</span>dir, <span class="kw-2">&amp;</span>name).map(|l| Theme::from_file(<span class="kw-2">&amp;</span>l.file, <span class="self">self</span>.variant())).unwrap_or(p.restore);
+<a href=#79 id=79 data-nosnippet>79</a>        <span class="self">self</span>.apply_theme(t);
+<a href=#80 id=80 data-nosnippet>80</a>    }
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// The picker closed.
+<a href=#83 id=83 data-nosnippet>83</a>    </span><span class="kw">pub fn </span>theme_picked(<span class="kw-2">&amp;mut </span><span class="self">self</span>, p: ThemePickerModal, r: ModalResult) {
+<a href=#84 id=84 data-nosnippet>84</a>        <span class="kw">let </span>restore = p.restore;
+<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">match </span>(r, p.chosen()) {
+<a href=#86 id=86 data-nosnippet>86</a>            (ModalResult::ClosedSubmitted, PickerChoice::Theme(name)) =&gt; { <span class="self">self</span>.use_theme(<span class="kw-2">&amp;</span>name, <span class="bool-val">true</span>); }
+<a href=#87 id=87 data-nosnippet>87</a>            (ModalResult::ClosedSubmitted, PickerChoice::Edit) =&gt; { <span class="self">self</span>.apply_theme(restore); <span class="self">self</span>.open_theme_editor(); }
+<a href=#88 id=88 data-nosnippet>88</a>            (ModalResult::ClosedSubmitted, PickerChoice::Download) =&gt; { <span class="self">self</span>.apply_theme(restore); <span class="self">self</span>.init_theme(); }
+<a href=#89 id=89 data-nosnippet>89</a>            (ModalResult::ClosedSubmitted, PickerChoice::Starter) =&gt; { <span class="self">self</span>.apply_theme(restore); <span class="self">self</span>.write_starter_theme(<span class="prelude-val">None</span>, <span class="bool-val">true</span>); }
+<a href=#90 id=90 data-nosnippet>90</a>            <span class="kw">_ </span>=&gt; <span class="self">self</span>.apply_theme(restore),
+<a href=#91 id=91 data-nosnippet>91</a>        }
+<a href=#92 id=92 data-nosnippet>92</a>    }
+<a href=#93 id=93 data-nosnippet>93</a>
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="doccomment">/// Open the full-screen theme editor (Shift-F5) on the selected theme.
+<a href=#95 id=95 data-nosnippet>95</a>    </span><span class="kw">pub fn </span>open_theme_editor(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#96 id=96 data-nosnippet>96</a>        <span class="kw">if </span><span class="self">self</span>.themes_dir.is_none() { <span class="self">self</span>.error(<span class="string">"Theme editor"</span>, <span class="string">"no themes folder (~/.acp/themes)"</span>); <span class="kw">return</span>; }
+<a href=#97 id=97 data-nosnippet>97</a>        <span class="kw">let </span>name = <span class="self">self</span>.theme_name.clone();
+<a href=#98 id=98 data-nosnippet>98</a>        <span class="self">self</span>.theme_editor = <span class="prelude-val">Some</span>(Box::new(<span class="kw">crate</span>::tui::editor::ThemeEditor::open(<span class="self">self</span>, <span class="kw-2">&amp;</span>name)));
+<a href=#99 id=99 data-nosnippet>99</a>    }
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="doccomment">/// Show every theme file in a message.
+<a href=#102 id=102 data-nosnippet>102</a>    </span><span class="kw">pub fn </span>list_themes(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="kw">let </span>dir = <span class="self">self</span>.themes_dir.clone().unwrap_or_default();
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="kw">let </span><span class="kw-2">mut </span>lines = <span class="macro">vec!</span>[<span class="macro">format!</span>(<span class="string">"Themes in {}:"</span>, dir.display()), String::new()];
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>entries = <span class="self">self</span>.theme_entries();
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">if </span>entries.is_empty() { lines.push(<span class="string">"  (none)"</span>.into()); }
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">for </span>e <span class="kw">in </span>entries {
+<a href=#108 id=108 data-nosnippet>108</a>            <span class="kw">let </span>mark = <span class="kw">if </span>e.name == <span class="self">self</span>.theme_name { <span class="string">"●" </span>} <span class="kw">else </span>{ <span class="string">" " </span>};
+<a href=#109 id=109 data-nosnippet>109</a>            lines.push(<span class="kw">match </span>e.error {
+<a href=#110 id=110 data-nosnippet>110</a>                <span class="prelude-val">Some</span>(err) =&gt; <span class="macro">format!</span>(<span class="string">"{mark} {}  ⚠ can't be used: {err}"</span>, e.name),
+<a href=#111 id=111 data-nosnippet>111</a>                <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"{mark} {}  {}"</span>, e.name, e.description),
+<a href=#112 id=112 data-nosnippet>112</a>            });
+<a href=#113 id=113 data-nosnippet>113</a>        }
+<a href=#114 id=114 data-nosnippet>114</a>        lines.push(String::new());
+<a href=#115 id=115 data-nosnippet>115</a>        lines.push(<span class="macro">format!</span>(<span class="string">"Mode: {} ([ui] theme_mode). F5 switches, Shift-F5 edits."</span>, <span class="self">self</span>.variant().name()));
+<a href=#116 id=116 data-nosnippet>116</a>        <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Message(MessageModal::info(<span class="string">"Themes"</span>, <span class="kw-2">&amp;</span>lines.join(<span class="string">"\n"</span>))));
+<a href=#117 id=117 data-nosnippet>117</a>    }
+<a href=#118 id=118 data-nosnippet>118</a>
+<a href=#119 id=119 data-nosnippet>119</a>    <span class="doccomment">/// Export the selected theme (a copy in the exports folder).
+<a href=#120 id=120 data-nosnippet>120</a>    </span><span class="kw">pub fn </span>export_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="kw">match </span><span class="self">self</span>.theme_file.clone() {
+<a href=#122 id=122 data-nosnippet>122</a>            <span class="prelude-val">Some</span>(f) =&gt; <span class="self">self</span>.effects.push(Effect::ExportTheme(f)),
+<a href=#123 id=123 data-nosnippet>123</a>            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.error(<span class="string">"Export theme"</span>, <span class="self">self</span>.theme_error.clone().as_deref().unwrap_or(<span class="string">"no theme loaded"</span>)),
+<a href=#124 id=124 data-nosnippet>124</a>        }
+<a href=#125 id=125 data-nosnippet>125</a>    }
+<a href=#126 id=126 data-nosnippet>126</a>
+<a href=#127 id=127 data-nosnippet>127</a>    <span class="doccomment">/// Theme: init: download the default theme (an existing file is kept).
+<a href=#128 id=128 data-nosnippet>128</a>    </span><span class="kw">pub fn </span>init_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">if </span><span class="self">self</span>.themes_dir.is_none() { <span class="kw">return </span><span class="self">self</span>.error(<span class="string">"Theme: init"</span>, <span class="string">"no themes folder"</span>); }
+<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">if </span><span class="self">self</span>.theme_downloading.is_some() { <span class="kw">return </span><span class="self">self</span>.push_status(<span class="string">"a theme download is already running"</span>); }
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="self">self</span>.start_theme_download(DEFAULT_THEME, <span class="bool-val">true</span>);
+<a href=#132 id=132 data-nosnippet>132</a>    }
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="doccomment">/// Download `name` in the background; the result arrives in [`App::theme_downloaded`].
+<a href=#135 id=135 data-nosnippet>135</a>    </span><span class="kw">pub fn </span>start_theme_download(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, manual: bool) {
+<a href=#136 id=136 data-nosnippet>136</a>        <span class="self">self</span>.theme_downloading = <span class="prelude-val">Some</span>(name.to_string());
+<a href=#137 id=137 data-nosnippet>137</a>        <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"downloading the {name} theme from {}…"</span>, <span class="kw">crate</span>::config::theme_download_url(name)));
+<a href=#138 id=138 data-nosnippet>138</a>        <span class="self">self</span>.effects.push(Effect::DownloadTheme(name.to_string(), manual));
+<a href=#139 id=139 data-nosnippet>139</a>    }
+<a href=#140 id=140 data-nosnippet>140</a>
+<a href=#141 id=141 data-nosnippet>141</a>    <span class="doccomment">/// A background download finished. On success the theme is applied when it is still
+<a href=#142 id=142 data-nosnippet>142</a>    /// the selected one and could not be loaded (the user hasn't picked another);
+<a href=#143 id=143 data-nosnippet>143</a>    /// on failure the terminal's colours stay and a notice says how to fix it.
+<a href=#144 id=144 data-nosnippet>144</a>    </span><span class="kw">pub fn </span>theme_downloaded(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, manual: bool, r: <span class="prelude-ty">Result</span>&lt;themes::download::Fetched, String&gt;) {
+<a href=#145 id=145 data-nosnippet>145</a>        <span class="self">self</span>.theme_downloading = <span class="prelude-val">None</span>;
+<a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(dir) = <span class="self">self</span>.themes_dir.clone() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#147 id=147 data-nosnippet>147</a>        <span class="kw">let </span>waiting = <span class="self">self</span>.theme_name == name &amp;&amp; <span class="self">self</span>.theme_error.is_some();
+<a href=#148 id=148 data-nosnippet>148</a>        <span class="kw">match </span>r {
+<a href=#149 id=149 data-nosnippet>149</a>            <span class="prelude-val">Ok</span>(f) =&gt; {
+<a href=#150 id=150 data-nosnippet>150</a>                <span class="kw">let </span><span class="kw-2">mut </span>n = themes::download::done_notice(name, <span class="kw-2">&amp;</span>f);
+<a href=#151 id=151 data-nosnippet>151</a>                <span class="kw">if </span>waiting &amp;&amp; <span class="self">self</span>.theme_editor.is_none() &amp;&amp; <span class="self">self</span>.use_theme(name, <span class="bool-val">false</span>) { n.push_str(<span class="string">" and applied it"</span>); }
+<a href=#152 id=152 data-nosnippet>152</a>                <span class="self">self</span>.push_status(n.clone());
+<a href=#153 id=153 data-nosnippet>153</a>                <span class="kw">if </span>manual &amp;&amp; <span class="self">self</span>.modal.is_none() { <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Message(MessageModal::info(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n))); }
+<a href=#154 id=154 data-nosnippet>154</a>            }
+<a href=#155 id=155 data-nosnippet>155</a>            <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#156 id=156 data-nosnippet>156</a>                <span class="kw">let </span>n = themes::download::failure_notice(<span class="kw-2">&amp;</span>dir, name, <span class="kw-2">&amp;</span>e);
+<a href=#157 id=157 data-nosnippet>157</a>                <span class="kw">if </span>waiting { <span class="self">self</span>.theme_error = <span class="prelude-val">Some</span>(n.clone()); }
+<a href=#158 id=158 data-nosnippet>158</a>                <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"warning: {n}"</span>));
+<a href=#159 id=159 data-nosnippet>159</a>                <span class="kw">if </span>(manual || waiting) &amp;&amp; <span class="self">self</span>.modal.is_none() &amp;&amp; <span class="self">self</span>.theme_editor.is_none() {
+<a href=#160 id=160 data-nosnippet>160</a>                    <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Message(MessageModal::error(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n)));
+<a href=#161 id=161 data-nosnippet>161</a>                }
+<a href=#162 id=162 data-nosnippet>162</a>            }
+<a href=#163 id=163 data-nosnippet>163</a>        }
+<a href=#164 id=164 data-nosnippet>164</a>    }
+<a href=#165 id=165 data-nosnippet>165</a>
+<a href=#166 id=166 data-nosnippet>166</a>    <span class="doccomment">/// `Theme: starter [name]`: write the minimal starter theme (no download, never over a
+<a href=#167 id=167 data-nosnippet>167</a>    /// file; without a name the first free `starter`, `starter-2`…). It is used at once
+<a href=#168 id=168 data-nosnippet>168</a>    /// when `select` is set (the F5 list's "Create starter theme") or when the selected
+<a href=#169 id=169 data-nosnippet>169</a>    /// theme can't be loaded.
+<a href=#170 id=170 data-nosnippet>170</a>    </span><span class="kw">pub fn </span>theme_starter(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="prelude-ty">Option</span>&lt;String&gt;) { <span class="self">self</span>.write_starter_theme(name, <span class="bool-val">false</span>) }
+<a href=#171 id=171 data-nosnippet>171</a>
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="doccomment">/// See [`App::theme_starter`].
+<a href=#173 id=173 data-nosnippet>173</a>    </span><span class="kw">pub fn </span>write_starter_theme(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="prelude-ty">Option</span>&lt;String&gt;, select: bool) {
+<a href=#174 id=174 data-nosnippet>174</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(dir) = <span class="self">self</span>.themes_dir.clone() <span class="kw">else </span>{ <span class="kw">return </span><span class="self">self</span>.error(<span class="string">"Theme: starter"</span>, <span class="string">"no themes folder (~/.acp/themes)"</span>) };
+<a href=#175 id=175 data-nosnippet>175</a>        <span class="kw">let </span>name = name.unwrap_or_else(|| themes::download::free_name(<span class="kw-2">&amp;</span>dir, <span class="string">"starter"</span>));
+<a href=#176 id=176 data-nosnippet>176</a>        <span class="kw">match </span>themes::download::write_starter(<span class="kw-2">&amp;</span>dir, <span class="kw-2">&amp;</span>name) {
+<a href=#177 id=177 data-nosnippet>177</a>            <span class="prelude-val">Ok</span>(f) =&gt; {
+<a href=#178 id=178 data-nosnippet>178</a>                <span class="kw">let </span>n = themes::download::starter_notice(<span class="kw-2">&amp;</span>name, <span class="kw-2">&amp;</span>f);
+<a href=#179 id=179 data-nosnippet>179</a>                <span class="self">self</span>.push_status(n.clone());
+<a href=#180 id=180 data-nosnippet>180</a>                <span class="kw">let </span>written = <span class="macro">matches!</span>(f, themes::download::Fetched::Written(<span class="kw">_</span>));
+<a href=#181 id=181 data-nosnippet>181</a>                <span class="kw">if </span>written &amp;&amp; (select || <span class="self">self</span>.theme_error.is_some()) { <span class="self">self</span>.use_theme(<span class="kw-2">&amp;</span>name, select); }
+<a href=#182 id=182 data-nosnippet>182</a>                <span class="kw">if </span><span class="self">self</span>.modal.is_none() {
+<a href=#183 id=183 data-nosnippet>183</a>                    <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(<span class="kw">if </span>written { Modal::Message(MessageModal::info(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n)) } <span class="kw">else </span>{ Modal::Message(MessageModal::error(<span class="string">"Theme"</span>, <span class="kw-2">&amp;</span>n)) });
+<a href=#184 id=184 data-nosnippet>184</a>                }
+<a href=#185 id=185 data-nosnippet>185</a>            }
+<a href=#186 id=186 data-nosnippet>186</a>            <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Theme: starter"</span>, <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{e:#}"</span>)),
+<a href=#187 id=187 data-nosnippet>187</a>        }
+<a href=#188 id=188 data-nosnippet>188</a>    }
+<a href=#189 id=189 data-nosnippet>189</a>}
 </code></pre></div></section></main></body></html>

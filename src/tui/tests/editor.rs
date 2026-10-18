@@ -305,9 +305,17 @@ fn the_selected_colour_is_highlighted_in_the_preview_and_h_toggles_it() {
 #[test]
 fn the_preview_title_says_when_the_selected_element_is_not_on_screen() {
     let mut a = editor("hl-off");
-    go_to(&mut a, Row::Element(Element::Dialog));
+    // A palette colour nothing refers to paints nothing.
+    a.theme_editor.as_mut().unwrap().file.dark.set("spare", ColorSpec::Value(Color::Rgb(1, 2, 3)));
+    go_to(&mut a, Row::Palette("spare".into()));
     let s = text(&draw(&mut a, 140, 40));
-    assert!(s.contains("‹dialog› isn't on screen"), "{s}");
+    assert!(s.contains("‹@spare› isn't on screen"), "{s}");
+    // The sample dialog shows the parts the post view doesn't.
+    for e in [Element::Dialog, Element::Field, Element::Button, Element::Gone, Element::Code, Element::Dimmed, Element::ReplyTag] {
+        go_to(&mut a, Row::Element(e));
+        let s = text(&draw(&mut a, 140, 40));
+        assert!(s.contains(&format!("‹{}› highlighted", e.name())), "{e:?}:\n{s}");
+    }
     go_to(&mut a, Row::Element(Element::Bar));
     let s = text(&draw(&mut a, 140, 40));
     assert!(s.contains("‹bar› highlighted"), "{s}");
@@ -339,4 +347,118 @@ fn left_still_collapses_an_element_now_that_h_highlights() {
     assert_eq!(ed(&a).expanded, Some(Element::Link), "h toggles the highlight instead");
     on_key(&mut a, key(KeyCode::Left));
     assert_eq!(ed(&a).expanded, None);
+}
+
+#[test]
+fn the_preview_has_sample_frames_for_the_parts_the_post_view_lacks() {
+    let mut a = editor("samples");
+    let s = text(&draw(&mut a, 140, 40));
+    for t in ["Sample dialog", "[comrade", " Post ", " Reply ", "(post deleted)", "`--nick`", "text behind a modal", "< OK >"] {
+        assert!(s.contains(t), "no {t}:\n{s}");
+    }
+}
+
+#[test]
+fn r_reverts_only_the_selected_row() {
+    let mut a = editor("revert-row");
+    go_to(&mut a, Row::Palette("accent".into()));
+    let e = a.theme_editor.as_mut().unwrap();
+    e.file.dark.set("accent", ColorSpec::Value(Color::Rgb(1, 1, 1)));
+    e.file.dark.set("muted", ColorSpec::Value(Color::Rgb(2, 2, 2)));
+    let mut st = e.file.dark.style(Element::Link);
+    st.bold = Some(false);
+    st.fg = Some(ColorSpec::Value(Color::Rgb(3, 3, 3)));
+    e.file.dark.set_style(Element::Link, st);
+    on_key(&mut a, key(KeyCode::Char('r')));
+    let d = &ed(&a).file.dark;
+    assert_eq!(d.get("accent"), Some(&ColorSpec::Value(Color::Rgb(0xdc, 0x26, 0x26))), "accent back");
+    assert_eq!(d.get("muted"), Some(&ColorSpec::Value(Color::Rgb(2, 2, 2))), "muted untouched");
+    // One key of an element.
+    go_to(&mut a, Row::Element(Element::Link));
+    on_key(&mut a, key(KeyCode::Right));
+    go_to(&mut a, Row::Field(Element::Link, "fg"));
+    on_key(&mut a, key(KeyCode::Char('r')));
+    let st = ed(&a).file.dark.style(Element::Link);
+    assert_eq!((st.fg.clone(), st.bold), (None, Some(false)), "only fg reverted: {st:?}");
+    // The whole element, then the last change: nothing differs any more.
+    go_to(&mut a, Row::Element(Element::Link));
+    on_key(&mut a, key(KeyCode::Char('r')));
+    go_to(&mut a, Row::Palette("muted".into()));
+    on_key(&mut a, key(KeyCode::Char('r')));
+    assert!(!ed(&a).dirty(), "all reverted");
+    // In the light variant, without creating a [light] copy.
+    on_key(&mut a, key(KeyCode::Tab));
+    go_to(&mut a, Row::Palette("accent".into()));
+    on_key(&mut a, key(KeyCode::Char('r')));
+    assert!(!ed(&a).dirty() && ed(&a).file.light == ed(&a).saved.as_ref().unwrap().light);
+}
+
+#[test]
+fn saving_asks_when_the_file_changed_on_disk_meanwhile() {
+    let mut a = editor("disk");
+    let dir = a.themes_dir.clone().unwrap();
+    let ours = "version = 1\nname = 'default'\ndescription = 'Changed elsewhere'\n";
+    std::fs::write(dir.join("default.toml"), ours).unwrap();
+    go_to(&mut a, Row::Palette("muted".into()));
+    a.theme_editor.as_mut().unwrap().file.dark.set("muted", ColorSpec::Value(Color::Rgb(9, 9, 9)));
+    on_key(&mut a, ctrl('s'));
+    assert!(matches!(ed(&a).prompt.as_ref().map(|p| &p.ask), Some(Ask::ChangedOnDisk(None))));
+    assert!(text(&draw(&mut a, 140, 40)).contains("default.toml changed on disk"));
+    on_key(&mut a, key(KeyCode::Char('c')));
+    assert_eq!(std::fs::read_to_string(dir.join("default.toml")).unwrap(), ours, "cancel keeps the file");
+    assert!(ed(&a).dirty());
+    // Load: the file as it is now, our change dropped.
+    on_key(&mut a, ctrl('s'));
+    on_key(&mut a, key(KeyCode::Char('l')));
+    assert_eq!(ed(&a).file.description, "Changed elsewhere");
+    assert!(!ed(&a).dirty());
+    // Changed again, then overwrite.
+    std::fs::write(dir.join("default.toml"), "version = 1\ndescription = 'Third'\n").unwrap();
+    a.theme_editor.as_mut().unwrap().file.description = "Mine".into();
+    on_key(&mut a, ctrl('s'));
+    on_key(&mut a, key(KeyCode::Char('o')));
+    assert!(themes::load(&dir, "default").unwrap().file.description == "Mine");
+    // Saved: no question the next time.
+    a.theme_editor.as_mut().unwrap().file.description = "Mine 2".into();
+    on_key(&mut a, ctrl('s'));
+    assert!(ed(&a).prompt.is_none() && !ed(&a).dirty());
+}
+
+#[test]
+fn saving_over_a_broken_file_asks_first_also_from_the_unsaved_question() {
+    let mut a = themed_app("broken-save");
+    let dir = a.themes_dir.clone().unwrap();
+    std::fs::write(dir.join("bad.toml"), "version = [").unwrap();
+    a.theme_name = "bad".into();
+    a.open_theme_editor();
+    assert!(ed(&a).broken);
+    a.theme_editor.as_mut().unwrap().file.description = "Fixed".into();
+    on_key(&mut a, ctrl('s'));
+    assert!(matches!(ed(&a).prompt.as_ref().map(|p| &p.ask), Some(Ask::OverwriteBroken(None))));
+    assert!(text(&draw(&mut a, 140, 40)).contains("bad.toml on disk is broken"));
+    on_key(&mut a, key(KeyCode::Esc));
+    assert_eq!(std::fs::read_to_string(dir.join("bad.toml")).unwrap(), "version = [", "kept");
+    // Esc → Save from the unsaved question → the broken question → overwrite, then close.
+    on_key(&mut a, key(KeyCode::Esc));
+    on_key(&mut a, key(KeyCode::Char('s')));
+    assert!(matches!(ed(&a).prompt.as_ref().map(|p| &p.ask), Some(Ask::OverwriteBroken(Some(_)))));
+    on_key(&mut a, key(KeyCode::Char('o')));
+    assert!(a.theme_editor.is_none(), "closed after saving");
+    assert_eq!(themes::load(&dir, "bad").unwrap().file.description, "Fixed");
+}
+
+#[test]
+fn a_truecolor_note_when_the_theme_uses_rgb_and_the_terminal_may_not() {
+    use crate::tui::editor::truecolor;
+    assert!(truecolor(Some("truecolor")) && truecolor(Some("24bit")) && !truecolor(Some("")) && !truecolor(None));
+    let mut a = editor("truecolor");
+    a.theme_editor.as_mut().unwrap().truecolor = false;
+    assert!(ed(&a).truecolor_note().is_some(), "the default uses #rrggbb");
+    assert!(text(&draw(&mut a, 140, 40)).contains("true-colour terminal"));
+    a.theme_editor.as_mut().unwrap().truecolor = true;
+    assert!(!text(&draw(&mut a, 140, 40)).contains("true-colour terminal"));
+    let e = a.theme_editor.as_mut().unwrap();
+    e.truecolor = false;
+    e.file = themes::download::starter("plain");
+    assert!(ed(&a).truecolor_note().is_none(), "ANSI colours only");
 }

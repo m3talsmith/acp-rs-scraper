@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["PICKER_TABS"],"enum":["Ask","Outcome","Row","Target"],"fn":["all_rows","assumed","preview_app","set_target","warning"],"struct":["ColorPicker","Prompt","ThemeEditor"]};
+window.SIDEBAR_ITEMS = {"constant":["PICKER_TABS"],"enum":["Ask","Outcome","Row","Target"],"fn":["all_rows","assumed","preview_app","set_target","truecolor","warning"],"struct":["ColorPicker","Prompt","ThemeEditor"]};

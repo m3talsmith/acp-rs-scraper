@@ -6,6 +6,29 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.16.0] - 2026-10-18
+
+### Added
+
+- Theme editor: the preview adds a *Sample dialog* frame with the parts the post view doesn't
+  show (dialog, focused and plain labels, a text field, the Post/Reply tags, a link, a deleted
+  post, inline code, dimmed text, a button, a selected row), so they can be seen and highlighted.
+- Theme editor: `r` reverts only the selected palette colour, element or element key to the saved
+  file (`Ctrl-R` still reverts everything).
+- Theme editor: saving asks first when the file changed on disk since the editor read it
+  (Overwrite / Load it and drop your changes / Cancel), and before overwriting a broken file
+  (Overwrite / Cancel). Both also apply to *Save* in the unsaved-changes question.
+- Theme editor: when the theme uses `#rrggbb` colours and `$COLORTERM` isn't `truecolor`/`24bit`,
+  the preview notes that the terminal may show the nearest of 256 colours.
+- A test that the shipped `themes/default.toml` matches its expected content exactly.
+
+### Changed
+
+- The header theme switch reads `‹name: missing› ▾` or `‹name: broken› ▾` instead of `‹name ⚠› ▾`
+  when the theme can't be used.
+- The warnings of one theme file (unknown or bad keys, also those from the `[theme]` migration)
+  are one notice (`warning: …/x.toml: 3 keys skipped: a; b; c`) instead of one line each.
+
 ## [2.15.0] - 2026-10-17
 
 ### Added
