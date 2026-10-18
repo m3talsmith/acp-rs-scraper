@@ -414,8 +414,9 @@ After the commit, attachment, avatar and banner files are deleted from disk **on
 
 Sync rules: a site bookmark missing locally is added; a local one the site lacks is pushed; a
 local removal is pushed and the row dropped; a bookmark that vanished from a fully read site list
-is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) and the
-LiveView event (`toggle-bookmark`) are confirmed against the live site (2.5.0).
+is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) was
+confirmed against the live site (2.5.0). Since 2.24.1 the push is the hook `bookmark`
+with `state` `"1"` or `"0"`, which is what the current page sends.
 
 ### Research (offline, except `--url`)
 

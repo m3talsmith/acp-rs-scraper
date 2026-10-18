@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.24.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.24.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -302,7 +302,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.24.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.24.1 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -621,8 +621,9 @@ ones the site lacks are bookmarked there, local removals are removed there, and 
 disappeared from the site (removed in the browser) is dropped locally. Local changes made since the
 last sync win.
 
-The site's bookmark page (`/rs/bookmarks`) and its `toggle-bookmark` event are confirmed against
-the live site (2.5.0); `ACP_BOOKMARKS_PATH=/rs/…` still overrides the page if it ever moves.
+The site's bookmark page (`/rs/bookmarks`) was confirmed against the live site (2.5.0).
+Sync pushes the hook `bookmark {id, state}` (`"1"` adds, `"0"` removes) — the event the
+current page sends. `ACP_BOOKMARKS_PATH=/rs/…` still overrides the page if it ever moves.
 
 ## Research
 

@@ -271,5 +271,7 @@ pub fn bookmarks_url() -> String {
     let p = std::env::var("ACP_BOOKMARKS_PATH").ok().filter(|v| v.starts_with('/')).unwrap_or_else(|| "/rs/bookmarks".into());
     format!("{}{p}", base_url())
 }
-/// CONFIRMED (live sync, 2.5.0): LiveView click event that toggles a post's bookmark (`{"id": post_id}`).
-pub const BOOKMARK_EVENT: &str = "toggle-bookmark";
+/// LiveView hook that sets a post's bookmark (`{"id", "state": "1"|"0"}`).
+/// The site's current page sends this. 2.5.0 used the click `toggle-bookmark`;
+/// that name still worked then and may disappear (2.24.1).
+pub const BOOKMARK_EVENT: &str = "bookmark";

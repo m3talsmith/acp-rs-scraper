@@ -137,6 +137,11 @@ pub struct SyncStats {
     pub failed: usize,
 }
 
+/// The LiveView hook that sets a bookmark: `bookmark {id, state:"1"|"0"}`.
+pub fn bookmark_event(id: &str, on: bool) -> Value {
+    json!({"type": "hook", "event": BOOKMARK_EVENT, "value": {"id": id, "state": if on { "1" } else { "0" }}})
+}
+
 /// Feed item → stored post (thread roots have no parent).
 pub fn feed_item_post(v: &Value) -> Post {
     let id = s(v, "id");
@@ -168,7 +173,7 @@ pub async fn sync_bookmarks(http: &reqwest::Client, jar: &Jar, db: &Path) -> Res
         let lvp = parse_lv(&final_url, &resp.text().await?)?;
         let mut lv = Lv::connect(&lvp, jar).await?;
         for (id, add) in plan.push_add.iter().map(|i| (i, true)).chain(plan.push_remove.iter().map(|i| (i, false))) {
-            let r = lv.push("event", json!({"type": "click", "event": BOOKMARK_EVENT, "value": {"id": id}})).await?;
+            let r = lv.push("event", bookmark_event(id, add)).await?;
             if r["status"] != "ok" { err!("warning: the site refused to {} bookmark {id}: {r}", if add { "add" } else { "remove" }); st.failed += 1; continue; }
             if add { c.execute("UPDATE bookmarks SET remote = 1 WHERE post_id = ?1", params![id])?; st.pushed.0 += 1; }
             else { c.execute("DELETE FROM bookmarks WHERE post_id = ?1", params![id])?; st.pushed.1 += 1; }

@@ -1,3 +1,9 @@
+acp-rs-scraper (2.24.1) unstable; urgency=medium
+
+  * Bookmark sync sends the hook bookmark {id, state} instead of toggle-bookmark.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 21:30:00 +0000
+
 acp-rs-scraper (2.24.0) unstable; urgency=medium
 
   * Edit history (/rs/post/THREAD/POST/edits): --edits, p › View edits as a diff, post_versions.
