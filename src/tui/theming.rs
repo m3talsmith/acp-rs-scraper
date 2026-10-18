@@ -83,6 +83,8 @@ impl App {
         match (r, p.chosen()) {
             (ModalResult::ClosedSubmitted, PickerChoice::Theme(name)) => { self.use_theme(&name, true); }
             (ModalResult::ClosedSubmitted, PickerChoice::Edit) => { self.apply_theme(restore); self.open_theme_editor(); }
+            (ModalResult::ClosedSubmitted, PickerChoice::Download) => { self.apply_theme(restore); self.init_theme(); }
+            (ModalResult::ClosedSubmitted, PickerChoice::Starter) => { self.apply_theme(restore); self.write_starter_theme(None, true); }
             _ => self.apply_theme(restore),
         }
     }
@@ -156,6 +158,30 @@ impl App {
                     self.modal = Some(Modal::Message(MessageModal::error("Theme", &n)));
                 }
             }
+        }
+    }
+
+    /// `Theme: starter [name]`: write the minimal starter theme (no download, never over a
+    /// file; without a name the first free `starter`, `starter-2`…). It is used at once
+    /// when `select` is set (the F5 list's "Create starter theme") or when the selected
+    /// theme can't be loaded.
+    pub fn theme_starter(&mut self, name: Option<String>) { self.write_starter_theme(name, false) }
+
+    /// See [`App::theme_starter`].
+    pub fn write_starter_theme(&mut self, name: Option<String>, select: bool) {
+        let Some(dir) = self.themes_dir.clone() else { return self.error("Theme: starter", "no themes folder (~/.acp/themes)") };
+        let name = name.unwrap_or_else(|| themes::download::free_name(&dir, "starter"));
+        match themes::download::write_starter(&dir, &name) {
+            Ok(f) => {
+                let n = themes::download::starter_notice(&name, &f);
+                self.push_status(n.clone());
+                let written = matches!(f, themes::download::Fetched::Written(_));
+                if written && (select || self.theme_error.is_some()) { self.use_theme(&name, select); }
+                if self.modal.is_none() {
+                    self.modal = Some(if written { Modal::Message(MessageModal::info("Theme", &n)) } else { Modal::Message(MessageModal::error("Theme", &n)) });
+                }
+            }
+            Err(e) => self.error("Theme: starter", &format!("{e:#}")),
         }
     }
 }

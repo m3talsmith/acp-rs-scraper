@@ -52,6 +52,7 @@ Feature: Theme files
     When I run "--theme-init"
     Then it fails
     And stderr contains "404"
+    And stderr contains "--theme-starter"
 
   Scenario: --theme-init never replaces an existing file
     Given a local file "$HOME/.acp/themes/default.toml" containing "version = 1\nname = 'default'\ndescription = 'Mine'\n"
@@ -134,3 +135,20 @@ Feature: Theme files
     When I run "--list-themes"
     Then stdout contains "● custom"
     And the file "$HOME/.acp/themes/custom-2.toml" does not exist
+
+  Scenario: --theme-starter writes the minimal starter without downloading or overwriting
+    When I run "--theme-starter mine"
+    Then it succeeds
+    And stdout contains "wrote the starter theme mine"
+    And the file "$HOME/.acp/themes/mine.toml" contains "Starter theme"
+    And the theme server was asked 0 times
+    When I run "--theme-starter mine"
+    Then it fails
+    And stderr contains "already exists"
+    When I run "--theme-starter ../x"
+    Then it fails
+    And stderr contains "invalid theme name"
+    When I run "--list-themes --theme mine"
+    Then it succeeds
+    And stdout contains "● mine"
+    And the theme server was asked 0 times

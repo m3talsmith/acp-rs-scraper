@@ -202,30 +202,34 @@
 <a href=#202 id=202 data-nosnippet>202</a>                            <span class="prelude-val">None </span>=&gt; (<span class="macro">format!</span>(<span class="string">" {cur} {:&lt;16} {}"</span>, e.name, e.description), <span class="bool-val">false</span>),
 <a href=#203 id=203 data-nosnippet>203</a>                        }
 <a href=#204 id=204 data-nosnippet>204</a>                    }
-<a href=#205 id=205 data-nosnippet>205</a>                    <span class="prelude-val">None </span>=&gt; (<span class="string">"   Edit themes…  (Shift-F5)"</span>.to_string(), <span class="bool-val">false</span>),
-<a href=#206 id=206 data-nosnippet>206</a>                };
-<a href=#207 id=207 data-nosnippet>207</a>                <span class="kw">let </span>st = <span class="kw">if </span>sel { t.selected() } <span class="kw">else if </span>bad { t.muted() } <span class="kw">else </span>{ t.plain() };
-<a href=#208 id=208 data-nosnippet>208</a>                <span class="kw">let </span>w = rr.width <span class="kw">as </span>usize;
-<a href=#209 id=209 data-nosnippet>209</a>                <span class="kw">let </span>text: String = <span class="kw">if </span>text.chars().count() &gt; w { text.chars().take(w.saturating_sub(<span class="number">1</span>)).chain([<span class="string">'…'</span>]).collect() } <span class="kw">else </span>{ text };
-<a href=#210 id=210 data-nosnippet>210</a>                f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
-<a href=#211 id=211 data-nosnippet>211</a>                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
-<a href=#212 id=212 data-nosnippet>212</a>            }
-<a href=#213 id=213 data-nosnippet>213</a>        }
-<a href=#214 id=214 data-nosnippet>214</a>        Modal::Palette(p) =&gt; {
-<a href=#215 id=215 data-nosnippet>215</a>            <span class="kw">let </span>r = modal_rect(area, <span class="number">70</span>, area.height.saturating_sub(<span class="number">4</span>));
-<a href=#216 id=216 data-nosnippet>216</a>            <span class="kw">let </span>inner = frame(f, <span class="kw-2">&amp;</span>t, r, <span class="string">"Commands · type to filter · Enter runs"</span>);
-<a href=#217 id=217 data-nosnippet>217</a>            f.render_widget(Paragraph::new(field_line(<span class="string">"›"</span>, <span class="kw-2">&amp;</span>p.query, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>t)), Rect { height: <span class="number">1</span>, ..inner });
-<a href=#218 id=218 data-nosnippet>218</a>            <span class="kw">let </span>list = Rect { y: inner.y + <span class="number">2</span>, height: inner.height.saturating_sub(<span class="number">2</span>), ..inner };
-<a href=#219 id=219 data-nosnippet>219</a>            <span class="kw">let </span>items = p.filtered();
-<a href=#220 id=220 data-nosnippet>220</a>            <span class="kw">let </span>skip = p.cursor.saturating_sub(list.height.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>usize);
-<a href=#221 id=221 data-nosnippet>221</a>            <span class="kw">for </span>(row, (i, (label, <span class="kw">_</span>))) <span class="kw">in </span>items.iter().enumerate().skip(skip).take(list.height <span class="kw">as </span>usize).enumerate() {
-<a href=#222 id=222 data-nosnippet>222</a>                <span class="kw">let </span>rr = Rect { y: list.y + row <span class="kw">as </span>u16, height: <span class="number">1</span>, ..list };
-<a href=#223 id=223 data-nosnippet>223</a>                <span class="kw">let </span>st = <span class="kw">if </span>i == p.cursor { t.selected() } <span class="kw">else </span>{ t.plain() };
-<a href=#224 id=224 data-nosnippet>224</a>                f.render_widget(Paragraph::new(Span::styled(<span class="macro">format!</span>(<span class="string">" {label}"</span>), st)), rr);
-<a href=#225 id=225 data-nosnippet>225</a>                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
-<a href=#226 id=226 data-nosnippet>226</a>            }
-<a href=#227 id=227 data-nosnippet>227</a>        }
-<a href=#228 id=228 data-nosnippet>228</a>    }
-<a href=#229 id=229 data-nosnippet>229</a>    app.modal = <span class="prelude-val">Some</span>(m);
-<a href=#230 id=230 data-nosnippet>230</a>}
+<a href=#205 id=205 data-nosnippet>205</a>                    <span class="prelude-val">None </span>=&gt; (<span class="kw">match </span>p.action_row(i) {
+<a href=#206 id=206 data-nosnippet>206</a>                        <span class="prelude-val">Some</span>(<span class="kw">crate</span>::tui::modals::PickerChoice::Download) =&gt; <span class="string">"   Download the default theme"</span>.to_string(),
+<a href=#207 id=207 data-nosnippet>207</a>                        <span class="prelude-val">Some</span>(<span class="kw">crate</span>::tui::modals::PickerChoice::Starter) =&gt; <span class="string">"   Create starter theme"</span>.to_string(),
+<a href=#208 id=208 data-nosnippet>208</a>                        <span class="kw">_ </span>=&gt; <span class="string">"   Edit themes…  (Shift-F5)"</span>.to_string(),
+<a href=#209 id=209 data-nosnippet>209</a>                    }, <span class="bool-val">false</span>),
+<a href=#210 id=210 data-nosnippet>210</a>                };
+<a href=#211 id=211 data-nosnippet>211</a>                <span class="kw">let </span>st = <span class="kw">if </span>sel { t.selected() } <span class="kw">else if </span>bad { t.muted() } <span class="kw">else </span>{ t.plain() };
+<a href=#212 id=212 data-nosnippet>212</a>                <span class="kw">let </span>w = rr.width <span class="kw">as </span>usize;
+<a href=#213 id=213 data-nosnippet>213</a>                <span class="kw">let </span>text: String = <span class="kw">if </span>text.chars().count() &gt; w { text.chars().take(w.saturating_sub(<span class="number">1</span>)).chain([<span class="string">'…'</span>]).collect() } <span class="kw">else </span>{ text };
+<a href=#214 id=214 data-nosnippet>214</a>                f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
+<a href=#215 id=215 data-nosnippet>215</a>                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+<a href=#216 id=216 data-nosnippet>216</a>            }
+<a href=#217 id=217 data-nosnippet>217</a>        }
+<a href=#218 id=218 data-nosnippet>218</a>        Modal::Palette(p) =&gt; {
+<a href=#219 id=219 data-nosnippet>219</a>            <span class="kw">let </span>r = modal_rect(area, <span class="number">70</span>, area.height.saturating_sub(<span class="number">4</span>));
+<a href=#220 id=220 data-nosnippet>220</a>            <span class="kw">let </span>inner = frame(f, <span class="kw-2">&amp;</span>t, r, <span class="string">"Commands · type to filter · Enter runs"</span>);
+<a href=#221 id=221 data-nosnippet>221</a>            f.render_widget(Paragraph::new(field_line(<span class="string">"›"</span>, <span class="kw-2">&amp;</span>p.query, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>t)), Rect { height: <span class="number">1</span>, ..inner });
+<a href=#222 id=222 data-nosnippet>222</a>            <span class="kw">let </span>list = Rect { y: inner.y + <span class="number">2</span>, height: inner.height.saturating_sub(<span class="number">2</span>), ..inner };
+<a href=#223 id=223 data-nosnippet>223</a>            <span class="kw">let </span>items = p.filtered();
+<a href=#224 id=224 data-nosnippet>224</a>            <span class="kw">let </span>skip = p.cursor.saturating_sub(list.height.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>usize);
+<a href=#225 id=225 data-nosnippet>225</a>            <span class="kw">for </span>(row, (i, (label, <span class="kw">_</span>))) <span class="kw">in </span>items.iter().enumerate().skip(skip).take(list.height <span class="kw">as </span>usize).enumerate() {
+<a href=#226 id=226 data-nosnippet>226</a>                <span class="kw">let </span>rr = Rect { y: list.y + row <span class="kw">as </span>u16, height: <span class="number">1</span>, ..list };
+<a href=#227 id=227 data-nosnippet>227</a>                <span class="kw">let </span>st = <span class="kw">if </span>i == p.cursor { t.selected() } <span class="kw">else </span>{ t.plain() };
+<a href=#228 id=228 data-nosnippet>228</a>                f.render_widget(Paragraph::new(Span::styled(<span class="macro">format!</span>(<span class="string">" {label}"</span>), st)), rr);
+<a href=#229 id=229 data-nosnippet>229</a>                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+<a href=#230 id=230 data-nosnippet>230</a>            }
+<a href=#231 id=231 data-nosnippet>231</a>        }
+<a href=#232 id=232 data-nosnippet>232</a>    }
+<a href=#233 id=233 data-nosnippet>233</a>    app.modal = <span class="prelude-val">Some</span>(m);
+<a href=#234 id=234 data-nosnippet>234</a>}
 </code></pre></div></section></main></body></html>

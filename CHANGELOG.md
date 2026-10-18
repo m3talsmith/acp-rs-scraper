@@ -6,6 +6,27 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.15.0] - 2026-10-17
+
+### Added
+- **Theme editor: the selected colour or element is highlighted in the live preview.** The
+  preview is drawn a second time with that row's colours replaced by unused sentinel colours, and
+  the cells that differ are shown in reverse video. `h` toggles it; the preview title says
+  `‹name› highlighted (h)`, or `‹name› isn't on screen` when that element isn't in the preview.
+- **Starter themes:** `--theme-starter NAME` and *Theme: starter [name]* in the command palette
+  (`theme starter mine`; no name: the first free `starter`, `starter-2`, …) write a minimal
+  generated theme with plain terminal colours. No download; atomic, mode 0600, never over an
+  existing file (the CLI fails if it exists).
+- **The `F5` list with no themes** offers *Download the default theme* and *Create starter
+  theme* (which also selects it).
+- **The header shows `‹default · downloading…› ▾`** while the first-run download runs.
+
+### Changed
+- When a theme download fails (`--theme-init`, *Theme: init*, the first run), the notice also
+  suggests the starter theme.
+- In the theme editor `h` now toggles the preview highlight; it no longer hides an element's keys
+  (`←` still does).
+
 ## [2.14.0] - 2026-10-17
 
 ### Added

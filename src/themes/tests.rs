@@ -339,3 +339,25 @@ fn the_download_can_be_turned_off_and_its_notices_say_how_to_fix_things() {
     assert!(SHIPPED_THEMES.iter().all(|n| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("themes").join(format!("{n}.toml")).exists()));
     assert!(!has_themes(Path::new("/nonexistent/acp/themes")));
 }
+
+#[test]
+fn the_starter_is_minimal_valid_written_0600_and_never_over_a_file() {
+    use download::*;
+    let f = starter("mine");
+    assert!(f.dark.styles.is_empty() && f.light.is_none() && f.dark.palette.len() == PALETTE_KEYS.len());
+    let (back, warn) = parse(&to_toml(&f), "mine").unwrap();
+    assert!(warn.is_empty());
+    assert_eq!(to_toml(&back), to_toml(&f));
+    assert_ne!(to_toml(&f), repo_default(), "generated, not the shipped default");
+    let d = tmp("starter");
+    assert_eq!(write_starter(&d, "mine").unwrap(), Fetched::Written(d.join("mine.toml")));
+    #[cfg(unix)]
+    { use std::os::unix::fs::PermissionsExt; assert_eq!(std::fs::metadata(d.join("mine.toml")).unwrap().permissions().mode() & 0o777, 0o600); }
+    std::fs::write(d.join("mine.toml"), "x = [").unwrap();
+    assert_eq!(write_starter(&d, "mine").unwrap(), Fetched::Kept(d.join("mine.toml")));
+    assert_eq!(std::fs::read_to_string(d.join("mine.toml")).unwrap(), "x = [");
+    assert!(write_starter(&d, "../x").is_err());
+    assert_eq!(free_name(&d, "mine"), "mine-2");
+    assert_eq!(free_name(&d, "starter"), "starter");
+    let _ = std::fs::remove_dir_all(d);
+}

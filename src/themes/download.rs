@@ -6,6 +6,7 @@
 //! atomically (mode 0600) without replacing an existing file.
 
 use super::*;
+use ratatui::style::Color;
 
 /// What a download did.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -86,7 +87,8 @@ pub async fn download(dir: &Path, name: &str) -> Result<Fetched> {
 pub fn failure_notice(dir: &Path, name: &str, err: &str) -> String {
     format!("could not download the {name} theme: {err}. The terminal UI uses your terminal's own colours until a theme \
         is there. To fix it, check the connection and run `acp-rs-scraper --theme-init` (or Theme: init in the command \
-        palette), or save {} as {}.", theme_download_url(name), dir.join(format!("{name}.toml")).display())
+        palette), save {} as {}, or write a minimal starter theme instead with `acp-rs-scraper --theme-starter NAME` \
+        (Theme: starter in the palette, or Create starter theme in the F5 list).", theme_download_url(name), dir.join(format!("{name}.toml")).display())
 }
 
 /// What the user sees when the first run did not download the default because it is turned off.
@@ -101,5 +103,40 @@ pub fn done_notice(name: &str, f: &Fetched) -> String {
     match f {
         Fetched::Written(p) => format!("downloaded the {name} theme into {}", p.display()),
         Fetched::Kept(p) => format!("{} already exists; it was kept (nothing downloaded)", p.display()),
+    }
+}
+
+/// The minimal starter theme: every palette colour set to a plain terminal colour
+/// (the 16 ANSI colours and `reset`), no element overrides, one variant (light uses
+/// it too). Generated here, not a copy of any shipped theme; edit it with Shift-F5.
+pub fn starter(name: &str) -> ThemeFile {
+    let mut f = ThemeFile::empty(name);
+    f.description = "Starter theme: plain terminal colours (edit it with Shift-F5)".into();
+    for (k, v) in [("accent", Color::Red), ("muted", Color::DarkGray), ("border", Color::DarkGray), ("on_accent", Color::White),
+        ("fg", Color::Reset), ("bg", Color::Reset)] {
+        f.dark.set(k, ColorSpec::Value(v));
+    }
+    f
+}
+
+/// Write [`starter`] as `dir/<name>.toml` (atomic, mode 0600), keeping a file that is
+/// already there. Never touches the network.
+pub fn write_starter(dir: &Path, name: &str) -> Result<Fetched> {
+    let path = theme_path(dir, name).map_err(|e| anyhow!(e))?;
+    let text = to_toml(&starter(name));
+    if atomic_write_new(&path, text.as_bytes()).with_context(|| format!("writing {}", path.display()))? { Ok(Fetched::Written(path)) } else { Ok(Fetched::Kept(path)) }
+}
+
+/// A free name for a starter theme: `base`, else `base-2`, `base-3`…
+pub fn free_name(dir: &Path, base: &str) -> String {
+    (1..1000).map(|i| if i == 1 { base.to_string() } else { format!("{base}-{i}") })
+        .find(|n| !dir.join(format!("{n}.toml")).exists()).unwrap_or_else(|| base.to_string())
+}
+
+/// What the user sees after a starter theme was written (or kept).
+pub fn starter_notice(name: &str, f: &Fetched) -> String {
+    match f {
+        Fetched::Written(p) => format!("wrote the starter theme {name} to {}; pick it with F5 or edit it with Shift-F5", p.display()),
+        Fetched::Kept(p) => format!("{} already exists; it was kept (no starter written)", p.display()),
     }
 }

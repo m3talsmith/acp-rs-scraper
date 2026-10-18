@@ -1,3 +1,9 @@
+acp-rs-scraper (2.15.0) unstable; urgency=medium
+
+  * Theme editor preview highlight, starter themes (--theme-starter), Download/Starter entries in the empty F5 list, downloading in the header.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 00:06:10 -0400
+
 acp-rs-scraper (2.14.0) unstable; urgency=medium
 
   * Themes are read only from ~/.acp/themes; the first run downloads the default theme in the background; --theme-init; packages no longer install themes.

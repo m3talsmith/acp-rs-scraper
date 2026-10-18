@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.14.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.15.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -54,6 +54,9 @@ Interface:
 
       --theme-init [<NAME>]
           Download a theme from the acp-rs-scraper repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), or all. Never replaces an existing file
+
+      --theme-starter <NAME>
+          Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file
 
 Scraping:
       --scrape
@@ -221,6 +224,7 @@ Examples:
   acp-rs-scraper --theme default      # terminal UI with this theme
   acp-rs-scraper --list-themes
   acp-rs-scraper --theme-init all     # download every theme in the repo into ~/.acp/themes
+  acp-rs-scraper --theme-starter mine # a minimal theme to edit (Shift-F5)
   acp-rs-scraper --scrape             # headless scrape; asks for nicks
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
@@ -258,7 +262,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.14.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.15.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -431,7 +435,14 @@ download before they answer. `default` is the classic look: ACP red `#dc2626` on
 own colours.
 
 - `acp-rs-scraper --theme-init [NAME|all]` (or *Theme: init* in the command palette, for the
-  default) downloads a theme by hand; an existing file is kept.
+  default) downloads a theme by hand; an existing file is kept. If the download fails, the notice
+  suggests a starter theme instead.
+- `acp-rs-scraper --theme-starter NAME` (or *Theme: starter [name]* in the command palette, e.g.
+  `theme starter mine`; no name: `starter`, `starter-2`, …) writes a minimal starter theme with
+  plain terminal colours, without downloading, never over an existing file.
+- While the first-run download runs, the header switch reads `‹default · downloading…› ▾`. With
+  no theme files at all, the `F5` list offers **Download the default theme** and **Create
+  starter theme** (which also selects it).
 - `ACP_THEME_DOWNLOAD=off` or `[ui] theme_download = false` turns the automatic download off.
 
 Themes in the repo's `themes/` (each has a dark and a light variant, text contrast at least 3:1);
@@ -484,7 +495,9 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   changed values and `⚠2.1:1` when text contrast is below 3:1. Right: a live preview drawn by the
   real UI with sample posts. `Tab` flips dark/light, `Enter` edits (hex or a colour grid: 16 /
   216 cube / 24 greys / `@refs`), `Del` clears an override, `a` adds a palette colour, `[`/`]` go
-  to the previous / next theme. `Ctrl-S` saves, `Ctrl-R` reverts, `Ctrl-N` new, `Ctrl-D`
+  to the previous / next theme, `→`/`←` show or hide an element's keys. The selected colour or
+  element is **highlighted in the preview** (the cells it paints in reverse video; the preview
+  title says when it isn't on screen); `h` toggles that. `Ctrl-S` saves, `Ctrl-R` reverts, `Ctrl-N` new, `Ctrl-D`
   duplicate, `Ctrl-X` deletes (asks first; not the theme in use). `Esc` with unsaved changes asks
   Save / Discard / Cancel.
 - **Safety.** A missing or broken theme file never stops the TUI: it falls back to the terminal's

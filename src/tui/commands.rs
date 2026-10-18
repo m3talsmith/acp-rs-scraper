@@ -133,6 +133,8 @@ pub enum Action {
     ThemeExport,
     /// Download the default theme from the repo (kept if it exists).
     ThemeInit,
+    /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
+    ThemeStarter,
 }
 
 /// What a research add takes from (one `--research-add` source).

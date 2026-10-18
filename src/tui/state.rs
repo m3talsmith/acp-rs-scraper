@@ -1054,6 +1054,7 @@ impl App {
             Action::ThemeReload => self.reload_theme(),
             Action::ThemeExport => self.export_theme(),
             Action::ThemeInit => self.init_theme(),
+            Action::ThemeStarter => self.theme_starter(None),
             Action::ExportResearch => match self.research_name().ok_or_else(|| "pick a research project first (Research › Projects…)".to_string())
                 .and_then(|n| self.menu.menu.research_export_argv(&n)) {
                 Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
@@ -1224,6 +1225,7 @@ impl App {
             (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),
             (Modal::ThemePicker(p), r) => self.theme_picked(*p, r),
             (Modal::Palette(p), ModalResult::ClosedSubmitted) => match p.chosen() {
+                Some(PaletteCmd::Action(Action::ThemeStarter)) => self.theme_starter(p.argument()),
                 Some(PaletteCmd::Action(a)) => self.act(a),
                 Some(PaletteCmd::OpenMenu(i)) => self.open_menu(i),
                 None => {}
@@ -1242,6 +1244,7 @@ impl App {
             ("Theme: reload".into(), PaletteCmd::Action(Action::ThemeReload)),
             ("Theme: export".into(), PaletteCmd::Action(Action::ThemeExport)),
             ("Theme: init (download the default)".into(), PaletteCmd::Action(Action::ThemeInit)),
+            ("Theme: starter [name]".into(), PaletteCmd::Action(Action::ThemeStarter)),
             ("Search… (Shift-S)".into(), PaletteCmd::Action(Action::OpenSearchModal)),
             ("Clear search (Ctrl-S)".into(), PaletteCmd::Action(Action::ClearSearch)),
             ("Toggle log panel (l)".into(), PaletteCmd::Action(Action::ToggleLog)),

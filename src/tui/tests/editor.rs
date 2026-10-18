@@ -271,3 +271,72 @@ fn a_broken_file_opens_as_new_and_is_only_replaced_on_save() {
     assert_eq!(std::fs::read_to_string(dir.join("bad.toml")).unwrap(), "x = [", "untouched");
     let _ = std::fs::remove_dir_all(dir);
 }
+
+/// Cells of the preview (right of `x0`) drawn in reverse video.
+fn reversed(b: &ratatui::buffer::Buffer, x0: u16) -> usize {
+    let mut n = 0;
+    for y in 2..b.area.height.saturating_sub(2) { for x in x0..b.area.width.saturating_sub(1) {
+        if b[(x, y)].modifier.contains(ratatui::style::Modifier::REVERSED) { n += 1; }
+    } }
+    n
+}
+
+#[test]
+fn the_selected_colour_is_highlighted_in_the_preview_and_h_toggles_it() {
+    let mut a = editor("hl");
+    assert!(ed(&a).highlight, "on by default");
+    go_to(&mut a, Row::Palette("accent".into()));
+    let on = draw(&mut a, 140, 40);
+    let s = text(&on);
+    assert!(s.contains("‹@accent› highlighted (h)"), "{s}");
+    let x0 = 53; // the list is 52 cells wide at 140 columns; the preview is right of it
+    let lit = reversed(&on, x0);
+    on_key(&mut a, key(KeyCode::Char('h')));
+    assert!(!ed(&a).highlight);
+    let off = draw(&mut a, 140, 40);
+    assert!(text(&off).contains("· h: highlight"));
+    assert!(lit > reversed(&off, x0), "highlight marks cells: {lit} vs {}", reversed(&off, x0));
+    on_key(&mut a, key(KeyCode::Char('h')));
+    assert!(ed(&a).highlight);
+    // The highlight never changes the theme being edited.
+    assert!(!ed(&a).dirty());
+}
+
+#[test]
+fn the_preview_title_says_when_the_selected_element_is_not_on_screen() {
+    let mut a = editor("hl-off");
+    go_to(&mut a, Row::Element(Element::Dialog));
+    let s = text(&draw(&mut a, 140, 40));
+    assert!(s.contains("‹dialog› isn't on screen"), "{s}");
+    go_to(&mut a, Row::Element(Element::Bar));
+    let s = text(&draw(&mut a, 140, 40));
+    assert!(s.contains("‹bar› highlighted"), "{s}");
+}
+
+#[test]
+fn the_marked_theme_replaces_only_the_selected_row_with_unused_colours() {
+    let mut a = editor("marked");
+    a.theme_editor.as_mut().unwrap().cursor = 0;
+    assert!(ed(&a).marked_theme().is_none(), "headings mark nothing");
+    go_to(&mut a, Row::Palette("muted".into()));
+    let (t, m) = (ed(&a).theme(), ed(&a).marked_theme().unwrap());
+    assert_ne!(m.muted, t.muted);
+    assert_eq!((m.accent, m.border, m.fg), (t.accent, t.border, t.fg));
+    assert!(![t.accent, t.muted, t.border, t.on_accent].contains(&m.muted), "a colour the theme doesn't use");
+    go_to(&mut a, Row::Element(Element::Link));
+    let m = ed(&a).marked_theme().unwrap();
+    assert_ne!(ratatui::style::Style::from(&m.link()).fg, ratatui::style::Style::from(&ed(&a).theme().link()).fg);
+    assert_eq!(m.accent, ed(&a).theme().accent);
+}
+
+#[test]
+fn left_still_collapses_an_element_now_that_h_highlights() {
+    let mut a = editor("collapse");
+    go_to(&mut a, Row::Element(Element::Link));
+    on_key(&mut a, key(KeyCode::Right));
+    assert_eq!(ed(&a).expanded, Some(Element::Link));
+    on_key(&mut a, key(KeyCode::Char('h')));
+    assert_eq!(ed(&a).expanded, Some(Element::Link), "h toggles the highlight instead");
+    on_key(&mut a, key(KeyCode::Left));
+    assert_eq!(ed(&a).expanded, None);
+}

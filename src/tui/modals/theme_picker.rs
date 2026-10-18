@@ -1,4 +1,5 @@
-//! The theme picker (F5, or the header's `‹theme› ▾`): every theme file, then
+//! The theme picker (F5, or the header's `‹theme› ▾`): every theme file (or, when
+//! there are none, "Download the default theme" and "Create starter theme"), then
 //! "Edit themes…". Moving the highlight previews the theme; Esc puts the old one back.
 
 use super::*;
@@ -13,6 +14,10 @@ pub enum PickerChoice {
     Theme(String),
     /// Open the theme editor.
     Edit,
+    /// Download the default theme (offered when there are no themes).
+    Download,
+    /// Write the minimal starter theme and use it (offered when there are no themes).
+    Starter,
     /// A theme that can't be used (or nothing).
     None,
 }
@@ -28,21 +33,29 @@ pub struct ThemePickerModal {
     pub restore: Theme,
     /// Its name.
     pub current: String,
+    /// Rows after the themes, before "Edit themes…" (Download / Starter when there are no themes).
+    pub extras: Vec<PickerChoice>,
 }
 
 impl ThemePickerModal {
     /// Picker over `entries`, highlighting `current`.
     pub fn new(entries: Vec<Entry>, current: &str, restore: Theme) -> Self {
         let cursor = entries.iter().position(|e| e.name == current).unwrap_or(0);
-        ThemePickerModal { entries, cursor, restore, current: current.into() }
+        let extras = if entries.is_empty() { vec![PickerChoice::Download, PickerChoice::Starter] } else { Vec::new() };
+        ThemePickerModal { entries, cursor, restore, current: current.into(), extras }
     }
-    /// Rows: the themes and "Edit themes…".
-    pub fn rows(&self) -> usize { self.entries.len() + 1 }
+    /// Rows: the themes, the extras and "Edit themes…".
+    pub fn rows(&self) -> usize { self.entries.len() + self.extras.len() + 1 }
+    /// Row `i` when it is past the themes: an extra or Edit.
+    pub fn action_row(&self, i: usize) -> Option<PickerChoice> {
+        let k = i.checked_sub(self.entries.len())?;
+        self.extras.get(k).cloned().or((k == self.extras.len()).then_some(PickerChoice::Edit))
+    }
     /// The highlighted theme, when it can be used.
     pub fn highlighted(&self) -> Option<&str> { self.entries.get(self.cursor).filter(|e| e.error.is_none()).map(|e| e.name.as_str()) }
     /// What Enter does.
     pub fn chosen(&self) -> PickerChoice {
-        if self.cursor == self.entries.len() { return PickerChoice::Edit; }
+        if let Some(c) = self.action_row(self.cursor) { return c; }
         self.highlighted().map(|n| PickerChoice::Theme(n.into())).unwrap_or(PickerChoice::None)
     }
 }

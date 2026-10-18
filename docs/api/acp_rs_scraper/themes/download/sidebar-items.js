@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Fetched"],"fn":["auto_enabled","auto_enabled_now","done_notice","download","download_from","env_off","failure_notice","fetch","off_notice","store"]};
+window.SIDEBAR_ITEMS = {"enum":["Fetched"],"fn":["auto_enabled","auto_enabled_now","done_notice","download","download_from","env_off","failure_notice","fetch","free_name","off_notice","starter","starter_notice","store","write_starter"]};

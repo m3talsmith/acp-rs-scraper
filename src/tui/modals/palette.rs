@@ -28,11 +28,26 @@ pub struct PaletteModal {
 impl PaletteModal {
     /// Palette over `entries`.
     pub fn new(entries: Vec<(String, PaletteCmd)>) -> Self { PaletteModal { entries, query: TextField::default(), cursor: 0 } }
-    /// Entries matching the filter (every word, case-insensitive).
+    /// Entries matching the filter (every word, case-insensitive). An entry whose label
+    /// ends in `[name]` takes one extra word after the words that match it: its argument
+    /// (`theme starter mine`).
     pub fn filtered(&self) -> Vec<&(String, PaletteCmd)> {
         let q = self.query.value.to_lowercase();
         let words: Vec<&str> = q.split_whitespace().collect();
-        self.entries.iter().filter(|(l, _)| { let l = l.to_lowercase(); words.iter().all(|w| l.contains(w)) }).collect()
+        self.entries.iter().filter(|(l, _)| {
+            let l = l.to_lowercase();
+            if words.iter().all(|w| l.contains(w)) { return true; }
+            l.ends_with("[name]") && words.len() >= 2 && words[..words.len() - 1].iter().all(|w| l.contains(w))
+        }).collect()
+    }
+    /// The argument typed after an `[name]` entry's words (`theme starter mine` → `mine`).
+    pub fn argument(&self) -> Option<String> {
+        let (label, _) = self.filtered().get(self.cursor).copied()?;
+        let l = label.to_lowercase();
+        if !l.ends_with("[name]") { return None; }
+        let words: Vec<&str> = self.query.value.split_whitespace().collect();
+        let last = words.last()?;
+        (words.len() >= 2 && !l.contains(&last.to_lowercase())).then(|| last.to_string())
     }
     /// The entry Enter would run.
     pub fn chosen(&self) -> Option<PaletteCmd> { self.filtered().get(self.cursor).map(|e| e.1) }

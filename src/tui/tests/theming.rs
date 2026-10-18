@@ -220,3 +220,77 @@ fn a_failed_download_keeps_the_terminal_colours_and_explains_the_fix() {
     assert!(!d.join("default.toml").exists());
     let _ = std::fs::remove_dir_all(d);
 }
+
+#[test]
+fn with_no_themes_the_picker_offers_download_and_starter() {
+    let (mut a, d) = first_run_app("pick-empty");
+    a.open_theme_picker();
+    let s = text(&draw(&mut a, 120, 30));
+    for t in ["Download the default theme", "Create starter theme", "Edit themes…"] { assert!(s.contains(t), "no {t}:\n{s}"); }
+    let Some(Modal::ThemePicker(p)) = &a.modal else { panic!() };
+    assert_eq!((p.rows(), p.chosen()), (3, PickerChoice::Download));
+    on_key(&mut a, key(KeyCode::Enter));
+    assert!(matches!(&a.effects[..], [Effect::DownloadTheme(n, true)] if n == "default"));
+    // A themed folder doesn't offer them.
+    let mut b = themed_app("pick-full");
+    b.open_theme_picker();
+    let s = text(&draw(&mut b, 120, 30));
+    assert!(!s.contains("Create starter theme") && !s.contains("Download the default theme"), "{s}");
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
+fn create_starter_theme_from_the_picker_writes_it_and_uses_it() {
+    let (mut a, d) = first_run_app("pick-starter");
+    a.open_theme_picker();
+    on_key(&mut a, key(KeyCode::Down));
+    on_key(&mut a, key(KeyCode::Enter));
+    let l = themes::load(&d, "starter").unwrap();
+    assert!(l.warnings.is_empty());
+    assert_eq!((a.theme_name.as_str(), a.theme.accent), ("starter", Color::Red));
+    assert!(a.theme_error.is_none());
+    assert!(a.effects.iter().any(|e| matches!(e, Effect::SaveUiTheme(n) if n == "starter")), "chosen in the picker: saved");
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
+fn theme_starter_in_the_palette_takes_a_name_and_never_overwrites() {
+    use crate::tui::modals::{ModalState, PaletteModal};
+    let mut a = themed_app("pal-starter");
+    let d = a.themes_dir.clone().unwrap();
+    let run = |a: &mut App, q: &str| {
+        let mut p = PaletteModal::new(a.palette_entries());
+        for c in q.chars() { p.on_key(key(KeyCode::Char(c))); }
+        assert!(p.chosen().is_some(), "{q} finds an entry");
+        a.modal = Some(Modal::Palette(p));
+        on_key(a, key(KeyCode::Enter));
+    };
+    run(&mut a, "theme starter mine");
+    assert!(themes::load(&d, "mine").unwrap().file.description.starts_with("Starter theme"));
+    assert_eq!(a.theme_name, "default", "the palette doesn't switch a working theme");
+    std::fs::write(d.join("mine.toml"), "version = 1\ndescription = 'Mine'\n").unwrap();
+    a.modal = None;
+    run(&mut a, "theme starter mine");
+    assert_eq!(themes::load(&d, "mine").unwrap().file.description, "Mine", "kept");
+    a.modal = None;
+    run(&mut a, "theme starter");
+    assert!(d.join("starter.toml").exists(), "no name: starter");
+    a.modal = None;
+    run(&mut a, "theme starter");
+    assert!(d.join("starter-2.toml").exists(), "then starter-2");
+    let _ = std::fs::remove_dir_all(d);
+}
+
+#[test]
+fn the_header_says_downloading_while_the_first_run_download_runs() {
+    let (mut a, d) = first_run_app("hdr");
+    a.start_theme_download("default", false);
+    let s = text(&draw(&mut a, 140, 30));
+    assert!(s.contains("‹default · downloading…› ▾"), "{s}");
+    a.theme_downloaded("default", false, Err("offline".into()));
+    let s = text(&draw(&mut a, 140, 30));
+    assert!(!s.contains("downloading…") && s.contains("‹default ⚠› ▾"), "{s}");
+    let n = a.theme_error.clone().unwrap();
+    assert!(n.contains("--theme-starter"), "the failure suggests the starter: {n}");
+    let _ = std::fs::remove_dir_all(d);
+}

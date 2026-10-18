@@ -87,7 +87,8 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     };
     let job = app.job.as_ref().map(|j| format!("⟳ {} running (pid {})  ", j.kind.name(), j.pid)).unwrap_or_default();
     // The theme switch: ‹name› ▾ (⚠ when its file can't be used); a click opens the picker.
-    let switch = format!("‹{}{}› ▾", app.theme_name, if app.theme_error.is_some() { " ⚠" } else { "" });
+    let switch = format!("‹{}{}› ▾", app.theme_name,
+        if app.theme_downloading.is_some() { " · downloading…" } else if app.theme_error.is_some() { " ⚠" } else { "" });
     let right = format!("  {session} ");
     let rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
     let used = left.chars().count() + job.chars().count() + switch.chars().count() + right.chars().count();

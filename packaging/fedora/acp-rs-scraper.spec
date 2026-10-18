@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.14.0
+Version:        2.15.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sat Oct 17 2026 m3talsmith <m3talsmith@gmail.com> - 2.15.0-1
+- Theme editor preview highlight, starter themes, header download status
+
 * Sat Oct 17 2026 m3talsmith <m3talsmith@gmail.com> - 2.14.0-1
 - Themes only from ~/.acp/themes; first-run default theme download; --theme-init
 

@@ -23,6 +23,7 @@ pub fn prompt(msg: &str) -> Result<String> {
   acp-rs-scraper --theme default      # terminal UI with this theme
   acp-rs-scraper --list-themes
   acp-rs-scraper --theme-init all     # download every theme in the repo into ~/.acp/themes
+  acp-rs-scraper --theme-starter mine # a minimal theme to edit (Shift-F5)
   acp-rs-scraper --scrape             # headless scrape; asks for nicks
   acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
@@ -78,6 +79,9 @@ pub struct Args {
     /// Download a theme from the acp-rs-scraper repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), or all. Never replaces an existing file.
     #[arg(long, value_name = "NAME", num_args = 0..=1, default_missing_value = "default", help_heading = "Interface")]
     pub theme_init: Option<String>,
+    /// Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file.
+    #[arg(long, value_name = "NAME", help_heading = "Interface")]
+    pub theme_starter: Option<String>,
     /// Scrape headlessly, without the terminal UI (what a bare invocation did before 2.0). Asks for nicks when no --nick/--nicks is given. Implied by any other scraping flag.
     #[arg(long, help_heading = "Scraping")]
     pub scrape: bool,

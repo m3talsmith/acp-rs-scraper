@@ -1054,242 +1054,245 @@
 <a href=#1054 id=1054 data-nosnippet>1054</a>            Action::ThemeReload =&gt; <span class="self">self</span>.reload_theme(),
 <a href=#1055 id=1055 data-nosnippet>1055</a>            Action::ThemeExport =&gt; <span class="self">self</span>.export_theme(),
 <a href=#1056 id=1056 data-nosnippet>1056</a>            Action::ThemeInit =&gt; <span class="self">self</span>.init_theme(),
-<a href=#1057 id=1057 data-nosnippet>1057</a>            Action::ExportResearch =&gt; <span class="kw">match </span><span class="self">self</span>.research_name().ok_or_else(|| <span class="string">"pick a research project first (Research › Projects…)"</span>.to_string())
-<a href=#1058 id=1058 data-nosnippet>1058</a>                .and_then(|n| <span class="self">self</span>.menu.menu.research_export_argv(<span class="kw-2">&amp;</span>n)) {
-<a href=#1059 id=1059 data-nosnippet>1059</a>                <span class="prelude-val">Ok</span>(argv) =&gt; { <span class="self">self</span>.close_menu(); <span class="self">self</span>.start_job(JobKind::Export, argv); }
-<a href=#1060 id=1060 data-nosnippet>1060</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Cannot export research"</span>, <span class="kw-2">&amp;</span>e),
-<a href=#1061 id=1061 data-nosnippet>1061</a>            },
-<a href=#1062 id=1062 data-nosnippet>1062</a>            Action::ClearBasket =&gt; { <span class="self">self</span>.close_menu(); <span class="kw">let </span>n = <span class="self">self</span>.basket.len(); <span class="self">self</span>.basket.clear(); <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"export basket emptied ({n} removed)"</span>)); }
-<a href=#1063 id=1063 data-nosnippet>1063</a>            Action::ExportBasket =&gt; <span class="kw">match </span><span class="self">self</span>.menu.menu.export_argv_with(<span class="kw-2">&amp;</span>sel, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.basket, <span class="prelude-val">Some</span>(<span class="string">"Basket"</span>)) {
-<a href=#1064 id=1064 data-nosnippet>1064</a>                <span class="prelude-val">Ok</span>(argv) =&gt; { <span class="self">self</span>.close_menu(); <span class="self">self</span>.start_job(JobKind::Export, argv); }
-<a href=#1065 id=1065 data-nosnippet>1065</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Cannot export"</span>, <span class="kw-2">&amp;</span>e),
-<a href=#1066 id=1066 data-nosnippet>1066</a>            },
-<a href=#1067 id=1067 data-nosnippet>1067</a>            Action::ToggleBookmark =&gt; {
-<a href=#1068 id=1068 data-nosnippet>1068</a>                <span class="self">self</span>.close_menu();
-<a href=#1069 id=1069 data-nosnippet>1069</a>                <span class="kw">match </span><span class="self">self</span>.current_post_id() { <span class="prelude-val">Some</span>(id) =&gt; <span class="self">self</span>.toggle_mark(<span class="kw-2">&amp;</span>id), <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.push_status(<span class="string">"no post to bookmark: open or highlight one first"</span>) }
-<a href=#1070 id=1070 data-nosnippet>1070</a>            }
-<a href=#1071 id=1071 data-nosnippet>1071</a>            Action::SyncNow =&gt; <span class="kw">match </span><span class="self">self</span>.menu.menu.sync_argv(<span class="kw-2">&amp;</span>sel) {
-<a href=#1072 id=1072 data-nosnippet>1072</a>                <span class="prelude-val">Ok</span>(argv) =&gt; { <span class="self">self</span>.sync_next = <span class="prelude-val">None</span>; <span class="self">self</span>.start_online_job(JobKind::Sync, argv); }
-<a href=#1073 id=1073 data-nosnippet>1073</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Cannot sync"</span>, <span class="kw-2">&amp;</span>e),
-<a href=#1074 id=1074 data-nosnippet>1074</a>            },
-<a href=#1075 id=1075 data-nosnippet>1075</a>            Action::SaveSyncPrefs =&gt; { <span class="self">self</span>.close_menu(); <span class="self">self</span>.effects.push(Effect::SaveSyncPrefs(<span class="self">self</span>.menu.menu.sync_prefs())); }
-<a href=#1076 id=1076 data-nosnippet>1076</a>            Action::SyncBookmarks =&gt; <span class="kw">match </span><span class="self">self</span>.menu.menu.sync_bookmarks_argv() {
-<a href=#1077 id=1077 data-nosnippet>1077</a>                <span class="prelude-val">Ok</span>(argv) =&gt; <span class="self">self</span>.start_online_job(JobKind::Sync, argv),
-<a href=#1078 id=1078 data-nosnippet>1078</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Cannot sync"</span>, <span class="kw-2">&amp;</span>e),
-<a href=#1079 id=1079 data-nosnippet>1079</a>            },
-<a href=#1080 id=1080 data-nosnippet>1080</a>            Action::Quit =&gt; {
-<a href=#1081 id=1081 data-nosnippet>1081</a>                <span class="self">self</span>.close_menu();
-<a href=#1082 id=1082 data-nosnippet>1082</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(j) = <span class="kw-2">&amp;</span><span class="self">self</span>.job {
-<a href=#1083 id=1083 data-nosnippet>1083</a>                    <span class="kw">let </span><span class="kw-2">mut </span>c = ConfirmModal::new(<span class="string">"Quit"</span>, <span class="macro">vec!</span>[
-<a href=#1084 id=1084 data-nosnippet>1084</a>                        <span class="macro">format!</span>(<span class="string">"A {} is running (pid {})."</span>, j.kind.name(), j.pid),
-<a href=#1085 id=1085 data-nosnippet>1085</a>                        <span class="string">"Keep it running in the background, or cancel it and quit?"</span>.into(),
-<a href=#1086 id=1086 data-nosnippet>1086</a>                        <span class="macro">format!</span>(<span class="string">"Its log: {}"</span>, j.log.display())], <span class="string">"Keep running &amp; quit"</span>, ConfirmAction::Quit);
-<a href=#1087 id=1087 data-nosnippet>1087</a>                    c.buttons = <span class="macro">vec!</span>[<span class="string">"Keep running &amp; quit"</span>.into(), <span class="string">"Cancel it &amp; quit"</span>.into(), <span class="string">"Stay"</span>.into()];
-<a href=#1088 id=1088 data-nosnippet>1088</a>                    c.focus = <span class="number">0</span>;
-<a href=#1089 id=1089 data-nosnippet>1089</a>                    <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Confirm(c));
-<a href=#1090 id=1090 data-nosnippet>1090</a>                } <span class="kw">else </span>{
-<a href=#1091 id=1091 data-nosnippet>1091</a>                    <span class="self">self</span>.effects.push(Effect::Quit { cancel_job: <span class="bool-val">false </span>});
-<a href=#1092 id=1092 data-nosnippet>1092</a>                }
-<a href=#1093 id=1093 data-nosnippet>1093</a>            }
-<a href=#1094 id=1094 data-nosnippet>1094</a>        }
-<a href=#1095 id=1095 data-nosnippet>1095</a>    }
-<a href=#1096 id=1096 data-nosnippet>1096</a>    <span class="kw">fn </span>load_base_keep(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1097 id=1097 data-nosnippet>1097</a>        <span class="kw">let </span>(c, o) = (<span class="self">self</span>.base.cursor, <span class="self">self</span>.base.offset);
-<a href=#1098 id=1098 data-nosnippet>1098</a>        <span class="self">self</span>.load_base();
-<a href=#1099 id=1099 data-nosnippet>1099</a>        <span class="self">self</span>.base.cursor = c.min(<span class="self">self</span>.base.posts.len().saturating_sub(<span class="number">1</span>));
-<a href=#1100 id=1100 data-nosnippet>1100</a>        <span class="self">self</span>.base.offset = o.min(<span class="self">self</span>.base.cursor);
-<a href=#1101 id=1101 data-nosnippet>1101</a>    }
-<a href=#1102 id=1102 data-nosnippet>1102</a>    <span class="kw">fn </span>start_job(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: JobKind, argv: Vec&lt;String&gt;) {
-<a href=#1103 id=1103 data-nosnippet>1103</a>        <span class="kw">if </span><span class="self">self</span>.job.is_some() { <span class="self">self</span>.error(<span class="string">"Busy"</span>, <span class="string">"another job is still running; wait for it or cancel it (F6)"</span>); <span class="kw">return</span>; }
-<a href=#1104 id=1104 data-nosnippet>1104</a>        <span class="self">self</span>.effects.push(Effect::RunJob(kind, argv));
-<a href=#1105 id=1105 data-nosnippet>1105</a>    }
-<a href=#1106 id=1106 data-nosnippet>1106</a>    <span class="doccomment">/// Open the Login modal; `then` runs after a successful login.
-<a href=#1107 id=1107 data-nosnippet>1107</a>    </span><span class="kw">pub fn </span>open_login(<span class="kw-2">&amp;mut </span><span class="self">self</span>, then: <span class="prelude-ty">Option</span>&lt;(JobKind, Vec&lt;String&gt;)&gt;) {
-<a href=#1108 id=1108 data-nosnippet>1108</a>        <span class="kw">let </span>reason = then.as_ref().map(|(k, <span class="kw">_</span>)| <span class="macro">format!</span>(<span class="string">"Log in to start the {}."</span>, k.name()));
-<a href=#1109 id=1109 data-nosnippet>1109</a>        <span class="self">self</span>.pending_job = then;
-<a href=#1110 id=1110 data-nosnippet>1110</a>        <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Login(LoginModal::new(<span class="self">self</span>.email.clone(), reason)));
-<a href=#1111 id=1111 data-nosnippet>1111</a>    }
-<a href=#1112 id=1112 data-nosnippet>1112</a>    <span class="doccomment">/// The session check before a scan / sync came back.
-<a href=#1113 id=1113 data-nosnippet>1113</a>    </span><span class="kw">pub fn </span>session_checked(<span class="kw-2">&amp;mut </span><span class="self">self</span>, r: std::result::Result&lt;bool, String&gt;, kind: JobKind, argv: Vec&lt;String&gt;) {
-<a href=#1114 id=1114 data-nosnippet>1114</a>        <span class="kw">match </span>r {
-<a href=#1115 id=1115 data-nosnippet>1115</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; { <span class="self">self</span>.session = SessionState::Valid; <span class="self">self</span>.effects.push(Effect::RunJob(kind, argv)); }
-<a href=#1116 id=1116 data-nosnippet>1116</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; { <span class="self">self</span>.session = SessionState::LoggedOut; <span class="self">self</span>.open_login(<span class="prelude-val">Some</span>((kind, argv))); }
-<a href=#1117 id=1117 data-nosnippet>1117</a>            <span class="prelude-val">Err</span>(e) =&gt; { <span class="self">self</span>.session = SessionState::Saved; <span class="self">self</span>.error(<span class="string">"Cannot reach acp.us"</span>, <span class="kw-2">&amp;</span>e); }
-<a href=#1118 id=1118 data-nosnippet>1118</a>        }
-<a href=#1119 id=1119 data-nosnippet>1119</a>    }
-<a href=#1120 id=1120 data-nosnippet>1120</a>    <span class="doccomment">/// The site sent the login code.
-<a href=#1121 id=1121 data-nosnippet>1121</a>    </span><span class="kw">pub fn </span>login_need_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1122 id=1122 data-nosnippet>1122</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(Modal::Login(m)) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.modal { m.need_code(); }
-<a href=#1123 id=1123 data-nosnippet>1123</a>    }
-<a href=#1124 id=1124 data-nosnippet>1124</a>    <span class="doccomment">/// The login finished.
-<a href=#1125 id=1125 data-nosnippet>1125</a>    </span><span class="kw">pub fn </span>login_done(<span class="kw-2">&amp;mut </span><span class="self">self</span>, r: std::result::Result&lt;(), String&gt;) {
-<a href=#1126 id=1126 data-nosnippet>1126</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(Modal::Login(m)) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.modal <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#1127 id=1127 data-nosnippet>1127</a>        <span class="kw">match </span>r {
-<a href=#1128 id=1128 data-nosnippet>1128</a>            <span class="prelude-val">Ok</span>(()) =&gt; {
-<a href=#1129 id=1129 data-nosnippet>1129</a>                <span class="self">self</span>.session = SessionState::Valid;
-<a href=#1130 id=1130 data-nosnippet>1130</a>                <span class="self">self</span>.email = <span class="prelude-val">Some</span>(m.email.value.trim().to_string()).filter(|e| !e.is_empty()).or(<span class="self">self</span>.email.take());
-<a href=#1131 id=1131 data-nosnippet>1131</a>                <span class="self">self</span>.close_modal(ModalResult::ClosedSubmitted);
-<a href=#1132 id=1132 data-nosnippet>1132</a>            }
-<a href=#1133 id=1133 data-nosnippet>1133</a>            <span class="prelude-val">Err</span>(e) =&gt; m.failed(<span class="kw-2">&amp;</span>e),
-<a href=#1134 id=1134 data-nosnippet>1134</a>        }
-<a href=#1135 id=1135 data-nosnippet>1135</a>    }
-<a href=#1136 id=1136 data-nosnippet>1136</a>    <span class="doccomment">/// Logged out.
-<a href=#1137 id=1137 data-nosnippet>1137</a>    </span><span class="kw">pub fn </span>logged_out(<span class="kw-2">&amp;mut </span><span class="self">self</span>, removed: bool) {
-<a href=#1138 id=1138 data-nosnippet>1138</a>        <span class="self">self</span>.session = SessionState::LoggedOut;
-<a href=#1139 id=1139 data-nosnippet>1139</a>        <span class="self">self</span>.push_status(<span class="kw">if </span>removed { <span class="string">"logged out: saved session removed" </span>} <span class="kw">else </span>{ <span class="string">"logged out (no saved session)" </span>});
-<a href=#1140 id=1140 data-nosnippet>1140</a>        <span class="self">self</span>.open_login(<span class="prelude-val">None</span>);
-<a href=#1141 id=1141 data-nosnippet>1141</a>    }
-<a href=#1142 id=1142 data-nosnippet>1142</a>    <span class="doccomment">/// A job started.
-<a href=#1143 id=1143 data-nosnippet>1143</a>    </span><span class="kw">pub fn </span>job_started(<span class="kw-2">&amp;mut </span><span class="self">self</span>, j: JobView, cmd: <span class="kw-2">&amp;</span>str) {
-<a href=#1144 id=1144 data-nosnippet>1144</a>        <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"started {} (pid {}): {cmd}"</span>, j.kind.name(), j.pid));
-<a href=#1145 id=1145 data-nosnippet>1145</a>        <span class="self">self</span>.job = <span class="prelude-val">Some</span>(j);
-<a href=#1146 id=1146 data-nosnippet>1146</a>    }
-<a href=#1147 id=1147 data-nosnippet>1147</a>    <span class="doccomment">/// The job ended (`ok` = exit 0); `tail` = its last log lines.
-<a href=#1148 id=1148 data-nosnippet>1148</a>    </span><span class="kw">pub fn </span>job_finished(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ok: bool, code: <span class="prelude-ty">Option</span>&lt;i32&gt;, tail: <span class="kw-2">&amp;</span>[String]) {
-<a href=#1149 id=1149 data-nosnippet>1149</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(j) = <span class="self">self</span>.job.take() <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#1150 id=1150 data-nosnippet>1150</a>        <span class="kw">let </span>auto = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.auto_running);
-<a href=#1151 id=1151 data-nosnippet>1151</a>        <span class="self">self</span>.refresh_nicks();
-<a href=#1152 id=1152 data-nosnippet>1152</a>        <span class="self">self</span>.load_base_keep();
-<a href=#1153 id=1153 data-nosnippet>1153</a>        <span class="self">self</span>.reload_marks();
-<a href=#1154 id=1154 data-nosnippet>1154</a>        <span class="kw">if </span>ok {
-<a href=#1155 id=1155 data-nosnippet>1155</a>            <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"{} finished"</span>, j.kind.name()));
-<a href=#1156 id=1156 data-nosnippet>1156</a>        } <span class="kw">else if </span>auto {
-<a href=#1157 id=1157 data-nosnippet>1157</a>            <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"error: auto sync failed (exit {}); see {}"</span>, code.map(|c| c.to_string()).unwrap_or_else(|| <span class="string">"killed"</span>.into()), j.log.display()));
-<a href=#1158 id=1158 data-nosnippet>1158</a>        } <span class="kw">else </span>{
-<a href=#1159 id=1159 data-nosnippet>1159</a>            <span class="kw">let </span>code = code.map(|c| c.to_string()).unwrap_or_else(|| <span class="string">"killed"</span>.into());
-<a href=#1160 id=1160 data-nosnippet>1160</a>            <span class="kw">let </span><span class="kw-2">mut </span>text = <span class="macro">format!</span>(<span class="string">"The {} stopped (exit {code}). Last lines of {}:\n"</span>, j.kind.name(), j.log.display());
-<a href=#1161 id=1161 data-nosnippet>1161</a>            <span class="kw">for </span>l <span class="kw">in </span>tail { text.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{l}\n"</span>)); }
-<a href=#1162 id=1162 data-nosnippet>1162</a>            <span class="self">self</span>.error(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{} failed"</span>, j.kind.name()), text.trim_end());
-<a href=#1163 id=1163 data-nosnippet>1163</a>        }
-<a href=#1164 id=1164 data-nosnippet>1164</a>    }
-<a href=#1165 id=1165 data-nosnippet>1165</a>    <span class="doccomment">/// The job was cancelled.
-<a href=#1166 id=1166 data-nosnippet>1166</a>    </span><span class="kw">pub fn </span>job_cancelled(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1167 id=1167 data-nosnippet>1167</a>        <span class="self">self</span>.auto_running = <span class="bool-val">false</span>;
-<a href=#1168 id=1168 data-nosnippet>1168</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(j) = <span class="self">self</span>.job.take() { <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"{} cancelled (pid {})"</span>, j.kind.name(), j.pid)); }
-<a href=#1169 id=1169 data-nosnippet>1169</a>        <span class="self">self</span>.refresh_nicks();
-<a href=#1170 id=1170 data-nosnippet>1170</a>        <span class="self">self</span>.load_base_keep();
-<a href=#1171 id=1171 data-nosnippet>1171</a>    }
-<a href=#1172 id=1172 data-nosnippet>1172</a>
-<a href=#1173 id=1173 data-nosnippet>1173</a>    <span class="comment">// ------------------------------------------------------------ menu / modals
-<a href=#1174 id=1174 data-nosnippet>1174</a>    </span><span class="doccomment">/// Close the dropdown and leave the menu.
-<a href=#1175 id=1175 data-nosnippet>1175</a>    </span><span class="kw">pub fn </span>close_menu(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1176 id=1176 data-nosnippet>1176</a>        <span class="self">self</span>.menu.open = <span class="prelude-val">None</span>;
-<a href=#1177 id=1177 data-nosnippet>1177</a>        <span class="self">self</span>.menu.editing = <span class="bool-val">false</span>;
-<a href=#1178 id=1178 data-nosnippet>1178</a>        <span class="kw">if </span><span class="self">self</span>.focus == Focus::Menu { <span class="self">self</span>.focus = <span class="kw">if </span><span class="self">self</span>.view().posts.is_empty() { Focus::Nicks } <span class="kw">else </span>{ Focus::Body }; }
-<a href=#1179 id=1179 data-nosnippet>1179</a>    }
-<a href=#1180 id=1180 data-nosnippet>1180</a>    <span class="doccomment">/// Highlight / open the n-th menu item (option-less items run at once).
-<a href=#1181 id=1181 data-nosnippet>1181</a>    </span><span class="kw">pub fn </span>open_menu(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: usize) {
-<a href=#1182 id=1182 data-nosnippet>1182</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(c) = <span class="self">self</span>.menu.menu.items.get(i) <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#1183 id=1183 data-nosnippet>1183</a>        <span class="self">self</span>.focus = Focus::Menu;
-<a href=#1184 id=1184 data-nosnippet>1184</a>        <span class="self">self</span>.menu.item = i;
-<a href=#1185 id=1185 data-nosnippet>1185</a>        <span class="self">self</span>.menu.editing = <span class="bool-val">false</span>;
-<a href=#1186 id=1186 data-nosnippet>1186</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(a) = c.action { <span class="self">self</span>.menu.open = <span class="prelude-val">None</span>; <span class="self">self</span>.act(a); <span class="kw">return</span>; }
-<a href=#1187 id=1187 data-nosnippet>1187</a>        <span class="kw">if </span><span class="self">self</span>.menu.open == <span class="prelude-val">Some</span>(i) { <span class="self">self</span>.menu.open = <span class="prelude-val">None</span>; } <span class="kw">else </span>{ <span class="self">self</span>.menu.open = <span class="prelude-val">Some</span>(i); <span class="self">self</span>.menu.opt = <span class="number">0</span>; }
-<a href=#1188 id=1188 data-nosnippet>1188</a>    }
-<a href=#1189 id=1189 data-nosnippet>1189</a>    <span class="doccomment">/// Activate the highlighted option of the open dropdown (Enter / click).
-<a href=#1190 id=1190 data-nosnippet>1190</a>    </span><span class="kw">pub fn </span>activate_opt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: usize) {
-<a href=#1191 id=1191 data-nosnippet>1191</a>        <span class="kw">use </span><span class="kw">crate</span>::tui::commands::Widget;
-<a href=#1192 id=1192 data-nosnippet>1192</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(item) = <span class="self">self</span>.menu.open <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#1193 id=1193 data-nosnippet>1193</a>        <span class="self">self</span>.menu.opt = i;
-<a href=#1194 id=1194 data-nosnippet>1194</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(o) = <span class="self">self</span>.menu.menu.items[item].opts.get_mut(i) <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#1195 id=1195 data-nosnippet>1195</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span>o.widget {
-<a href=#1196 id=1196 data-nosnippet>1196</a>            Widget::Check(v) =&gt; <span class="kw-2">*</span>v = !<span class="kw-2">*</span>v,
-<a href=#1197 id=1197 data-nosnippet>1197</a>            Widget::Choice { choices, idx } =&gt; <span class="kw-2">*</span>idx = (<span class="kw-2">*</span>idx + <span class="number">1</span>) % choices.len(),
-<a href=#1198 id=1198 data-nosnippet>1198</a>            Widget::Text(<span class="kw">_</span>) =&gt; <span class="self">self</span>.menu.editing = !<span class="self">self</span>.menu.editing,
-<a href=#1199 id=1199 data-nosnippet>1199</a>            Widget::Button(a) =&gt; { <span class="kw">let </span>a = <span class="kw-2">*</span>a; <span class="self">self</span>.act(a); }
-<a href=#1200 id=1200 data-nosnippet>1200</a>        }
-<a href=#1201 id=1201 data-nosnippet>1201</a>    }
-<a href=#1202 id=1202 data-nosnippet>1202</a>    <span class="doccomment">/// Close the modal with `r` and apply it.
-<a href=#1203 id=1203 data-nosnippet>1203</a>    </span><span class="kw">pub fn </span>close_modal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, r: ModalResult) {
-<a href=#1204 id=1204 data-nosnippet>1204</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(m) = <span class="self">self</span>.modal.take() <span class="kw">else </span>{ <span class="kw">return </span>};
-<a href=#1205 id=1205 data-nosnippet>1205</a>        <span class="kw">match </span>(m, r) {
-<a href=#1206 id=1206 data-nosnippet>1206</a>            (Modal::Login(<span class="kw">_</span>), ModalResult::ClosedSubmitted) =&gt; {
-<a href=#1207 id=1207 data-nosnippet>1207</a>                <span class="self">self</span>.push_status(<span class="string">"logged in"</span>);
-<a href=#1208 id=1208 data-nosnippet>1208</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>((k, argv)) = <span class="self">self</span>.pending_job.take() { <span class="self">self</span>.effects.push(Effect::RunJob(k, argv)); }
-<a href=#1209 id=1209 data-nosnippet>1209</a>            }
-<a href=#1210 id=1210 data-nosnippet>1210</a>            (Modal::Login(m), ModalResult::ClosedCancelled) =&gt; {
-<a href=#1211 id=1211 data-nosnippet>1211</a>                <span class="self">self</span>.pending_job = <span class="prelude-val">None</span>;
-<a href=#1212 id=1212 data-nosnippet>1212</a>                <span class="kw">if </span><span class="self">self</span>.session == SessionState::Checking { <span class="self">self</span>.session = SessionState::LoggedOut; }
-<a href=#1213 id=1213 data-nosnippet>1213</a>                <span class="kw">let _ </span>= m;
-<a href=#1214 id=1214 data-nosnippet>1214</a>                <span class="self">self</span>.effects.push(Effect::LoginCancel);
-<a href=#1215 id=1215 data-nosnippet>1215</a>            }
-<a href=#1216 id=1216 data-nosnippet>1216</a>            (Modal::Confirm(c), ModalResult::ClosedSubmitted) =&gt; <span class="kw">match </span>c.action {
-<a href=#1217 id=1217 data-nosnippet>1217</a>                ConfirmAction::Job(k, argv) =&gt; <span class="self">self</span>.start_job(k, argv),
-<a href=#1218 id=1218 data-nosnippet>1218</a>                ConfirmAction::Quit =&gt; <span class="self">self</span>.effects.push(Effect::Quit { cancel_job: c.chosen == <span class="number">1 </span>}),
-<a href=#1219 id=1219 data-nosnippet>1219</a>            },
-<a href=#1220 id=1220 data-nosnippet>1220</a>            (Modal::Search(s), ModalResult::ClosedSubmitted) =&gt; {
-<a href=#1221 id=1221 data-nosnippet>1221</a>                <span class="kw">if </span>s.cleared { <span class="self">self</span>.clear_search(); }
-<a href=#1222 id=1222 data-nosnippet>1222</a>                <span class="kw">else if let </span><span class="prelude-val">Ok</span>(f) = s.filter() { <span class="self">self</span>.run_search(f); }
-<a href=#1223 id=1223 data-nosnippet>1223</a>            }
-<a href=#1224 id=1224 data-nosnippet>1224</a>            (Modal::Research(m), ModalResult::ClosedSubmitted) =&gt; <span class="self">self</span>.research_chosen(m),
-<a href=#1225 id=1225 data-nosnippet>1225</a>            (Modal::ThemePicker(p), r) =&gt; <span class="self">self</span>.theme_picked(<span class="kw-2">*</span>p, r),
-<a href=#1226 id=1226 data-nosnippet>1226</a>            (Modal::Palette(p), ModalResult::ClosedSubmitted) =&gt; <span class="kw">match </span>p.chosen() {
-<a href=#1227 id=1227 data-nosnippet>1227</a>                <span class="prelude-val">Some</span>(PaletteCmd::Action(a)) =&gt; <span class="self">self</span>.act(a),
-<a href=#1228 id=1228 data-nosnippet>1228</a>                <span class="prelude-val">Some</span>(PaletteCmd::OpenMenu(i)) =&gt; <span class="self">self</span>.open_menu(i),
-<a href=#1229 id=1229 data-nosnippet>1229</a>                <span class="prelude-val">None </span>=&gt; {}
-<a href=#1230 id=1230 data-nosnippet>1230</a>            },
-<a href=#1231 id=1231 data-nosnippet>1231</a>            <span class="kw">_ </span>=&gt; {}
-<a href=#1232 id=1232 data-nosnippet>1232</a>        }
-<a href=#1233 id=1233 data-nosnippet>1233</a>    }
-<a href=#1234 id=1234 data-nosnippet>1234</a>    <span class="doccomment">/// Every command for the palette.
-<a href=#1235 id=1235 data-nosnippet>1235</a>    </span><span class="kw">pub fn </span>palette_entries(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(String, PaletteCmd)&gt; {
-<a href=#1236 id=1236 data-nosnippet>1236</a>        <span class="kw">use </span><span class="kw">crate</span>::tui::commands::Widget;
-<a href=#1237 id=1237 data-nosnippet>1237</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[
-<a href=#1238 id=1238 data-nosnippet>1238</a>            (<span class="string">"Start Scanning (F6)"</span>.to_string(), PaletteCmd::Action(Action::StartScan)),
-<a href=#1239 id=1239 data-nosnippet>1239</a>            (<span class="string">"Theme: use… (F5)"</span>.into(), PaletteCmd::Action(Action::ThemePicker)),
-<a href=#1240 id=1240 data-nosnippet>1240</a>            (<span class="string">"Theme: list"</span>.into(), PaletteCmd::Action(Action::ThemeList)),
-<a href=#1241 id=1241 data-nosnippet>1241</a>            (<span class="string">"Theme: edit… (Shift-F5)"</span>.into(), PaletteCmd::Action(Action::ThemeEditor)),
-<a href=#1242 id=1242 data-nosnippet>1242</a>            (<span class="string">"Theme: reload"</span>.into(), PaletteCmd::Action(Action::ThemeReload)),
-<a href=#1243 id=1243 data-nosnippet>1243</a>            (<span class="string">"Theme: export"</span>.into(), PaletteCmd::Action(Action::ThemeExport)),
-<a href=#1244 id=1244 data-nosnippet>1244</a>            (<span class="string">"Theme: init (download the default)"</span>.into(), PaletteCmd::Action(Action::ThemeInit)),
-<a href=#1245 id=1245 data-nosnippet>1245</a>            (<span class="string">"Search… (Shift-S)"</span>.into(), PaletteCmd::Action(Action::OpenSearchModal)),
-<a href=#1246 id=1246 data-nosnippet>1246</a>            (<span class="string">"Clear search (Ctrl-S)"</span>.into(), PaletteCmd::Action(Action::ClearSearch)),
-<a href=#1247 id=1247 data-nosnippet>1247</a>            (<span class="string">"Toggle log panel (l)"</span>.into(), PaletteCmd::Action(Action::ToggleLog)),
-<a href=#1248 id=1248 data-nosnippet>1248</a>            (<span class="string">"Previous post in the stack (,)"</span>.into(), PaletteCmd::Action(Action::StackPrev)),
-<a href=#1249 id=1249 data-nosnippet>1249</a>            (<span class="string">"Next post in the stack (.)"</span>.into(), PaletteCmd::Action(Action::StackNext)),
-<a href=#1250 id=1250 data-nosnippet>1250</a>            (<span class="string">"Next view mode (v)"</span>.into(), PaletteCmd::Action(Action::CycleView)),
-<a href=#1251 id=1251 data-nosnippet>1251</a>            (<span class="string">"Show bookmarks (B)"</span>.into(), PaletteCmd::Action(Action::ShowBookmarks)),
-<a href=#1252 id=1252 data-nosnippet>1252</a>            (<span class="string">"Bookmark current post (b)"</span>.into(), PaletteCmd::Action(Action::ToggleBookmark)),
-<a href=#1253 id=1253 data-nosnippet>1253</a>            (<span class="string">"Add current post to the export basket (x)"</span>.into(), PaletteCmd::Action(Action::ToggleBasket)),
-<a href=#1254 id=1254 data-nosnippet>1254</a>            (<span class="string">"Add to a research project (r)"</span>.into(), PaletteCmd::Action(Action::AddToResearch)),
-<a href=#1255 id=1255 data-nosnippet>1255</a>        ];
-<a href=#1256 id=1256 data-nosnippet>1256</a>        <span class="kw">for </span>(i, c) <span class="kw">in </span><span class="self">self</span>.menu.menu.items.iter().enumerate() {
-<a href=#1257 id=1257 data-nosnippet>1257</a>            <span class="kw">if </span>c.opts.is_empty() { v.push((c.label.to_string(), PaletteCmd::OpenMenu(i))); <span class="kw">continue</span>; }
-<a href=#1258 id=1258 data-nosnippet>1258</a>            v.push((<span class="macro">format!</span>(<span class="string">"{} › options"</span>, c.label), PaletteCmd::OpenMenu(i)));
-<a href=#1259 id=1259 data-nosnippet>1259</a>            <span class="kw">for </span>o <span class="kw">in </span><span class="kw-2">&amp;</span>c.opts {
-<a href=#1260 id=1260 data-nosnippet>1260</a>                <span class="kw">if let </span>Widget::Button(a) = o.widget { v.push((<span class="macro">format!</span>(<span class="string">"{} › {}"</span>, c.label, o.label), PaletteCmd::Action(a))); }
-<a href=#1261 id=1261 data-nosnippet>1261</a>            }
-<a href=#1262 id=1262 data-nosnippet>1262</a>        }
-<a href=#1263 id=1263 data-nosnippet>1263</a>        v
-<a href=#1264 id=1264 data-nosnippet>1264</a>    }
-<a href=#1265 id=1265 data-nosnippet>1265</a>}
-<a href=#1266 id=1266 data-nosnippet>1266</a>
-<a href=#1267 id=1267 data-nosnippet>1267</a><span class="doccomment">/// http(s) links in a body, except links to posts on the site itself.
-<a href=#1268 id=1268 data-nosnippet>1268</a></span><span class="kw">pub fn </span>web_links(text: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
-<a href=#1269 id=1269 data-nosnippet>1269</a>    <span class="kw">use </span>std::sync::LazyLock;
-<a href=#1270 id=1270 data-nosnippet>1270</a>    <span class="kw">static </span>RE: LazyLock&lt;regex::Regex&gt; = LazyLock::new(|| regex::Regex::new(<span class="string">r"https?://[^\s&lt;&gt;()\[\]\x22']+"</span>).expect(<span class="string">"url re"</span>));
-<a href=#1271 id=1271 data-nosnippet>1271</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen = HashSet::new();
-<a href=#1272 id=1272 data-nosnippet>1272</a>    RE.find_iter(text).map(|m| m.as_str().trim_end_matches([<span class="string">'.'</span>, <span class="string">','</span>, <span class="string">';'</span>, <span class="string">':'</span>, <span class="string">'!'</span>, <span class="string">'?'</span>]).to_string())
-<a href=#1273 id=1273 data-nosnippet>1273</a>        .filter(|u| !u.contains(<span class="string">"/rs/post/"</span>))
-<a href=#1274 id=1274 data-nosnippet>1274</a>        .filter(|u| seen.insert(u.clone())).collect()
-<a href=#1275 id=1275 data-nosnippet>1275</a>}
-<a href=#1276 id=1276 data-nosnippet>1276</a>
-<a href=#1277 id=1277 data-nosnippet>1277</a><span class="doccomment">/// A research file or web page shown as a card: its note, where it came from, and its text.
-<a href=#1278 id=1278 data-nosnippet>1278</a></span><span class="kw">pub fn </span>research_post(it: <span class="kw-2">&amp;</span>ResearchItem) -&gt; Post {
-<a href=#1279 id=1279 data-nosnippet>1279</a>    <span class="kw">let </span><span class="kw-2">mut </span>body = String::new();
-<a href=#1280 id=1280 data-nosnippet>1280</a>    <span class="kw">if </span>!it.note.trim().is_empty() { body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&gt; {}\n\n"</span>, it.note.trim())); }
-<a href=#1281 id=1281 data-nosnippet>1281</a>    body.push_str(<span class="kw-2">&amp;</span>it.r#ref);
-<a href=#1282 id=1282 data-nosnippet>1282</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = it.meta[<span class="string">"size"</span>].as_u64() { body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" · {s} bytes"</span>)); }
-<a href=#1283 id=1283 data-nosnippet>1283</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(m) = it.meta[<span class="string">"mime_type"</span>].as_str().or(it.meta[<span class="string">"content_type"</span>].as_str()) { body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" · {m}"</span>)); }
-<a href=#1284 id=1284 data-nosnippet>1284</a>    <span class="kw">if </span>!it.content.trim().is_empty() {
-<a href=#1285 id=1285 data-nosnippet>1285</a>        <span class="kw">let </span>text: String = it.content.chars().take(<span class="number">6000</span>).collect();
-<a href=#1286 id=1286 data-nosnippet>1286</a>        body.push_str(<span class="string">"\n\n"</span>);
-<a href=#1287 id=1287 data-nosnippet>1287</a>        body.push_str(<span class="kw-2">&amp;</span>text);
-<a href=#1288 id=1288 data-nosnippet>1288</a>        <span class="kw">if </span>it.content.chars().count() &gt; <span class="number">6000 </span>{ body.push_str(<span class="string">"\n\n…"</span>); }
-<a href=#1289 id=1289 data-nosnippet>1289</a>    }
-<a href=#1290 id=1290 data-nosnippet>1290</a>    <span class="kw">let </span>nick = <span class="kw">match </span>it.kind { ItemKind::WebUrl =&gt; <span class="string">"web"</span>, ItemKind::LocalFile =&gt; <span class="string">"file"</span>, <span class="kw">_ </span>=&gt; <span class="string">"missing post" </span>};
-<a href=#1291 id=1291 data-nosnippet>1291</a>    <span class="kw">let </span>content = <span class="kw">if </span>it.kind.is_post() { <span class="macro">format!</span>(<span class="string">"{} is not in the database any more.\n\n{body}"</span>, it.r#ref) } <span class="kw">else </span>{ body };
-<a href=#1292 id=1292 data-nosnippet>1292</a>    Post { post_id: <span class="macro">format!</span>(<span class="string">"research:{}"</span>, it.id), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(),
-<a href=#1293 id=1293 data-nosnippet>1293</a>        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: <span class="bool-val">false </span>}
-<a href=#1294 id=1294 data-nosnippet>1294</a>}
+<a href=#1057 id=1057 data-nosnippet>1057</a>            Action::ThemeStarter =&gt; <span class="self">self</span>.theme_starter(<span class="prelude-val">None</span>),
+<a href=#1058 id=1058 data-nosnippet>1058</a>            Action::ExportResearch =&gt; <span class="kw">match </span><span class="self">self</span>.research_name().ok_or_else(|| <span class="string">"pick a research project first (Research › Projects…)"</span>.to_string())
+<a href=#1059 id=1059 data-nosnippet>1059</a>                .and_then(|n| <span class="self">self</span>.menu.menu.research_export_argv(<span class="kw-2">&amp;</span>n)) {
+<a href=#1060 id=1060 data-nosnippet>1060</a>                <span class="prelude-val">Ok</span>(argv) =&gt; { <span class="self">self</span>.close_menu(); <span class="self">self</span>.start_job(JobKind::Export, argv); }
+<a href=#1061 id=1061 data-nosnippet>1061</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Cannot export research"</span>, <span class="kw-2">&amp;</span>e),
+<a href=#1062 id=1062 data-nosnippet>1062</a>            },
+<a href=#1063 id=1063 data-nosnippet>1063</a>            Action::ClearBasket =&gt; { <span class="self">self</span>.close_menu(); <span class="kw">let </span>n = <span class="self">self</span>.basket.len(); <span class="self">self</span>.basket.clear(); <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"export basket emptied ({n} removed)"</span>)); }
+<a href=#1064 id=1064 data-nosnippet>1064</a>            Action::ExportBasket =&gt; <span class="kw">match </span><span class="self">self</span>.menu.menu.export_argv_with(<span class="kw-2">&amp;</span>sel, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.basket, <span class="prelude-val">Some</span>(<span class="string">"Basket"</span>)) {
+<a href=#1065 id=1065 data-nosnippet>1065</a>                <span class="prelude-val">Ok</span>(argv) =&gt; { <span class="self">self</span>.close_menu(); <span class="self">self</span>.start_job(JobKind::Export, argv); }
+<a href=#1066 id=1066 data-nosnippet>1066</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Cannot export"</span>, <span class="kw-2">&amp;</span>e),
+<a href=#1067 id=1067 data-nosnippet>1067</a>            },
+<a href=#1068 id=1068 data-nosnippet>1068</a>            Action::ToggleBookmark =&gt; {
+<a href=#1069 id=1069 data-nosnippet>1069</a>                <span class="self">self</span>.close_menu();
+<a href=#1070 id=1070 data-nosnippet>1070</a>                <span class="kw">match </span><span class="self">self</span>.current_post_id() { <span class="prelude-val">Some</span>(id) =&gt; <span class="self">self</span>.toggle_mark(<span class="kw-2">&amp;</span>id), <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.push_status(<span class="string">"no post to bookmark: open or highlight one first"</span>) }
+<a href=#1071 id=1071 data-nosnippet>1071</a>            }
+<a href=#1072 id=1072 data-nosnippet>1072</a>            Action::SyncNow =&gt; <span class="kw">match </span><span class="self">self</span>.menu.menu.sync_argv(<span class="kw-2">&amp;</span>sel) {
+<a href=#1073 id=1073 data-nosnippet>1073</a>                <span class="prelude-val">Ok</span>(argv) =&gt; { <span class="self">self</span>.sync_next = <span class="prelude-val">None</span>; <span class="self">self</span>.start_online_job(JobKind::Sync, argv); }
+<a href=#1074 id=1074 data-nosnippet>1074</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Cannot sync"</span>, <span class="kw-2">&amp;</span>e),
+<a href=#1075 id=1075 data-nosnippet>1075</a>            },
+<a href=#1076 id=1076 data-nosnippet>1076</a>            Action::SaveSyncPrefs =&gt; { <span class="self">self</span>.close_menu(); <span class="self">self</span>.effects.push(Effect::SaveSyncPrefs(<span class="self">self</span>.menu.menu.sync_prefs())); }
+<a href=#1077 id=1077 data-nosnippet>1077</a>            Action::SyncBookmarks =&gt; <span class="kw">match </span><span class="self">self</span>.menu.menu.sync_bookmarks_argv() {
+<a href=#1078 id=1078 data-nosnippet>1078</a>                <span class="prelude-val">Ok</span>(argv) =&gt; <span class="self">self</span>.start_online_job(JobKind::Sync, argv),
+<a href=#1079 id=1079 data-nosnippet>1079</a>                <span class="prelude-val">Err</span>(e) =&gt; <span class="self">self</span>.error(<span class="string">"Cannot sync"</span>, <span class="kw-2">&amp;</span>e),
+<a href=#1080 id=1080 data-nosnippet>1080</a>            },
+<a href=#1081 id=1081 data-nosnippet>1081</a>            Action::Quit =&gt; {
+<a href=#1082 id=1082 data-nosnippet>1082</a>                <span class="self">self</span>.close_menu();
+<a href=#1083 id=1083 data-nosnippet>1083</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(j) = <span class="kw-2">&amp;</span><span class="self">self</span>.job {
+<a href=#1084 id=1084 data-nosnippet>1084</a>                    <span class="kw">let </span><span class="kw-2">mut </span>c = ConfirmModal::new(<span class="string">"Quit"</span>, <span class="macro">vec!</span>[
+<a href=#1085 id=1085 data-nosnippet>1085</a>                        <span class="macro">format!</span>(<span class="string">"A {} is running (pid {})."</span>, j.kind.name(), j.pid),
+<a href=#1086 id=1086 data-nosnippet>1086</a>                        <span class="string">"Keep it running in the background, or cancel it and quit?"</span>.into(),
+<a href=#1087 id=1087 data-nosnippet>1087</a>                        <span class="macro">format!</span>(<span class="string">"Its log: {}"</span>, j.log.display())], <span class="string">"Keep running &amp; quit"</span>, ConfirmAction::Quit);
+<a href=#1088 id=1088 data-nosnippet>1088</a>                    c.buttons = <span class="macro">vec!</span>[<span class="string">"Keep running &amp; quit"</span>.into(), <span class="string">"Cancel it &amp; quit"</span>.into(), <span class="string">"Stay"</span>.into()];
+<a href=#1089 id=1089 data-nosnippet>1089</a>                    c.focus = <span class="number">0</span>;
+<a href=#1090 id=1090 data-nosnippet>1090</a>                    <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Confirm(c));
+<a href=#1091 id=1091 data-nosnippet>1091</a>                } <span class="kw">else </span>{
+<a href=#1092 id=1092 data-nosnippet>1092</a>                    <span class="self">self</span>.effects.push(Effect::Quit { cancel_job: <span class="bool-val">false </span>});
+<a href=#1093 id=1093 data-nosnippet>1093</a>                }
+<a href=#1094 id=1094 data-nosnippet>1094</a>            }
+<a href=#1095 id=1095 data-nosnippet>1095</a>        }
+<a href=#1096 id=1096 data-nosnippet>1096</a>    }
+<a href=#1097 id=1097 data-nosnippet>1097</a>    <span class="kw">fn </span>load_base_keep(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1098 id=1098 data-nosnippet>1098</a>        <span class="kw">let </span>(c, o) = (<span class="self">self</span>.base.cursor, <span class="self">self</span>.base.offset);
+<a href=#1099 id=1099 data-nosnippet>1099</a>        <span class="self">self</span>.load_base();
+<a href=#1100 id=1100 data-nosnippet>1100</a>        <span class="self">self</span>.base.cursor = c.min(<span class="self">self</span>.base.posts.len().saturating_sub(<span class="number">1</span>));
+<a href=#1101 id=1101 data-nosnippet>1101</a>        <span class="self">self</span>.base.offset = o.min(<span class="self">self</span>.base.cursor);
+<a href=#1102 id=1102 data-nosnippet>1102</a>    }
+<a href=#1103 id=1103 data-nosnippet>1103</a>    <span class="kw">fn </span>start_job(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: JobKind, argv: Vec&lt;String&gt;) {
+<a href=#1104 id=1104 data-nosnippet>1104</a>        <span class="kw">if </span><span class="self">self</span>.job.is_some() { <span class="self">self</span>.error(<span class="string">"Busy"</span>, <span class="string">"another job is still running; wait for it or cancel it (F6)"</span>); <span class="kw">return</span>; }
+<a href=#1105 id=1105 data-nosnippet>1105</a>        <span class="self">self</span>.effects.push(Effect::RunJob(kind, argv));
+<a href=#1106 id=1106 data-nosnippet>1106</a>    }
+<a href=#1107 id=1107 data-nosnippet>1107</a>    <span class="doccomment">/// Open the Login modal; `then` runs after a successful login.
+<a href=#1108 id=1108 data-nosnippet>1108</a>    </span><span class="kw">pub fn </span>open_login(<span class="kw-2">&amp;mut </span><span class="self">self</span>, then: <span class="prelude-ty">Option</span>&lt;(JobKind, Vec&lt;String&gt;)&gt;) {
+<a href=#1109 id=1109 data-nosnippet>1109</a>        <span class="kw">let </span>reason = then.as_ref().map(|(k, <span class="kw">_</span>)| <span class="macro">format!</span>(<span class="string">"Log in to start the {}."</span>, k.name()));
+<a href=#1110 id=1110 data-nosnippet>1110</a>        <span class="self">self</span>.pending_job = then;
+<a href=#1111 id=1111 data-nosnippet>1111</a>        <span class="self">self</span>.modal = <span class="prelude-val">Some</span>(Modal::Login(LoginModal::new(<span class="self">self</span>.email.clone(), reason)));
+<a href=#1112 id=1112 data-nosnippet>1112</a>    }
+<a href=#1113 id=1113 data-nosnippet>1113</a>    <span class="doccomment">/// The session check before a scan / sync came back.
+<a href=#1114 id=1114 data-nosnippet>1114</a>    </span><span class="kw">pub fn </span>session_checked(<span class="kw-2">&amp;mut </span><span class="self">self</span>, r: std::result::Result&lt;bool, String&gt;, kind: JobKind, argv: Vec&lt;String&gt;) {
+<a href=#1115 id=1115 data-nosnippet>1115</a>        <span class="kw">match </span>r {
+<a href=#1116 id=1116 data-nosnippet>1116</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>) =&gt; { <span class="self">self</span>.session = SessionState::Valid; <span class="self">self</span>.effects.push(Effect::RunJob(kind, argv)); }
+<a href=#1117 id=1117 data-nosnippet>1117</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>) =&gt; { <span class="self">self</span>.session = SessionState::LoggedOut; <span class="self">self</span>.open_login(<span class="prelude-val">Some</span>((kind, argv))); }
+<a href=#1118 id=1118 data-nosnippet>1118</a>            <span class="prelude-val">Err</span>(e) =&gt; { <span class="self">self</span>.session = SessionState::Saved; <span class="self">self</span>.error(<span class="string">"Cannot reach acp.us"</span>, <span class="kw-2">&amp;</span>e); }
+<a href=#1119 id=1119 data-nosnippet>1119</a>        }
+<a href=#1120 id=1120 data-nosnippet>1120</a>    }
+<a href=#1121 id=1121 data-nosnippet>1121</a>    <span class="doccomment">/// The site sent the login code.
+<a href=#1122 id=1122 data-nosnippet>1122</a>    </span><span class="kw">pub fn </span>login_need_code(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1123 id=1123 data-nosnippet>1123</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(Modal::Login(m)) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.modal { m.need_code(); }
+<a href=#1124 id=1124 data-nosnippet>1124</a>    }
+<a href=#1125 id=1125 data-nosnippet>1125</a>    <span class="doccomment">/// The login finished.
+<a href=#1126 id=1126 data-nosnippet>1126</a>    </span><span class="kw">pub fn </span>login_done(<span class="kw-2">&amp;mut </span><span class="self">self</span>, r: std::result::Result&lt;(), String&gt;) {
+<a href=#1127 id=1127 data-nosnippet>1127</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(Modal::Login(m)) = <span class="kw-2">&amp;mut </span><span class="self">self</span>.modal <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1128 id=1128 data-nosnippet>1128</a>        <span class="kw">match </span>r {
+<a href=#1129 id=1129 data-nosnippet>1129</a>            <span class="prelude-val">Ok</span>(()) =&gt; {
+<a href=#1130 id=1130 data-nosnippet>1130</a>                <span class="self">self</span>.session = SessionState::Valid;
+<a href=#1131 id=1131 data-nosnippet>1131</a>                <span class="self">self</span>.email = <span class="prelude-val">Some</span>(m.email.value.trim().to_string()).filter(|e| !e.is_empty()).or(<span class="self">self</span>.email.take());
+<a href=#1132 id=1132 data-nosnippet>1132</a>                <span class="self">self</span>.close_modal(ModalResult::ClosedSubmitted);
+<a href=#1133 id=1133 data-nosnippet>1133</a>            }
+<a href=#1134 id=1134 data-nosnippet>1134</a>            <span class="prelude-val">Err</span>(e) =&gt; m.failed(<span class="kw-2">&amp;</span>e),
+<a href=#1135 id=1135 data-nosnippet>1135</a>        }
+<a href=#1136 id=1136 data-nosnippet>1136</a>    }
+<a href=#1137 id=1137 data-nosnippet>1137</a>    <span class="doccomment">/// Logged out.
+<a href=#1138 id=1138 data-nosnippet>1138</a>    </span><span class="kw">pub fn </span>logged_out(<span class="kw-2">&amp;mut </span><span class="self">self</span>, removed: bool) {
+<a href=#1139 id=1139 data-nosnippet>1139</a>        <span class="self">self</span>.session = SessionState::LoggedOut;
+<a href=#1140 id=1140 data-nosnippet>1140</a>        <span class="self">self</span>.push_status(<span class="kw">if </span>removed { <span class="string">"logged out: saved session removed" </span>} <span class="kw">else </span>{ <span class="string">"logged out (no saved session)" </span>});
+<a href=#1141 id=1141 data-nosnippet>1141</a>        <span class="self">self</span>.open_login(<span class="prelude-val">None</span>);
+<a href=#1142 id=1142 data-nosnippet>1142</a>    }
+<a href=#1143 id=1143 data-nosnippet>1143</a>    <span class="doccomment">/// A job started.
+<a href=#1144 id=1144 data-nosnippet>1144</a>    </span><span class="kw">pub fn </span>job_started(<span class="kw-2">&amp;mut </span><span class="self">self</span>, j: JobView, cmd: <span class="kw-2">&amp;</span>str) {
+<a href=#1145 id=1145 data-nosnippet>1145</a>        <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"started {} (pid {}): {cmd}"</span>, j.kind.name(), j.pid));
+<a href=#1146 id=1146 data-nosnippet>1146</a>        <span class="self">self</span>.job = <span class="prelude-val">Some</span>(j);
+<a href=#1147 id=1147 data-nosnippet>1147</a>    }
+<a href=#1148 id=1148 data-nosnippet>1148</a>    <span class="doccomment">/// The job ended (`ok` = exit 0); `tail` = its last log lines.
+<a href=#1149 id=1149 data-nosnippet>1149</a>    </span><span class="kw">pub fn </span>job_finished(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ok: bool, code: <span class="prelude-ty">Option</span>&lt;i32&gt;, tail: <span class="kw-2">&amp;</span>[String]) {
+<a href=#1150 id=1150 data-nosnippet>1150</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(j) = <span class="self">self</span>.job.take() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1151 id=1151 data-nosnippet>1151</a>        <span class="kw">let </span>auto = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.auto_running);
+<a href=#1152 id=1152 data-nosnippet>1152</a>        <span class="self">self</span>.refresh_nicks();
+<a href=#1153 id=1153 data-nosnippet>1153</a>        <span class="self">self</span>.load_base_keep();
+<a href=#1154 id=1154 data-nosnippet>1154</a>        <span class="self">self</span>.reload_marks();
+<a href=#1155 id=1155 data-nosnippet>1155</a>        <span class="kw">if </span>ok {
+<a href=#1156 id=1156 data-nosnippet>1156</a>            <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"{} finished"</span>, j.kind.name()));
+<a href=#1157 id=1157 data-nosnippet>1157</a>        } <span class="kw">else if </span>auto {
+<a href=#1158 id=1158 data-nosnippet>1158</a>            <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"error: auto sync failed (exit {}); see {}"</span>, code.map(|c| c.to_string()).unwrap_or_else(|| <span class="string">"killed"</span>.into()), j.log.display()));
+<a href=#1159 id=1159 data-nosnippet>1159</a>        } <span class="kw">else </span>{
+<a href=#1160 id=1160 data-nosnippet>1160</a>            <span class="kw">let </span>code = code.map(|c| c.to_string()).unwrap_or_else(|| <span class="string">"killed"</span>.into());
+<a href=#1161 id=1161 data-nosnippet>1161</a>            <span class="kw">let </span><span class="kw-2">mut </span>text = <span class="macro">format!</span>(<span class="string">"The {} stopped (exit {code}). Last lines of {}:\n"</span>, j.kind.name(), j.log.display());
+<a href=#1162 id=1162 data-nosnippet>1162</a>            <span class="kw">for </span>l <span class="kw">in </span>tail { text.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{l}\n"</span>)); }
+<a href=#1163 id=1163 data-nosnippet>1163</a>            <span class="self">self</span>.error(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"{} failed"</span>, j.kind.name()), text.trim_end());
+<a href=#1164 id=1164 data-nosnippet>1164</a>        }
+<a href=#1165 id=1165 data-nosnippet>1165</a>    }
+<a href=#1166 id=1166 data-nosnippet>1166</a>    <span class="doccomment">/// The job was cancelled.
+<a href=#1167 id=1167 data-nosnippet>1167</a>    </span><span class="kw">pub fn </span>job_cancelled(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1168 id=1168 data-nosnippet>1168</a>        <span class="self">self</span>.auto_running = <span class="bool-val">false</span>;
+<a href=#1169 id=1169 data-nosnippet>1169</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(j) = <span class="self">self</span>.job.take() { <span class="self">self</span>.push_status(<span class="macro">format!</span>(<span class="string">"{} cancelled (pid {})"</span>, j.kind.name(), j.pid)); }
+<a href=#1170 id=1170 data-nosnippet>1170</a>        <span class="self">self</span>.refresh_nicks();
+<a href=#1171 id=1171 data-nosnippet>1171</a>        <span class="self">self</span>.load_base_keep();
+<a href=#1172 id=1172 data-nosnippet>1172</a>    }
+<a href=#1173 id=1173 data-nosnippet>1173</a>
+<a href=#1174 id=1174 data-nosnippet>1174</a>    <span class="comment">// ------------------------------------------------------------ menu / modals
+<a href=#1175 id=1175 data-nosnippet>1175</a>    </span><span class="doccomment">/// Close the dropdown and leave the menu.
+<a href=#1176 id=1176 data-nosnippet>1176</a>    </span><span class="kw">pub fn </span>close_menu(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1177 id=1177 data-nosnippet>1177</a>        <span class="self">self</span>.menu.open = <span class="prelude-val">None</span>;
+<a href=#1178 id=1178 data-nosnippet>1178</a>        <span class="self">self</span>.menu.editing = <span class="bool-val">false</span>;
+<a href=#1179 id=1179 data-nosnippet>1179</a>        <span class="kw">if </span><span class="self">self</span>.focus == Focus::Menu { <span class="self">self</span>.focus = <span class="kw">if </span><span class="self">self</span>.view().posts.is_empty() { Focus::Nicks } <span class="kw">else </span>{ Focus::Body }; }
+<a href=#1180 id=1180 data-nosnippet>1180</a>    }
+<a href=#1181 id=1181 data-nosnippet>1181</a>    <span class="doccomment">/// Highlight / open the n-th menu item (option-less items run at once).
+<a href=#1182 id=1182 data-nosnippet>1182</a>    </span><span class="kw">pub fn </span>open_menu(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: usize) {
+<a href=#1183 id=1183 data-nosnippet>1183</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(c) = <span class="self">self</span>.menu.menu.items.get(i) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1184 id=1184 data-nosnippet>1184</a>        <span class="self">self</span>.focus = Focus::Menu;
+<a href=#1185 id=1185 data-nosnippet>1185</a>        <span class="self">self</span>.menu.item = i;
+<a href=#1186 id=1186 data-nosnippet>1186</a>        <span class="self">self</span>.menu.editing = <span class="bool-val">false</span>;
+<a href=#1187 id=1187 data-nosnippet>1187</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(a) = c.action { <span class="self">self</span>.menu.open = <span class="prelude-val">None</span>; <span class="self">self</span>.act(a); <span class="kw">return</span>; }
+<a href=#1188 id=1188 data-nosnippet>1188</a>        <span class="kw">if </span><span class="self">self</span>.menu.open == <span class="prelude-val">Some</span>(i) { <span class="self">self</span>.menu.open = <span class="prelude-val">None</span>; } <span class="kw">else </span>{ <span class="self">self</span>.menu.open = <span class="prelude-val">Some</span>(i); <span class="self">self</span>.menu.opt = <span class="number">0</span>; }
+<a href=#1189 id=1189 data-nosnippet>1189</a>    }
+<a href=#1190 id=1190 data-nosnippet>1190</a>    <span class="doccomment">/// Activate the highlighted option of the open dropdown (Enter / click).
+<a href=#1191 id=1191 data-nosnippet>1191</a>    </span><span class="kw">pub fn </span>activate_opt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: usize) {
+<a href=#1192 id=1192 data-nosnippet>1192</a>        <span class="kw">use </span><span class="kw">crate</span>::tui::commands::Widget;
+<a href=#1193 id=1193 data-nosnippet>1193</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(item) = <span class="self">self</span>.menu.open <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1194 id=1194 data-nosnippet>1194</a>        <span class="self">self</span>.menu.opt = i;
+<a href=#1195 id=1195 data-nosnippet>1195</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(o) = <span class="self">self</span>.menu.menu.items[item].opts.get_mut(i) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1196 id=1196 data-nosnippet>1196</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span>o.widget {
+<a href=#1197 id=1197 data-nosnippet>1197</a>            Widget::Check(v) =&gt; <span class="kw-2">*</span>v = !<span class="kw-2">*</span>v,
+<a href=#1198 id=1198 data-nosnippet>1198</a>            Widget::Choice { choices, idx } =&gt; <span class="kw-2">*</span>idx = (<span class="kw-2">*</span>idx + <span class="number">1</span>) % choices.len(),
+<a href=#1199 id=1199 data-nosnippet>1199</a>            Widget::Text(<span class="kw">_</span>) =&gt; <span class="self">self</span>.menu.editing = !<span class="self">self</span>.menu.editing,
+<a href=#1200 id=1200 data-nosnippet>1200</a>            Widget::Button(a) =&gt; { <span class="kw">let </span>a = <span class="kw-2">*</span>a; <span class="self">self</span>.act(a); }
+<a href=#1201 id=1201 data-nosnippet>1201</a>        }
+<a href=#1202 id=1202 data-nosnippet>1202</a>    }
+<a href=#1203 id=1203 data-nosnippet>1203</a>    <span class="doccomment">/// Close the modal with `r` and apply it.
+<a href=#1204 id=1204 data-nosnippet>1204</a>    </span><span class="kw">pub fn </span>close_modal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, r: ModalResult) {
+<a href=#1205 id=1205 data-nosnippet>1205</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(m) = <span class="self">self</span>.modal.take() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href=#1206 id=1206 data-nosnippet>1206</a>        <span class="kw">match </span>(m, r) {
+<a href=#1207 id=1207 data-nosnippet>1207</a>            (Modal::Login(<span class="kw">_</span>), ModalResult::ClosedSubmitted) =&gt; {
+<a href=#1208 id=1208 data-nosnippet>1208</a>                <span class="self">self</span>.push_status(<span class="string">"logged in"</span>);
+<a href=#1209 id=1209 data-nosnippet>1209</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>((k, argv)) = <span class="self">self</span>.pending_job.take() { <span class="self">self</span>.effects.push(Effect::RunJob(k, argv)); }
+<a href=#1210 id=1210 data-nosnippet>1210</a>            }
+<a href=#1211 id=1211 data-nosnippet>1211</a>            (Modal::Login(m), ModalResult::ClosedCancelled) =&gt; {
+<a href=#1212 id=1212 data-nosnippet>1212</a>                <span class="self">self</span>.pending_job = <span class="prelude-val">None</span>;
+<a href=#1213 id=1213 data-nosnippet>1213</a>                <span class="kw">if </span><span class="self">self</span>.session == SessionState::Checking { <span class="self">self</span>.session = SessionState::LoggedOut; }
+<a href=#1214 id=1214 data-nosnippet>1214</a>                <span class="kw">let _ </span>= m;
+<a href=#1215 id=1215 data-nosnippet>1215</a>                <span class="self">self</span>.effects.push(Effect::LoginCancel);
+<a href=#1216 id=1216 data-nosnippet>1216</a>            }
+<a href=#1217 id=1217 data-nosnippet>1217</a>            (Modal::Confirm(c), ModalResult::ClosedSubmitted) =&gt; <span class="kw">match </span>c.action {
+<a href=#1218 id=1218 data-nosnippet>1218</a>                ConfirmAction::Job(k, argv) =&gt; <span class="self">self</span>.start_job(k, argv),
+<a href=#1219 id=1219 data-nosnippet>1219</a>                ConfirmAction::Quit =&gt; <span class="self">self</span>.effects.push(Effect::Quit { cancel_job: c.chosen == <span class="number">1 </span>}),
+<a href=#1220 id=1220 data-nosnippet>1220</a>            },
+<a href=#1221 id=1221 data-nosnippet>1221</a>            (Modal::Search(s), ModalResult::ClosedSubmitted) =&gt; {
+<a href=#1222 id=1222 data-nosnippet>1222</a>                <span class="kw">if </span>s.cleared { <span class="self">self</span>.clear_search(); }
+<a href=#1223 id=1223 data-nosnippet>1223</a>                <span class="kw">else if let </span><span class="prelude-val">Ok</span>(f) = s.filter() { <span class="self">self</span>.run_search(f); }
+<a href=#1224 id=1224 data-nosnippet>1224</a>            }
+<a href=#1225 id=1225 data-nosnippet>1225</a>            (Modal::Research(m), ModalResult::ClosedSubmitted) =&gt; <span class="self">self</span>.research_chosen(m),
+<a href=#1226 id=1226 data-nosnippet>1226</a>            (Modal::ThemePicker(p), r) =&gt; <span class="self">self</span>.theme_picked(<span class="kw-2">*</span>p, r),
+<a href=#1227 id=1227 data-nosnippet>1227</a>            (Modal::Palette(p), ModalResult::ClosedSubmitted) =&gt; <span class="kw">match </span>p.chosen() {
+<a href=#1228 id=1228 data-nosnippet>1228</a>                <span class="prelude-val">Some</span>(PaletteCmd::Action(Action::ThemeStarter)) =&gt; <span class="self">self</span>.theme_starter(p.argument()),
+<a href=#1229 id=1229 data-nosnippet>1229</a>                <span class="prelude-val">Some</span>(PaletteCmd::Action(a)) =&gt; <span class="self">self</span>.act(a),
+<a href=#1230 id=1230 data-nosnippet>1230</a>                <span class="prelude-val">Some</span>(PaletteCmd::OpenMenu(i)) =&gt; <span class="self">self</span>.open_menu(i),
+<a href=#1231 id=1231 data-nosnippet>1231</a>                <span class="prelude-val">None </span>=&gt; {}
+<a href=#1232 id=1232 data-nosnippet>1232</a>            },
+<a href=#1233 id=1233 data-nosnippet>1233</a>            <span class="kw">_ </span>=&gt; {}
+<a href=#1234 id=1234 data-nosnippet>1234</a>        }
+<a href=#1235 id=1235 data-nosnippet>1235</a>    }
+<a href=#1236 id=1236 data-nosnippet>1236</a>    <span class="doccomment">/// Every command for the palette.
+<a href=#1237 id=1237 data-nosnippet>1237</a>    </span><span class="kw">pub fn </span>palette_entries(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(String, PaletteCmd)&gt; {
+<a href=#1238 id=1238 data-nosnippet>1238</a>        <span class="kw">use </span><span class="kw">crate</span>::tui::commands::Widget;
+<a href=#1239 id=1239 data-nosnippet>1239</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="macro">vec!</span>[
+<a href=#1240 id=1240 data-nosnippet>1240</a>            (<span class="string">"Start Scanning (F6)"</span>.to_string(), PaletteCmd::Action(Action::StartScan)),
+<a href=#1241 id=1241 data-nosnippet>1241</a>            (<span class="string">"Theme: use… (F5)"</span>.into(), PaletteCmd::Action(Action::ThemePicker)),
+<a href=#1242 id=1242 data-nosnippet>1242</a>            (<span class="string">"Theme: list"</span>.into(), PaletteCmd::Action(Action::ThemeList)),
+<a href=#1243 id=1243 data-nosnippet>1243</a>            (<span class="string">"Theme: edit… (Shift-F5)"</span>.into(), PaletteCmd::Action(Action::ThemeEditor)),
+<a href=#1244 id=1244 data-nosnippet>1244</a>            (<span class="string">"Theme: reload"</span>.into(), PaletteCmd::Action(Action::ThemeReload)),
+<a href=#1245 id=1245 data-nosnippet>1245</a>            (<span class="string">"Theme: export"</span>.into(), PaletteCmd::Action(Action::ThemeExport)),
+<a href=#1246 id=1246 data-nosnippet>1246</a>            (<span class="string">"Theme: init (download the default)"</span>.into(), PaletteCmd::Action(Action::ThemeInit)),
+<a href=#1247 id=1247 data-nosnippet>1247</a>            (<span class="string">"Theme: starter [name]"</span>.into(), PaletteCmd::Action(Action::ThemeStarter)),
+<a href=#1248 id=1248 data-nosnippet>1248</a>            (<span class="string">"Search… (Shift-S)"</span>.into(), PaletteCmd::Action(Action::OpenSearchModal)),
+<a href=#1249 id=1249 data-nosnippet>1249</a>            (<span class="string">"Clear search (Ctrl-S)"</span>.into(), PaletteCmd::Action(Action::ClearSearch)),
+<a href=#1250 id=1250 data-nosnippet>1250</a>            (<span class="string">"Toggle log panel (l)"</span>.into(), PaletteCmd::Action(Action::ToggleLog)),
+<a href=#1251 id=1251 data-nosnippet>1251</a>            (<span class="string">"Previous post in the stack (,)"</span>.into(), PaletteCmd::Action(Action::StackPrev)),
+<a href=#1252 id=1252 data-nosnippet>1252</a>            (<span class="string">"Next post in the stack (.)"</span>.into(), PaletteCmd::Action(Action::StackNext)),
+<a href=#1253 id=1253 data-nosnippet>1253</a>            (<span class="string">"Next view mode (v)"</span>.into(), PaletteCmd::Action(Action::CycleView)),
+<a href=#1254 id=1254 data-nosnippet>1254</a>            (<span class="string">"Show bookmarks (B)"</span>.into(), PaletteCmd::Action(Action::ShowBookmarks)),
+<a href=#1255 id=1255 data-nosnippet>1255</a>            (<span class="string">"Bookmark current post (b)"</span>.into(), PaletteCmd::Action(Action::ToggleBookmark)),
+<a href=#1256 id=1256 data-nosnippet>1256</a>            (<span class="string">"Add current post to the export basket (x)"</span>.into(), PaletteCmd::Action(Action::ToggleBasket)),
+<a href=#1257 id=1257 data-nosnippet>1257</a>            (<span class="string">"Add to a research project (r)"</span>.into(), PaletteCmd::Action(Action::AddToResearch)),
+<a href=#1258 id=1258 data-nosnippet>1258</a>        ];
+<a href=#1259 id=1259 data-nosnippet>1259</a>        <span class="kw">for </span>(i, c) <span class="kw">in </span><span class="self">self</span>.menu.menu.items.iter().enumerate() {
+<a href=#1260 id=1260 data-nosnippet>1260</a>            <span class="kw">if </span>c.opts.is_empty() { v.push((c.label.to_string(), PaletteCmd::OpenMenu(i))); <span class="kw">continue</span>; }
+<a href=#1261 id=1261 data-nosnippet>1261</a>            v.push((<span class="macro">format!</span>(<span class="string">"{} › options"</span>, c.label), PaletteCmd::OpenMenu(i)));
+<a href=#1262 id=1262 data-nosnippet>1262</a>            <span class="kw">for </span>o <span class="kw">in </span><span class="kw-2">&amp;</span>c.opts {
+<a href=#1263 id=1263 data-nosnippet>1263</a>                <span class="kw">if let </span>Widget::Button(a) = o.widget { v.push((<span class="macro">format!</span>(<span class="string">"{} › {}"</span>, c.label, o.label), PaletteCmd::Action(a))); }
+<a href=#1264 id=1264 data-nosnippet>1264</a>            }
+<a href=#1265 id=1265 data-nosnippet>1265</a>        }
+<a href=#1266 id=1266 data-nosnippet>1266</a>        v
+<a href=#1267 id=1267 data-nosnippet>1267</a>    }
+<a href=#1268 id=1268 data-nosnippet>1268</a>}
+<a href=#1269 id=1269 data-nosnippet>1269</a>
+<a href=#1270 id=1270 data-nosnippet>1270</a><span class="doccomment">/// http(s) links in a body, except links to posts on the site itself.
+<a href=#1271 id=1271 data-nosnippet>1271</a></span><span class="kw">pub fn </span>web_links(text: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
+<a href=#1272 id=1272 data-nosnippet>1272</a>    <span class="kw">use </span>std::sync::LazyLock;
+<a href=#1273 id=1273 data-nosnippet>1273</a>    <span class="kw">static </span>RE: LazyLock&lt;regex::Regex&gt; = LazyLock::new(|| regex::Regex::new(<span class="string">r"https?://[^\s&lt;&gt;()\[\]\x22']+"</span>).expect(<span class="string">"url re"</span>));
+<a href=#1274 id=1274 data-nosnippet>1274</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen = HashSet::new();
+<a href=#1275 id=1275 data-nosnippet>1275</a>    RE.find_iter(text).map(|m| m.as_str().trim_end_matches([<span class="string">'.'</span>, <span class="string">','</span>, <span class="string">';'</span>, <span class="string">':'</span>, <span class="string">'!'</span>, <span class="string">'?'</span>]).to_string())
+<a href=#1276 id=1276 data-nosnippet>1276</a>        .filter(|u| !u.contains(<span class="string">"/rs/post/"</span>))
+<a href=#1277 id=1277 data-nosnippet>1277</a>        .filter(|u| seen.insert(u.clone())).collect()
+<a href=#1278 id=1278 data-nosnippet>1278</a>}
+<a href=#1279 id=1279 data-nosnippet>1279</a>
+<a href=#1280 id=1280 data-nosnippet>1280</a><span class="doccomment">/// A research file or web page shown as a card: its note, where it came from, and its text.
+<a href=#1281 id=1281 data-nosnippet>1281</a></span><span class="kw">pub fn </span>research_post(it: <span class="kw-2">&amp;</span>ResearchItem) -&gt; Post {
+<a href=#1282 id=1282 data-nosnippet>1282</a>    <span class="kw">let </span><span class="kw-2">mut </span>body = String::new();
+<a href=#1283 id=1283 data-nosnippet>1283</a>    <span class="kw">if </span>!it.note.trim().is_empty() { body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&gt; {}\n\n"</span>, it.note.trim())); }
+<a href=#1284 id=1284 data-nosnippet>1284</a>    body.push_str(<span class="kw-2">&amp;</span>it.r#ref);
+<a href=#1285 id=1285 data-nosnippet>1285</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = it.meta[<span class="string">"size"</span>].as_u64() { body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" · {s} bytes"</span>)); }
+<a href=#1286 id=1286 data-nosnippet>1286</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(m) = it.meta[<span class="string">"mime_type"</span>].as_str().or(it.meta[<span class="string">"content_type"</span>].as_str()) { body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" · {m}"</span>)); }
+<a href=#1287 id=1287 data-nosnippet>1287</a>    <span class="kw">if </span>!it.content.trim().is_empty() {
+<a href=#1288 id=1288 data-nosnippet>1288</a>        <span class="kw">let </span>text: String = it.content.chars().take(<span class="number">6000</span>).collect();
+<a href=#1289 id=1289 data-nosnippet>1289</a>        body.push_str(<span class="string">"\n\n"</span>);
+<a href=#1290 id=1290 data-nosnippet>1290</a>        body.push_str(<span class="kw-2">&amp;</span>text);
+<a href=#1291 id=1291 data-nosnippet>1291</a>        <span class="kw">if </span>it.content.chars().count() &gt; <span class="number">6000 </span>{ body.push_str(<span class="string">"\n\n…"</span>); }
+<a href=#1292 id=1292 data-nosnippet>1292</a>    }
+<a href=#1293 id=1293 data-nosnippet>1293</a>    <span class="kw">let </span>nick = <span class="kw">match </span>it.kind { ItemKind::WebUrl =&gt; <span class="string">"web"</span>, ItemKind::LocalFile =&gt; <span class="string">"file"</span>, <span class="kw">_ </span>=&gt; <span class="string">"missing post" </span>};
+<a href=#1294 id=1294 data-nosnippet>1294</a>    <span class="kw">let </span>content = <span class="kw">if </span>it.kind.is_post() { <span class="macro">format!</span>(<span class="string">"{} is not in the database any more.\n\n{body}"</span>, it.r#ref) } <span class="kw">else </span>{ body };
+<a href=#1295 id=1295 data-nosnippet>1295</a>    Post { post_id: <span class="macro">format!</span>(<span class="string">"research:{}"</span>, it.id), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(),
+<a href=#1296 id=1296 data-nosnippet>1296</a>        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: <span class="bool-val">false </span>}
+<a href=#1297 id=1297 data-nosnippet>1297</a>}
 </code></pre></div></section></main></body></html>

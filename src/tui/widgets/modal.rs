@@ -202,7 +202,11 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                             None => (format!(" {cur} {:<16} {}", e.name, e.description), false),
                         }
                     }
-                    None => ("   Edit themes…  (Shift-F5)".to_string(), false),
+                    None => (match p.action_row(i) {
+                        Some(crate::tui::modals::PickerChoice::Download) => "   Download the default theme".to_string(),
+                        Some(crate::tui::modals::PickerChoice::Starter) => "   Create starter theme".to_string(),
+                        _ => "   Edit themes…  (Shift-F5)".to_string(),
+                    }, false),
                 };
                 let st = if sel { t.selected() } else if bad { t.muted() } else { t.plain() };
                 let w = rr.width as usize;

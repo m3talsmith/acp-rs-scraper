@@ -30,7 +30,7 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
     f.render_widget(Clear, area);
     let dirty = if ed.dirty() { " *" } else { "" };
     let mode = match ed.variant { themes::Variant::Dark => "‹dark› light", themes::Variant::Light => "dark ‹light›" };
-    let title = format!(" Theme editor · {}{dirty} · {mode} (Tab) · ^S save ^R revert ^N new ^D duplicate ^X delete · [ ] other theme · Esc close",
+    let title = format!(" Theme editor · {}{dirty} · {mode} (Tab) · ^S save ^R revert ^N new ^D duplicate ^X delete · [ ] other theme · h highlight · Esc close",
         ed.file.name);
     f.render_widget(Paragraph::new(Span::styled(title, ui.bar().bold(true))).style(ui.bar()), Rect { height: 1, ..area });
     let body = Rect { y: area.y + 1, height: area.height.saturating_sub(2), ..area };
@@ -76,19 +76,33 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
     }
 
     // The preview: the real UI, drawn off screen at a size it supports, then copied in.
-    let pb = frame(&ui.pane(false)).title(" Preview (sample posts) ");
-    let pin = pb.inner(right);
+    // With highlighting on it is drawn a second time with the selected row's colours
+    // replaced by sentinels; the cells that differ are shown in reverse video.
+    let pin = frame(&ui.pane(false)).inner(right);
+    let (w, hh) = (pin.width.max(TUI_MIN_SIZE.0), pin.height.max(TUI_MIN_SIZE.1));
+    let mut shown = (pin.width > 0 && pin.height > 0).then(|| preview_buffer(&mut ed.preview, w, hh, now)).flatten();
+    let mut marked = 0;
+    let marked_theme = if ed.highlight { ed.marked_theme() } else { None };
+    if let (Some(s), Some(mt)) = (shown.as_mut(), marked_theme) {
+        let keep = ed.preview.theme;
+        ed.preview.theme = mt;
+        let m = preview_buffer(&mut ed.preview, w, hh, now);
+        ed.preview.theme = keep;
+        if let Some(m) = m { marked = highlight_changes(s, &m, Rect::new(0, 0, pin.width, pin.height)); }
+    }
+    let note = match (ed.highlight, ed.row_name()) {
+        (false, _) => " · h: highlight".to_string(),
+        (true, None) => String::new(),
+        (true, Some(n)) if marked == 0 => format!(" · ‹{n}› isn't on screen"),
+        (true, Some(n)) => format!(" · ‹{n}› highlighted (h)"),
+    };
+    let pb = frame(&ui.pane(false)).title(format!(" Preview (sample posts){note} "));
     f.render_widget(pb, right);
-    if pin.width > 0 && pin.height > 0 {
-        let (w, hh) = (pin.width.max(TUI_MIN_SIZE.0), pin.height.max(TUI_MIN_SIZE.1));
-        if let Ok(mut term) = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, hh))
-            && term.draw(|pf| crate::tui::widgets::draw(pf, &mut ed.preview, now)).is_ok() {
-            let src = term.backend().buffer().clone();
-            let buf = f.buffer_mut();
-            for y in 0..pin.height { for x in 0..pin.width {
-                if let (Some(c), Some(d)) = (src.cell((x, y)), buf.cell_mut((pin.x + x, pin.y + y))) { *d = c.clone(); }
-            } }
-        }
+    if let Some(src) = shown {
+        let buf = f.buffer_mut();
+        for y in 0..pin.height { for x in 0..pin.width {
+            if let (Some(c), Some(d)) = (src.cell((x, y)), buf.cell_mut((pin.x + x, pin.y + y))) { *d = c.clone(); }
+        } }
     }
 
     // Footer: the result of the last action, or what the row is.
@@ -166,4 +180,26 @@ fn draw_picker(f: &mut Frame, ui: &Theme, ed: &ThemeEditor, area: Rect) {
     }
     if let Some(e) = &p.error { info = vec![Span::styled(e.clone(), ui.accent_bold())]; }
     f.render_widget(Paragraph::new(Line::from(info)), Rect { y: i.y + i.height.saturating_sub(1), height: 1, ..i });
+}
+
+/// The real UI for `app`, drawn off screen at `w`×`h`.
+fn preview_buffer(app: &mut App, w: u16, h: u16, now: Instant) -> Option<ratatui::buffer::Buffer> {
+    let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(w, h)).ok()?;
+    term.draw(|pf| crate::tui::widgets::draw(pf, app, now)).ok()?;
+    Some(term.backend().buffer().clone())
+}
+
+/// Flip reverse video on every cell of `shown` inside `within` whose colours or
+/// attributes differ in `marked`; returns how many were flipped.
+pub fn highlight_changes(shown: &mut ratatui::buffer::Buffer, marked: &ratatui::buffer::Buffer, within: Rect) -> usize {
+    use ratatui::style::Modifier;
+    let mut n = 0;
+    for y in within.top()..within.bottom() { for x in within.left()..within.right() {
+        let Some(m) = marked.cell((x, y)).map(|m| (m.fg, m.bg, m.modifier)) else { continue };
+        if let Some(c) = shown.cell_mut((x, y)) && (c.fg, c.bg, c.modifier) != m {
+            c.modifier.toggle(Modifier::REVERSED);
+            n += 1;
+        }
+    } }
+    n
 }

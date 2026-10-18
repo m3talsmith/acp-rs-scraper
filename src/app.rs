@@ -138,6 +138,16 @@ async fn run_theme_init(what: &str) -> Result<()> {
     Ok(())
 }
 
+/// `--theme-starter NAME`: write the minimal starter theme (no download, no overwrite).
+fn run_theme_starter(name: &str) -> Result<()> {
+    let dir = crate::themes::themes_dir()?;
+    let f = crate::themes::download::write_starter(&dir, name)?;
+    let n = crate::themes::download::starter_notice(name, &f);
+    if matches!(f, crate::themes::download::Fetched::Kept(_)) { bail!("{n}; pick another name"); }
+    println!("{n}");
+    Ok(())
+}
+
 /// `--list-themes`: every theme file, the one in use marked.
 async fn run_list_themes(args: &Args) -> Result<()> {
     let dir = crate::themes::themes_dir()?;
@@ -187,6 +197,7 @@ pub async fn run() -> Result<()> {
         verbose!("logging to {} and {}", ok.display(), bad.display());
     }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
+    if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_themes { return run_list_themes(&args).await; }
     if let Some(t) = &args.theme { check_theme(t).await?; }
     if tui {

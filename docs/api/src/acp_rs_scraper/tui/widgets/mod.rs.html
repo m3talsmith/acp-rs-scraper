@@ -87,32 +87,33 @@
 <a href=#87 id=87 data-nosnippet>87</a>    };
 <a href=#88 id=88 data-nosnippet>88</a>    <span class="kw">let </span>job = app.job.as_ref().map(|j| <span class="macro">format!</span>(<span class="string">"⟳ {} running (pid {})  "</span>, j.kind.name(), j.pid)).unwrap_or_default();
 <a href=#89 id=89 data-nosnippet>89</a>    <span class="comment">// The theme switch: ‹name› ▾ (⚠ when its file can't be used); a click opens the picker.
-<a href=#90 id=90 data-nosnippet>90</a>    </span><span class="kw">let </span>switch = <span class="macro">format!</span>(<span class="string">"‹{}{}› ▾"</span>, app.theme_name, <span class="kw">if </span>app.theme_error.is_some() { <span class="string">" ⚠" </span>} <span class="kw">else </span>{ <span class="string">"" </span>});
-<a href=#91 id=91 data-nosnippet>91</a>    <span class="kw">let </span>right = <span class="macro">format!</span>(<span class="string">"  {session} "</span>);
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="kw">let </span>rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
-<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span>used = left.chars().count() + job.chars().count() + switch.chars().count() + right.chars().count();
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">let </span>pad = (rest.width <span class="kw">as </span>usize).saturating_sub(used);
-<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">let </span>sw_x = rest.x + (left.chars().count() + pad + job.chars().count()) <span class="kw">as </span>u16;
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">if </span>(used <span class="kw">as </span>u16) &lt; rest.width {
-<a href=#97 id=97 data-nosnippet>97</a>        app.hits.push((Rect { x: sw_x, y: rest.y, width: switch.chars().count() <span class="kw">as </span>u16, height: <span class="number">1 </span>}, Hit::ThemeSwitch));
-<a href=#98 id=98 data-nosnippet>98</a>    }
-<a href=#99 id=99 data-nosnippet>99</a>    f.render_widget(Paragraph::new(Line::from(<span class="macro">vec!</span>[
-<a href=#100 id=100 data-nosnippet>100</a>        Span::styled(left, t.bar().bold(<span class="bool-val">true</span>)), Span::styled(<span class="string">" "</span>.repeat(pad), <span class="kw-2">&amp;</span>bar), Span::styled(job, <span class="kw-2">&amp;</span>bar),
-<a href=#101 id=101 data-nosnippet>101</a>        Span::styled(switch, t.bar().underline(<span class="bool-val">true</span>)), Span::styled(right, <span class="kw-2">&amp;</span>bar),
-<a href=#102 id=102 data-nosnippet>102</a>    ])), rest);
-<a href=#103 id=103 data-nosnippet>103</a>}
-<a href=#104 id=104 data-nosnippet>104</a>
-<a href=#105 id=105 data-nosnippet>105</a><span class="kw">fn </span>status(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;</span>App, r: Rect) {
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">let </span>t = app.theme;
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">let </span>n = r.height <span class="kw">as </span>usize;
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">let </span>lines: Vec&lt;Line&gt; = <span class="kw">if </span>app.status.is_empty() {
-<a href=#109 id=109 data-nosnippet>109</a>        <span class="macro">vec!</span>[Line::styled(<span class="string">"? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit"</span>, t.muted())]
-<a href=#110 id=110 data-nosnippet>110</a>    } <span class="kw">else </span>{
-<a href=#111 id=111 data-nosnippet>111</a>        app.status.iter().rev().take(n).rev().map(|l| {
-<a href=#112 id=112 data-nosnippet>112</a>            <span class="kw">let </span>st = <span class="kw">if </span>l.starts_with(<span class="string">"error"</span>) || l.starts_with(<span class="string">"warning"</span>) { t.accent() } <span class="kw">else </span>{ t.muted() };
-<a href=#113 id=113 data-nosnippet>113</a>            Line::styled(l.clone(), st)
-<a href=#114 id=114 data-nosnippet>114</a>        }).collect()
-<a href=#115 id=115 data-nosnippet>115</a>    };
-<a href=#116 id=116 data-nosnippet>116</a>    f.render_widget(Paragraph::new(lines), r);
-<a href=#117 id=117 data-nosnippet>117</a>}
+<a href=#90 id=90 data-nosnippet>90</a>    </span><span class="kw">let </span>switch = <span class="macro">format!</span>(<span class="string">"‹{}{}› ▾"</span>, app.theme_name,
+<a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">if </span>app.theme_downloading.is_some() { <span class="string">" · downloading…" </span>} <span class="kw">else if </span>app.theme_error.is_some() { <span class="string">" ⚠" </span>} <span class="kw">else </span>{ <span class="string">"" </span>});
+<a href=#92 id=92 data-nosnippet>92</a>    <span class="kw">let </span>right = <span class="macro">format!</span>(<span class="string">"  {session} "</span>);
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span>rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">let </span>used = left.chars().count() + job.chars().count() + switch.chars().count() + right.chars().count();
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">let </span>pad = (rest.width <span class="kw">as </span>usize).saturating_sub(used);
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="kw">let </span>sw_x = rest.x + (left.chars().count() + pad + job.chars().count()) <span class="kw">as </span>u16;
+<a href=#97 id=97 data-nosnippet>97</a>    <span class="kw">if </span>(used <span class="kw">as </span>u16) &lt; rest.width {
+<a href=#98 id=98 data-nosnippet>98</a>        app.hits.push((Rect { x: sw_x, y: rest.y, width: switch.chars().count() <span class="kw">as </span>u16, height: <span class="number">1 </span>}, Hit::ThemeSwitch));
+<a href=#99 id=99 data-nosnippet>99</a>    }
+<a href=#100 id=100 data-nosnippet>100</a>    f.render_widget(Paragraph::new(Line::from(<span class="macro">vec!</span>[
+<a href=#101 id=101 data-nosnippet>101</a>        Span::styled(left, t.bar().bold(<span class="bool-val">true</span>)), Span::styled(<span class="string">" "</span>.repeat(pad), <span class="kw-2">&amp;</span>bar), Span::styled(job, <span class="kw-2">&amp;</span>bar),
+<a href=#102 id=102 data-nosnippet>102</a>        Span::styled(switch, t.bar().underline(<span class="bool-val">true</span>)), Span::styled(right, <span class="kw-2">&amp;</span>bar),
+<a href=#103 id=103 data-nosnippet>103</a>    ])), rest);
+<a href=#104 id=104 data-nosnippet>104</a>}
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a><span class="kw">fn </span>status(f: <span class="kw-2">&amp;mut </span>Frame, app: <span class="kw-2">&amp;</span>App, r: Rect) {
+<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">let </span>t = app.theme;
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">let </span>n = r.height <span class="kw">as </span>usize;
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">let </span>lines: Vec&lt;Line&gt; = <span class="kw">if </span>app.status.is_empty() {
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="macro">vec!</span>[Line::styled(<span class="string">"? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit"</span>, t.muted())]
+<a href=#111 id=111 data-nosnippet>111</a>    } <span class="kw">else </span>{
+<a href=#112 id=112 data-nosnippet>112</a>        app.status.iter().rev().take(n).rev().map(|l| {
+<a href=#113 id=113 data-nosnippet>113</a>            <span class="kw">let </span>st = <span class="kw">if </span>l.starts_with(<span class="string">"error"</span>) || l.starts_with(<span class="string">"warning"</span>) { t.accent() } <span class="kw">else </span>{ t.muted() };
+<a href=#114 id=114 data-nosnippet>114</a>            Line::styled(l.clone(), st)
+<a href=#115 id=115 data-nosnippet>115</a>        }).collect()
+<a href=#116 id=116 data-nosnippet>116</a>    };
+<a href=#117 id=117 data-nosnippet>117</a>    f.render_widget(Paragraph::new(lines), r);
+<a href=#118 id=118 data-nosnippet>118</a>}
 </code></pre></div></section></main></body></html>

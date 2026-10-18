@@ -102,6 +102,8 @@ pub struct ThemeEditor {
     pub prompt: Option<Prompt>,
     /// Last result (`true`: an error).
     pub message: Option<(bool, String)>,
+    /// Mark the selected colour or element in the preview (reverse video; `h` toggles).
+    pub highlight: bool,
     /// The preview: the real UI over sample posts.
     pub preview: Box<App>,
 }
@@ -137,9 +139,49 @@ impl ThemeEditor {
             Err(e) => (ThemeFile::empty(name), None, Some((true, e.notice()))),
         };
         let t = Theme::from_file(&file, app.variant());
-        let mut ed = ThemeEditor { file, saved, variant: app.variant(), cursor: 1, scroll: 0, expanded: None, picker: None, prompt: None, message, preview: preview_app(t) };
+        let mut ed = ThemeEditor { file, saved, variant: app.variant(), cursor: 1, scroll: 0, expanded: None, picker: None, prompt: None, message, highlight: true, preview: preview_app(t) };
         ed.sync_preview();
         ed
+    }
+
+    /// What the selected row is called in the preview title (`None` for a heading).
+    pub fn row_name(&self) -> Option<String> {
+        match self.current() {
+            Row::Heading(_) => None,
+            Row::Palette(n) => Some(format!("@{n}")),
+            Row::Element(e) => Some(e.name().to_string()),
+            Row::Field(e, k) => Some(format!("{}.{k}", e.name())),
+        }
+    }
+
+    /// The edited theme with the selected palette colour, or the selected element's
+    /// colours, replaced by sentinel colours the theme doesn't use. Drawing the preview
+    /// with it and with [`ThemeEditor::theme`] shows which cells that row paints.
+    pub fn marked_theme(&self) -> Option<Theme> {
+        let row = self.current();
+        if matches!(row, Row::Heading(_)) { return None; }
+        let base = self.theme();
+        let mut used: Vec<Color> = vec![base.accent, base.muted, base.border, base.on_accent, base.fg, base.bg];
+        for e in Element::ALL {
+            let st = ratatui::style::Style::from(&base.element(*e));
+            used.extend(st.fg.into_iter().chain(st.bg));
+        }
+        let mut free = (1u8..=250).step_by(3).map(|n| Color::Rgb(n, 255 - n, n / 2 + 7)).filter(|c| !used.contains(c));
+        let (a, b) = (free.next().unwrap_or(Color::Rgb(1, 2, 3)), free.next().unwrap_or(Color::Rgb(3, 2, 1)));
+        let mut f = self.file.clone();
+        let s = f.section_mut(self.variant);
+        match row {
+            Row::Palette(n) => s.set(&n, ColorSpec::Value(a)),
+            Row::Element(e) | Row::Field(e, _) => {
+                let mut st = s.style(e);
+                st.set_color("fg", Some(ColorSpec::Value(a)));
+                st.set_color("bg", Some(ColorSpec::Value(b)));
+                if e.is_box() { st.set_color("border", Some(ColorSpec::Value(a))); }
+                s.set_style(e, st);
+            }
+            Row::Heading(_) => {}
+        }
+        Some(Theme::from_file(&f, self.variant))
     }
 
     /// Unsaved changes.
@@ -509,7 +551,8 @@ impl ThemeEditor {
             KeyCode::End => { self.cursor = self.rows().len() - 1; self.settle(-1); }
             KeyCode::Enter | KeyCode::Char(' ') => self.activate(),
             KeyCode::Right | KeyCode::Char('l') => if let Row::Element(e) = self.current() { self.expanded = Some(e); },
-            KeyCode::Left | KeyCode::Char('h') => {
+            KeyCode::Char('h') => self.highlight = !self.highlight,
+            KeyCode::Left => {
                 if let Row::Field(e, _) = self.current() && let Some(i) = self.rows().iter().position(|r| *r == Row::Element(e)) { self.cursor = i; }
                 self.expanded = None;
             }
