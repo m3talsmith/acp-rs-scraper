@@ -333,7 +333,7 @@ fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
     let w = fr.width.saturating_sub(1) as usize;
     let h = fr.height as usize;
     let img_rows = if app.images.is_some() { crate::tui::images::IMAGE_ROWS.min(fr.height.saturating_sub(2)) } else { 0 };
-    let (lines, links, slots) = detail_layout(&app.view().stack[d], w, &t, img_rows);
+    let (lines, links, slots, md_links) = detail_layout(&app.view().stack[d], w, &t, img_rows);
     let fm = &mut app.view_mut().stack[d];
     if top && fm.follow_link
         && let Some((li, _)) = links.iter().find(|(_, k)| *k == fm.link_cursor) {
@@ -365,6 +365,16 @@ fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
                 }
             }
         }
+    }
+    // Web links in the body become OSC 8 hyperlinks too.
+    for l in &md_links {
+        let y = l.line as i64 - scroll as i64;
+        let web = l.url.starts_with("https://") || l.url.starts_with("http://") || l.url.starts_with("mailto:");
+        if !web || y < 0 || y as usize >= h { continue; }
+        let x = fr.x + l.col as u16;
+        if x >= fr.x + fr.width { continue; }
+        let shown = ellipsize(&l.text, (fr.x + fr.width - x) as usize);
+        app.osc_links.push((x, fr.y + y as u16, shown, l.url.clone()));
     }
     if fr.width > 6 {
         let marked = app.is_marked(&app.view().stack[d].post.post_id);

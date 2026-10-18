@@ -1,8 +1,8 @@
-acp-rs-scraper (2.16.1) unstable; urgency=medium
+acp-rs-scraper (2.17.0) unstable; urgency=medium
 
-  * Fix missing bullets and numbers on loose and bold-led list items in post bodies.
+  * Post bodies render full Markdown (headings, code blocks, quotes, lists, task lists, tables, footnotes, links with OSC 8) with new theme elements; list items always show their bullet or number.
 
- -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 01:04:17 -0400
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 01:20:48 -0400
 
 acp-rs-scraper (2.16.0) unstable; urgency=medium
 

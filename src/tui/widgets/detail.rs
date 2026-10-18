@@ -44,17 +44,22 @@ fn link_label(kind: LinkKind) -> &'static str {
 
 /// Full detail lines for `width` columns, and (line index, link index) for each link row.
 pub fn detail_lines(f: &DetailFrame, width: usize, t: &Theme) -> (Vec<Line<'static>>, Vec<(usize, usize)>) {
-    let (lines, links, _) = detail_layout(f, width, t, 0);
+    let (lines, links, _, _) = detail_layout(f, width, t, 0);
     (lines, links)
 }
 
 /// Rows reserved for inline pictures: (first line index, image file).
 pub type ImageSlots = Vec<(usize, std::path::PathBuf)>;
 
+/// What [`detail_layout`] returns: the lines, the attachment link rows, the image slots and
+/// the body's Markdown links (line indexes into the lines).
+pub type DetailLayout = (Vec<Line<'static>>, Vec<(usize, usize)>, ImageSlots, Vec<crate::tui::markdown::MdLink>);
+
 /// [`detail_lines`] plus `img_rows` blank rows under the text for each stored
 /// picture (0 = no pictures), and where those rows start.
+/// Also returns the body's Markdown links with their line indices in the result (for OSC 8).
 pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
-    -> (Vec<Line<'static>>, Vec<(usize, usize)>, ImageSlots) {
+    -> DetailLayout {
     let mut slots = Vec::new();
     let mut lines = vec![meta_line(&f.post, t)];
     let mut links = Vec::new();
@@ -96,7 +101,10 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
         for l in wrap(f.post.title.trim(), width) { lines.push(Line::styled(l, t.bold())); }
         lines.push(Line::raw(""));
     }
-    lines.extend(crate::tui::markdown::render(f.post.content.trim_end(), width, t));
+    let md = crate::tui::markdown::render_doc(f.post.content.trim_end(), width, t);
+    let at = lines.len();
+    let md_links: Vec<_> = md.links.into_iter().map(|mut l| { l.line += at; l }).collect();
+    lines.extend(md.lines);
     if img_rows > 0 {
         for a in &f.attachments {
             if !crate::tui::images::is_image(&a.mime_type, &a.local_path) || !a.local_path.exists() { continue; }
@@ -129,5 +137,5 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
         lines.push(Line::raw(""));
         lines.push(Line::styled("←/→ choose a link · Enter opens it · Esc closes", t.muted()));
     }
-    (lines, links, slots)
+    (lines, links, slots, md_links)
 }

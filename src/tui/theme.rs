@@ -28,7 +28,7 @@ pub struct Over {
 }
 
 /// Number of [`Element`]s.
-pub const ELEMENTS: usize = 27;
+pub const ELEMENTS: usize = 41;
 
 /// Resolved colours used by every widget.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -129,6 +129,13 @@ impl Theme {
             Element::BorderFocused => self.border(true), Element::Pane => self.pane(false), Element::PaneFocused => self.pane(true),
             Element::Card => self.card(false, false), Element::CardSelected => self.card(true, false), Element::CardFocused => self.card(true, true),
             Element::Detail => self.detail(false), Element::DetailFocused => self.detail(true), Element::Dialog => self.dialog(),
+            Element::H1 => self.heading(1), Element::H2 => self.heading(2), Element::H3 => self.heading(3),
+            Element::H4 => self.heading(4), Element::H5 => self.heading(5), Element::H6 => self.heading(6),
+            Element::Quote => self.quote().border(Border::normal()).border_foreground(self.quote_bar_color()),
+            Element::CodeBlock => self.code_block().border(Border::rounded()).border_foreground(self.box_color(Element::CodeBlock)),
+            Element::ListMarker => self.list_marker(), Element::Task => self.task(),
+            Element::Table => self.plain().border(Border::normal()).border_foreground(self.box_color(Element::Table)),
+            Element::TableHeader => self.table_header(), Element::Rule => self.rule(), Element::Footnote => self.footnote(),
         }
     }
 
@@ -167,6 +174,49 @@ impl Theme {
     pub fn reply_tag(&self) -> Gloss { self.el(Element::ReplyTag, Gloss::new().foreground(self.on_accent).background(self.accent).bold(true)) }
     /// The background under an open modal.
     pub fn dimmed(&self) -> Gloss { self.el(Element::Dimmed, Gloss::new().faint(true)) }
+
+    // ----- markdown --------------------------------------------------------
+    /// A Markdown heading, levels 1–6: H1 a bold on-accent banner on the accent, H2 bold,
+    /// H3 accent bold, H4 bold italic, H5 muted bold, H6 muted italic.
+    pub fn heading(&self, level: u8) -> Gloss {
+        let g = Gloss::new();
+        match level {
+            1 => self.el(Element::H1, g.foreground(self.on_accent).background(self.accent).bold(true)),
+            2 => self.el(Element::H2, g.bold(true)),
+            3 => self.el(Element::H3, g.foreground(self.accent).bold(true)),
+            4 => self.el(Element::H4, g.bold(true).italic(true)),
+            5 => self.el(Element::H5, g.foreground(self.muted).bold(true)),
+            _ => self.el(Element::H6, g.foreground(self.muted).italic(true)),
+        }
+    }
+    /// The rule under an H1 (`━`, the banner's background) or H2 (`─`, its text colour);
+    /// the accent when those aren't set.
+    pub fn heading_rule(&self, level: u8) -> Gloss {
+        let c = if level == 1 { self.over[Element::H1.index()].bg } else { self.over[Element::H2.index()].fg };
+        Gloss::new().foreground(c.unwrap_or(self.accent))
+    }
+    /// Block quote text: muted italic.
+    pub fn quote(&self) -> Gloss { self.el(Element::Quote, Gloss::new().foreground(self.muted).italic(true)) }
+    fn quote_bar_color(&self) -> Color { self.over[Element::Quote.index()].border.unwrap_or(self.accent) }
+    /// The `┃` gutter of a block quote: the quote's `border`, else the accent.
+    pub fn quote_bar(&self) -> Gloss { Gloss::new().foreground(self.quote_bar_color()) }
+    fn box_color(&self, e: Element) -> Color { self.over[e.index()].border.unwrap_or(self.border) }
+    /// Code block text.
+    pub fn code_block(&self) -> Gloss { self.el(Element::CodeBlock, Gloss::new()) }
+    /// A code block's box: its `border`, else the border colour.
+    pub fn code_block_border(&self) -> Gloss { Gloss::new().foreground(self.box_color(Element::CodeBlock)) }
+    /// List bullets and numbers: accent.
+    pub fn list_marker(&self) -> Gloss { self.el(Element::ListMarker, Gloss::new().foreground(self.accent)) }
+    /// Task boxes: bold accent.
+    pub fn task(&self) -> Gloss { self.el(Element::Task, Gloss::new().foreground(self.accent).bold(true)) }
+    /// A table's grid: its `border`, else the border colour.
+    pub fn table_border(&self) -> Gloss { Gloss::new().foreground(self.box_color(Element::Table)) }
+    /// Table header cells: bold accent.
+    pub fn table_header(&self) -> Gloss { self.el(Element::TableHeader, Gloss::new().foreground(self.accent).bold(true)) }
+    /// A horizontal rule: muted.
+    pub fn rule(&self) -> Gloss { self.el(Element::Rule, Gloss::new().foreground(self.muted)) }
+    /// Footnote marks and notes: muted.
+    pub fn footnote(&self) -> Gloss { self.el(Element::Footnote, Gloss::new().foreground(self.muted)) }
 
     // ----- boxes -----------------------------------------------------------
     /// Border colour of a pane: accent when focused.

@@ -49,8 +49,18 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   fields as the HTML export. Links (reply-to, thread, post ids in the body, replies) cross-load: the
   linked post nests inside and the previous detail is pushed up into a header strip. `Esc` pops one,
   clicking a header pops back to it, at most 8 deep. Ids not in the database say so. Bodies render
-  as Markdown (headings, emphasis, code, lists, quotes, links; line breaks kept) with one column of
-  padding inside the borders. Attachments are links: Enter / click opens the stored file with
+  as full Markdown (CommonMark + GFM via `pulldown-cmark`): headings H1–H6 (H1 a banner over a
+  `━` rule, H2 over a `─` rule), bold, italic, strikethrough, inline code, fenced/indented code
+  blocks boxed with the language on the top edge, nested block quotes with a `┃` bar, bullet
+  (`•` `◦` `▪` by depth), ordered (right-aligned numbers) and loose lists with hanging indents,
+  task lists (`☐`/`☑`), tables (box-drawn, column alignment, cells wrap and the widest column
+  shrinks to fit), horizontal rules, links and autolinks (bare URLs too; the URL follows the text
+  in the link colour unless the text already shows it, and http/mailto links are OSC 8
+  hyperlinks), images as `▣ alt <url>`, footnotes (`[1]`, notes at the end), soft and hard line
+  breaks (both break the line, as on the site), entities, escapes and the usual inline HTML
+  tags. Before parsing, lines that start with a typed `•` (also tab-indented) become list items
+  and a single indented line is plain text, not code (that's how the site stores them). One
+  column of padding inside the borders. Attachments are links: Enter / click opens the stored file with
   `xdg-open` (`ACP_OPENER` overrides), and they are also emitted as OSC 8 `file://` hyperlinks
   unless `TERM` is `linux`/`dumb` or `ACP_NO_OSC8` is set.
 - **Pictures** (the logo and post images): the graphics protocol is detected at start by querying
@@ -211,8 +221,11 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   or missing posts), `code`, `selected`, `field`, `label`, `label_focused`, `bar` (the header and
   status bars), `button`, `post_tag`, `reply_tag`, `dimmed` (behind a modal), `border`,
   `border_focused`. Boxes (`border` sets the border colour): `pane`, `pane_focused`, `card`,
-  `card_selected`, `card_focused`, `detail`, `detail_focused`, `dialog`. Border shapes and padding
-  are fixed in code.
+  `card_selected`, `card_focused`, `detail`, `detail_focused`, `dialog`. Markdown in post bodies:
+  `h1` … `h6`, `quote` (text; `border` is its `┃` bar), `code_block` (box), `list_marker`
+  (bullets and numbers), `task` (`☐`/`☑`), `table` (box), `table_header`, `rule` and `footnote`.
+  Border shapes and padding are fixed in code; there is no strikethrough key (`~~text~~` is
+  always struck through).
 - **Editor** (`Shift-F5`, or *Edit themes…* in the picker). The left list holds the palette and
   every element (`→` expands an element into its keys, `←` hides them) with swatches, `*` for values that differ
   from the saved file and `⚠x.x:1` when an element's text/background contrast is under 3:1. The
@@ -674,7 +687,8 @@ CREATE TABLE research_items (
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
 - **Logins:** a saved session is reused until the site expires it; then the next scrape asks for a fresh email code.
 - **TUI:** bodies are stored as plain text (the site's bold/italic marks are not kept by the
-  scraper), so Markdown styling shows only where the text itself is Markdown; pictures need
+  scraper), so Markdown styling shows only where the text itself is Markdown; no syntax
+  highlighting in code blocks; pictures need
   `avifdec`, ImageMagick or ffmpeg for the site's AVIF files, and half-block pictures are coarse;
   video attachments are links only; research has no delete (use `sqlite3`), Google Drive and
   Telegram sources are pinned for later, and web pages that need JavaScript to render come out

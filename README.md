@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.16.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.17.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -262,7 +262,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.16.1 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.17.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -286,8 +286,13 @@ headless scrape is now `--scrape`.
 - **Post details.** Click a post (or `Enter`): the detail slides in and the list slides up to a
   thin strip. A detail shows what the HTML export shows: Post/Reply badge, `@nick · posted_at ·
   post_id`, "Replying to … · thread …", the title and body, attachments, linked posts (ids in the
-  body) and replies. Bodies are rendered as **Markdown** (headings, bold/italic, `code`, lists,
-  quotes, links; line breaks and paragraphs kept), with a column of padding inside every border.
+  body) and replies. Bodies are rendered as **full Markdown** (CommonMark plus the GitHub
+  extensions): headings, bold/italic/strikethrough, `code`, boxed code blocks, nested quotes,
+  bullet/numbered/task lists, box-drawn tables, rules, links (OSC 8 hyperlinks where the terminal
+  supports them, with the URL shown after the text), images as links, footnotes, line breaks and
+  entities. Lines the site stores with a typed `•` count as list items. Every part has a theme
+  element (`h1`…`h6`, `quote`, `code_block`, `list_marker`, `task`, `table`, `table_header`,
+  `rule`, `footnote`). There's a column of padding inside every border.
   **Attachments are links**: click one (or `←`/`→` then `Enter`) to open the stored file with your
   desktop's default app (`xdg-open`; set `ACP_OPENER` to use another command). Terminals that
   support OSC 8 also get them as `file://` hyperlinks (`ACP_NO_OSC8=1` turns that off).

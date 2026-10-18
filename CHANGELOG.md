@@ -6,7 +6,26 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [2.16.1] - 2026-10-18
+## [2.17.0] - 2026-10-18
+
+### Added
+
+- Post bodies render full Markdown (CommonMark plus GitHub extensions, parsed with
+  `pulldown-cmark`): headings H1–H6 (H1 a banner with a `━` rule, H2 with a `─` rule), bold,
+  italic, bold italic, ~~strikethrough~~, inline code, fenced and indented code blocks in a box
+  with the language on the top edge, nested block quotes with a `┃` bar, bullet, ordered,
+  nested and loose lists with hanging indents (`•` `◦` `▪` by depth, right-aligned numbers),
+  task lists (`☐`/`☑`), tables with box-drawn borders, aligned columns and wrapped cells,
+  horizontal rules, links and autolinks, images (alt text and URL), footnotes (`[1]` with the
+  notes at the end), hard and soft line breaks, HTML entities, escaped characters and the
+  common inline HTML tags (`<br>`, `<b>`, `<i>`, `<a href>` …).
+- Links in post bodies are clickable in terminals with OSC 8 hyperlinks; the URL is shown
+  after the link text when the text doesn't already contain it.
+- Post bodies are tidied the way the site stores them: lines that start with a typed `•`
+  (also tab-indented) become list items, and a lone indented line is text rather than code.
+- Theme elements for Markdown: `h1` … `h6`, `quote`, `code_block`, `list_marker`, `task`,
+  `table`, `table_header`, `rule` and `footnote`, with defaults in all seven shipped themes.
+  The theme editor's sample post shows them, so they can be highlighted.
 
 ### Fixed
 

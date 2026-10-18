@@ -17,6 +17,59 @@ bold = true
 [dark.styles.dialog]
 bg = "@bg"
 
+# Markdown in post bodies ([light] uses these too unless it sets its own)
+[dark.styles.h1]
+fg = "@on_accent"
+bg = "@accent"
+bold = true
+
+[dark.styles.h2]
+bold = true
+
+[dark.styles.h3]
+fg = "@accent"
+bold = true
+
+[dark.styles.h4]
+bold = true
+italic = true
+
+[dark.styles.h5]
+fg = "@muted"
+bold = true
+
+[dark.styles.h6]
+fg = "@muted"
+italic = true
+
+[dark.styles.quote]
+fg = "@muted"
+border = "@accent"
+italic = true
+
+[dark.styles.code_block]
+border = "@border"
+
+[dark.styles.list_marker]
+fg = "@accent"
+
+[dark.styles.task]
+fg = "@accent"
+bold = true
+
+[dark.styles.table]
+border = "@border"
+
+[dark.styles.table_header]
+fg = "@accent"
+bold = true
+
+[dark.styles.rule]
+fg = "@muted"
+
+[dark.styles.footnote]
+fg = "@muted"
+
 [light.palette]
 accent = "#dc2626"
 muted = "#8b3a3a"

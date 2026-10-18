@@ -158,13 +158,13 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         app.sync_tick(now);
         if let Some(im) = app.images.as_mut() { im.poll(); }
         term.0.draw(|f| widgets::draw(f, app, now))?;
-        if osc8 { emit_osc8(&app.osc_links); }
+        if osc8 { emit_osc8(&app.osc_links, &app.theme); }
         if let Some(im) = app.images.as_mut()
             && im.flush(&mut std::io::stdout()) == images::Flush::Repaint {
                 // Sixel / iTerm2 pictures are burnt into the cells: repaint everything, then place them again.
                 term.0.clear()?;
                 term.0.draw(|f| widgets::draw(f, app, now))?;
-                if osc8 { emit_osc8(&app.osc_links); }
+                if osc8 { emit_osc8(&app.osc_links, &app.theme); }
                 if let Some(im) = app.images.as_mut() { im.flush(&mut std::io::stdout()); }
             }
         let mut wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
@@ -326,12 +326,20 @@ pub fn osc8(text: &str, url: &str) -> String {
     format!("\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", clean(url), clean(text))
 }
 
-fn emit_osc8(links: &[(u16, u16, String, String)]) {
-    use crossterm::{cursor::MoveTo, queue, style::{Attribute, Print, SetAttribute}};
+/// Re-print link text as OSC 8 hyperlinks over the drawn frame, in the theme's link colour
+/// on its background so the cells look the same.
+fn emit_osc8(links: &[(u16, u16, String, String)], t: &theme::Theme) {
+    use crossterm::{cursor::MoveTo, queue, style::{Attribute, Color as CColor, Print, SetAttribute, SetBackgroundColor, SetForegroundColor}};
     if links.is_empty() { return; }
     let mut out = std::io::stdout();
+    let conv = |c: ratatui::style::Color| crate::themes::rgb(c).map(CColor::from);
+    let fg = ratatui::style::Style::from(&t.link()).fg.and_then(conv);
+    let bg = conv(t.bg);
     for (x, y, text, url) in links {
-        let _ = queue!(out, MoveTo(*x, *y), SetAttribute(Attribute::Underlined), Print(osc8(text, url)), SetAttribute(Attribute::Reset));
+        let _ = queue!(out, MoveTo(*x, *y), SetAttribute(Attribute::Underlined));
+        if let Some(c) = fg { let _ = queue!(out, SetForegroundColor(c)); }
+        if let Some(c) = bg { let _ = queue!(out, SetBackgroundColor(c)); }
+        let _ = queue!(out, Print(osc8(text, url)), SetAttribute(Attribute::Reset));
     }
     let _ = out.flush();
 }
