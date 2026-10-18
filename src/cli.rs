@@ -84,12 +84,17 @@ acp-rs-scraper --edits THREAD/POST
 acp-rs-scraper --identity-init
   \
 acp-rs-scraper --acp-id
+  \
+acp-rs-scraper --shares-print
+  \
+acp-rs-scraper --shares-verify --shares-file shares.txt
 ",
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with_all([
     "nick", "nicks", "scrape", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
@@ -326,7 +331,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "acp_id",
+        "theme_init", "theme_starter", "list_themes", "acp_id", "shares_print", "shares_verify",
     ])]
     pub identity_init: bool,
     /// Print the pinned acp-id.
@@ -335,9 +340,31 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes",
+        "theme_init", "theme_starter", "list_themes", "shares_print", "shares_verify",
     ])]
     pub acp_id: bool,
+    /// Print five SLIP-39 recovery sheets (3 of 5) for the pinned account. Needs a terminal.
+    /// Reissuing shares of the same seed does not invalidate older shares.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_verify",
+    ])]
+    pub shares_print: bool,
+    /// Check three to five recovery shares against the pinned acp-id. Writes nothing secret.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id",
+    ])]
+    pub shares_verify: bool,
+    /// Sheet or paste to read instead of typing shares. Used with --shares-print or --shares-verify.
+    #[arg(long, value_name = "FILE", help_heading = "Identity", requires = "share_action")]
+    pub shares_file: Option<PathBuf>,
 }
 
 /// Targets for the hidden `--generate` packaging flag.

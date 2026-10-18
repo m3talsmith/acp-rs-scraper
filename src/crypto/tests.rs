@@ -116,3 +116,32 @@ fn pin_round_trip_stores_no_phrase_and_is_private() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn three_shares_or_the_phrase_recover_the_seed_and_two_shares_do_not() {
+    let seed = [0x3cu8; 32];
+    let phrase = phrase_from_entropy(&seed).unwrap();
+    let shares = slip39::split_seed(&seed).unwrap();
+    let two = format!("{}\n{}", shares[0], shares[1]);
+    assert!(cmd::seed_from_material(&two).is_err());
+    let three = shares[..3].join("\n");
+    assert_eq!(cmd::seed_from_material(&three).unwrap().as_slice(), &seed);
+    assert_eq!(cmd::seed_from_material(&phrase).unwrap().as_slice(), &seed);
+    let sheet = slip39::sheet("acp1-example", &shares[0]).unwrap();
+    assert!(!sheet.contains(&phrase));
+    assert!(sheet.contains("password is not"));
+}
+
+#[test]
+fn a_postponed_share_set_is_reminded_until_it_is_checked() {
+    let dir = std::env::temp_dir().join(format!("acp-shares-{}-{}", std::process::id(), line!()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    assert!(cmd::shares_reminder(&dir).is_none());
+    cmd::mark_shares_pending(&dir).unwrap();
+    let msg = cmd::shares_reminder(&dir).unwrap();
+    assert!(msg.contains("--shares-print"), "{msg}");
+    cmd::clear_shares_pending(&dir).unwrap();
+    assert!(cmd::shares_reminder(&dir).is_none());
+    let _ = std::fs::remove_dir_all(&dir);
+}

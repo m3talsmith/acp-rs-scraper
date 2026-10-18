@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.25.0
+Version:        2.26.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.26.0-1
+- SLIP-39 3-of-5 recovery shares
+
 * Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.25.0-1
 - Master secret, 24-word recovery phrase and pinned acp-id
 

@@ -58,7 +58,8 @@ pub async fn run(args: Args) -> Result<()> {
     if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
         bail!("the terminal UI needs a terminal; for headless use pass flags, e.g. --scrape, --nick NICK, --search TEXT, --export FILE (see --help)");
     }
-    let db = home()?.join(DB_REL_PATH);
+    let home_dir = home()?;
+    let db = home_dir.join(DB_REL_PATH);
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
         session_path().map(|p| p.exists()).unwrap_or(false));
@@ -66,6 +67,9 @@ pub async fn run(args: Args) -> Result<()> {
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
     (app.empty_anim, app.empty_anim_accent) = empty_anim::from_prefs(prefs.ui.as_ref());
+    if let Some(msg) = crate::crypto::cmd::shares_reminder(&home_dir) {
+        app.push_status(msg);
+    }
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
     set_log_sink(Some(log_tx));

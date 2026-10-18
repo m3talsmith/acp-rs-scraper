@@ -44,7 +44,15 @@ fn identity_flags_parse_and_do_not_open_the_tui() {
     assert!(Args::try_parse_from(["x", "--acp-id"]).unwrap().acp_id);
     assert!(Args::try_parse_from(["x", "--identity-init", "--scrape"]).is_err());
     assert!(Args::try_parse_from(["x", "--identity-init", "--acp-id"]).is_err());
+    assert!(Args::try_parse_from(["x", "--shares-print"]).unwrap().shares_print);
+    assert!(Args::try_parse_from(["x", "--shares-verify"]).unwrap().shares_verify);
+    assert!(Args::try_parse_from(["x", "--shares-print", "--shares-verify"]).is_err());
+    assert!(Args::try_parse_from(["x", "--shares-file", "s.txt"]).is_err());
+    assert!(Args::try_parse_from(["x", "--shares-verify", "--shares-file", "s.txt"]).is_ok());
+    assert!(Args::try_parse_from(["x", "--shares-print", "--scrape"]).is_err());
     let m = Args::command().try_get_matches_from(["x", "--acp-id"]).unwrap();
+    assert!(!wants_tui(&m));
+    let m = Args::command().try_get_matches_from(["x", "--shares-verify"]).unwrap();
     assert!(!wants_tui(&m));
 }
 

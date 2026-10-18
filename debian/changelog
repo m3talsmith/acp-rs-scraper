@@ -1,3 +1,9 @@
+acp-rs-scraper (2.26.0) unstable; urgency=medium
+
+  * SLIP-39 recovery shares, 3 of 5 (--shares-print, --shares-verify). The password stays outside the shares.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 22:30:00 +0000
+
 acp-rs-scraper (2.25.0) unstable; urgency=medium
 
   * Master secret: 24-word BIP-39 phrase, mandatory password, pinned acp-id (--identity-init, --acp-id).

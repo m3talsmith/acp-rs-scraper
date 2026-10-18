@@ -1,6 +1,6 @@
 [package]
 name = "acp-rs-scraper"
-version = "2.25.0"
+version = "2.26.0"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
@@ -42,6 +42,8 @@ argon2 = "0.5"
 blake3 = "1"
 hkdf = "0.12"
 sha2 = "0.10"
+hmac = "0.12"
+pbkdf2 = "0.12"
 bip39 = "2.2"
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "zeroize"] }
 x25519-dalek = { version = "2", features = ["static_secrets"] }

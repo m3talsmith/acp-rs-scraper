@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.26.0] - 2026-10-18
+
+### Added
+
+- **Recovery shares.** The 256-bit seed is split with SLIP-39, one group, 3 of 5, and an empty share passphrase. `--shares-print` writes five sheets (the `acp-id`, the set id and the share index). `--shares-verify` checks three to five shares against the pinned id and stores nothing. The password is not in the shares. Reissuing shares of the same seed does not invalidate older ones. `--identity-init` can print the sheets or postpone them; a postponed set is reminded in the terminal UI until it is checked. The construction is checked against the official SLIP-39 test vectors.
+
 ## [2.25.0] - 2026-10-18
 
 ### Added

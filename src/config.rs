@@ -65,6 +65,12 @@ pub const SESSION_REL_PATH: &str = ".acp/session.json";
 /// Public: the phrase, the password and the master secret are never written here.
 pub const ACP_ID_REL_PATH: &str = ".acp/acp-id";
 
+/// Present until `--shares-print` or a successful `--shares-verify`. Not a secret.
+pub const SHARES_PENDING_REL_PATH: &str = ".acp/shares-pending";
+
+/// Unix time of the last successful `--shares-verify` or `--shares-print`. Not a secret.
+pub const SHARES_VERIFIED_REL_PATH: &str = ".acp/shares-verified";
+
 /// Future node secret (§7.2, §7.13.2). Not created in this release. Backups skip it
 /// so a restore cannot clone a node identity.
 pub const NODE_SECRET_REL_PATH: &str = ".acp/node/identity.key";
