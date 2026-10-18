@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.19.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.20.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -54,6 +54,15 @@ Reading:
 
       --eb-replies
           With --eb: include replies (the feed's replies filter)
+
+      --explore
+          Explore feed (/rs/explore). Stored locally; the Explore row of the nick bar opens it
+
+      --explore-latest
+          Explore's Latest tab (/rs/explore/latest)
+
+      --site-search <TEXT>
+          Search the site (/rs/explore?q=). The Search modal's Where: Site does this too
 
 Interface:
       --tui
@@ -275,7 +284,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.19.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.20.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -367,6 +376,10 @@ headless scrape is now `--scrape`.
     then Site Top. Opens the saved `/rs/top` view in the site's order and refreshes it (`--top`).
   - **Executive Board**: the **EB** row under Bookmarks (or View › Executive Board). View › EB
     includes replies selects the replies filter (`--eb`).
+  - **Explore**: the **Explore** row (or View › Explore). View › Explore latest selects
+    `/rs/explore/latest` (`--explore`, `--explore-latest`).
+- **Site search.** Shift-S (the search modal) has **Where**: Local (the database, as before) or
+  Site (`--site-search`). Site searches with the keyword only.
 - **Bookmarks.** Every card and detail has a star: `☆` click (or `b`) to bookmark it, `★` click
   again to remove it. It shows at once and is stored by a small background job, so it works
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows

@@ -98,3 +98,14 @@ fn eb_urls_keys_and_fields() {
     assert_eq!((eb_key(false), eb_key(true)), ("eb".into(), "eb:replies".into()));
     assert_eq!(eb_title(true), "EB · posts and replies");
 }
+
+#[test]
+fn explore_and_site_search_urls() {
+    assert_eq!(feed_explore_url(false), format!("{}/rs/explore", base_url()));
+    assert_eq!(feed_explore_url(true), format!("{}/rs/explore/latest", base_url()));
+    assert_eq!((explore_key(false), explore_key(true)), ("explore".into(), "explore:latest".into()));
+    assert_eq!(explore_title(true), "Explore · latest");
+    assert_eq!(site_search_url("a b"), format!("{}/rs/explore?q=a+b", base_url()));
+    assert_eq!(search_key("  strike "), "search:strike");
+    assert_eq!(search_title("strike"), "Site search · strike");
+}

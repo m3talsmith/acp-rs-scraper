@@ -6,6 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.20.0] - 2026-10-18
+
+### Added
+
+- **Explore** (`/rs/explore` and `/rs/explore/latest`): `--explore` and `--explore-latest`.
+  The **Explore** row under EB (and View › Explore) opens the saved order; View › Explore latest
+  selects the Latest tab.
+- **Site search** (`/rs/explore?q=`, form `search`, field `q`): `--site-search TEXT`. The Shift-S
+  search modal has a **Where** choice, Local or Site. Site uses the keyword only and says so when
+  nicks, dates, a post id or a kind are also filled in. An empty site keyword is an error. Local
+  search is unchanged.
+
 ## [2.19.0] - 2026-10-18
 
 ### Added

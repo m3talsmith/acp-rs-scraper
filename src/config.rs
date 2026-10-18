@@ -126,6 +126,8 @@ pub fn home() -> Result<PathBuf> {
 
 /// Profile Filter form submit event (`<form phx-submit="configure-feed">`).
 pub const PROFILE_FILTER_EVENT: &str = "configure-feed";
+/// Explore search form (`<form phx-submit="search">`, field `q`).
+pub const SEARCH_EVENT: &str = "search";
 /// Filter form radio: `0` = Posts (default), `1` = Posts and replies.
 pub const PROFILE_REPLIES_FIELD: &str = "replies";
 

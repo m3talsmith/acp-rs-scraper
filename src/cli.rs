@@ -60,13 +60,19 @@ acp-rs-scraper --top all --top-replies
 acp-rs-scraper --eb
   \
 acp-rs-scraper --eb --eb-replies
+  \
+acp-rs-scraper --explore
+  \
+acp-rs-scraper --explore-latest
+  \
+acp-rs-scraper --site-search strike
 ",
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("reading").args(["top", "eb"]).multiple(false).conflicts_with_all([
+#[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search"]).multiple(false).conflicts_with_all([
     "nick", "nicks", "scrape", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
     "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
@@ -91,6 +97,15 @@ pub struct Args {
     /// With --eb: include replies (the feed's replies filter).
     #[arg(long, requires = "eb", help_heading = "Reading")]
     pub eb_replies: bool,
+    /// Explore feed (/rs/explore). Stored locally; the Explore row of the nick bar opens it.
+    #[arg(long, help_heading = "Reading")]
+    pub explore: bool,
+    /// Explore's Latest tab (/rs/explore/latest).
+    #[arg(long, help_heading = "Reading")]
+    pub explore_latest: bool,
+    /// Search the site (`/rs/explore?q=`). The Search modal's Where: Site does this too.
+    #[arg(long, value_name = "TEXT", help_heading = "Reading")]
+    pub site_search: Option<String>,
 
     /// Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it.
     #[arg(long, help_heading = "Interface")]

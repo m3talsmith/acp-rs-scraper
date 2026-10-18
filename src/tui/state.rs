@@ -264,6 +264,8 @@ pub enum Hit {
     Bookmarks,
     /// The "EB" row of the nick bar.
     Eb,
+    /// The "Explore" row of the nick bar.
+    Explore,
     /// The nick filter field.
     NickFilter,
     /// The nick filter's `x` (clear).
@@ -592,6 +594,26 @@ impl App {
         match self.menu.menu.eb_argv() {
             Ok(argv) => self.open_site_read(&eb_key(replies), argv),
             Err(e) => self.error("Executive Board", &e),
+        }
+    }
+    /// The Explore row / View › Explore. Latest follows the View checkbox.
+    pub fn open_explore(&mut self) {
+        let latest = self.menu.menu.check(crate::tui::commands::CommandId::View, "explore_latest");
+        match self.menu.menu.explore_argv() {
+            Ok(argv) => self.open_site_read(&explore_key(latest), argv),
+            Err(e) => self.error("Explore", &e),
+        }
+    }
+    /// Search modal › Where: Site. Other fields stay local and are named in the status line.
+    pub fn open_site_search(&mut self, s: &crate::tui::modals::SearchModal) {
+        let q = s.fields[0].value.trim();
+        let local = s.fields.iter().skip(1).any(|f| !f.value.trim().is_empty()) || s.kind != crate::tui::data::KindFilter::Any;
+        if local {
+            self.push_status("nicks, dates, post id and kind stay local; searching the site for the keyword");
+        }
+        match self.menu.menu.site_search_argv(q) {
+            Ok(argv) => self.open_site_read(&search_key(q), argv),
+            Err(e) => self.error("Site search", &e),
         }
     }
     /// The post `b` / the menu toggles: the top detail, else the highlighted card.
@@ -1072,6 +1094,7 @@ impl App {
             Action::ShowBookmarks => { self.close_menu(); self.open_bookmarks(); }
             Action::OpenTop => self.open_top(),
             Action::OpenEb => self.open_eb(),
+            Action::OpenExplore => self.open_explore(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }
@@ -1285,6 +1308,7 @@ impl App {
             },
             (Modal::Search(s), ModalResult::ClosedSubmitted) => {
                 if s.cleared { self.clear_search(); }
+                else if s.site { self.open_site_search(&s); }
                 else if let Ok(f) = s.filter() { self.run_search(f); }
             }
             (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),

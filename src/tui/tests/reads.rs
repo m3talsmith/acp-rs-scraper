@@ -108,3 +108,35 @@ fn eb_replies_checkbox_is_a_flag() {
     let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
     assert_eq!(argv[1..], ["--eb", "--eb-replies"]);
 }
+
+#[test]
+fn explore_latest_is_its_own_flag() {
+    let mut a = app();
+    a.menu.menu.set_check(CommandId::View, "explore_latest", true);
+    a.act(Action::OpenExplore);
+    assert_eq!(a.pending_feed.as_deref(), Some("explore:latest"));
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--explore-latest"]);
+}
+
+#[test]
+fn site_search_uses_the_keyword_and_says_when_other_fields_stay_local() {
+    use crate::tui::data::KindFilter;
+    use crate::tui::modals::{Modal, ModalResult, ModalState, SearchModal};
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut m = SearchModal::new(&Default::default());
+    m.site = true;
+    assert_eq!(m.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)), None);
+    assert!(m.error.as_deref().unwrap_or("").contains("keyword"));
+    m.fields[0].value = "strike".into();
+    m.fields[1].value = "bob".into();
+    m.kind = KindFilter::Posts;
+    m.error = None;
+    let mut a = app();
+    a.modal = Some(Modal::Search(m));
+    a.close_modal(ModalResult::ClosedSubmitted);
+    assert_eq!(a.pending_feed.as_deref(), Some("search:strike"));
+    assert!(a.status.iter().any(|s| s.contains("stay local")));
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--site-search", "strike"]);
+}

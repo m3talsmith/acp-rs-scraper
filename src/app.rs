@@ -305,6 +305,16 @@ pub async fn run() -> Result<()> {
         info!("== eb: {n} posts");
         return Ok(());
     }
+    if args.explore || args.explore_latest {
+        let n = read_explore(&http, &jar, args.explore_latest).await?;
+        info!("== explore: {n} posts");
+        return Ok(());
+    }
+    if let Some(q) = &args.site_search {
+        let n = read_site_search(&http, &jar, q).await?;
+        info!("== site search {q:?}: {n} posts");
+        return Ok(());
+    }
     let mut nicks = args.nick_list()?;
     if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
         let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;

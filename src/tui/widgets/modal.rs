@@ -121,11 +121,15 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let r = modal_rect(area, 72, SEARCH_FIELDS.len() as u16 + 8);
             let inner = frame(f, &t, r, "Search · Tab moves · Enter searches");
             let nf = SEARCH_FIELDS.len();
+            let kind_i = nf - 2;
             for (i, label) in SEARCH_FIELDS.iter().enumerate() {
                 let rr = Rect { y: inner.y + 1 + i as u16, height: 1, ..inner };
-                let line = if i < nf - 1 { field_line(label, &s.fields[i], s.focus == i, &t) } else {
+                let line = if i < kind_i { field_line(label, &s.fields[i], s.focus == i, &t) } else if i == kind_i {
                     let k = match s.kind { crate::tui::data::KindFilter::Any => "Posts and replies", crate::tui::data::KindFilter::Posts => "Posts only", crate::tui::data::KindFilter::Replies => "Replies only" };
                     Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {k} ›"))])
+                } else {
+                    let w = if s.site { "Site" } else { "Local" };
+                    Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {w} ›"))])
                 };
                 f.render_widget(Paragraph::new(line), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Field(i))));

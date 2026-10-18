@@ -97,6 +97,11 @@ fn feed_mode_flags() {
     assert!(Args::try_parse_from(["x", "--eb", "--top"]).is_err());
     assert!(Args::try_parse_from(["x", "--eb-replies"]).is_err());
     assert!(!parse_with_mode(["x", "--eb"]).unwrap().1);
+    assert!(Args::try_parse_from(["x", "--explore"]).unwrap().explore);
+    assert!(Args::try_parse_from(["x", "--explore-latest"]).unwrap().explore_latest);
+    assert!(Args::try_parse_from(["x", "--explore", "--explore-latest"]).is_err());
+    assert_eq!(Args::try_parse_from(["x", "--site-search", "strike"]).unwrap().site_search.as_deref(), Some("strike"));
+    assert!(Args::try_parse_from(["x", "--site-search", "strike", "--search", "x"]).is_err());
     assert_eq!(FeedMode::Latest.site_feed_url(), feed_latest_url());
     assert_eq!(FeedMode::Trending.site_feed_url(), feed_trending_url());
     assert!(FeedMode::Latest.allow_incremental_stop());

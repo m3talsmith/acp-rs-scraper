@@ -102,7 +102,8 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   follows `↑`/`↓`), Carousel ∞ (wraps) and Carousel (stops at the ends) with `←`/`→`, and Grid
   (arrows move; the post opens in a modal with a Close button). View › Site Top opens `/rs/top`
   (period and replies); the **EB** row under Bookmarks opens `/rs/eb`. Both show the saved order
-  at once and refresh it from the site.
+  at once and refresh it from the site. The **Explore** row opens `/rs/explore` (View › Explore
+  latest selects `/rs/explore/latest`). Shift-S search can look at the local database or the site.
 - **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
@@ -331,6 +332,9 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--top-replies` | With `--top`: the feed's replies filter. |
 | `--eb` | Executive Board feed (`/rs/eb`). The **EB** row of the nick bar, or View › Executive Board. |
 | `--eb-replies` | With `--eb`: the feed's replies filter (View › EB includes replies). |
+| `--explore` | Explore (`/rs/explore`). The **Explore** row of the nick bar, or View › Explore. |
+| `--explore-latest` | Explore's Latest tab (`/rs/explore/latest`). View › Explore latest. |
+| `--site-search TEXT` | Search the site (`/rs/explore?q=`, form `search`, field `q`). The Search modal's **Where: Site** does the same and uses only the keyword; nicks, dates, post id and kind stay local. |
 
 ### Scraping
 
@@ -617,7 +621,7 @@ Research (2.9.0):
 
 ```sql
 CREATE TABLE site_feeds (          -- 2.18.0; created on first site read
-    key TEXT PRIMARY KEY,         -- top:week, top:all:replies, eb, eb:replies, …
+    key TEXT PRIMARY KEY,         -- top:week, eb, explore, explore:latest, search:…, …
     title TEXT NOT NULL,
     fetched_at TEXT NOT NULL,     -- RFC 3339
     post_ids TEXT NOT NULL        -- JSON array, in the site's order
@@ -701,7 +705,7 @@ CREATE TABLE research_items (
   - Loading more thread replies through the InfiniteScroll `next-page` event (a guess).
   - Profile fields beyond author info, data-props and `og:` tags.
   - Whether media hosts require the login cookies.
-- **Mentions are limited by the crawl:** there is no site-wide search in the site's JavaScript. Only `--crawl-limit` posts of the chosen feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed.
+- **Mentions are limited by the crawl:** the mentions pass still scans the chosen feed (there is no mentions search API). Only `--crawl-limit` posts of that feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed. Searching posts on the site is `--site-search` (or Shift-S › Where: Site).
 - **"Posts and replies":** this is the profile Filter dialog (`<dialog id="js-configureFeed">`, form `configure-feed`, radios `replies=0|1`). Checked on the live site: choosing it switches to `/rs/@nick?replies=1`, the URL the scraper loads. The fallback form submission is covered by the mocked end-to-end tests. Profiles also have a Top feed (`/rs/@nick/top?t=all`), which isn't scraped.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.

@@ -137,6 +137,8 @@ pub enum Action {
     OpenTop,
     /// Open the Executive Board feed (the EB row, or View › EB).
     OpenEb,
+    /// Open Explore (the Explore row, or View › Explore).
+    OpenExplore,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
 }
@@ -366,6 +368,8 @@ impl Menu {
                 opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
                 opt("eb_replies", "EB includes replies", "--eb-replies", false, check(false)),
                 opt("eb", "Executive Board", "--eb", false, button(Action::OpenEb)),
+                opt("explore_latest", "Explore latest", "--explore-latest", false, check(false)),
+                opt("explore", "Explore", "--explore", false, button(Action::OpenExplore)),
                 opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
                 opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
             ]},
@@ -534,6 +538,23 @@ impl Menu {
     pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
         if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Explore (Latest when that checkbox is on).
+    pub fn explore_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let flag = if self.check(CommandId::View, "explore_latest") { "--explore-latest" } else { "--explore" };
+        let mut v = vec![ARGV0.to_string(), flag.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for a site search (Search modal › Where: Site).
+    pub fn site_search_argv(&self, query: &str) -> std::result::Result<Vec<String>, String> {
+        let q = query.trim();
+        if q.is_empty() { return Err("site search needs a keyword".into()); }
+        let mut v = vec![ARGV0.to_string(), "--site-search".into(), q.into()];
         v.extend(self.debug_args());
         validate(v)
     }
