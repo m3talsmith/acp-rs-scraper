@@ -559,6 +559,16 @@ impl Menu {
         validate(v)
     }
 
+    /// argv for `--edits THREAD/POST`. A root post uses its own id as the thread.
+    pub fn edits_argv(&self, thread_id: &str, post_id: &str) -> std::result::Result<Vec<String>, String> {
+        let post = post_id.trim();
+        if post.is_empty() { return Err("edits need a post id".into()); }
+        let thread = { let t = thread_id.trim(); if t.is_empty() { post } else { t } };
+        let mut v = vec![ARGV0.to_string(), "--edits".into(), format!("{thread}/{post}")];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
     /// argv for `--sort-thread` (`oldest` or `top`).
     pub fn sort_thread_argv(&self, thread_id: &str, order: &str) -> std::result::Result<Vec<String>, String> {
         let id = thread_id.trim();

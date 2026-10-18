@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.24.0] - 2026-10-18
+
+### Added
+
+- **Edit history** (`/rs/post/{thread}/{id}/edits`): `--edits THREAD/POST` (or a post id already stored). `p` › View edits opens the saved versions at once and refreshes them. Each version is a line diff against the previous one. Versions are stored in `post_versions` with `source = site`. The table also allows `peer`, `local` and `draft` for later local-first drafts; those are not written yet.
+
 ## [2.23.0] - 2026-10-18
 
 ### Added

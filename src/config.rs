@@ -99,6 +99,9 @@ pub const FEED_PROPS_SEL: &str = "div#forum\\/Feed[data-props]";
 /// CSS selector of the Svelte Thread mount (`data-props` = `{root, replies}`).
 pub const THREAD_PROPS_SEL: &str = "div#forum\\/Thread[data-props]";
 
+/// CSS selector for the edit-history component's JSON props (`forum/Edits`).
+pub const EDITS_PROPS_SEL: &str = "div#forum\\/Edits[data-props]";
+
 /// Found in Feed-*.js: `live.pushEvent("page-next", {cursor}, reply => ...)`,
 /// reply = {posts, next_cursor, at_end}. No phx-target (sent to the root LiveView).
 pub const FEED_NEXT_EVENT: &str = "page-next";
@@ -238,7 +241,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
-    ("p", "Post menu: view reposts of the open or highlighted post"),
+    ("p", "Post menu: view reposts or the edit history of the open or highlighted post"),
     ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("r", "Add to a research project: the open or highlighted post, what it links, its files and web links, or the whole view (or click ◈)"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),

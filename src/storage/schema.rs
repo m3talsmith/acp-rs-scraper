@@ -108,6 +108,21 @@ pub const BOOKMARKS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
             deleted INTEGER NOT NULL DEFAULT 0
         );";
 
+/// One row of a post's edit history (2.24.0). `source` is `site` for versions
+/// read from `/rs/post/{thread}/{id}/edits`. `peer`, `local` and `draft` are
+/// reserved for later local-first drafts (§7.14.8) so that table is not rebuilt.
+/// `version_hash` is a stable hash of `body_json` and `edited_at`.
+pub const POST_VERSIONS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_versions (
+            post_id TEXT NOT NULL,
+            version_hash TEXT NOT NULL,
+            body_json TEXT NOT NULL,
+            edited_at TEXT NOT NULL,
+            observed_at TEXT NOT NULL,
+            source TEXT NOT NULL CHECK (source IN ('site', 'peer', 'local', 'draft')),
+            PRIMARY KEY (post_id, version_hash)
+        );
+        CREATE INDEX IF NOT EXISTS post_versions_post_idx ON post_versions(post_id, edited_at);";
+
 /// A named site read (Top, and later the other read-parity feeds), in the
 /// order the site returned. `post_ids` is a JSON array of post ids. The posts
 /// themselves live in `posts`, so the view still opens offline. Created on first use.

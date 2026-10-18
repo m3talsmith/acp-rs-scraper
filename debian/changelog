@@ -1,3 +1,9 @@
+acp-rs-scraper (2.24.0) unstable; urgency=medium
+
+  * Edit history (/rs/post/THREAD/POST/edits): --edits, p › View edits as a diff, post_versions.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 21:00:00 +0000
+
 acp-rs-scraper (2.23.0) unstable; urgency=medium
 
   * Reposts list (/rs/post/ID/reposts): --reposts, and p › View reposts in the TUI.

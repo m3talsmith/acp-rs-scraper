@@ -104,7 +104,8 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   (period and replies); the **EB** row under Bookmarks opens `/rs/eb`. Both show the saved order
   at once and refresh it from the site. The **Explore** row opens `/rs/explore` (View › Explore
   latest selects `/rs/explore/latest`). Shift-S search can look at the local database or the site.
-  `p` opens a post menu; View reposts opens `/rs/post/{id}/reposts`.
+  `p` opens a post menu; View reposts opens `/rs/post/{id}/reposts`, and View edits
+  opens `/rs/post/{thread}/{id}/edits` as a diff.
 - **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
@@ -341,6 +342,7 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--sort-thread ID` | Re-read that thread after the `sort` hook and store scores. `s` in an open thread does this. |
 | `--thread-sort ORDER` | With `--sort-thread`: `oldest` or `top`. Newest is the page default and sends no hook. |
 | `--reposts ID` | Reposts of that post (`/rs/post/ID/reposts`). `p` › View reposts does the same. |
+| `--edits THREAD/POST` | Edit history (`/rs/post/THREAD/POST/edits`). A post id already in the database works too (the thread is its parent, or itself when it is a root). `p` › View edits shows each version as a line diff against the previous one. |
 
 ### Scraping
 
@@ -579,6 +581,16 @@ CREATE TABLE post_tags (             -- 2.21.0; #tag without the hash
 );
 CREATE INDEX post_tags_tag_idx ON post_tags(tag);
 
+CREATE TABLE post_versions (        -- 2.24.0; edit history. source is site for /rs/post/…/edits
+  post_id TEXT NOT NULL,
+  version_hash TEXT NOT NULL,      -- FNV-1a 64 of body_json and edited_at
+  body_json TEXT NOT NULL,         -- ProseMirror JSON, or the text when that is all the page sent
+  edited_at TEXT NOT NULL,         -- edited_at, else inserted_at / updated_at; ~NNNN when the page sent none
+  observed_at TEXT NOT NULL,       -- when this client stored the row
+  source TEXT NOT NULL CHECK (source IN ('site', 'peer', 'local', 'draft')),
+  PRIMARY KEY (post_id, version_hash)
+);
+
 -- body_state (1.26.0, index posts_body_state_idx): 'full' = complete body;
 -- 'truncated' = only the feed's shortened preview could be read (the thread page
 -- failed), re-read on the next scrape that sees it; 'unknown' = stored before 1.26.0.
@@ -748,7 +760,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;

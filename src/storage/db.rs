@@ -199,6 +199,7 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
     if !has_score { c.execute_batch(POSTS_ADD_SCORE)?; }
     c.execute_batch(POSTS_MIGRATIONS)?;
     c.execute_batch(POST_TAGS_SCHEMA)?;
+    c.execute_batch(POST_VERSIONS_SCHEMA)?;
     Ok(())
 }
 
@@ -391,6 +392,68 @@ pub fn posts_by_ids(db: &Path, ids: &[String]) -> Result<(Vec<Post>, Vec<Attachm
     }
     let atts = attachments_for(&c, &out)?;
     Ok((out, atts, missing))
+}
+
+/// One stored edit of a post. `source` is `site`, `peer`, `local` or `draft`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PostVersion {
+    /// The post these versions belong to.
+    pub post_id: String,
+    /// Stable hash of `body_json` and `edited_at` (FNV-1a 64, hex).
+    pub version_hash: String,
+    /// ProseMirror JSON when the site sent a document, otherwise the text body.
+    pub body_json: String,
+    /// When this version was written (`edited_at`, else `inserted_at` / `updated_at`).
+    /// A page that sent no timestamp is `~NNNN`, the order on that page.
+    pub edited_at: String,
+    /// When this client stored the row (RFC 3339).
+    pub observed_at: String,
+    /// `site` (read from the site), or later `peer` / `local` / `draft`.
+    pub source: String,
+}
+
+/// Insert versions. The same `(post_id, version_hash)` only refreshes `observed_at`.
+/// Creates the table. `source` must be `site`, `peer`, `local` or `draft`.
+pub fn save_post_versions(c: &mut Connection, rows: &[PostVersion]) -> Result<usize> {
+    ensure_posts_schema(c)?;
+    let tx = c.transaction()?;
+    {
+        let mut st = tx.prepare(
+            "INSERT INTO post_versions (post_id, version_hash, body_json, edited_at, observed_at, source)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(post_id, version_hash) DO UPDATE SET observed_at = excluded.observed_at")?;
+        for v in rows {
+            if !matches!(v.source.as_str(), "site" | "peer" | "local" | "draft") {
+                bail!("post version source {:?} is not site, peer, local or draft", v.source);
+            }
+            st.execute(params![v.post_id, v.version_hash, v.body_json, v.edited_at, v.observed_at, v.source])?;
+        }
+    }
+    tx.commit()?;
+    Ok(rows.len())
+}
+
+/// Versions of `post_id`, oldest `edited_at` first. Empty when the table is absent.
+pub fn load_post_versions(c: &Connection, post_id: &str) -> Result<Vec<PostVersion>> {
+    if !table_exists(c, "post_versions")? { return Ok(Vec::new()); }
+    let mut st = c.prepare(
+        "SELECT post_id, version_hash, body_json, edited_at, observed_at, source
+         FROM post_versions WHERE post_id = ?1 ORDER BY edited_at, version_hash")?;
+    let v = st.query_map(params![post_id], |r| Ok(PostVersion {
+        post_id: r.get(0)?, version_hash: r.get(1)?, body_json: r.get(2)?,
+        edited_at: r.get(3)?, observed_at: r.get(4)?, source: r.get(5)?,
+    }))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(v)
+}
+
+/// Thread id of a stored post: `parent_post_id` when it is a reply, else its own id.
+/// `None` when the post is not stored.
+pub fn thread_of_post(c: &Connection, post_id: &str) -> Result<Option<String>> {
+    if !table_exists(c, "posts")? { return Ok(None); }
+    let parent: Option<String> = c.query_row(
+        "SELECT parent_post_id FROM posts WHERE post_id = ?1",
+        params![post_id], |r| r.get(0)).optional()?;
+    Ok(parent.map(|p| if p.is_empty() { post_id.to_string() } else { p }))
 }
 
 /// One saved site read: the posts in the order the site returned them.

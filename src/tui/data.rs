@@ -118,6 +118,8 @@ pub trait Store {
     fn research_items(&self, _name: &str) -> Result<Vec<ResearchItem>> { Ok(Vec::new()) }
     /// A saved site read (posts in site order), when this store has one.
     fn site_feed(&self, _key: &str) -> Result<Option<SiteFeed>> { Ok(None) }
+    /// Stored edit versions of `post_id`, oldest first.
+    fn post_versions(&self, _post_id: &str) -> Result<Vec<PostVersion>> { Ok(Vec::new()) }
 }
 
 /// The stored file of research item `research:<id>`, as an attachment (local files, page snapshots).
@@ -245,6 +247,10 @@ impl Store for SqliteStore {
         let Some(c) = self.conn()? else { return Ok(None) };
         load_site_feed(&c, key)
     }
+    fn post_versions(&self, post_id: &str) -> Result<Vec<PostVersion>> {
+        let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        load_post_versions(&c, post_id)
+    }
 }
 
 /// In-memory store (tests, headless renders).
@@ -262,6 +268,8 @@ pub struct MemStore {
     pub research: Vec<(String, ResearchItem)>,
     /// Saved site reads (tests and headless renders).
     pub feeds: Vec<SiteFeed>,
+    /// Stored edit versions (tests and headless renders).
+    pub versions: Vec<PostVersion>,
 }
 
 impl Store for MemStore {
@@ -305,6 +313,11 @@ impl Store for MemStore {
     }
     fn site_feed(&self, key: &str) -> Result<Option<SiteFeed>> {
         Ok(self.feeds.iter().find(|f| f.key == key).cloned())
+    }
+    fn post_versions(&self, post_id: &str) -> Result<Vec<PostVersion>> {
+        let mut v: Vec<PostVersion> = self.versions.iter().filter(|x| x.post_id == post_id).cloned().collect();
+        v.sort_by(|a, b| a.edited_at.cmp(&b.edited_at).then(a.version_hash.cmp(&b.version_hash)));
+        Ok(v)
     }
 }
 

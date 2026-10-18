@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.23.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.24.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -78,6 +78,9 @@ Reading:
 
       --reposts <ID>
           Reposts of a post (/rs/post/ID/reposts). The post menu (p) › View reposts does this
+
+      --edits <THREAD/POST>
+          Edit history (/rs/post/THREAD/POST/edits), shown as a diff. A stored post id works too. The post menu (p) › View edits does this
 
 Interface:
       --tui
@@ -299,7 +302,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.23.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.24.0 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -402,6 +405,8 @@ headless scrape is now `--scrape`.
   (`--sort-thread`, `--thread-sort`). Top uses the stored `score`.
 - **Reposts.** `p` opens a post menu on the highlighted or open post. View reposts
   opens `/rs/post/{id}/reposts` (`--reposts`).
+- **Edit history.** The same menu's View edits opens `/rs/post/{thread}/{id}/edits`
+  (`--edits`) as a line diff of each stored version. Versions live in `post_versions`.
 - **Bookmarks.** Every card and detail has a star: `☆` click (or `b`) to bookmark it, `★` click
   again to remove it. It shows at once and is stored by a small background job, so it works
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows

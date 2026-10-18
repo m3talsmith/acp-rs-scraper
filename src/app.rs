@@ -325,6 +325,12 @@ pub async fn run() -> Result<()> {
         info!("== reposts {id}: {n} posts");
         return Ok(());
     }
+    if let Some(spec) = &args.edits {
+        let (thread, post) = resolve_edits_spec(spec)?;
+        let n = read_edits(&http, &jar, &thread, &post).await?;
+        info!("== edits {thread}/{post}: {n} versions");
+        return Ok(());
+    }
     if let Some(id) = &args.sort_thread {
         let order = args.thread_sort.as_deref().unwrap_or("oldest");
         let n = read_sorted_thread(&http, &jar, id, order).await?;

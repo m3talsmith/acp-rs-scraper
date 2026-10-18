@@ -84,6 +84,34 @@ fn a_missing_score_does_not_wipe_one_already_stored() {
 }
 
 #[test]
+fn post_versions_round_trip_and_reject_an_unknown_source() {
+    let mut c = Connection::open_in_memory().unwrap();
+    let row = |hash: &str, at: &str, body: &str| PostVersion {
+        post_id: "P1".into(), version_hash: hash.into(), body_json: body.into(),
+        edited_at: at.into(), observed_at: "o1".into(), source: "site".into(),
+    };
+    crate::storage::db::save_post_versions(&mut c, &[row("b", "2026-02-01", "new"), row("a", "2026-01-01", "old")]).unwrap();
+    let mut again = row("a", "2026-01-01", "old");
+    again.observed_at = "o2".into();
+    crate::storage::db::save_post_versions(&mut c, &[again]).unwrap();
+    let loaded = crate::storage::db::load_post_versions(&c, "P1").unwrap();
+    assert_eq!(loaded.iter().map(|v| v.version_hash.as_str()).collect::<Vec<_>>(), ["a", "b"]);
+    assert_eq!(loaded[0].observed_at, "o2");
+    assert_eq!(loaded[0].body_json, "old");
+    let mut bad = row("c", "2026-03-01", "x");
+    bad.source = "nope".into();
+    assert!(crate::storage::db::save_post_versions(&mut c, &[bad]).is_err());
+    assert!(c.execute(
+        "INSERT INTO post_versions (post_id, version_hash, body_json, edited_at, observed_at, source) VALUES ('P1','z','','','','nope')",
+        []).is_err());
+    c.execute("INSERT INTO posts (post_id, parent_post_id, nick, title, content, posted_at) VALUES ('P1','','a','','','')", []).unwrap();
+    c.execute("INSERT INTO posts (post_id, parent_post_id, nick, title, content, posted_at) VALUES ('R1','P1','b','','','')", []).unwrap();
+    assert_eq!(crate::storage::db::thread_of_post(&c, "P1").unwrap().as_deref(), Some("P1"));
+    assert_eq!(crate::storage::db::thread_of_post(&c, "R1").unwrap().as_deref(), Some("P1"));
+    assert_eq!(crate::storage::db::thread_of_post(&c, "NO").unwrap(), None);
+}
+
+#[test]
 fn posts_by_ids_keeps_the_order_and_reports_missing_ones() {
     let db = std::env::temp_dir().join(format!("acp-ids-{}.db", std::process::id()));
     let _ = std::fs::remove_file(&db);

@@ -625,6 +625,41 @@ impl App {
             Err(e) => self.error("Reposts", &e),
         }
     }
+    /// Show stored edit versions of `post_id` as diffs, oldest first. Returns whether any were stored.
+    pub fn show_edits(&mut self, post_id: &str, thread_id: &str) -> bool {
+        match self.store.post_versions(post_id) {
+            Ok(vs) if !vs.is_empty() => {
+                let posts = edits_as_posts(&vs, thread_id);
+                self.search = Some(BodyView {
+                    title: format!("Edits · {post_id}"), posts,
+                    site_key: Some(edits_key(thread_id, post_id)), ..BodyView::default()
+                });
+                self.focus = Focus::Body;
+                self.anim = None;
+                true
+            }
+            Ok(_) => false,
+            Err(e) => { self.push_status(format!("error: reading edits of {post_id}: {e:#}")); false }
+        }
+    }
+    /// Post menu › View edits: the saved diffs at once, then a refresh from the site.
+    pub fn open_edits(&mut self, post_id: &str, thread_id: &str) {
+        let key = edits_key(thread_id, post_id);
+        let had = self.show_edits(post_id, thread_id);
+        let argv = match self.menu.menu.edits_argv(thread_id, post_id) {
+            Ok(v) => v,
+            Err(e) => { self.error("Edits", &e); return; }
+        };
+        if self.job.is_some() {
+            self.push_status(if had { format!("showing saved {key}; a job is already running") }
+                else { "another job is still running; wait for it or cancel it (F6)".into() });
+            return;
+        }
+        self.pending_feed = Some(key.clone());
+        self.push_status(if had { format!("showing saved {key}; refreshing from the site…") }
+            else { format!("fetching {key} from the site…") });
+        self.start_online_job(JobKind::Read, argv);
+    }
     /// `s` in a thread: cycle reply order and, for oldest/top, refresh scores from the site.
     pub fn cycle_thread_sort(&mut self) {
         if self.top().is_none() { self.push_status("open a thread to sort its replies"); return; }
@@ -1321,7 +1356,11 @@ impl App {
         self.load_base_keep();
         self.reload_marks();
         if let Some(key) = feed.as_deref() {
-            let had = self.show_site_feed(key);
+            let had = if let Some((thread, post)) = parse_edits_key(key) {
+                self.show_edits(post, thread)
+            } else {
+                self.show_site_feed(key)
+            };
             if !ok && had { self.push_status(format!("showing the saved {key}; the refresh failed")); }
         }
         if let Some((id, sort)) = sort {
@@ -1399,6 +1438,7 @@ impl App {
             },
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
+                PostAction::Edits => self.open_edits(&m.post_id, &m.thread_id),
             },
             (Modal::Search(s), ModalResult::ClosedSubmitted) => {
                 if s.cleared { self.clear_search(); }

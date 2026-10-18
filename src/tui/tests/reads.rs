@@ -217,3 +217,33 @@ fn p_views_reposts_of_the_highlighted_post() {
     let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
     assert_eq!(argv[1..], ["--reposts", id.as_str()]);
 }
+
+#[test]
+fn p_views_edits_as_a_diff_of_the_open_post() {
+    use crate::tui::input::on_key;
+    use crate::tui::state::Focus;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut store = fixture();
+    store.versions.push(PostVersion {
+        post_id: "ALICE0001".into(), version_hash: "h1".into(), body_json: "alpha\nbeta".into(),
+        edited_at: "2026-01-01T00:00:00Z".into(), observed_at: "o".into(), source: "site".into(),
+    });
+    store.versions.push(PostVersion {
+        post_id: "ALICE0001".into(), version_hash: "h2".into(), body_json: "alpha\ngamma".into(),
+        edited_at: "2026-02-01T00:00:00Z".into(), observed_at: "o".into(), source: "site".into(),
+    });
+    let mut a = App::new(Box::new(store), &no_args(), Theme::acp(), false);
+    a.select_only(nick_idx(&a, "alice"));
+    let i = a.view().posts.iter().position(|p| p.post_id == "ALICE0001").unwrap();
+    a.open_post(i);
+    a.focus = Focus::Body;
+    on_key(&mut a, KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE));
+    on_key(&mut a, KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    on_key(&mut a, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    assert_eq!(a.pending_feed.as_deref(), Some(edits_key("ALICE0001", "ALICE0001").as_str()));
+    assert_eq!(a.view().title, "Edits · ALICE0001");
+    assert_eq!(a.view().posts.len(), 2);
+    assert!(a.view().posts[1].content.contains("- beta\n+ gamma\n"), "{}", a.view().posts[1].content);
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--edits", "ALICE0001/ALICE0001"]);
+}

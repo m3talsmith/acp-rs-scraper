@@ -1,6 +1,7 @@
 //! Scraping: turning site JSON into [`Post`]s and walking a nick's profile
 //! (the Posts feed and its "Posts and replies" filter) plus the threads they started.
 
+pub mod edits;
 pub mod feed;
 pub mod mentions;
 pub mod profile;
