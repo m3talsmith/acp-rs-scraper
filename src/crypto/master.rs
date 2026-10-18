@@ -137,6 +137,15 @@ impl std::fmt::Debug for Master {
 }
 
 impl Master {
+    /// Open an account-key wrap sealed to this master's X25519 key.
+    pub fn open_account_dek(
+        &self,
+        encapped: &[u8],
+        ciphertext: &[u8],
+    ) -> Result<Zeroizing<Vec<u8>>> {
+        super::atrest::hpke_open(&self.wrap_seed, encapped, ciphertext)
+    }
+
     /// Refuse unless `expected` is this master's id. The error includes the derived
     /// id, because a wrong password still produces one.
     pub fn require_id(&self, expected: &AcpId) -> Result<()> {

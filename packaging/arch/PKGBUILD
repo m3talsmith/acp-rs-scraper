@@ -3,7 +3,7 @@
 # Install: cd packaging/arch && makepkg -si      Uninstall: sudo pacman -R acp-rs-scraper
 # (scripts/install.sh does this for you, scripts/uninstall.sh also purges ~/.acp.)
 pkgname=acp-rs-scraper
-pkgver=2.27.0
+pkgver=2.28.0
 pkgrel=1
 pkgdesc="Scrape Red Star (acp.us/rs) posts into SQLite and export them"
 arch=('x86_64' 'aarch64')

@@ -57,7 +57,7 @@ pub fn remove_nicks(db: &Path, attach_dir: &Path, nicks: &[String], keep_replies
         rep.unknown_nicks = nicks.to_vec();
         return Ok(rep);
     }
-    let mut c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
+    let mut c = crate::storage::db::open_db(db)?;
     let has_posts = table_exists(&c, "posts")?;
     let has_atts = table_exists(&c, "attachments")?;
     let has_mentions = table_exists(&c, "mentions")?;

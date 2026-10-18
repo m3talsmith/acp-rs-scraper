@@ -47,6 +47,10 @@ pub fn identity_init() -> Result<()> {
         bail!("the phrase did not match. Nothing was saved. Run --identity-init again.");
     }
     store_pin(&home, &master)?;
+    let db = home.join(crate::config::DB_REL_PATH);
+    if db.is_file() {
+        super::atrest::add_master_recipient(&db, password.as_str(), &master)?;
+    }
     println!();
     println!("Pinned {}.", master.acp_id);
     println!("The master secret was not written to disk.");
@@ -124,14 +128,72 @@ pub fn shares_verify(file: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
-/// Write an encrypted backup. Needs a terminal so the password is not taken from a pipe.
-pub fn backup_now(output: Option<&Path>) -> Result<()> {
-    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        bail!("--backup needs a terminal, so the password is not read from a pipe");
+/// Unlock or create the database for a command that is about to use it.
+/// A legacy plaintext database is left as it is. Commands that do not touch the
+/// database do not call this.
+pub fn prepare_db() -> Result<()> {
+    let db = home()?.join(crate::config::DB_REL_PATH);
+    if db.is_file()
+        && super::atrest::is_plaintext_db(&db)
+        && !super::atrest::bootstrap_path(&db).is_file()
+    {
+        return Ok(());
+    }
+    let password = password_for_db(db.is_file())?;
+    super::atrest::prepare(&db, Some(password.as_str()))
+}
+
+/// Encrypt a plaintext database in place, after a backup.
+pub fn encrypt_db() -> Result<()> {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin())
+        && std::env::var("ACP_PASSWORD")
+            .ok()
+            .filter(|p| !p.is_empty())
+            .is_none()
+    {
+        bail!("--encrypt-db needs a terminal, or ACP_PASSWORD for a non-interactive run");
     }
     let home = home()?;
-    let password = Zeroizing::new(rpassword::prompt_password("Password: ")?);
-    check_password(password.as_str())?;
+    let db = home.join(crate::config::DB_REL_PATH);
+    let password = password_for_db(true)?;
+    let dest = super::backup::default_backup_path(&home);
+    super::atrest::encrypt_db(&db, password.as_str(), &dest)?;
+    println!(
+        "Encrypted {}. A backup was written to {}.",
+        db.display(),
+        dest.display()
+    );
+    println!("The plaintext file was removed after the encrypted copy matched.");
+    Ok(())
+}
+
+fn password_for_db(existing: bool) -> Result<Zeroizing<String>> {
+    if let Ok(value) = std::env::var("ACP_PASSWORD") {
+        if !value.is_empty() {
+            let password = Zeroizing::new(value);
+            check_password(password.as_str())?;
+            return Ok(password);
+        }
+    }
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        bail!("this database needs a password. Set ACP_PASSWORD, or run from a terminal.");
+    }
+    if existing {
+        let password = Zeroizing::new(rpassword::prompt_password("Password: ")?);
+        check_password(password.as_str())?;
+        return Ok(password);
+    }
+    prompt_new_password()
+}
+
+/// Write an encrypted backup. Needs a terminal so the password is not taken from a pipe.
+pub fn backup_now(output: Option<&Path>) -> Result<()> {
+    let home = home()?;
+    let password = password_for_db(true)?;
+    let db = home.join(crate::config::DB_REL_PATH);
+    if super::atrest::bootstrap_path(&db).is_file() {
+        super::atrest::unlock(&db, password.as_str())?;
+    }
     let params = Pin::load(&home)?
         .map(|p| p.argon2)
         .unwrap_or_else(default_params);
@@ -157,19 +219,19 @@ pub fn backup_now(output: Option<&Path>) -> Result<()> {
 
 /// Restore a backup into this home.
 pub fn restore_now(path: &Path) -> Result<()> {
-    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        bail!("--restore needs a terminal, so the password is not read from a pipe");
-    }
     let home = home()?;
     let header = super::backup::inspect(path)?;
     let material = if super::backup::needs_phrase(&home, &header)? {
+        if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            bail!("--restore on a new machine needs a terminal for the phrase or the shares");
+        }
         Some(read_block(
             "Paste the 24-word phrase, or at least 3 shares, then a blank line:",
         )?)
     } else {
         None
     };
-    let password = Zeroizing::new(rpassword::prompt_password("Password: ")?);
+    let password = password_for_db(true)?;
     super::backup::restore_backup(&home, path, password.as_str(), material.as_deref())?;
     println!("Restored the archive into this home.");
     println!(
@@ -180,6 +242,7 @@ pub fn restore_now(path: &Path) -> Result<()> {
 
 /// Store a backup schedule. A later headless service runs it; this build records it and reminds you.
 pub fn backup_schedule(cadence: &str, keep: u32, dest: &Path) -> Result<()> {
+    prepare_db()?;
     let home = home()?;
     super::backup::save_schedule(&home, cadence, keep, dest)?;
     println!(

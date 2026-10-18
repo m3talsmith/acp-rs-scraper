@@ -119,7 +119,7 @@ fn write_backup_version(
         app: env!("CARGO_PKG_VERSION").to_string(),
         created_at: now_secs(),
         acp_id,
-        epochs: Vec::new(),
+        epochs: epoch_list(home)?,
         argon2: params,
         salt,
         nonce,
@@ -185,6 +185,10 @@ pub fn restore_backup(
         bail!("backup contents do not match the header checksum");
     }
     unpack(home, &tar_bytes)?;
+    let db = home.join(DB_REL_PATH);
+    if db.is_file() && crate::crypto::atrest::is_plaintext_db(&db) {
+        crate::crypto::atrest::encrypt_in_place(&db, password, header.argon2)?;
+    }
     Ok(())
 }
 
@@ -509,6 +513,34 @@ fn pack(home: &Path) -> Result<Vec<u8>> {
     Ok(body)
 }
 
+/// Epoch numbers stored in `key_epochs`, when that table exists.
+fn epoch_list(home: &Path) -> Result<Vec<u64>> {
+    let path = home.join(DB_REL_PATH);
+    if !path.is_file() {
+        return Ok(Vec::new());
+    }
+    let conn = crate::storage::db::open_db(&path)?;
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'key_epochs'",
+        [],
+        |r| r.get(0),
+    )?;
+    if exists == 0 {
+        return Ok(Vec::new());
+    }
+    let mut st = conn.prepare("SELECT epoch FROM key_epochs ORDER BY epoch")?;
+    let rows = st.query_map([], |r| r.get::<_, i64>(0))?;
+    let mut out = Vec::new();
+    for row in rows {
+        let n = row?;
+        if n < 0 {
+            bail!("a key epoch is negative");
+        }
+        out.push(n as u64);
+    }
+    Ok(out)
+}
+
 fn snapshot_db(home: &Path) -> Result<Vec<u8>> {
     let src_path = home.join(DB_REL_PATH);
     let mut nonce = [0u8; 4];
@@ -518,14 +550,17 @@ fn snapshot_db(home: &Path) -> Result<Vec<u8>> {
         std::process::id(),
         data_encoding::HEXLOWER.encode(&nonce)
     ));
-    let src = rusqlite::Connection::open(&src_path)
-        .with_context(|| format!("opening {}", src_path.display()))?;
-    let mut dst = rusqlite::Connection::open(&tmp)?;
-    {
-        let backup = rusqlite::backup::Backup::new(&src, &mut dst)?;
-        backup.run_to_completion(64, std::time::Duration::from_millis(0), None)?;
-    }
-    drop(dst);
+    let src = crate::storage::db::open_db(&src_path)?;
+    let path = tmp.display().to_string().replace('\'', "''");
+    // The online backup API refuses an encrypted database. sqlcipher_export
+    // writes a plaintext snapshot, which the archive then seals.
+    src.execute_batch(&format!(
+        "ATTACH DATABASE '{path}' AS plaintext KEY '';
+         SELECT sqlcipher_export('plaintext');
+         DETACH DATABASE plaintext;"
+    ))
+    .context("snapshot")?;
+    drop(src);
     let bytes = std::fs::read(&tmp).context("reading the database snapshot")?;
     let _ = std::fs::remove_file(&tmp);
     Ok(bytes)
@@ -587,6 +622,9 @@ fn never_restore(name: &str) -> bool {
         || name.starts_with(".acp/cache")
         || name.starts_with(EXPORTS_REL_PATH)
         || name.ends_with(".acpbackup")
+        || name.ends_with(".bootstrap")
+        || name.ends_with(".prev")
+        || name.ends_with(".encrypting")
 }
 
 fn tar_name(rel: &Path) -> String {
@@ -698,7 +736,9 @@ mod tests {
     }
 
     fn post_content(home: &Path) -> String {
-        let c = rusqlite::Connection::open(home.join(DB_REL_PATH)).unwrap();
+        let db = home.join(DB_REL_PATH);
+        crate::crypto::atrest::unlock(&db, PASSWORD).unwrap();
+        let c = crate::storage::db::open_db(&db).unwrap();
         c.query_row("SELECT content FROM posts", [], |r| r.get(0))
             .unwrap()
     }

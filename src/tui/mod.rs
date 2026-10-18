@@ -59,6 +59,7 @@ pub async fn run(args: Args) -> Result<()> {
         bail!("the terminal UI needs a terminal; for headless use pass flags, e.g. --scrape, --nick NICK, --search TEXT, --export FILE (see --help)");
     }
     let home_dir = home()?;
+    crate::crypto::cmd::prepare_db()?;
     let db = home_dir.join(DB_REL_PATH);
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),

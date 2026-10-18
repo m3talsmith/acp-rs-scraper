@@ -205,6 +205,7 @@ pub async fn run() -> Result<()> {
     }
     if args.backup { return crate::crypto::cmd::backup_now(args.output.as_deref()); }
     if let Some(path) = args.restore.as_deref() { return crate::crypto::cmd::restore_now(path); }
+    if args.encrypt_db { return crate::crypto::cmd::encrypt_db(); }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_themes { return run_list_themes(&args).await; }
@@ -212,12 +213,12 @@ pub async fn run() -> Result<()> {
     if tui {
         return crate::tui::run(args).await;
     }
-    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
-    let clean = |n: String| n.replace(['/', '\\'], "_");
     if let Some(list) = &args.remove_nick {
+        crate::crypto::cmd::prepare_db()?;
         return run_remove_nick(&args, &list.0);
     }
     if args.clear_all {
+        crate::crypto::cmd::prepare_db()?;
         return run_clear_all(&args);
     }
     if args.logout {
@@ -228,6 +229,9 @@ pub async fn run() -> Result<()> {
         else { info!("Not logged in: no saved session at {}.", session_path()?.display()); }
         return Ok(());
     }
+    crate::crypto::cmd::prepare_db()?;
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let clean = |n: String| n.replace(['/', '\\'], "_");
     if args.research_list || args.research_create.is_some() || args.research_add.is_some() || args.research_show.is_some() || args.research_export.is_some() {
         return run_research(&args).await;
     }

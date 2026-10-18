@@ -338,7 +338,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "acp_id", "shares_print", "shares_verify",
-        "backup", "restore", "backup_schedule",
+        "backup", "restore", "backup_schedule", "encrypt_db",
     ])]
     pub identity_init: bool,
     /// Print the pinned acp-id.
@@ -348,7 +348,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "shares_print", "shares_verify",
-        "backup", "restore", "backup_schedule",
+        "backup", "restore", "backup_schedule", "encrypt_db",
     ])]
     pub acp_id: bool,
     /// Print five SLIP-39 recovery sheets (3 of 5) for the pinned account. Needs a terminal.
@@ -359,7 +359,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_verify",
-        "backup", "restore", "backup_schedule",
+        "backup", "restore", "backup_schedule", "encrypt_db",
     ])]
     pub shares_print: bool,
     /// Check three to five recovery shares against the pinned acp-id. Writes nothing secret.
@@ -369,7 +369,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id",
-        "backup", "restore", "backup_schedule",
+        "backup", "restore", "backup_schedule", "encrypt_db",
     ])]
     pub shares_verify: bool,
     /// Sheet or paste to read instead of typing shares. Used with --shares-print or --shares-verify.
@@ -412,6 +412,16 @@ pub struct Args {
     /// Directory for scheduled backups. Used with --backup-schedule.
     #[arg(long = "dest", value_name = "DIR", requires = "backup_schedule", help_heading = "Identity")]
     pub backup_dest: Option<PathBuf>,
+    /// Encrypt an existing plaintext database. Writes a backup first, then checks counts and text.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "restore", "backup_schedule",
+    ])]
+    pub encrypt_db: bool,
 }
 
 /// Targets for the hidden `--generate` packaging flag.

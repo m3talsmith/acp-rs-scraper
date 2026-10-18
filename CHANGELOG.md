@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.28.0] - 2026-10-18
+
+### Added
+
+- **Encryption at rest.** A database this program creates is SQLCipher. The on-disk key is a random 256-bit local key (`PRAGMA key = "x'<hex>'"`), wrapped with XChaCha20-Poly1305 under HKDF(Argon2id(password)) in `rs.database.bootstrap`. A separate account data key (epoch 1) is wrapped to that password and, when an `acp-id` is pinned, to the master with HPKE. `--encrypt-db` writes a backup, copies the plaintext database, checks row counts and a content hash, and deletes the plaintext file only after the encrypted copy matches. A database that already exists in plaintext stays readable until that command. Restore of a backup re-encrypts with a fresh local key. The backup header lists the key epochs stored in the database.
+
 ## [2.27.0] - 2026-10-18
 
 ### Added

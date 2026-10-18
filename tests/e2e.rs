@@ -7,11 +7,12 @@
 mod support;
 
 use cucumber::{World, given, then, when};
-use rusqlite::Connection;
 use std::path::PathBuf;
 use support::mock::{CODE, Mock};
 use tokio::io::AsyncWriteExt;
 use acp_rs_scraper::tui::commands::{CommandId, Menu};
+
+const E2E_PASSWORD: &str = "correct horse battery staple";
 
 /// Output of one run of the binary.
 #[derive(Debug, Default)]
@@ -48,8 +49,16 @@ impl E2e {
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
     fn att(&self) -> PathBuf { self.home.join(".acp/ai/data/attachments") }
+    fn conn(&self) -> acp_rs_scraper::prelude::Connection {
+        let db = self.db();
+        if acp_rs_scraper::crypto::atrest::bootstrap_path(&db).is_file() {
+            acp_rs_scraper::crypto::atrest::unlock(&db, E2E_PASSWORD)
+                .expect("e2e password opens the encrypted database");
+        }
+        acp_rs_scraper::storage::db::open_db(&db).expect("open database")
+    }
     fn q(&self, sql: &str) -> i64 {
-        Connection::open(self.db()).unwrap().query_row(sql, [], |r| r.get(0)).unwrap()
+        self.conn().query_row(sql, [], |r| r.get(0)).unwrap()
     }
     async fn run(&mut self, args: &str) {
         let argv: Vec<String> = args.split_whitespace().map(String::from).collect();
@@ -61,7 +70,7 @@ impl E2e {
         let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &self.home.to_string_lossy()).replace("$SITE", &base)).collect();
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_acp-rs-scraper"))
             .args(&args).env("HOME", &self.home).env("ACP_THEME_URL", self.theme_url.clone().unwrap_or_else(|| format!("{base}/themes/")))
-            .env("ACP_BASE_URL", base).env_remove("ACP_DEBUG").env_remove("ACP_THEME_DOWNLOAD").envs(self.env.iter().cloned())
+            .env("ACP_BASE_URL", base).env("ACP_PASSWORD", E2E_PASSWORD).env("ACP_ARGON_FAST", "1").env_remove("ACP_DEBUG").env_remove("ACP_THEME_DOWNLOAD").envs(self.env.iter().cloned())
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
             .spawn().unwrap();
         let mut stdin = child.stdin.take().unwrap();
@@ -177,7 +186,7 @@ async fn site_marks(w: &mut E2e, list: String) {
 
 #[then(expr = "my bookmarks are {string}")]
 async fn local_marks(w: &mut E2e, list: String) {
-    let c = Connection::open(w.db()).unwrap();
+    let c = w.conn();
     let mut st = c.prepare("SELECT post_id FROM bookmarks WHERE deleted = 0 ORDER BY post_id").unwrap();
     let got: Vec<String> = st.query_map([], |r| r.get(0)).unwrap().map(Result::unwrap).collect();
     let mut want: Vec<String> = list.split(',').map(|s| s.trim().to_string()).filter(|s| !s.is_empty()).collect();
@@ -198,7 +207,7 @@ async fn n_posts_by(w: &mut E2e, n: i64, nick: String) {
 
 #[then(expr = "post {string} has parent {string}")]
 async fn parent(w: &mut E2e, id: String, p: String) {
-    let got: String = Connection::open(w.db()).unwrap()
+    let got: String = w.conn()
         .query_row("SELECT parent_post_id FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
     assert_eq!(got, p);
 }
@@ -277,14 +286,14 @@ async fn file_contains(w: &mut E2e, f: String, s: String) {
 
 #[then(expr = "post {string} has content {string}")]
 async fn content(w: &mut E2e, id: String, c: String) {
-    let got: String = Connection::open(w.db()).unwrap()
+    let got: String = w.conn()
         .query_row("SELECT content FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
     assert_eq!(got.trim(), c);
 }
 
 #[then(expr = "post {string} has {int} paragraphs ending {string}")]
 async fn paragraphs(w: &mut E2e, id: String, n: usize, end: String) {
-    let got: String = Connection::open(w.db()).unwrap()
+    let got: String = w.conn()
         .query_row("SELECT content FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
     assert_eq!(got.split("\n\n").count(), n, "{got:?}");
     assert!(got.ends_with(&end), "{got:?}");
@@ -292,19 +301,19 @@ async fn paragraphs(w: &mut E2e, id: String, n: usize, end: String) {
 
 #[then(expr = "post {string} has body state {string}")]
 async fn body_state(w: &mut E2e, id: String, st: String) {
-    let got: String = Connection::open(w.db()).unwrap()
+    let got: String = w.conn()
         .query_row("SELECT body_state FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
     assert_eq!(got, st);
 }
 
 #[given(expr = "post {string} was stored truncated as {string}")]
 async fn stored_truncated(w: &mut E2e, id: String, st: String) {
-    Connection::open(w.db()).unwrap().execute("UPDATE posts SET content='short…', body_state=?2 WHERE post_id=?1", [&id, &st]).unwrap();
+    w.conn().execute("UPDATE posts SET content='short…', body_state=?2 WHERE post_id=?1", [&id, &st]).unwrap();
 }
 
 #[given(expr = "post {string} was stored blank")]
 async fn blank(w: &mut E2e, id: String) {
-    Connection::open(w.db()).unwrap().execute("UPDATE posts SET content='', title='' WHERE post_id=?1", [&id]).unwrap();
+    w.conn().execute("UPDATE posts SET content='', title='' WHERE post_id=?1", [&id]).unwrap();
 }
 
 #[then(expr = "the file {string} shows the profile image {string}")]
@@ -315,7 +324,7 @@ async fn shows_avatar(w: &mut E2e, f: String, src: String) {
 
 #[then(expr = "post {string} replies directly to {string}")]
 async fn direct_parent(w: &mut E2e, id: String, p: String) {
-    let got: String = Connection::open(w.db()).unwrap()
+    let got: String = w.conn()
         .query_row("SELECT in_reply_to_id FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
     assert_eq!(got, p);
 }
