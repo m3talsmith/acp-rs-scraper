@@ -1,7 +1,7 @@
 //! Unit tests for argument parsing, nick lists, names and generators.
 
 use super::*;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 #[test]
 fn nicks_parse() {
@@ -35,6 +35,17 @@ fn default_names() {
 fn list_nicks_flag() {
     assert!(Args::try_parse_from(["x", "--list-nicks"]).is_ok());
     assert!(Args::try_parse_from(["x", "--full"]).is_ok());
+}
+
+#[test]
+fn identity_flags_parse_and_do_not_open_the_tui() {
+    let a = Args::try_parse_from(["x", "--identity-init"]).unwrap();
+    assert!(a.identity_init);
+    assert!(Args::try_parse_from(["x", "--acp-id"]).unwrap().acp_id);
+    assert!(Args::try_parse_from(["x", "--identity-init", "--scrape"]).is_err());
+    assert!(Args::try_parse_from(["x", "--identity-init", "--acp-id"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--acp-id"]).unwrap();
+    assert!(!wants_tui(&m));
 }
 
 #[test]

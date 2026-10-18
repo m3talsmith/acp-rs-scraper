@@ -1,3 +1,9 @@
+acp-rs-scraper (2.25.0) unstable; urgency=medium
+
+  * Master secret: 24-word BIP-39 phrase, mandatory password, pinned acp-id (--identity-init, --acp-id).
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 22:00:00 +0000
+
 acp-rs-scraper (2.24.1) unstable; urgency=medium
 
   * Bookmark sync sends the hook bookmark {id, state} instead of toggle-bookmark.

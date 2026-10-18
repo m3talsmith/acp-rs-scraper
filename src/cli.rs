@@ -80,6 +80,10 @@ acp-rs-scraper --sort-thread THREAD --thread-sort top
 acp-rs-scraper --reposts POST
   \
 acp-rs-scraper --edits THREAD/POST
+  \
+acp-rs-scraper --identity-init
+  \
+acp-rs-scraper --acp-id
 ",
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
@@ -314,6 +318,26 @@ pub struct Args {
     /// Error log file (default ~/.acp/logs/error.log); implies --enable-logging.
     #[arg(long, value_name = "PATH", help_heading = "Debug")]
     pub error_log: Option<PathBuf>,
+
+    /// Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id.
+    /// The phrase is shown once on this terminal and is not stored. Needs a terminal.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "acp_id",
+    ])]
+    pub identity_init: bool,
+    /// Print the pinned acp-id.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes",
+    ])]
+    pub acp_id: bool,
 }
 
 /// Targets for the hidden `--generate` packaging flag.

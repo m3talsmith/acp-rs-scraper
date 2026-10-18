@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.25.0] - 2026-10-18
+
+### Added
+
+- **Master secret.** `--identity-init` draws 256 bits, shows them as a 24-word BIP-39 phrase (once, on a terminal, never stored or logged) and derives the master from that seed and a mandatory password. The password is Argon2id with the plan's 64 MiB floor; the salt is `blake3("acp-master" ‖ seed)`, so the email is not an input. ed25519 and X25519 keys are HKDF labels of that master. `--acp-id` prints the pinned id. A wrong password still derives an id; the tool shows it and refuses unless it matches the pin.
+
 ## [2.24.1] - 2026-10-18
 
 ### Fixed

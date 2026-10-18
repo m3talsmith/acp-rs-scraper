@@ -196,6 +196,8 @@ pub async fn run() -> Result<()> {
             .map_err(|e| anyhow!("cannot open log files {} / {}: {e}", ok.display(), bad.display()))?;
         verbose!("logging to {} and {}", ok.display(), bad.display());
     }
+    if args.identity_init { return crate::crypto::cmd::identity_init(); }
+    if args.acp_id { return crate::crypto::cmd::print_acp_id(); }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_themes { return run_list_themes(&args).await; }

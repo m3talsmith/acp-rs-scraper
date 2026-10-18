@@ -283,6 +283,10 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 
 The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip the code until the site expires it; `--logout` (or Session › Log out) deletes it. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
 
+## Identity
+
+`--identity-init` (on a terminal) creates the account master: 24 BIP-39 words and a password of at least 12 characters that passes a strength check. The phrase is shown once and is not stored. `--acp-id` prints the pinned id from `~/.acp/acp-id`, which holds the id, the Argon2 parameters and the two public keys. A wrong password still derives an id; it is shown and refused when it does not match the pin. There is no password reset.
+
 ## Where data lives
 
 | What | Path |

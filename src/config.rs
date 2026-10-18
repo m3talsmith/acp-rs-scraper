@@ -61,6 +61,14 @@ pub const PREFS_REL_PATH: &str = ".acp/preferences.toml";
 /// Saved login session cookies (JSON, mode `0600`), relative to `$HOME`. Removed by `--logout`.
 pub const SESSION_REL_PATH: &str = ".acp/session.json";
 
+/// Pinned account id and the Argon2 parameters used to derive the master secret.
+/// Public: the phrase, the password and the master secret are never written here.
+pub const ACP_ID_REL_PATH: &str = ".acp/acp-id";
+
+/// Future node secret (§7.2, §7.13.2). Not created in this release. Backups skip it
+/// so a restore cannot clone a node identity.
+pub const NODE_SECRET_REL_PATH: &str = ".acp/node/identity.key";
+
 /// Log directory (for `--enable-logging` / `--debug`), relative to `$HOME`.
 pub const LOGS_REL_DIR: &str = ".acp/logs";
 
