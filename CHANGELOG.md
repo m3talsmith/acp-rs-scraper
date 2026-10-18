@@ -6,29 +6,21 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [2.28.0] - 2026-10-18
+## [3.0.0] - 2026-10-18
+
+### BREAKING CHANGES
+
+- **A password is required to create or open the local database.** 2.x opened `~/.acp/ai/data/rs.database` with no password. 3.0.0 creates that file encrypted and asks for the password at startup, or reads `ACP_PASSWORD` when there is no terminal. The password is at least 12 characters and has to pass a strength check. There is no password reset.
+- **An existing 2.x database is not opened.** Startup stops and tells you to run `acp-rs-scraper --encrypt-db`. That command writes a `*.acpbackup` first, encrypts the database, checks row counts and a content hash, and deletes the plaintext file only after the encrypted copy matches.
+- **Rollback.** Until `--encrypt-db` succeeds, a 2.x binary still reads the plaintext file. If the migration fails, that file is left in place. After it succeeds, 2.x cannot read the database, `rs.database.bootstrap`, or a `*.acpbackup`. Copy `rs.database` somewhere outside `~/.acp` before migrating if you may need to go back; that copy is what you put back to return to 2.x. 3.0.0 restores one of its own backups with `--restore`.
+- **New files.** `rs.database.bootstrap` (next to the database) holds the wrapped local key. `~/.acp/acp-id` appears only after `--identity-init`. `session.json` is unchanged and is still not inside a backup.
 
 ### Added
 
-- **Encryption at rest.** A database this program creates is SQLCipher. The on-disk key is a random 256-bit local key (`PRAGMA key = "x'<hex>'"`), wrapped with XChaCha20-Poly1305 under HKDF(Argon2id(password)) in `rs.database.bootstrap`. A separate account data key (epoch 1) is wrapped to that password and, when an `acp-id` is pinned, to the master with HPKE. `--encrypt-db` writes a backup, copies the plaintext database, checks row counts and a content hash, and deletes the plaintext file only after the encrypted copy matches. A database that already exists in plaintext stays readable until that command. Restore of a backup re-encrypts with a fresh local key. The backup header lists the key epochs stored in the database.
-
-## [2.27.0] - 2026-10-18
-
-### Added
-
-- **Backup and restore.** `--backup` writes a `*.acpbackup` file: a consistent SQLite snapshot plus preferences, themes, research, attachments and the pinned `acp-id`. The archive is tar, then zstd, then XChaCha20-Poly1305. The key is HKDF of Argon2id with a random salt stored in the header. The header is a CBOR array (format, schema, app version, time, `acp-id`, epoch list, Argon2 parameters, and a blake3 of the tar) and is authenticated as associated data. `--restore` checks the format, the password and, on a new machine, the phrase or three shares against the header `acp-id`. `session.json` and the node secret are not in the archive. `--backup-schedule daily|weekly --keep N --dest DIR` is stored in the database and the terminal UI reminds you when it is due. The headless job that runs the schedule is a later release.
-
-## [2.26.0] - 2026-10-18
-
-### Added
-
-- **Recovery shares.** The 256-bit seed is split with SLIP-39, one group, 3 of 5, and an empty share passphrase. `--shares-print` writes five sheets (the `acp-id`, the set id and the share index). `--shares-verify` checks three to five shares against the pinned id and stores nothing. The password is not in the shares. Reissuing shares of the same seed does not invalidate older ones. `--identity-init` can print the sheets or postpone them; a postponed set is reminded in the terminal UI until it is checked. The construction is checked against the official SLIP-39 test vectors.
-
-## [2.25.0] - 2026-10-18
-
-### Added
-
-- **Master secret.** `--identity-init` draws 256 bits, shows them as a 24-word BIP-39 phrase (once, on a terminal, never stored or logged) and derives the master from that seed and a mandatory password. The password is Argon2id with the plan's 64 MiB floor; the salt is `blake3("acp-master" ‖ seed)`, so the email is not an input. ed25519 and X25519 keys are HKDF labels of that master. `--acp-id` prints the pinned id. A wrong password still derives an id; the tool shows it and refuses unless it matches the pin.
+- **Master secret and `acp-id`.** `--identity-init` draws 256 bits, shows them as a 24-word BIP-39 phrase (once, on a terminal, never stored or logged) and derives the master from that seed and the password. The Argon2id salt is `blake3("acp-master" ‖ seed)`, so the email is not an input. ed25519 and X25519 keys are HKDF labels of that master. `--acp-id` prints the pinned id. A wrong password still derives an id; the tool shows it and refuses unless it matches the pin.
+- **Recovery shares.** The 256-bit seed is split with SLIP-39, one group, 3 of 5, and an empty share passphrase. `--shares-print` writes five sheets. `--shares-verify` checks three to five shares and stores nothing secret. The password is not in the shares. Reissuing shares of the same seed does not invalidate older ones. The construction is checked against the official SLIP-39 test vectors.
+- **Backup and restore.** `--backup` writes a `*.acpbackup` file: a consistent SQLite snapshot plus preferences, themes, research, attachments and the pinned `acp-id`. The archive is tar, then zstd, then XChaCha20-Poly1305 under a key from Argon2id. `--restore` checks the format, the password and, on a new machine, the phrase or three shares against the header `acp-id`. `session.json` and the node secret are not in the archive. `--backup-schedule daily|weekly --keep N --dest DIR` is stored and the terminal UI reminds you when it is due. The headless job that runs the schedule is a later release.
+- **Encryption at rest.** A database this program creates is SQLCipher. The on-disk key is a random 256-bit local key, wrapped under the password in `rs.database.bootstrap`. A separate account data key (epoch 1) is wrapped to that password and, when an `acp-id` is pinned, to the master with HPKE. Restore of a backup re-encrypts with a fresh local key.
 
 ## [2.24.1] - 2026-10-18
 

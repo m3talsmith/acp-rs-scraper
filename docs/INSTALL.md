@@ -69,7 +69,7 @@ Distro Rust is therefore **too old on Debian 13 (trixie, rustc 1.85)** and older
 | debian | `build-essential pkg-config` | `devscripts debhelper dpkg-dev` |
 | fedora | `gcc pkgconf-pkg-config` | `rpm-build rpmdevtools` |
 
-SQLite is compiled in (rusqlite `bundled`) and TLS uses rustls, so no OpenSSL or libsqlite development packages are needed. Cargo downloads crates from crates.io during the build, so you need network access. Offline builders such as mock or koji would need a vendored tree.
+SQLCipher is compiled in, with its OpenSSL vendored, and TLS uses rustls, so no system OpenSSL or libsqlite development packages are needed. Cargo downloads crates from crates.io during the build, so you need network access. Offline builders such as mock or koji would need a vendored tree.
 
 ## Arch / Manjaro / EndeavourOS
 
@@ -138,7 +138,7 @@ scripts/uninstall.sh --yes        # no prompt (required when stdin isn't a termi
 
 **Purging is the default.** The script finds how the tool was installed: a pacman, apt or dnf package, or a `--user`/`/usr/local` manifest. It then shows **one confirmation listing everything it will delete**, with sizes, and requires typing `yes`:
 - the package, or the files listed in the manifest;
-- `~/.acp/ai/data/rs.database` (plus `-wal`/`-shm`/`-journal` sidecar files);
+- `~/.acp/ai/data/rs.database` (plus `rs.database.bootstrap` and `-wal`/`-shm`/`-journal` sidecar files);
 - `~/.acp/ai/data/attachments/`;
 - `~/.acp/ai/data/exports/`;
 - `~/.acp/preferences.toml` (your saved email).

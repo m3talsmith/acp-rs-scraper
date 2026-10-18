@@ -11,9 +11,9 @@
 //! master wrapping key with HPKE (X25519, HKDF-SHA256, ChaCha20-Poly1305). A node
 //! recipient is accepted by the same decoder and is not produced here.
 //!
-//! An existing plaintext database stays readable until `--encrypt-db`. A database
-//! this program creates is encrypted. Callers that never ask for a password, including
-//! the unit tests, still get a plaintext file.
+//! The program refuses to start on a 2.x plaintext database and tells you to run
+//! `--encrypt-db`. A database this program creates is encrypted. Library callers
+//! that never ask for a password, including the unit tests, still get a plaintext file.
 
 use anyhow::{Context, Result, bail};
 use chacha20poly1305::aead::{Aead, Payload};
@@ -67,6 +67,32 @@ pub fn bootstrap_path(db: &Path) -> PathBuf {
 /// Whether `path` is a plaintext SQLite file.
 pub fn is_plaintext_db(path: &Path) -> bool {
     header(path).is_some_and(|b| &b == b"SQLite format 3\0")
+}
+
+/// What to print when `db` is a 2.x plaintext database the program must not open.
+///
+/// `None` when the file is missing, already encrypted, or not a SQLite file.
+pub fn legacy_plaintext_notice(db: &Path) -> Option<String> {
+    if !db.is_file() || !is_plaintext_db(db) || bootstrap_path(db).is_file() {
+        return None;
+    }
+    Some(format!(
+        "{path} is a 2.x database and is not encrypted. 3.0.0 will not open it.\n\
+         \n\
+         Migrate it with a backup first:\n\
+         \n\
+           acp-rs-scraper --encrypt-db\n\
+         \n\
+         That writes a *.acpbackup, encrypts the database, and removes the plaintext \
+         file only after the encrypted copy matches. It asks for the password the \
+         database will use from then on.\n\
+         \n\
+         A 2.x binary still reads this file until that command succeeds. After it \
+         succeeds, 2.x cannot read the database. Copy the file somewhere outside \
+         ~/.acp first if you may need to go back. If migration fails, the original \
+         file is left in place.",
+        path = db.display()
+    ))
 }
 
 /// A file long enough to be a database and not a plaintext SQLite header.
@@ -804,6 +830,21 @@ mod tests {
              INSERT INTO posts VALUES ('p2', 'beta');",
         )
         .unwrap();
+    }
+
+    #[test]
+    fn a_plaintext_database_is_told_to_migrate() {
+        let home = scratch("legacy");
+        let db = db_of(&home);
+        assert!(legacy_plaintext_notice(&db).is_none());
+        seed_plain(&db);
+        let msg = legacy_plaintext_notice(&db).unwrap();
+        assert!(msg.contains(db.to_str().unwrap()), "{msg}");
+        assert!(msg.contains("--encrypt-db"), "{msg}");
+        assert!(msg.contains("2.x"), "{msg}");
+        encrypt_in_place(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        assert!(legacy_plaintext_notice(&db).is_none());
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     #[test]

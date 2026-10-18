@@ -1,11 +1,13 @@
 # Plan: acp-rs-scraper 3.0, a full Red Star client
 
-Status: **design only. Don't implement until Michael has reviewed it.**
+Status: **3.0.0 is implemented** (identity, encryption at rest, backup and restore). Later phases in this file are still design.
 Base: 2.16.1 (`55fd11cd`); 2.17.0 (full Markdown rendering) is in progress. Companion docs: [SPECS.md](./SPECS.md) and [PLAN-2.0-TUI.md](./PLAN-2.0-TUI.md).
 
 Update 2026-10-18: §7.13 (keys, identity, encryption at rest, backup and recovery) and §7.14 (onboarding, operations, crates, Dart SDK, local-first posts and review)
 were added after review with Michael. §7.13 supersedes the single node identity key in §7.2, and §7.14 wins wherever it disagrees with an earlier section.
 Their decisions are marked resolved in §8 Q11 and Q12.
+
+Update 2026-10-18 (versioning): **3.0.0 is identity, encryption at rest, and backup/restore**, not the write core. It is a breaking change for a 2.x plaintext database. The write core and every later phase move up one minor (§4, §7.11, §7.14.9). Authorizer and node certificates, enrollment, revocation, relays and peers stay in P9 (3.19.0 and later).
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -206,7 +208,7 @@ Only bookmark toggling writes.
 
 ## 3. Safety
 
-1. **Writes are on by default from 3.0.0** (resolved 2026-10-18). They're opt-out: set `ui.writes = false` in
+1. **Writes are on by default from 3.1.0** (resolved 2026-10-18). They're opt-out: set `ui.writes = false` in
    `~/.acp/preferences.toml` or `ACP_WRITES=off`, and the env var wins. When writes are off, every write action is greyed out with the reason.
    Bundle-hash gating (§2.1) can still refuse writes after a site deploy. The preview, confirm and `--dry-run` below never go away.
 2. **Confirmation before anything is published.** Every `SiteAction` shows a preview modal with:
@@ -231,21 +233,22 @@ Only bookmark toggling writes.
 
 ## 4. Roadmap
 
-This follows Michael's rule: the minor version goes up by one per feature, a fix is a patch, and 3.0.0 marks the first new write feature.
+This follows Michael's rule: the minor version goes up by one per feature, a fix is a patch, and 3.0.0 is the breaking release for identity, encryption at rest, and backup/restore. 3.1.0 is the first write feature. One minor each after that.
 
 | Phase | Version | Contents |
 |---|---|---|
 | P0: Protocol spike (no release) | none | **Guided capture session** (§4.1): Michael writes one real reply himself, and the LiveView frames are logged with secrets redacted. The same session opens `/rs/notifications` read-only. The results become masked fixtures for the fake LV server. No browser dev-tools export. |
 | P1: Read parity | 2.17.0 → 2.24.0 | **2.17.0: full Markdown rendering of post bodies (in progress, taken outside this plan).** Then 2.18.0 → 2.24.0: Site Top (3), EB feed (4), Explore + site search (5/6), tag feeds (7), thread sort (9), reposts list (13), edit history (14). Also add `body_json` and `post_tags` columns. Switch bookmarks to the `bookmark` event (fix → patch). |
-| P2: Write core | **3.0.0** | `src/site` layer, safety layer, Markdown→ProseMirror, compose **New post** + **Reply** (incl. reply-to-comment, quote, mention/tag completion). Attachments if the upload spike succeeded; otherwise they go to 3.1. |
-| P3: Interactions | 3.1.0 → 3.5.0 | Vote, Subscribe, Delete, Edit, Repost/quote-post |
-| P4: Live | 3.6.0 → 3.7.0 | Live updates; Notifications pane |
-| P5: Account | 3.8.0 → 3.11.0 | Edit profile, Site settings, Report post, Report user |
-| P6: Outbox | 3.12.0 | Offline drafts and queue, plus **local-first posts, drafts and `post_versions`** (§7.14.8) |
-| P7: Feeds | 3.13.0 → 3.16.0 | Feeds core + view; editor + add-to-feed modal; export; share/import (§6) |
-| P8: Spaces (optional) | 3.17.0 | List of spaces / live badge / recordings link |
-| P9: Decentralization | 3.18.0 → 3.22.0 | Node + identity + peers; replication; NAT traversal; write relay to the site; media blobs; feeds/research sharing (§7). It stays inside 3.x: provenance changes the data model, but 3.0.0 is already the major release that holds everything (§7.14.10). |
-| P10: Review and Dart SDK | 3.23.0 → 3.24.0 | Draft review links, comments and suggestions (3.23.0). `acp_rs_node_ffi` and the Dart SDK (3.24.0). See §7.14. |
+| 3.0.0: Identity and encryption | **3.0.0** | Master secret, 24-word phrase, SLIP-39 shares, pinned `acp-id`, SQLCipher encryption at rest, envelope wraps, `--encrypt-db`, backup and restore (§7.13, the parts that do not need a node). Breaking for a 2.x plaintext database. Certificates, enrollment, revocation, relays and peers stay in P9. |
+| P2: Write core | **3.1.0** | `src/site` layer, safety layer, Markdown→ProseMirror, compose **New post** + **Reply** (incl. reply-to-comment, quote, mention/tag completion). Attachments if the upload spike succeeded; otherwise they go to 3.2. |
+| P3: Interactions | 3.2.0 → 3.6.0 | Vote, Subscribe, Delete, Edit, Repost/quote-post |
+| P4: Live | 3.7.0 → 3.8.0 | Live updates; Notifications pane |
+| P5: Account | 3.9.0 → 3.12.0 | Edit profile, Site settings, Report post, Report user |
+| P6: Outbox | 3.13.0 | Offline drafts and queue, plus **local-first posts, drafts and `post_versions`** (§7.14.8) |
+| P7: Feeds | 3.14.0 → 3.17.0 | Feeds core + view; editor + add-to-feed modal; export; share/import (§6) |
+| P8: Spaces (optional) | 3.18.0 | List of spaces / live badge / recordings link |
+| P9: Decentralization | 3.19.0 → 3.23.0 | Node, authorizer and node certificates, peers; replication; NAT traversal; write relay to the site; media blobs; feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup already shipped in 3.0.0. It stays inside 3.x: provenance changes the data model, but 3.0.0 is already the major release that holds everything (§7.14.10). |
+| P10: Review and Dart SDK | 3.24.0 → 3.25.0 | Draft review links, comments and suggestions (3.24.0). `acp_rs_node_ffi` and the Dart SDK (3.25.0). See §7.14. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -299,7 +302,7 @@ Uploads, votes, deletes and edits are **not** part of this capture. Each one get
 
 ---
 
-## 6. Feeds (client-side; phase P7, 3.13.0 → 3.16.0)
+## 6. Feeds (client-side; phase P7, 3.14.0 → 3.17.0)
 
 Feeds are named, saved, local views built from rules over the local DB. They can refresh from the
 site through targeted syncs, export with the existing formats, and be shared as a portable definition. No
@@ -431,11 +434,11 @@ values = ["memes"]
   - Create a feed → view it → export JSON/HTML.
   - Share → import into a second throwaway HOME → same results from that DB.
   - Refresh triggers mocked tag, profile and search fetches (fake LV server).
-- Version phase: P7, from **3.13.0** (core + view) to 3.14.0 (editor + add-to-feed), 3.15.0 (export) and 3.16.0 (share/import).
+- Version phase: P7, from **3.14.0** (core + view) to 3.15.0 (editor + add-to-feed), 3.16.0 (export) and 3.17.0 (share/import).
 
 ---
 
-## 7. Decentralization: nodes and P2P sync on libp2p (phase P9, 3.18.0 →)
+## 7. Decentralization: nodes and P2P sync on libp2p (phase P9, 3.19.0 →)
 
 Michael's decision: build on **rust-libp2p**. Alternatives were not weighed.
 
@@ -642,13 +645,14 @@ cookies or tokens. Peers only carry signed *intents*.
 ### 7.11 Versions
 | Version | Contents |
 |---|---|
-| **3.18.0** | `--serve`, identity (master, authorizer and node certificates, enrollment, renewal, revocation, key epochs; §7.13), pairing code and `--join`, mDNS on by default, relay crate and `acp-rs-relay`, peers and peer management, invites, allowlist, node roles (opt-in), cross-platform service install, post replication (sync + gossip) and provenance UI (§7.14) |
-| 3.19.0 | NAT traversal (AutoNAT, relay, DCUtR) and Kademlia |
-| 3.20.0 | Write relay to the site: intents, certified devices, publisher, receipts (§7.6) |
-| 3.21.0 | Media blobs |
-| 3.22.0 | Opt-in feed and research sharing |
-| 3.23.0 | Draft review: links, comments, suggestions (§7.14.8) |
-| 3.24.0 | `acp_rs_node_ffi` and the first Dart SDK release (§7.14.7) |
+| **3.0.0** | Identity, encryption at rest, backup and restore (§7.13 without a node): master secret, BIP-39 phrase, SLIP-39 3-of-5 shares, pinned `acp-id`, SQLCipher, the local at-rest key and the account data key, `--encrypt-db`, `*.acpbackup`. Breaking for a 2.x plaintext database. Not in this release: authorizer and node certificates, enrollment, revocation, relays, peers. |
+| **3.19.0** | `--serve`, authorizer and node certificates, enrollment, renewal, revocation (§7.13; the master, phrase, shares, key epochs, encryption at rest and backup shipped in 3.0.0), pairing code and `--join`, mDNS on by default, relay crate and `acp-rs-relay`, peers and peer management, invites, allowlist, node roles (opt-in), cross-platform service install, post replication (sync + gossip) and provenance UI (§7.14) |
+| 3.20.0 | NAT traversal (AutoNAT, relay, DCUtR) and Kademlia |
+| 3.21.0 | Write relay to the site: intents, certified devices, publisher, receipts (§7.6) |
+| 3.22.0 | Media blobs |
+| 3.23.0 | Opt-in feed and research sharing |
+| 3.24.0 | Draft review: links, comments, suggestions (§7.14.8) |
+| 3.25.0 | `acp_rs_node_ffi` and the first Dart SDK release (§7.14.7) |
 
 ### 7.12 Privacy and security risks
 - A node reveals its IP to peers, and gossip reveals who has which posts.
@@ -809,7 +813,7 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
 
 - **Scope:** the entire local database is encrypted. So are the keystore, `session.json` (cookies move into the keystore), the outbox and drafts, and all preferences that hold secrets.
 - **Implementation candidate:** SQLCipher through `rusqlite` (`bundled-sqlcipher`). It encrypts at page level, so the existing queries and FTS5 search keep working unchanged.
-  The alternative is encrypting only the private tables column by column, which is simpler but leaves the cached posts readable. A short spike decides (§8 Q11).
+  The alternative is encrypting only the private tables column by column, which is simpler but leaves the cached posts readable. 3.0.0 uses SQLCipher for the whole database (§8 Q11).
 - **Envelope scheme:**
   - A random 256-bit **data key (DEK)** per epoch encrypts the database.
   - Each DEK is stored **wrapped** (HPKE, X25519) to **every authorized node's wrapping key and to the master's wrapping key**.
@@ -846,7 +850,7 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
   - The **password is not in the shares.** Colluding holders get the seed at most, and the seed alone can't produce the master. The password stays in the owner's head (or their own password manager).
   - `--shares-verify` checks any 3 shares without writing anything down, and the tool reminds you to run it after setup and once a year.
   - Reissuing shares of the *same* seed can't invalidate old ones. Truly invalidating a share set means rotating the master (`--master-rotate`), and the UI says so.
-- **Crates:** use vetted implementations (`bip39`, a SLIP-39 crate), pass the official SLIP-39 test vectors, and ask for an external crypto review before 3.18.0 ships.
+- **Crates:** use vetted implementations (`bip39`, a SLIP-39 crate), pass the official SLIP-39 test vectors, and ask for an external crypto review before the node certificates in 3.19.0 ship. 3.0.0 ships the phrase, the shares and encryption at rest ahead of that review.
 - **Warnings shown at creation:** no password reset exists, and a lost password together with lost shares means the data can't be recovered.
 
 #### 7.13.9 Identity claims (optional, never required)
@@ -1003,12 +1007,12 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 
 #### 7.14.9 Roadmap changes
 
-- **Local-first posts, drafts and `post_versions`** land with the Outbox in P6 (3.12.0).
-- **3.18.0** adds, beyond §7.13: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, and the node roles.
-- **3.23.0:** draft review links, comments and suggestions.
-- **3.24.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
-- Encryption at rest and backup/restore don't depend on P2P, and whether they ship before 3.18.0 is still open (§8 Q11).
-- **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.18.0 together with the service install.
+- **3.0.0** is identity, encryption at rest, and backup/restore (§7.13, without a node). It does not depend on P2P and it has shipped. The write core is the next minor, 3.1.0, and every later feature moves up one minor with it (§4).
+- **Local-first posts, drafts and `post_versions`** land with the Outbox in P6 (3.13.0).
+- **3.19.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, and authorizer and node certificates.
+- **3.24.0:** draft review links, comments and suggestions.
+- **3.25.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
+- **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.19.0 together with the service install. The TUI header already shows `v<version>` from 3.0.0.
 
 #### 7.14.10 Version display and desktop trays
 
@@ -1016,7 +1020,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
   - the header, an About screen (version, build date and commit, protocol version, whether the `p2p` feature is built in), `--version` and `--node-status`
   - the node chip in the header, the Nodes list for every node (§7.14.5, which also warns about lagging versions), the relay binary's `--version`, and the tray menu header
   - every window title of the tray apps
-  - **Versioning (decided 2026-10-18):** **3.0.0 is the next major release (2.x is the current line, and 3.0 hasn't been released) and the whole plan lives in the 3.x line.** Following the rule in §4, 3.0.0 is the first write feature, and every later feature is a minor release: the decentralized node, §7.13 and §7.14 ship as 3.18.0 to 3.24.0 (§7.11). There is no 4.0 in this plan.
+  - **Versioning (revised 2026-10-18):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the first write feature, and every later feature is one minor: interactions 3.2.0–3.6.0, live 3.7.0–3.8.0, account 3.9.0–3.12.0, outbox 3.13.0, feeds 3.14.0–3.17.0, spaces 3.18.0, the node 3.19.0–3.23.0, review 3.24.0, the Dart SDK 3.25.0 (§7.11). There is no 4.0 in this plan.
 - **Tray apps** to control the node and the relay without a terminal: a small separate binary, `acp-rs-tray`, in its own crate, that talks to the node and relay over the local control socket (§7.2).
   - **Menu:** status (running, stopped, locked, peers online, sync state, version), Start, Stop and Restart for the node and for the relay, **Unlock** (prompts for the passphrase when the node started locked), Open TUI, Nearby nodes and pending enrollments (approve from the tray), Pause syncing, Copy `acp-id`, Open logs, Quit.
   - **Notifications** for a pairing request, a new node enrolled, a certificate close to expiry, a revocation received, and a sync error. Each is optional.
@@ -1046,7 +1050,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
   - Packages are published as release assets with checksums and a detached signature. Repository publishing (APT, a Fedora COPR, the AUR) is a follow-up.
   - Package smoke tests in CI: install in a clean container or VM, start the service, check that it listens, uninstall, and confirm that nothing is left behind.
   - The package version is the release version (§7.14.10), shown by `acp-rs-relay --version`.
-- **Roadmap:** the relay crate lands in 3.18.0 (§7.14.9), and its packages ship in the same release, since the relay is useful as soon as nodes pair across the internet.
+- **Roadmap:** the relay crate lands in 3.19.0 (§7.14.9), and its packages ship in the same release, since the relay is useful as soon as nodes pair across the internet.
 
 ---
 
@@ -1064,7 +1068,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
    **Resolved 2026-10-18.** Yes. It's opened in P0 (§4.1) and used in P4.
 5. **View counting:** should the client send `view-post` like the browser does (honest view counts), or never (privacy)?
 6. **Spaces:** skip them, just list them, or try audio (needs LiveKit and an audio stack, a big lift)?
-7. ~~**Writes on by default after 3.0.0?**~~ **Resolved 2026-10-18.** Yes, they're on by default. The per-write preview and confirm (Cancel default) and `--dry-run` stay,
+7. ~~**Writes on by default from the write core (3.1.0)?**~~ **Resolved 2026-10-18.** Yes, they're on by default once writes exist. 3.0.0 does not add writes. The per-write preview and confirm (Cancel default) and `--dry-run` stay,
    and the opt-out is `ui.writes = false` or `ACP_WRITES=off` (§3).
 8. **Outbox:** auto-send queued items when you're back online, or always confirm again?
 9. **Feeds:** is one level of rule grouping enough? Should shared definitions also be allowed to include pinned post ids?
@@ -1082,7 +1086,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Networks (still open): private and invite-only by default (recommended), and should public read-only nodes exist at all?
     - Should peer tombstones delete local copies, or only flag them?
     - Is an MSRV bump OK when libp2p 0.58 needs it?
-    - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.18.0 and later (§7.14.10).
+    - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.19.0 and later (§7.14.10).
 11. **Keys, identity and backup (§7.13). Resolved 2026-10-18:**
     - ~~Backup and restore~~ is designed (§7.13.7).
     - ~~Email as a salt~~: no. The seed is random and the email is never an input (§7.13.1).
@@ -1092,15 +1096,18 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~Encryption~~: the database is encrypted at rest, with envelope encryption wrapped to every node and to the master. Replication sends plaintext inside the encrypted libp2p link and HTTPS for the site (§7.13.6).
     - ~~Identity~~ is pseudonymous. A link to a nick is optional (§7.13.9).
 
+    Resolved with 3.0.0:
+    - ~~**Encryption scope:**~~ SQLCipher for the whole database. Column encryption was rejected because cached posts would stay readable.
+    - ~~**Timing:**~~ encryption at rest and backup/restore shipped as 3.0.0. They do not wait for the node.
+    - **Local passphrase:** at init it is the same string as the account password. Rewrapping that local key does not rotate the master or the `acp-id`.
+
     Still open:
     - **Default lifetimes:** node cert 30 days, authorizer cert 365 days, grace period 7 days. Are these right?
-    - **Account password:** it is part of the master derivation, so changing it means rotating the master (new `acp-id`). Is that acceptable? Should each node's local unlock passphrase be allowed to differ from it?
-    - **Encryption scope:** SQLCipher for the whole database (proposed) or private tables only? A short spike decides.
+    - **Account password:** it is part of the master derivation, so changing it means rotating the master (new `acp-id`). Is that acceptable?
     - **History access** for a new node: default to full, or ask each time?
     - **Backups:** are the exclusions right (no `session.json`, no node secret key)? May peers hold encrypted backup blobs for each other?
     - **Daemon unlock:** should `--serve` ask for the passphrase at start, or may it read it from the OS keyring?
-    - **Timing:** encryption at rest and backup/restore don't depend on P2P. Should they ship before 3.18.0 (for example next to the Outbox in P6) instead of waiting?
-    - **Review:** the key derivation and certificate formats should get an external review before 3.18.0 ships.
+    - **Review:** the key derivation and the certificate formats should get an external review before 3.19.0 ships. 3.0.0 did not have that review.
 12. **Onboarding, operations, Dart SDK, drafts and review (§7.14). Resolved 2026-10-18:**
     - ~~Decentralization~~ is optional, and a checkbox that is on by default (§7.14.1).
     - ~~mDNS~~ is on by default, with a Nearby nodes list, no automatic connection and no identifying announcements (§7.14.2).
@@ -1121,7 +1128,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
-13. **Versions (§7.14.10). Resolved 2026-10-18.** 3.0.0 is the next major release and holds everything: the plan stays in 3.x (the node and trays are 3.18.0 and later), and there is no 4.0.
+13. **Versions (§7.14.10). Revised 2026-10-18.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. The plan stays in 3.x. The write core is 3.1.0, and the node and trays are 3.19.0 and later. There is no 4.0.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later.
-    Still open: whether to publish to the APT, COPR and AUR repositories at 3.18.0 or later, and whether macOS also needs a Homebrew formula.
+    Still open: whether to publish to the APT, COPR and AUR repositories at 3.19.0 or later, and whether macOS also needs a Homebrew formula.

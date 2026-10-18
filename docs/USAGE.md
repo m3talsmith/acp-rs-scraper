@@ -283,6 +283,28 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 
 The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip the code until the site expires it; `--logout` (or Session › Log out) deletes it. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
 
+## Upgrading from 2.x
+
+3.0.0 is a breaking change. The local database is encrypted, and opening it requires a password. 2.x had neither.
+
+**What breaks**
+
+- Starting 3.0.0 against `~/.acp/ai/data/rs.database` from 2.x stops immediately. The message names the file and tells you to run `--encrypt-db`. It does not try to read the plaintext file as if it were SQLCipher.
+- A new database, and every later open, asks for a password on a terminal, or reads `ACP_PASSWORD` when there is no terminal. The password is at least 12 characters and has to pass a strength check. There is no password reset.
+- Files 2.x does not know: `~/.acp/ai/data/rs.database.bootstrap` (the wrapped database key) and, after `--identity-init`, `~/.acp/acp-id`. `session.json` is still the login session and is still outside the backup.
+
+**Migrate**
+
+1. If you may want to go back to 2.x, copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp`.
+2. Run `acp-rs-scraper --encrypt-db`.
+3. The command writes a `*.acpbackup` under the exports directory first, then encrypts the database. It deletes the plaintext file only after the row counts and a content hash match. You choose the password during this command.
+
+**Roll back**
+
+- Until `--encrypt-db` finishes successfully, a 2.x binary still reads the plaintext database. A failed migration leaves that file in place.
+- After a successful migration, 2.x cannot open the database or the `*.acpbackup`. To return to 2.x, install a 2.x build, put your saved plaintext copy back at `~/.acp/ai/data/rs.database`, and delete `rs.database.bootstrap` if it is still there.
+- To stay on 3.0.0 and recover the database, use `--restore` on the `*.acpbackup` that `--encrypt-db` wrote. That needs the same password.
+
 ## Identity
 
 `--identity-init` (on a terminal) creates the account master: 24 BIP-39 words and a password of at least 12 characters that passes a strength check. The phrase is shown once and is not stored. It then offers five SLIP-39 recovery sheets (any 3 of 5). The sheets can be postponed; the phrase cannot. `--shares-print` prints them later, from the phrase or from three existing shares plus the password. `--shares-verify` checks three to five shares and writes nothing secret. The password is not part of a share. Reissuing shares of the same seed does not invalidate older ones. `--backup` writes an encrypted `*.acpbackup` (use `--output` for the path). `--restore FILE` puts it back. A new machine whose backup names an `acp-id` also asks for the phrase or three shares. A wrong password or a damaged file is refused and nothing is written. `session.json` and the node secret are not in the archive, so a restored machine signs in again and is not a copy of the old node. `--backup-schedule daily|weekly --keep N --dest DIR` remembers a schedule; this build reminds you when it is due. `--encrypt-db` encrypts an existing plaintext database after writing a backup, and removes the plaintext file only after the encrypted copy matches. A database this program creates is encrypted. The password is asked on a terminal, or taken from `ACP_PASSWORD` for a non-interactive run. That variable is visible to the same user and is not logged.
@@ -296,7 +318,9 @@ The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip 
 | Preferences | `~/.acp/preferences.toml` |
 | Saved login session (mode `0600`) | `~/.acp/session.json` |
 | Logs of jobs started from the TUI (mode `0600`) | `~/.acp/logs/tui-<kind>-<time>.log` |
-| Database | `~/.acp/ai/data/rs.database` |
+| Database (encrypted in 3.0.0) | `~/.acp/ai/data/rs.database` |
+| Wrapped database key (mode `0600`) | `~/.acp/ai/data/rs.database.bootstrap` |
+| Pinned `acp-id`, after `--identity-init` | `~/.acp/acp-id` |
 | Attachments (persistent copies) | `~/.acp/ai/data/attachments/<hash>.<ext>` |
 | Default export / archive location | `~/.acp/ai/data/exports/` |
 | Research files (copies) and web page snapshots | `~/.acp/research/<project>/files/`, `…/web/` |

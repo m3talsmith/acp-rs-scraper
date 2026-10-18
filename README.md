@@ -1,12 +1,22 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.28.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 3.0.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
 > **Full usage guide:** [docs/USAGE.md](docs/USAGE.md) · Install/uninstall: [docs/INSTALL.md](docs/INSTALL.md) · API docs: [docs/index.html](docs/index.html)
 
 Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that browses everything you have scraped; with flags it logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
+
+## Breaking changes in 3.0.0
+
+3.0.0 encrypts the local database and requires a password. A 2.x install does not.
+
+- **What breaks.** Startup will not open `~/.acp/ai/data/rs.database` from 2.x. A new database asks for a password before the terminal UI or a headless command uses it. 2.x cannot read a 3.0.0 database, `rs.database.bootstrap`, or a `*.acpbackup`.
+- **Migrate.** Copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp` if you may want 2.x again. Then run `acp-rs-scraper --encrypt-db`. It writes a `*.acpbackup` first, encrypts the file, and removes the plaintext copy only after the encrypted copy matches. The password you set is required on later runs (or set `ACP_PASSWORD` when there is no terminal).
+- **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
+
+The header of the terminal UI shows `v3.0.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
 ## Install
 
@@ -302,7 +312,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.28.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v3.0.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |

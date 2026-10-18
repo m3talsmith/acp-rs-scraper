@@ -24,7 +24,7 @@ SUDO=; [ "$(id -u)" = 0 ] || SUDO=sudo
 home=$HOME
 if [ "$(id -u)" = 0 ] && [ -n "${SUDO_USER:-}" ]; then home=$(getent passwd "$SUDO_USER" | cut -d: -f6); fi
 acp="$home/.acp"
-data=("$acp/ai/data/rs.database" "$acp/ai/data/rs.database-wal" "$acp/ai/data/rs.database-shm"
+data=("$acp/ai/data/rs.database" "$acp/ai/data/rs.database.bootstrap" "$acp/ai/data/rs.database-wal" "$acp/ai/data/rs.database-shm"
       "$acp/ai/data/rs.database-journal" "$acp/ai/data/attachments" "$acp/ai/data/exports" "$acp/preferences.toml")
 
 # ---- how is it installed?

@@ -129,15 +129,12 @@ pub fn shares_verify(file: Option<&Path>) -> Result<()> {
 }
 
 /// Unlock or create the database for a command that is about to use it.
-/// A legacy plaintext database is left as it is. Commands that do not touch the
-/// database do not call this.
+/// A 2.x plaintext database is refused with the `--encrypt-db` instructions.
+/// Commands that do not touch the database do not call this.
 pub fn prepare_db() -> Result<()> {
     let db = home()?.join(crate::config::DB_REL_PATH);
-    if db.is_file()
-        && super::atrest::is_plaintext_db(&db)
-        && !super::atrest::bootstrap_path(&db).is_file()
-    {
-        return Ok(());
+    if let Some(msg) = super::atrest::legacy_plaintext_notice(&db) {
+        bail!("{msg}");
     }
     let password = password_for_db(db.is_file())?;
     super::atrest::prepare(&db, Some(password.as_str()))
@@ -164,6 +161,9 @@ pub fn encrypt_db() -> Result<()> {
         dest.display()
     );
     println!("The plaintext file was removed after the encrypted copy matched.");
+    println!(
+        "2.x cannot read this database or that backup. A copy of the plaintext file saved before this command is what a 2.x binary can open."
+    );
     Ok(())
 }
 
