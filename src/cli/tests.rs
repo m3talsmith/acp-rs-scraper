@@ -54,6 +54,17 @@ fn identity_flags_parse_and_do_not_open_the_tui() {
     assert!(!wants_tui(&m));
     let m = Args::command().try_get_matches_from(["x", "--shares-verify"]).unwrap();
     assert!(!wants_tui(&m));
+    let a = Args::try_parse_from(["x", "--backup"]).unwrap();
+    assert!(a.backup);
+    assert!(Args::try_parse_from(["x", "--backup", "--output", "a.acpbackup"]).unwrap().output.unwrap().ends_with("a.acpbackup"));
+    assert!(Args::try_parse_from(["x", "--restore", "a.acpbackup"]).is_ok());
+    assert!(Args::try_parse_from(["x", "--backup", "--restore", "a.acpbackup"]).is_err());
+    assert!(Args::try_parse_from(["x", "--backup-schedule", "weekly"]).is_err());
+    let a = Args::try_parse_from(["x", "--backup-schedule", "daily", "--keep", "3", "--dest", "/tmp/b"]).unwrap();
+    assert_eq!(a.backup_schedule.as_deref(), Some("daily"));
+    assert_eq!(a.backup_keep, Some(3));
+    let m = Args::command().try_get_matches_from(["x", "--backup"]).unwrap();
+    assert!(!wants_tui(&m));
 }
 
 #[test]

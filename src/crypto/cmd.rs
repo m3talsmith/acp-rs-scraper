@@ -124,6 +124,71 @@ pub fn shares_verify(file: Option<&Path>) -> Result<()> {
     Ok(())
 }
 
+/// Write an encrypted backup. Needs a terminal so the password is not taken from a pipe.
+pub fn backup_now(output: Option<&Path>) -> Result<()> {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        bail!("--backup needs a terminal, so the password is not read from a pipe");
+    }
+    let home = home()?;
+    let password = Zeroizing::new(rpassword::prompt_password("Password: ")?);
+    check_password(password.as_str())?;
+    let params = Pin::load(&home)?
+        .map(|p| p.argon2)
+        .unwrap_or_else(default_params);
+    let dest = match output {
+        Some(path) => path.to_path_buf(),
+        None => match super::backup::load_schedule(&home)? {
+            Some(schedule) => {
+                let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+                Path::new(&schedule.dest).join(format!("backup-{stamp}.acpbackup"))
+            }
+            None => super::backup::default_backup_path(&home),
+        },
+    };
+    super::backup::write_backup(&home, &dest, password.as_str(), params)?;
+    if let Some(schedule) = super::backup::load_schedule(&home)? {
+        super::backup::mark_backup_ran(&home)?;
+        super::backup::prune_backups(Path::new(&schedule.dest), schedule.keep)?;
+    }
+    println!("Wrote {}", dest.display());
+    println!("session.json and the node secret were not included.");
+    Ok(())
+}
+
+/// Restore a backup into this home.
+pub fn restore_now(path: &Path) -> Result<()> {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        bail!("--restore needs a terminal, so the password is not read from a pipe");
+    }
+    let home = home()?;
+    let header = super::backup::inspect(path)?;
+    let material = if super::backup::needs_phrase(&home, &header)? {
+        Some(read_block(
+            "Paste the 24-word phrase, or at least 3 shares, then a blank line:",
+        )?)
+    } else {
+        None
+    };
+    let password = Zeroizing::new(rpassword::prompt_password("Password: ")?);
+    super::backup::restore_backup(&home, path, password.as_str(), material.as_deref())?;
+    println!("Restored the archive into this home.");
+    println!(
+        "Sign in again. The node secret was not in the backup, so this machine is not a clone of the old node."
+    );
+    Ok(())
+}
+
+/// Store a backup schedule. A later headless service runs it; this build records it and reminds you.
+pub fn backup_schedule(cadence: &str, keep: u32, dest: &Path) -> Result<()> {
+    let home = home()?;
+    super::backup::save_schedule(&home, cadence, keep, dest)?;
+    println!(
+        "Backup schedule: {cadence}, keep {keep}, destination {}. Run --backup to write one now.",
+        dest.display()
+    );
+    Ok(())
+}
+
 /// Status line for the terminal UI, when shares were postponed or last checked over a year ago.
 pub fn shares_reminder(home: &Path) -> Option<String> {
     if home.join(config::SHARES_PENDING_REL_PATH).is_file() {
@@ -144,49 +209,8 @@ pub fn shares_reminder(home: &Path) -> Option<String> {
 }
 
 /// Recover a 256-bit seed from a 24-word phrase or from at least three SLIP-39 shares.
-/// The share passphrase is empty. Two shares are refused.
 pub fn seed_from_material(text: &str) -> Result<Zeroizing<[u8; 32]>> {
-    let found = slip39::extract_mnemonics(text);
-    if found.len() >= 3 {
-        let refs: Vec<&str> = found.iter().map(String::as_str).collect();
-        return seed_from_shares(&refs);
-    }
-    if !found.is_empty() {
-        bail!(
-            "need 3 shares of one set, found {}. Two shares are not enough.",
-            found.len()
-        );
-    }
-    master::recover_seed(text)
-}
-
-fn seed_from_shares(mnemonics: &[&str]) -> Result<Zeroizing<[u8; 32]>> {
-    if !(3..=5).contains(&mnemonics.len()) {
-        bail!("need 3, 4 or 5 shares, got {}", mnemonics.len());
-    }
-    let mut expected: Option<Zeroizing<Vec<u8>>> = None;
-    let n = mnemonics.len();
-    for a in 0..n {
-        for b in a + 1..n {
-            for c in b + 1..n {
-                let got = slip39::combine(&[mnemonics[a], mnemonics[b], mnemonics[c]], "")?;
-                if let Some(prev) = &expected {
-                    if prev.as_slice() != got.as_slice() {
-                        bail!("these shares do not all recover the same seed");
-                    }
-                } else {
-                    expected = Some(got);
-                }
-            }
-        }
-    }
-    let secret = expected.ok_or_else(|| anyhow::anyhow!("need 3 shares"))?;
-    if secret.len() != 32 {
-        bail!("shares did not recover a 256-bit seed");
-    }
-    let mut seed = Zeroizing::new([0u8; 32]);
-    seed.copy_from_slice(&secret);
-    Ok(seed)
+    master::seed_from_material(text)
 }
 
 fn unlock_seed(

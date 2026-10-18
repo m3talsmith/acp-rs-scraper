@@ -70,6 +70,9 @@ pub async fn run(args: Args) -> Result<()> {
     if let Some(msg) = crate::crypto::cmd::shares_reminder(&home_dir) {
         app.push_status(msg);
     }
+    if let Some(msg) = crate::crypto::backup::schedule_reminder(&home_dir) {
+        app.push_status(msg);
+    }
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
     set_log_sink(Some(log_tx));

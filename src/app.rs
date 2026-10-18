@@ -200,6 +200,11 @@ pub async fn run() -> Result<()> {
     if args.acp_id { return crate::crypto::cmd::print_acp_id(); }
     if args.shares_print { return crate::crypto::cmd::shares_print(args.shares_file.as_deref()); }
     if args.shares_verify { return crate::crypto::cmd::shares_verify(args.shares_file.as_deref()); }
+    if let Some(cadence) = args.backup_schedule.as_deref() {
+        return crate::crypto::cmd::backup_schedule(cadence, args.backup_keep.unwrap_or(1), args.backup_dest.as_deref().unwrap());
+    }
+    if args.backup { return crate::crypto::cmd::backup_now(args.output.as_deref()); }
+    if let Some(path) = args.restore.as_deref() { return crate::crypto::cmd::restore_now(path); }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_themes { return run_list_themes(&args).await; }

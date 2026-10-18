@@ -220,6 +220,52 @@ pub fn derive_master(phrase: &str, password: &str, params: Argon2Params) -> Resu
     })
 }
 
+/// Recover a 256-bit seed from a 24-word phrase or from three to five SLIP-39 shares.
+/// The share passphrase is empty. Two shares are refused.
+pub fn seed_from_material(text: &str) -> Result<Zeroizing<[u8; 32]>> {
+    let found = super::slip39::extract_mnemonics(text);
+    if found.len() >= 3 {
+        let refs: Vec<&str> = found.iter().map(String::as_str).collect();
+        return seed_from_shares(&refs);
+    }
+    if !found.is_empty() {
+        bail!(
+            "need 3 shares of one set, found {}. Two shares are not enough.",
+            found.len()
+        );
+    }
+    recover_seed(text)
+}
+
+fn seed_from_shares(mnemonics: &[&str]) -> Result<Zeroizing<[u8; 32]>> {
+    if !(3..=5).contains(&mnemonics.len()) {
+        bail!("need 3, 4 or 5 shares, got {}", mnemonics.len());
+    }
+    let mut expected: Option<Zeroizing<Vec<u8>>> = None;
+    let n = mnemonics.len();
+    for a in 0..n {
+        for b in a + 1..n {
+            for c in b + 1..n {
+                let got = super::slip39::combine(&[mnemonics[a], mnemonics[b], mnemonics[c]], "")?;
+                if let Some(prev) = &expected {
+                    if prev.as_slice() != got.as_slice() {
+                        bail!("these shares do not all recover the same seed");
+                    }
+                } else {
+                    expected = Some(got);
+                }
+            }
+        }
+    }
+    let secret = expected.ok_or_else(|| anyhow::anyhow!("need 3 shares"))?;
+    if secret.len() != 32 {
+        bail!("shares did not recover a 256-bit seed");
+    }
+    let mut seed = Zeroizing::new([0u8; 32]);
+    seed.copy_from_slice(&secret);
+    Ok(seed)
+}
+
 /// A new phrase from the operating system's random source.
 pub fn new_entropy() -> [u8; 32] {
     let mut entropy = [0u8; 32];

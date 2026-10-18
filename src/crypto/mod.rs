@@ -7,6 +7,7 @@
 //! The master secret never touches the disk. A pinned [`pin::Pin`] stores the public
 //! `acp-id`, the Argon2 parameters and the two public keys.
 
+pub mod backup;
 pub mod cmd;
 pub mod master;
 pub mod password;

@@ -1,3 +1,9 @@
+acp-rs-scraper (2.27.0) unstable; urgency=medium
+
+  * Encrypted backups (--backup, --restore, --backup-schedule). XChaCha20-Poly1305 and Argon2id. session.json and the node secret are excluded.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 23:00:00 +0000
+
 acp-rs-scraper (2.26.0) unstable; urgency=medium
 
   * SLIP-39 recovery shares, 3 of 5 (--shares-print, --shares-verify). The password stays outside the shares.

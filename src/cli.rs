@@ -88,6 +88,12 @@ acp-rs-scraper --acp-id
 acp-rs-scraper --shares-print
   \
 acp-rs-scraper --shares-verify --shares-file shares.txt
+  \
+acp-rs-scraper --backup --output backup.acpbackup
+  \
+acp-rs-scraper --restore backup.acpbackup
+  \
+acp-rs-scraper --backup-schedule weekly --keep 4 --dest ~/backups
 ",
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
@@ -332,6 +338,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "acp_id", "shares_print", "shares_verify",
+        "backup", "restore", "backup_schedule",
     ])]
     pub identity_init: bool,
     /// Print the pinned acp-id.
@@ -341,6 +348,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "shares_print", "shares_verify",
+        "backup", "restore", "backup_schedule",
     ])]
     pub acp_id: bool,
     /// Print five SLIP-39 recovery sheets (3 of 5) for the pinned account. Needs a terminal.
@@ -351,6 +359,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_verify",
+        "backup", "restore", "backup_schedule",
     ])]
     pub shares_print: bool,
     /// Check three to five recovery shares against the pinned acp-id. Writes nothing secret.
@@ -360,11 +369,49 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id",
+        "backup", "restore", "backup_schedule",
     ])]
     pub shares_verify: bool,
     /// Sheet or paste to read instead of typing shares. Used with --shares-print or --shares-verify.
     #[arg(long, value_name = "FILE", help_heading = "Identity", requires = "share_action")]
     pub shares_file: Option<PathBuf>,
+
+    /// Write an encrypted *.acpbackup. --output FILE chooses the path; otherwise the schedule directory or the exports folder.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "restore", "backup_schedule",
+    ])]
+    pub backup: bool,
+    /// Restore an *.acpbackup into this home. A new machine also asks for the phrase or 3 shares.
+    #[arg(long, value_name = "FILE", help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "backup_schedule",
+    ])]
+    pub restore: Option<PathBuf>,
+    /// Remember a daily or weekly backup. The headless service that runs it is a later release.
+    #[arg(long, value_name = "WHEN", value_parser = ["daily", "weekly"], requires_all = ["backup_keep", "backup_dest"], help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "restore",
+    ])]
+    pub backup_schedule: Option<String>,
+    /// How many *.acpbackup files to keep. Used with --backup-schedule.
+    #[arg(long = "keep", value_name = "N", requires = "backup_schedule", help_heading = "Identity")]
+    pub backup_keep: Option<u32>,
+    /// Directory for scheduled backups. Used with --backup-schedule.
+    #[arg(long = "dest", value_name = "DIR", requires = "backup_schedule", help_heading = "Identity")]
+    pub backup_dest: Option<PathBuf>,
 }
 
 /// Targets for the hidden `--generate` packaging flag.

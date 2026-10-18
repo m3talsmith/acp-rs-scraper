@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.27.0] - 2026-10-18
+
+### Added
+
+- **Backup and restore.** `--backup` writes a `*.acpbackup` file: a consistent SQLite snapshot plus preferences, themes, research, attachments and the pinned `acp-id`. The archive is tar, then zstd, then XChaCha20-Poly1305. The key is HKDF of Argon2id with a random salt stored in the header. The header is a CBOR array (format, schema, app version, time, `acp-id`, epoch list, Argon2 parameters, and a blake3 of the tar) and is authenticated as associated data. `--restore` checks the format, the password and, on a new machine, the phrase or three shares against the header `acp-id`. `session.json` and the node secret are not in the archive. `--backup-schedule daily|weekly --keep N --dest DIR` is stored in the database and the terminal UI reminds you when it is due. The headless job that runs the schedule is a later release.
+
 ## [2.26.0] - 2026-10-18
 
 ### Added
