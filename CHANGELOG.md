@@ -6,6 +6,68 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.24.1] - 2026-10-18
+
+### Fixed
+
+- **Bookmarks** push the hook `bookmark {id, state:"1"|"0"}` instead of the click `toggle-bookmark {id}`. `"1"` adds and `"0"` removes. That is the event the site's current page sends; the click name still worked at 2.5.0 and may disappear.
+
+## [2.24.0] - 2026-10-18
+
+### Added
+
+- **Edit history** (`/rs/post/{thread}/{id}/edits`): `--edits THREAD/POST` (or a post id already stored). `p` › View edits opens the saved versions at once and refreshes them. Each version is a line diff against the previous one. Versions are stored in `post_versions` with `source = site`. The table also allows `peer`, `local` and `draft` for later local-first drafts; those are not written yet.
+
+## [2.23.0] - 2026-10-18
+
+### Added
+
+- **Reposts list** (`/rs/post/{id}/reposts`): `--reposts ID`. `p` opens a post menu on the highlighted or open post; View reposts opens that list, saved locally and refreshed from the site.
+
+## [2.22.0] - 2026-10-18
+
+### Added
+
+- **Thread sort:** `s` in an open thread cycles replies newest → oldest → top. Newest is the site default (no hook). Oldest and top send `sort {sort:"oldest"|"top"}` via `--sort-thread ID --thread-sort ORDER` and store `score`. A missing score does not blank one already stored. Top sort puts posts with no score last.
+
+## [2.21.0] - 2026-10-18
+
+### Added
+
+- **Tag feeds** (`/rs/tag/{tag}`): `--tag TAG`. A `#tag` in a post body (and a Tags row on the detail) opens that feed, saved locally and refreshed from the site. `#post-…` anchors and `##` headings are not tags. Tags inside fenced or inline code are not clickable.
+- **`body_json` and `post_tags`:** posts store the ProseMirror body as compact JSON when the site sends one, and tags from mention nodes plus `#word` in the text. A later save does not blank a JSON body or a tag list that this write doesn't carry.
+- **`--backfill-tags`:** rewrites `post_tags` from what is already stored, then re-reads threads whose JSON body is still empty (one page per thread, with a pause). Optional `--nick` / `--nicks`. Stored post text is left as it is.
+
+## [2.20.0] - 2026-10-18
+
+### Added
+
+- **Explore** (`/rs/explore` and `/rs/explore/latest`): `--explore` and `--explore-latest`.
+  The **Explore** row under EB (and View › Explore) opens the saved order; View › Explore latest
+  selects the Latest tab.
+- **Site search** (`/rs/explore?q=`, form `search`, field `q`): `--site-search TEXT`. The Shift-S
+  search modal has a **Where** choice, Local or Site. Site uses the keyword only and says so when
+  nicks, dates, a post id or a kind are also filled in. An empty site keyword is an error. Local
+  search is unchanged.
+
+## [2.19.0] - 2026-10-18
+
+### Added
+
+- **Executive Board feed** (`/rs/eb`): `--eb` and `--eb-replies`. The **EB** row under Bookmarks
+  in the nick bar (and View › Executive Board) opens the saved order at once and refreshes it
+  from the site. View › EB includes replies sends the replies filter.
+
+## [2.18.0] - 2026-10-18
+
+### Added
+
+- **Site-wide Top** (`/rs/top`): `--top [PERIOD]` with the five periods `day`, `week`, `month`,
+  `year` and `all` (default `week`), and `--top-replies` for the feed's replies filter. The posts
+  are stored and the order is kept in `site_feeds`, so View › Site Top (period and replies) opens
+  the saved view at once and refreshes it from the site. The direct URL is read first; if it has
+  no feed, the same `t` / `replies` fields are sent with `configure-feed`.
+
 ## [2.17.0] - 2026-10-18
 
 ### Added

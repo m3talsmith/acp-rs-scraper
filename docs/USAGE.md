@@ -100,7 +100,12 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 - **View modes** (`v`/`V`, the nav bar's `[View: …]`, or the View menu): Nested (default), Stack
   (full posts in one column, flat details), Stack + pane (list above, content pane below that
   follows `↑`/`↓`), Carousel ∞ (wraps) and Carousel (stops at the ends) with `←`/`→`, and Grid
-  (arrows move; the post opens in a modal with a Close button).
+  (arrows move; the post opens in a modal with a Close button). View › Site Top opens `/rs/top`
+  (period and replies); the **EB** row under Bookmarks opens `/rs/eb`. Both show the saved order
+  at once and refresh it from the site. The **Explore** row opens `/rs/explore` (View › Explore
+  latest selects `/rs/explore/latest`). Shift-S search can look at the local database or the site.
+  `p` opens a post menu; View reposts opens `/rs/post/{id}/reposts`, and View edits
+  opens `/rs/post/{thread}/{id}/edits` as a diff.
 - **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
@@ -319,6 +324,26 @@ These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`
 
 The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) in both modes.
 
+### Reading
+
+These read a site view and store it. They don't scrape nicks, and they don't post. Each one is saved in `site_feeds` (the site's order) so the TUI can open it offline and then refresh it. The direct URL is tried first; if that page has no feed, the same fields are submitted with `configure-feed`.
+
+| Flag | Meaning |
+|---|---|
+| `--top [PERIOD]` | Site-wide Top (`/rs/top`). PERIOD is `day`, `week`, `month`, `year` or `all` (default `week`). View › Site Top. |
+| `--top-replies` | With `--top`: the feed's replies filter. |
+| `--eb` | Executive Board feed (`/rs/eb`). The **EB** row of the nick bar, or View › Executive Board. |
+| `--eb-replies` | With `--eb`: the feed's replies filter (View › EB includes replies). |
+| `--explore` | Explore (`/rs/explore`). The **Explore** row of the nick bar, or View › Explore. |
+| `--explore-latest` | Explore's Latest tab (`/rs/explore/latest`). View › Explore latest. |
+| `--site-search TEXT` | Search the site (`/rs/explore?q=`, form `search`, field `q`). The Search modal's **Where: Site** does the same and uses only the keyword; nicks, dates, post id and kind stay local. |
+| `--tag TAG` | Tag feed (`/rs/tag/TAG`). A `#tag` in a post body, or the Tags row on the detail, opens the same view. `#post-…` anchors, `##` headings and tags inside code are not links. |
+| `--backfill-tags` | Rewrite `post_tags` from stored bodies, then re-read threads whose `body_json` is still empty (one page per thread, with a pause). `--nick` / `--nicks` limit the rows. Stored post text is not replaced. |
+| `--sort-thread ID` | Re-read that thread after the `sort` hook and store scores. `s` in an open thread does this. |
+| `--thread-sort ORDER` | With `--sort-thread`: `oldest` or `top`. Newest is the page default and sends no hook. |
+| `--reposts ID` | Reposts of that post (`/rs/post/ID/reposts`). `p` › View reposts does the same. |
+| `--edits THREAD/POST` | Edit history (`/rs/post/THREAD/POST/edits`). A post id already in the database works too (the thread is its parent, or itself when it is a root). `p` › View edits shows each version as a line diff against the previous one. |
+
 ### Scraping
 
 | Flag | Meaning |
@@ -389,8 +414,9 @@ After the commit, attachment, avatar and banner files are deleted from disk **on
 
 Sync rules: a site bookmark missing locally is added; a local one the site lacks is pushed; a
 local removal is pushed and the row dropped; a bookmark that vanished from a fully read site list
-is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) and the
-LiveView event (`toggle-bookmark`) are confirmed against the live site (2.5.0).
+is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) was
+confirmed against the live site (2.5.0). Since 2.24.1 the push is the hook `bookmark`
+with `state` `"1"` or `"0"`, which is what the current page sends.
 
 ### Research (offline, except `--url`)
 
@@ -544,7 +570,26 @@ CREATE TABLE posts (
   content TEXT NOT NULL,          -- ProseMirror body flattened to text; paragraphs
                                   -- separated by a blank line (1.26.0)
   posted_at TEXT NOT NULL,        -- inserted_at (ISO 8601)
-  body_state TEXT NOT NULL DEFAULT 'unknown'  -- 'full' | 'truncated' | 'unknown' (1.26.0)
+  body_state TEXT NOT NULL DEFAULT 'unknown', -- 'full' | 'truncated' | 'unknown' (1.26.0)
+  body_json TEXT NOT NULL DEFAULT '', -- ProseMirror body, compact JSON (2.21.0); '' until a feed or thread supplies it
+  score INTEGER                  -- site score (2.22.0); NULL until a thread page sends one. A later save does not blank it
+);
+
+CREATE TABLE post_tags (             -- 2.21.0; #tag without the hash
+  post_id TEXT NOT NULL,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (post_id, tag)
+);
+CREATE INDEX post_tags_tag_idx ON post_tags(tag);
+
+CREATE TABLE post_versions (        -- 2.24.0; edit history. source is site for /rs/post/…/edits
+  post_id TEXT NOT NULL,
+  version_hash TEXT NOT NULL,      -- FNV-1a 64 of body_json and edited_at
+  body_json TEXT NOT NULL,         -- ProseMirror JSON, or the text when that is all the page sent
+  edited_at TEXT NOT NULL,         -- edited_at, else inserted_at / updated_at; ~NNNN when the page sent none
+  observed_at TEXT NOT NULL,       -- when this client stored the row
+  source TEXT NOT NULL CHECK (source IN ('site', 'peer', 'local', 'draft')),
+  PRIMARY KEY (post_id, version_hash)
 );
 
 -- body_state (1.26.0, index posts_body_state_idx): 'full' = complete body;
@@ -603,6 +648,13 @@ A nick's own posts can also be recorded as mentions of that nick.
 Research (2.9.0):
 
 ```sql
+CREATE TABLE site_feeds (          -- 2.18.0; created on first site read
+    key TEXT PRIMARY KEY,         -- top:week, eb, explore, explore:latest, search:…, tag:strike, reposts:…, …
+    title TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,     -- RFC 3339
+    post_ids TEXT NOT NULL        -- JSON array, in the site's order
+);
+
 CREATE TABLE research_projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -681,7 +733,7 @@ CREATE TABLE research_items (
   - Loading more thread replies through the InfiniteScroll `next-page` event (a guess).
   - Profile fields beyond author info, data-props and `og:` tags.
   - Whether media hosts require the login cookies.
-- **Mentions are limited by the crawl:** there is no site-wide search in the site's JavaScript. Only `--crawl-limit` posts of the chosen feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed.
+- **Mentions are limited by the crawl:** the mentions pass still scans the chosen feed (there is no mentions search API). Only `--crawl-limit` posts of that feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed. Searching posts on the site is `--site-search` (or Shift-S › Where: Site).
 - **"Posts and replies":** this is the profile Filter dialog (`<dialog id="js-configureFeed">`, form `configure-feed`, radios `replies=0|1`). Checked on the live site: choosing it switches to `/rs/@nick?replies=1`, the URL the scraper loads. The fallback form submission is covered by the mocked end-to-end tests. Profiles also have a Top feed (`/rs/@nick/top?t=all`), which isn't scraped.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
@@ -709,7 +761,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;

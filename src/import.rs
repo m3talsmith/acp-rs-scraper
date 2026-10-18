@@ -62,7 +62,9 @@ pub fn import(file: &Path, compress: Option<Compress>, att_dir: &Path, tmp_root:
         let pp = n["parent_post_id"].as_str().map(str::to_string).unwrap_or_else(|| parent.to_string());
         let irt = n["in_reply_to_id"].as_str().filter(|x| !x.is_empty()).map(str::to_string).unwrap_or_else(|| pp.clone());
         posts.push(Post { post_id: id.clone(), parent_post_id: pp, in_reply_to_id: irt, nick: g("nick"), title: g("title"),
-            content: g("content"), posted_at: g("posted_at"), media: Vec::new(), truncated: n["truncated"].as_bool().unwrap_or(false) });
+            content: g("content"), posted_at: g("posted_at"), media: Vec::new(), truncated: n["truncated"].as_bool().unwrap_or(false),
+            body_json: g("body_json"),
+            score: n.get("score").and_then(|v| v.as_i64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))) });
         for a in n["attachments"].as_array().into_iter().flatten() {
             let url = a["url"].as_str().unwrap_or_default().to_string();
             if url.is_empty() || !seen.insert((id.clone(), url.clone())) { continue; }

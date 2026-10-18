@@ -48,7 +48,7 @@ pub struct Inner {
     pub login_emails: Vec<String>,
     /// Posts bookmarked on the site (starts with `C1`).
     pub site_bookmarks: Vec<String>,
-    /// `toggle-bookmark` events received.
+    /// `bookmark` hook events received.
     pub bookmark_toggles: usize,
     /// How `/themes/default.toml` answers: "ok" (the repo file), "big", "bad", "slow", "missing".
     pub theme_mode: String,
@@ -314,11 +314,16 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                     let items = if c.bookmarks { bookmark_feed(&m) } else { feed(&m.base, c.nick.as_deref(), c.replies) };
                     reply(&msg, json!({"diff": {"r": page_of(&items, from)}}))
                 }
-                (Some("click"), Some("toggle-bookmark")) => {
+                (Some("hook"), Some("bookmark")) => {
                     let id = payload["value"]["id"].as_str().unwrap_or("").to_string();
+                    let state = payload["value"]["state"].as_str().unwrap_or("");
                     let mut i = m.inner.lock().unwrap();
                     i.bookmark_toggles += 1;
-                    if let Some(at) = i.site_bookmarks.iter().position(|b| *b == id) { i.site_bookmarks.remove(at); } else { i.site_bookmarks.push(id); }
+                    match state {
+                        "1" => { if !i.site_bookmarks.iter().any(|b| b == &id) { i.site_bookmarks.push(id); } }
+                        "0" => i.site_bookmarks.retain(|b| b != &id),
+                        _ => {}
+                    }
                     reply(&msg, json!({"diff": {}}))
                 }
                 _ => reply(&msg, json!({"diff": {}})),

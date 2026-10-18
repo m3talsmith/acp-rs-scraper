@@ -20,6 +20,7 @@ mod sync;
 mod views;
 mod history;
 mod nick_filter;
+mod reads;
 mod theming;
 mod editor;
 
@@ -31,7 +32,7 @@ use crate::tui::theme::Theme;
 /// A post.
 pub fn post(id: &str, parent: &str, reply_to: &str, nick: &str, at: &str, content: &str) -> Post {
     Post { post_id: id.into(), parent_post_id: parent.into(), in_reply_to_id: reply_to.into(), nick: nick.into(),
-        title: String::new(), content: content.into(), posted_at: at.into(), media: Vec::new(), truncated: false }
+        title: String::new(), content: content.into(), posted_at: at.into(), media: Vec::new(), truncated: false, body_json: String::new(), score: None }
 }
 
 /// alice: 2 roots + 1 reply in bob's thread; bob: 1 root linking alice's first post + 1 reply to alice.

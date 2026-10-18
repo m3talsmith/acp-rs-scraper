@@ -6,6 +6,17 @@ fn bm(id: &str, remote: bool, deleted: bool) -> Bookmark { Bookmark { post_id: i
 fn ids(v: &[&str]) -> Vec<String> { v.iter().map(|s| s.to_string()).collect() }
 
 #[test]
+fn bookmark_event_is_a_hook_with_an_explicit_state() {
+    let add = bookmark_event("A1", true);
+    assert_eq!(add["type"], "hook");
+    assert_eq!(add["event"], "bookmark");
+    assert_eq!(BOOKMARK_EVENT, "bookmark");
+    assert_eq!(add["value"]["id"], "A1");
+    assert_eq!(add["value"]["state"], "1");
+    assert_eq!(bookmark_event("A1", false)["value"]["state"], "0");
+}
+
+#[test]
 fn plan_covers_every_case() {
     let local = [bm("LOCAL", false, false), bm("BOTH", true, false), bm("SEEN", false, false),
                  bm("GONE", true, false), bm("UNMARK", true, true), bm("STALE", true, true)];

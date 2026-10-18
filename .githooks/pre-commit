@@ -60,7 +60,9 @@ ver() { sed -n 's/^version *= *"\(.*\)"/\1/p' | head -1; }
 new_v=$(git show :Cargo.toml 2>/dev/null | ver || true)
 old_v=$(git show HEAD:Cargo.toml 2>/dev/null | ver || true)
 if [ -n "$new_v" ] && [ "$new_v" != "$old_v" ]; then
-  if ! git show :CHANGELOG.md 2>/dev/null | grep -Eq "^## \[$new_v\]"; then
+  # grep -q would exit early and SIGPIPE `git show` once CHANGELOG.md no longer
+  # fits in the pipe; with pipefail that looks like a missing version entry.
+  if ! git show :CHANGELOG.md 2>/dev/null | grep -E "^## \[$new_v\]" >/dev/null; then
     red "Version bumped to $new_v but CHANGELOG.md has no staged '## [$new_v]' entry."
     fail=1
   fi

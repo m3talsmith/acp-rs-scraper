@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.17.0
+Version:        2.24.1
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,30 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.24.1-1
+- Bookmark sync uses the bookmark hook with an explicit state
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.24.0-1
+- Edit history as a diff, stored in post_versions
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.23.0-1
+- Reposts list (/rs/post/ID/reposts)
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.22.0-1
+- Thread sort (oldest/top) and a score column
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.21.0-1
+- Tag feeds, body_json and post_tags
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.20.0-1
+- Explore feed and site search
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.19.0-1
+- Executive Board feed (/rs/eb) with a replies filter
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.18.0-1
+- Site-wide Top feed (/rs/top) with a period and a replies filter
+
 * Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.17.0-1
 - Full Markdown in post bodies with new theme elements; list bullets fixed
 

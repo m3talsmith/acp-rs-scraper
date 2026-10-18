@@ -99,6 +99,9 @@ pub const FEED_PROPS_SEL: &str = "div#forum\\/Feed[data-props]";
 /// CSS selector of the Svelte Thread mount (`data-props` = `{root, replies}`).
 pub const THREAD_PROPS_SEL: &str = "div#forum\\/Thread[data-props]";
 
+/// CSS selector for the edit-history component's JSON props (`forum/Edits`).
+pub const EDITS_PROPS_SEL: &str = "div#forum\\/Edits[data-props]";
+
 /// Found in Feed-*.js: `live.pushEvent("page-next", {cursor}, reply => ...)`,
 /// reply = {posts, next_cursor, at_end}. No phx-target (sent to the root LiveView).
 pub const FEED_NEXT_EVENT: &str = "page-next";
@@ -106,6 +109,8 @@ pub const FEED_NEXT_EVENT: &str = "page-next";
 /// GUESSED: thread replies use the generic InfiniteScroll hook
 /// (`pushEventTo(this.el, "next-page", {})`), target cid read from the page.
 pub const THREAD_NEXT_EVENT: &str = "next-page";
+/// Thread sort hook (`sort {sort:"oldest"|"top"}`). Newest is the page default and sends nothing.
+pub const THREAD_SORT_EVENT: &str = "sort";
 
 /// Safety cap on pages fetched from any one feed or thread.
 pub const MAX_PAGES: u32 = 10_000;
@@ -126,6 +131,8 @@ pub fn home() -> Result<PathBuf> {
 
 /// Profile Filter form submit event (`<form phx-submit="configure-feed">`).
 pub const PROFILE_FILTER_EVENT: &str = "configure-feed";
+/// Explore search form (`<form phx-submit="search">`, field `q`).
+pub const SEARCH_EVENT: &str = "search";
 /// Filter form radio: `0` = Posts (default), `1` = Posts and replies.
 pub const PROFILE_REPLIES_FIELD: &str = "replies";
 
@@ -234,6 +241,8 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
+    ("p", "Post menu: view reposts or the edit history of the open or highlighted post"),
+    ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("r", "Add to a research project: the open or highlighted post, what it links, its files and web links, or the whole view (or click ◈)"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),
     (", .  /  Alt-← Alt-→", "Previous / next post of the detail stack (◂ prev / next ▸ on the nav bar)"),
@@ -262,5 +271,7 @@ pub fn bookmarks_url() -> String {
     let p = std::env::var("ACP_BOOKMARKS_PATH").ok().filter(|v| v.starts_with('/')).unwrap_or_else(|| "/rs/bookmarks".into());
     format!("{}{p}", base_url())
 }
-/// CONFIRMED (live sync, 2.5.0): LiveView click event that toggles a post's bookmark (`{"id": post_id}`).
-pub const BOOKMARK_EVENT: &str = "toggle-bookmark";
+/// LiveView hook that sets a post's bookmark (`{"id", "state": "1"|"0"}`).
+/// The site's current page sends this. 2.5.0 used the click `toggle-bookmark`;
+/// that name still worked then and may disappear (2.24.1).
+pub const BOOKMARK_EVENT: &str = "bookmark";

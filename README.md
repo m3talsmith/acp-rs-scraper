@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.17.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 2.24.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -41,6 +41,46 @@ Mode:
 
       --trending
           Site feed: Trending tab (/rs). Opt-in; incremental early-stop disabled (not chronological)
+
+Reading:
+      --top [PERIOD]
+          Site-wide Top feed (/rs/top). PERIOD is day, week, month, year or all (default: week). Stored locally; View › Site Top opens it
+
+      --top-replies
+          With --top: include replies (the feed's replies filter)
+
+      --eb
+          Executive Board feed (/rs/eb). Stored locally; the EB row of the nick bar opens it
+
+      --eb-replies
+          With --eb: include replies (the feed's replies filter)
+
+      --explore
+          Explore feed (/rs/explore). Stored locally; the Explore row of the nick bar opens it
+
+      --explore-latest
+          Explore's Latest tab (/rs/explore/latest)
+
+      --site-search <TEXT>
+          Search the site (/rs/explore?q=). The Search modal's Where: Site does this too
+
+      --tag <TAG>
+          Tag feed (/rs/tag/TAG). A #tag in a post opens the same view. Stored locally
+
+      --backfill-tags
+          Fill post_tags from stored bodies, then re-read threads whose ProseMirror JSON is still empty. --nick / --nicks limit the rows. Does not change stored text
+
+      --sort-thread <ID>
+          Re-read a thread after the sort hook (oldest or top) and store scores. s in a thread does this
+
+      --thread-sort <ORDER>
+          With --sort-thread: oldest or top. Newest is the site default and sends no hook
+
+      --reposts <ID>
+          Reposts of a post (/rs/post/ID/reposts). The post menu (p) › View reposts does this
+
+      --edits <THREAD/POST>
+          Edit history (/rs/post/THREAD/POST/edits), shown as a diff. A stored post id works too. The post menu (p) › View edits does this
 
 Interface:
       --tui
@@ -262,7 +302,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.17.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.24.1 |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -350,6 +390,23 @@ headless scrape is now `--scrape`.
     stops at the ends.
   - **Grid**: cards in columns that fit the window; arrows move, `Enter`/click opens the post in a
     modal with a **Close** button (`Esc` also closes).
+  - **Site Top**: View › Top period (`day`, `week`, `month`, `year`, `all`) and Top includes replies,
+    then Site Top. Opens the saved `/rs/top` view in the site's order and refreshes it (`--top`).
+  - **Executive Board**: the **EB** row under Bookmarks (or View › Executive Board). View › EB
+    includes replies selects the replies filter (`--eb`).
+  - **Explore**: the **Explore** row (or View › Explore). View › Explore latest selects
+    `/rs/explore/latest` (`--explore`, `--explore-latest`).
+- **Site search.** Shift-S (the search modal) has **Where**: Local (the database, as before) or
+  Site (`--site-search`). Site searches with the keyword only.
+- **Tags.** A `#tag` in a post (outside code) and the Tags row on the detail open `/rs/tag/{tag}`
+  (`--tag`). `--backfill-tags` fills `post_tags` and `body_json` from threads that don't have the
+  JSON body yet.
+- **Thread sort.** `s` in an open thread cycles replies newest → oldest → top
+  (`--sort-thread`, `--thread-sort`). Top uses the stored `score`.
+- **Reposts.** `p` opens a post menu on the highlighted or open post. View reposts
+  opens `/rs/post/{id}/reposts` (`--reposts`).
+- **Edit history.** The same menu's View edits opens `/rs/post/{thread}/{id}/edits`
+  (`--edits`) as a line diff of each stored version. Versions live in `post_versions`.
 - **Bookmarks.** Every card and detail has a star: `☆` click (or `b`) to bookmark it, `★` click
   again to remove it. It shows at once and is stored by a small background job, so it works
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows
@@ -564,8 +621,9 @@ ones the site lacks are bookmarked there, local removals are removed there, and 
 disappeared from the site (removed in the browser) is dropped locally. Local changes made since the
 last sync win.
 
-The site's bookmark page (`/rs/bookmarks`) and its `toggle-bookmark` event are confirmed against
-the live site (2.5.0); `ACP_BOOKMARKS_PATH=/rs/…` still overrides the page if it ever moves.
+The site's bookmark page (`/rs/bookmarks`) was confirmed against the live site (2.5.0).
+Sync pushes the hook `bookmark {id, state}` (`"1"` adds, `"0"` removes) — the event the
+current page sends. `ACP_BOOKMARKS_PATH=/rs/…` still overrides the page if it ever moves.
 
 ## Research
 

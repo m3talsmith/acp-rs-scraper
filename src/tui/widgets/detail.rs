@@ -39,7 +39,7 @@ pub fn header_lines(f: &DetailFrame, width: usize, t: &Theme) -> Vec<Line<'stati
 
 fn link_label(kind: LinkKind) -> &'static str {
     match kind { LinkKind::ReplyTo => "↳ Replying to", LinkKind::Thread => "⌂ Thread", LinkKind::Mentioned => "→ Linked post",
-        LinkKind::Reply => "↩ Reply", LinkKind::Attachment => "▣ Open" }
+        LinkKind::Reply => "↩ Reply", LinkKind::Attachment => "▣ Open", LinkKind::Tag => "#" }
 }
 
 /// Full detail lines for `width` columns, and (line index, link index) for each link row.
@@ -80,6 +80,15 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
             ]));
             return;
         }
+        if l.kind == LinkKind::Tag {
+            let st = if sel { t.selected() } else { t.accent() };
+            links.push((lines.len(), i));
+            lines.push(Line::from(vec![
+                Span::styled(format!("#{}", l.id), st.underline(true)),
+                Span::styled("  tag feed", t.muted()),
+            ]));
+            return;
+        }
         let who = match &l.target {
             Some(p) => format!("@{} · {} · {}", p.nick, p.posted_at, ellipsize(&snippet(p), width.saturating_sub(40).max(10))),
             None => "not in database".into(),
@@ -101,7 +110,7 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
         for l in wrap(f.post.title.trim(), width) { lines.push(Line::styled(l, t.bold())); }
         lines.push(Line::raw(""));
     }
-    let md = crate::tui::markdown::render_doc(f.post.content.trim_end(), width, t);
+    let md = crate::tui::markdown::render_doc(&link_hashtags(f.post.content.trim_end()), width, t);
     let at = lines.len();
     let md_links: Vec<_> = md.links.into_iter().map(|mut l| { l.line += at; l }).collect();
     lines.extend(md.lines);
@@ -127,15 +136,26 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
         lines.push(Line::styled("Linked posts", t.bold()));
         for i in others { link_line(i, &mut lines, &mut links); }
     }
+    let tags: Vec<usize> = (0..f.links.len()).filter(|i| f.links[*i].kind == LinkKind::Tag).collect();
+    if !tags.is_empty() {
+        lines.push(Line::raw(""));
+        lines.push(Line::styled(format!("Tags ({})", tags.len()), t.bold()));
+        for i in tags { link_line(i, &mut lines, &mut links); }
+    }
     let replies: Vec<usize> = (0..f.links.len()).filter(|i| matches!(f.links[*i].kind, LinkKind::Reply)).collect();
     if !replies.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled(format!("Replies ({})", replies.len()), t.bold()));
+        let heading = match f.sort {
+            ThreadSort::Newest => format!("Replies ({})", replies.len()),
+            ThreadSort::Oldest => format!("Replies ({}) · oldest", replies.len()),
+            ThreadSort::Top => format!("Replies ({}) · top", replies.len()),
+        };
+        lines.push(Line::styled(heading, t.bold()));
         for i in replies { link_line(i, &mut lines, &mut links); }
     }
     if !f.links.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled("←/→ choose a link · Enter opens it · Esc closes", t.muted()));
+        lines.push(Line::styled("←/→ choose a link · Enter opens it · s sorts replies · Esc closes", t.muted()));
     }
     (lines, links, slots, md_links)
 }

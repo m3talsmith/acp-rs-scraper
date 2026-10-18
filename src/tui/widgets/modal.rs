@@ -121,11 +121,15 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let r = modal_rect(area, 72, SEARCH_FIELDS.len() as u16 + 8);
             let inner = frame(f, &t, r, "Search · Tab moves · Enter searches");
             let nf = SEARCH_FIELDS.len();
+            let kind_i = nf - 2;
             for (i, label) in SEARCH_FIELDS.iter().enumerate() {
                 let rr = Rect { y: inner.y + 1 + i as u16, height: 1, ..inner };
-                let line = if i < nf - 1 { field_line(label, &s.fields[i], s.focus == i, &t) } else {
+                let line = if i < kind_i { field_line(label, &s.fields[i], s.focus == i, &t) } else if i == kind_i {
                     let k = match s.kind { crate::tui::data::KindFilter::Any => "Posts and replies", crate::tui::data::KindFilter::Posts => "Posts only", crate::tui::data::KindFilter::Replies => "Replies only" };
                     Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {k} ›"))])
+                } else {
+                    let w = if s.site { "Site" } else { "Local" };
+                    Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {w} ›"))])
                 };
                 f.render_widget(Paragraph::new(line), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Field(i))));
@@ -212,6 +216,16 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 let w = rr.width as usize;
                 let text: String = if text.chars().count() > w { text.chars().take(w.saturating_sub(1)).chain(['…']).collect() } else { text };
                 f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
+                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+        }
+        Modal::Post(p) => {
+            let r = modal_rect(area, 42, p.items.len() as u16 + 4);
+            let inner = frame(f, &t, r, &format!("Post {} · Enter opens", p.post_id));
+            for (i, action) in p.items.iter().enumerate() {
+                let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+                let st = if i == p.cursor { t.selected() } else { t.plain() };
+                f.render_widget(Paragraph::new(Span::styled(format!(" {}", action.label()), st)), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
             }
         }

@@ -295,6 +295,55 @@ pub async fn run() -> Result<()> {
     if let Err(e) = load_session(&jar) { err!("warning: ignoring saved session: {e:#}"); }
     let http = client(jar.clone())?;
     login(&http, &jar).await?;
+    if let Some(period) = args.top {
+        let n = read_top(&http, &jar, period, args.top_replies).await?;
+        info!("== top {}: {n} posts", period.as_str());
+        return Ok(());
+    }
+    if args.eb {
+        let n = read_eb(&http, &jar, args.eb_replies).await?;
+        info!("== eb: {n} posts");
+        return Ok(());
+    }
+    if args.explore || args.explore_latest {
+        let n = read_explore(&http, &jar, args.explore_latest).await?;
+        info!("== explore: {n} posts");
+        return Ok(());
+    }
+    if let Some(q) = &args.site_search {
+        let n = read_site_search(&http, &jar, q).await?;
+        info!("== site search {q:?}: {n} posts");
+        return Ok(());
+    }
+    if let Some(tag) = &args.tag {
+        let n = read_tag(&http, &jar, tag).await?;
+        info!("== tag {}: {n} posts", tag_title(tag));
+        return Ok(());
+    }
+    if let Some(id) = &args.reposts {
+        let n = read_reposts(&http, &jar, id).await?;
+        info!("== reposts {id}: {n} posts");
+        return Ok(());
+    }
+    if let Some(spec) = &args.edits {
+        let (thread, post) = resolve_edits_spec(spec)?;
+        let n = read_edits(&http, &jar, &thread, &post).await?;
+        info!("== edits {thread}/{post}: {n} versions");
+        return Ok(());
+    }
+    if let Some(id) = &args.sort_thread {
+        let order = args.thread_sort.as_deref().unwrap_or("oldest");
+        let n = read_sorted_thread(&http, &jar, id, order).await?;
+        info!("== sort thread {id} {order}: {n} posts");
+        return Ok(());
+    }
+    if args.backfill_tags {
+        let nicks = args.nick_list()?;
+        let st = backfill_tags(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;
+        info!("== backfill-tags: {} scanned, {} tagged, {} json filled, {} still missing ({} threads)",
+            st.scanned, st.tagged, st.json_filled, st.missing, st.threads);
+        return Ok(());
+    }
     let mut nicks = args.nick_list()?;
     if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
         let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;

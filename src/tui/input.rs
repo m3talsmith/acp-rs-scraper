@@ -88,6 +88,7 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('m') => app.focus = Focus::Menu,
         KeyCode::Char('<') => { app.search_back(); }
         KeyCode::Char('b') => app.act(Action::ToggleBookmark),
+        KeyCode::Char('p') => app.open_post_menu(),
         KeyCode::Char('x') => app.act(Action::ToggleBasket),
         KeyCode::Char('r') => app.act(Action::AddToResearch),
         KeyCode::Char('v') => app.act(Action::CycleView),
@@ -139,6 +140,7 @@ fn body_key(app: &mut App, k: KeyEvent) {
             KeyCode::Left | KeyCode::Char('[') => app.move_link(-1),
             KeyCode::Right | KeyCode::Char(']') => app.move_link(1),
             KeyCode::Enter => { if let Some(i) = app.top().map(|f| f.link_cursor) { app.open_link(i); } }
+            KeyCode::Char('s') => app.cycle_thread_sort(),
             KeyCode::Esc | KeyCode::Backspace => { app.pop_detail(); }
             _ => { common_key(app, k); }
         }
@@ -255,7 +257,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     }
     if wheel != 0 {
         match hit {
-            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
+            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::Eb | Hit::Explore | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
             Some(Hit::DetailPane | Hit::Link(_) | Hit::StarTop | Hit::BasketTop | Hit::ResearchTop) => app.scroll_detail(wheel * 3),
             Some(Hit::Post(_) | Hit::Star(_) | Hit::Basket(_) | Hit::Research(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
             _ => {}
@@ -271,6 +273,8 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::Nick(i)) => { app.focus = Focus::Nicks; if multi { app.toggle_nick(i) } else { app.select_only(i) } }
         Some(Hit::Post(i)) => app.open_post(i),
         Some(Hit::Bookmarks) => app.open_bookmarks(),
+        Some(Hit::Eb) => app.open_eb(),
+        Some(Hit::Explore) => app.open_explore(),
         Some(Hit::NickFilter) => app.focus_nick_filter(),
         Some(Hit::NickFilterClear) => app.clear_nick_filter(),
         Some(Hit::ViewMode) => app.act(Action::CycleView),

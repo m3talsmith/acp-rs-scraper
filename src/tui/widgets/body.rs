@@ -366,11 +366,24 @@ fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
             }
         }
     }
-    // Web links in the body become OSC 8 hyperlinks too.
+    // Web links in the body become OSC 8 hyperlinks. `#tag` links (acp-tag:) are a hit on the word.
     for l in &md_links {
         let y = l.line as i64 - scroll as i64;
+        if y < 0 || y as usize >= h { continue; }
+        if let Some(name) = l.url.strip_prefix("acp-tag:") {
+            if let Some(k) = app.view().stack[d].links.iter().position(|lk| {
+                lk.kind == crate::tui::state::LinkKind::Tag && lk.id.eq_ignore_ascii_case(name)
+            }) {
+                let x = fr.x + l.col as u16;
+                if x < fr.x + fr.width {
+                    let width = (l.text.chars().count() as u16).min(fr.x + fr.width - x);
+                    app.hits.push((Rect { x, y: fr.y + y as u16, width, height: 1 }, Hit::Link(k)));
+                }
+            }
+            continue;
+        }
         let web = l.url.starts_with("https://") || l.url.starts_with("http://") || l.url.starts_with("mailto:");
-        if !web || y < 0 || y as usize >= h { continue; }
+        if !web { continue; }
         let x = fr.x + l.col as u16;
         if x >= fr.x + fr.width { continue; }
         let shown = ellipsize(&l.text, (fr.x + fr.width - x) as usize);
