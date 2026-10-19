@@ -25,6 +25,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Confirmed
 
 - **The three attachment decisions.** `.jpeg` is accepted as jpg and `.tif` as tiff. There is no count cap and no size cap. This release keeps 3.5.0. Interactions stay unstarted, and 3.10.0 and later, including the locked 3.22.0 re-key, are not shifted.
+- **Server and relay packaging is parked on the alpha gate.** The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each get a separate install, with its own binary, release artifact, and install path, and each stays available inside the app. No server or relay release is cut until writes and replies with attachments are functional and the decentralized network work is functional.
 - **Not an alpha.** Alpha packaging waits until writes and replies with attachments are sent and the decentralized network work is completed. This version does not add an alpha tag or release assets.
 
 ## [3.4.0] - 2026-10-19
