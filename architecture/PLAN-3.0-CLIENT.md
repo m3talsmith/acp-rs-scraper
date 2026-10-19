@@ -25,7 +25,7 @@ Update 2026-10-19 (embedded assistant): a local assistant is not a 3.x requireme
 
 Update 2026-10-19 (product name and launch docs): during 3.x the user-facing name is **ACP Red Star**. A docs pass is required before the 3.0 client is presented as launched. Communications (pitch, demo, stickers, backgrounds, a cutscene, and a comrades' forum post) wait until that pass exists. Neither list blocks attachments. Details are in §4.5.
 
-Update 2026-10-19 (About and the launch post, parked): the About modal is exactly three sections: Credits, Why this is necessary, and ACP platform. ACP platform is the vendored American Communist Party Program (adopted October 12, 2024), with headings, scroll, and a link to <https://acp.us/program>. Each section has a tooltip and a Help topic. The comrades' launch post features the cutscene in video and ASCII beside the pitch and the demo. Neither is built while `CAPTURE_BLOCK` is in force. Attachments stay on that gate.
+Update 2026-10-19 (About and the launch post, parked): the About modal is exactly three sections: Credits, Why this is necessary, and ACP platform. ACP platform is the vendored American Communist Party Program (adopted October 12, 2024), with headings, scroll, and a link to <https://acp.us/program>. The same how-to-join link, <https://acp.us/join>, sits at the top and the bottom of that platform text. Those links are chrome around the section, not a fourth section. Each section has a tooltip and a Help topic. The comrades' launch post features the cutscene in video and ASCII beside the pitch and the demo. A separate community-work video is also promo, and it is not the cutscene or the demo. None of this is built while `CAPTURE_BLOCK` is in force. Attachments stay on that gate.
 
 Update 2026-10-19 (tooltip Help links, parked): every action tooltip includes a deep link to the Help topic for that particular action. One generic Help page for every tooltip does not meet §4.3. A description without that link does not either. Tooltip UI is not started while `CAPTURE_BLOCK` is in force.
 
@@ -278,7 +278,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). Every flag and control is described. `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
 | About | later minor, required before 3.x closes | A menu entry beside Help opens a modal of exactly three sections: Credits, Why this is necessary, and ACP platform (§4.2). Each section has a tooltip and a Help topic. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here. |
 | Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
-| Launch communications | end of 3.0, after launch docs | Pitch, demo, two sticker sets, ethos backgrounds, a cutscene in video and ASCII, and a comrades' forum post for v3 (§4.5). The post body is not in the repo until Michael asks. Not built in this note. |
+| Launch communications | end of 3.0, after launch docs | Pitch, demo, two sticker sets, ethos backgrounds, a cutscene in video and ASCII, a separate community-work video, and a comrades' forum post for v3 (§4.5). The post body is not in the repo until Michael asks. Not built in this note. |
 
 ### 4.0 Later product work
 
@@ -345,7 +345,7 @@ Left to right, with Start Scanning pinned on the right:
 
     1. **Credits** — who worked on the project.
     2. **Why this is necessary** — the rationale for the app.
-    3. **ACP platform** — the full official American Communist Party Program, adopted October 12, 2024. A copy is vendored in the repository and shown with headings and a scroll. It is not paraphrased and it is not the app's opinion. The section links to <https://acp.us/program>. The PDF is <https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf>.
+    3. **ACP platform** — the full official American Communist Party Program, adopted October 12, 2024. A copy is vendored in the repository and shown with headings and a scroll. It is not paraphrased and it is not the app's opinion. The section links to <https://acp.us/program>. The PDF is <https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf>. The same how-to-join link, <https://acp.us/join>, is shown at the top of this section and again at the bottom. Those two links are chrome around the platform text. They are not a fourth About section.
 
     Each section has its own tooltip and its own Help topic (§4.3, §4.4). About stays in Getting Started and on the launch-docs checklist (§4.5). The version line in §7.14.10 is not a fourth section of this modal. This note does not build the modal. About waits until `CAPTURE_BLOCK` lifts.
 11. **Start Scanning** — pinned on the right. The scrape options (nicks, latest or trending, mentions, and the rest of today's Scrape menu) stay on this control.
@@ -398,7 +398,8 @@ These are end-of-3.0 work. They wait until the launch docs exist. They are not a
 4. A separate CLI-ethos sticker set, with its own design language, distinct from the graphical set.
 5. Ethos backgrounds. The research is the American Communist Party and Red Star: a red star, the geometry of the ACP logo as the constitution describes it, the slogan "The Future Belongs to the Working Class", and red, white, and black. Unofficial party seals are not shipped without clearance.
 6. A cutscene built from snippets of infrared-style footage and historical communist action. It ships in two forms: a normal video, and an ASCII-art form. Sources are public-domain or otherwise appropriately licensed archival material only, such as the Internet Archive, the Prelinger collection, or Soviet-era newsreels where the license clearly allows it. This note does not collect footage or make the cutscene.
-7. A Red Star forum launch write-up for comrades, covering v3. It is promo, not code. The showcase features the cutscene in both forms, the normal video and the ASCII / terminal form, alongside the elevator pitch and the demo movie. The draft stays with the assistant. The post body is not added to this repository until Michael asks for it.
+7. A separate ACP community-work video: chapter fieldwork in the manner of a Habitat-style build, distinct from the infrared cutscene and from the demo movie. It is promo, not code. This note does not produce it.
+8. A Red Star forum launch write-up for comrades, covering v3. It is promo, not code. The showcase features the cutscene in both forms, the normal video and the ASCII / terminal form, alongside the elevator pitch and the demo movie. The community-work video stays its own piece and is not folded into the cutscene or the demo. The draft stays with the assistant. The post body is not added to this repository until Michael asks for it.
 
 ---
 
