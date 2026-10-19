@@ -37,7 +37,7 @@ The header of the terminal UI shows `v3.4.0`. Details are in [CHANGELOG.md](CHAN
 
 ## Install
 
-Source install uses `scripts/install.sh`. You need Rust 1.88 or newer; the installer offers rustup if it's missing or too old. Binaries and alphas, once a release publishes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. This page links that index. An asset URL is added only after the file is published. An alpha waits until writes and replies with attachments work and the decentralized network work is done ([plan](architecture/PLAN-3.0-CLIENT.md)).
+Source install uses `scripts/install.sh`. You need Rust 1.88 or newer; the installer offers rustup if it's missing or too old. Binaries and alphas, once a release publishes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. This page links that index. An asset URL is added only after the file is published. An alpha, and separate server and relay installs, wait until writes and replies with attachments work and the decentralized network work is done. The server and the relay also stay options inside the app ([plan](architecture/PLAN-3.0-CLIENT.md)).
 
 ```sh
 git clone https://github.com/m3talsmith/acp-rs-scraper.git

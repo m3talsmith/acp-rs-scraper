@@ -2,7 +2,7 @@
 
 Source install builds on your machine with [`scripts/install.sh`](../scripts/install.sh) (`cargo build --release --locked`).
 
-Published binaries and alphas, once a release includes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page for this repository. Docs link that page. An asset URL is written only after the file is published. Alpha packaging waits until writes and replies with attachments are done and the decentralized network work is completed. That gate, and the checklist, are in [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.5. This document does not publish an alpha.
+Published binaries and alphas, once a release includes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page for this repository. Docs link that page. An asset URL is written only after the file is published. Alpha packaging waits until writes and replies with attachments are done and the decentralized network work is completed. The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each get a separate install and also stay available inside the app. Those packages wait for the same gate. That gate, and the checklist, are in [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.5. This document does not publish an alpha, a server package, or a relay package.
 
 - [Quick install](#quick-install)
 - [Workspace crates](#workspace-crates)

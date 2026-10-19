@@ -33,6 +33,8 @@ Update 2026-10-19 (attachments, confirmed): Michael confirmed the three 3.5.0 de
 
 Update 2026-10-19 (crates, install, alpha parked): launch docs name the two crates that are in the workspace today: `acp-rs-scraper` at the repository root, and `acp_rs_node_core` at `crates/acp_rs_node_core`. Source install stays `scripts/install.sh`. Docs also point at the repository [Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page for binaries and alphas once a release publishes them, and they do not invent a download URL for an unpublished file. Alpha packaging waits until both gates are clear: writes and replies with attachments are done, and the decentralized network work (P9) is completed. This note does not tag an alpha and does not attach release assets. Details are in §4.5.
 
+Update 2026-10-19 (server and relay packaging, parked on the same gate): the server and the relay each ship both ways. The server is the headless node (`--serve`, planned binary `acp-rs`). The relay is `acp-rs-relay`, from `acp_rs_node_relay`. Each has its own binary, its own release artifact, and its own install path, so a machine can seed the network without the terminal app. Each also stays an option inside the app: the TUI embeds a node, and `--serve --relay` embeds the relay. Both forms are required. Packaging waits until writes and replies with attachments are functional and the decentralized network work is functional. This note does not cut a server release or a relay release. Details are in §4.5, §7.2, §7.14.3, and §7.14.11.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -283,7 +285,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). Every flag and control is described. `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
 | About | later minor, required before 3.x closes | A menu item with three segments opens one modal focused on that section: Credits, Why this is necessary, and ACP platform (§4.2). Each segment has a tooltip and a Help topic. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here. |
 | Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, the two workspace crates, source install plus the Releases page, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
-| Alpha packaging | parked until both gates | Pack alphas only after writes and replies with attachments are done and the decentralized network (P9, 3.23.0–3.27.0) is completed. Notes separate functional from stubbed. No alpha tag and no release assets until then (§4.5). |
+| Alpha packaging | parked until both gates | Pack alphas only after writes and replies with attachments are done and the decentralized network (P9, 3.23.0–3.27.0) is completed. Notes separate functional from stubbed. The server (`acp-rs`) and the relay (`acp-rs-relay`) are separate installs and stay embedded in the app, on this same gate. No alpha tag, and no server or relay release, until then (§4.5). |
 | Launch communications | end of 3.0, after launch docs | Pitch, demo, two sticker sets, ethos backgrounds, a cutscene in video and ASCII, a separate community-work video, and a comrades' forum post for v3 (§4.5). The historical draft is [docs/history/redstar-v3-launch-post.md](../docs/history/redstar-v3-launch-post.md). It is not the live forum post. Not built in this note. |
 
 ### 4.0 Later product work
@@ -423,6 +425,15 @@ Until both are clear, the checklist is the work:
 - [ ] Alpha notes separate what is functional from what is stubbed.
 - [ ] Assets are attached to a GitHub Release. Docs link the Releases page. An asset URL is written only after the file exists.
 - [ ] No alpha is tagged or published on the strength of this note alone.
+- [ ] The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each have a separate install: own binary, own release artifact, own install path.
+- [ ] The app still embeds a node, and `--serve --relay` still embeds the relay. The separate install does not replace that.
+- [ ] No server release and no relay release until both gates above are clear.
+
+#### Server and relay packaging (parked, same gate)
+
+The server is the headless node. In this plan its binary is `acp-rs` and it listens with `--serve`. The relay binary is `acp-rs-relay`, built from `acp_rs_node_relay`. Neither crate is in the workspace today.
+
+Each one is packaged on its own, so someone can seed a node or a relay without installing the terminal app. Each one also stays an option inside the app. The TUI embeds a node while it is open (§7.2). A node embeds the relay with `--serve --relay` (§7.14.3). The relay's own packages stay as written in §7.14.11, and the server gets that same kind of separate install. This note does not cut either release.
 
 What those future notes can already call functional: identity and encryption (3.0.0), job details (3.1.0), `acp_rs_node_core` (3.2.0), local node identity (3.3.0), and compose for New post and Reply with publish still gated (3.4.0). Local attachments are 3.5.0, and the upload is still unsent. Stubbed or not started: live upload, interactions, live updates, account writes, the outbox, feeds, spaces, the network node, About, tooltips, and topic Help.
 
@@ -611,6 +622,7 @@ Michael's decision: build on **rust-libp2p**. Alternatives were not weighed.
 - **`--serve`** runs the headless binary as a daemon: it listens, replicates, and optionally keeps scraping (`--serve --sync`).
   - A local control socket (`~/.acp/node/control.sock`, 0600, JSON lines) lets the TUI and CLI talk to a running node.
   - Without `--serve`, the TUI can run an embedded node only while it's open.
+  - **Separate install and embedded app (confirmed 2026-10-19, parked).** The server (this daemon, planned binary `acp-rs`) is its own install: own binary, own release artifact, own install path. The app still embeds a node. The relay follows the same rule (§7.14.3, §7.14.11). A separate package does not drop the embedded option, and the embedded option does not drop the separate package. People use the separate installs to seed nodes and grow the network. Both wait for the alpha gate: writes and replies with attachments are functional, and the decentralized network work is functional. This note does not cut that release.
 - **Identity:** each node has its own libp2p ed25519 `Keypair` (generated on the node, never leaving it) plus an X25519 wrapping key,
   stored in an **encrypted keystore** (§7.13.6), not as a plain `identity.key`.
   - The PeerId is shown in the TUI and printed by `--node-id`.
@@ -1102,7 +1114,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 
 #### 7.14.3 Relays
 
-- **A relay crate:** `acp_rs_node_relay`, usable in two ways: as a library that any node embeds (`--serve --relay`), and as a standalone small binary, `acp-rs-relay`, that can run on a cheap VPS.
+- **A relay crate:** `acp_rs_node_relay`, usable in two ways: as a library that any node embeds (`--serve --relay`), and as a standalone small binary, `acp-rs-relay`, that can run on a cheap VPS. **Confirmed 2026-10-19:** both ways are required, and the server (`acp-rs`, `--serve`) follows the same rule (§7.2, §7.14.11). The separate install and the embedded option both ship. Neither release is cut until writes and replies with attachments are functional and the decentralized network work is functional.
   - It provides libp2p relay v2, AutoNAT and a Kademlia rendezvous, and acts as a bootstrap peer.
   - It is **blind**: it forwards the encrypted Noise or QUIC stream only. It holds no keys, certificates or data, and logs counts, never addresses or peer ids.
   - It enforces limits on reservations, circuit length and bytes per peer and per network, optional allowlists (by `acp-id` or network name), and takes a plain config file.
@@ -1218,7 +1230,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 
 #### 7.14.11 Relay-only packages
 
-The repository already packages the app for Debian (`debian/`), Arch (`packaging/arch/PKGBUILD`) and Fedora (`packaging/fedora/*.spec`). The relay (`acp-rs-relay`, §7.14.3) gets **its own packages**, so a VPS or a spare machine installs the relay alone, with no TUI, tray or scraper.
+The repository already packages the app for Debian (`debian/`), Arch (`packaging/arch/PKGBUILD`) and Fedora (`packaging/fedora/*.spec`). The relay (`acp-rs-relay`, §7.14.3) gets **its own packages**, so a VPS or a spare machine installs the relay alone, with no TUI, tray or scraper. **Confirmed 2026-10-19:** the server (`acp-rs`, the `--serve` daemon) gets the same kind of separate install: its own binary, its own release artifact, and its own install path. The relay's embedded form (`--serve --relay`) and the app's embedded node stay. Separate installs are how people seed nodes. This packaging shares the alpha gate. No server package and no relay package is cut until writes and replies with attachments are functional and the decentralized network work is functional.
 
 - **One package per platform, named `acp-rs-relay`**, containing only the relay binary, its default config, the service definition, the licence and the docs:
   - **Debian and Ubuntu:** a `.deb`, built from a second source package in `debian/` (or a separate `debian-relay/`), with a systemd unit, a dedicated `acp-relay` system user, `/etc/acp-rs-relay/config.toml` as a conffile and a post-install step that enables but doesn't start the service.
@@ -1316,5 +1328,5 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
 13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap. Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. Decentralization stays in 3.x. A 4.0 line is later product work. The embedded assistant is on that line, not among the 3.x must-haves, and not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Numbered stages from 3.10.0 onward are not moved.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
-14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later.
+14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later. **Confirmed 2026-10-19:** the server (`acp-rs`, `--serve`) is also its own install, and both the server and the relay stay available embedded in the app. That packaging waits for the alpha gate. No server or relay release is cut on this note.
     **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.29.0, §7.14.11). Until then, packaging stays unpublished.
