@@ -314,7 +314,7 @@ The terminal menu bar is reorganized into categories. This must ship before 3.x 
 Left to right, with Start Scanning pinned on the right:
 
 1. **View** — Nested, Stack, Carousel, and Grid; Site Top; Explore; EB (Executive Board); previous and next post.
-2. **Search** — local search and site search.
+2. **Search** — local search and site search. Search history joins this menu: reopen a past query (keyword, nicks, dates, kind, and Where), not a saved list of results. That is its own minor when Search work is touched, and it is not numbered here.
 3. **Compose** — New post, Reply, and Quote. Drafts and the outbox join this menu when that stage ships.
 4. **Library** — Export, Import, Basket, List, and Maintain.
 5. **Bookmarks** — Show, Bookmark current, and Sync with acp.us, as that menu works today. This is its own menu so it stays one click from the bar.

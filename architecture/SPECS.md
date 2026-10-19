@@ -307,10 +307,11 @@ Before 3.x is finished this bar is reorganized into View, Search, Compose,
 Library, Bookmarks, Research, Sync, Discover, Account, and Debug, with Start
 Scanning still pinned right. Bookmarks is its own menu (Show, Bookmark
 current, Sync with acp.us), not an item under Library. Library keeps Export,
-Import, Basket, List, and Maintain. Sync keeps the local copy up to date.
-Discover finds people, nodes, and rooms. Those stay separate menus. The table
-above stays the map of the current bar until that minor. The layout is in
-[PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2.
+Import, Basket, List, and Maintain. Search history joins Search (a past query,
+re-run when picked) in its own minor when Search work is touched. Sync keeps
+the local copy up to date. Discover finds people, nodes, and rooms. Those stay
+separate menus. The table above stays the map of the current bar until that
+minor. The layout is in [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2.
 
 **Suggested change:** selecting a nick in the left bar pre-fills Scrape's
 Nicks field and filters the Body. Multi-select nicks (Shift/Space) are a must have
