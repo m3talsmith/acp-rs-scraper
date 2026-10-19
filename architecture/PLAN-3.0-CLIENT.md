@@ -21,7 +21,7 @@ Update 2026-10-19 (search history): recent searches are rows in the SQLCipher da
 
 Update 2026-10-19 (action history): before 3.x is finished, a right bar pulls out and collapses. It lists the actions that led to the current view, as a stack. Clicking an earlier action jumps back to that state, and an export from a search state still carries the query and the filters. The left nick bar collapses the same way, so the main view can use that width. This replaces a simple previous/next along that path. It is not the previous and next post controls. The minor is not numbered here. Details are in §7.14.5.
 
-Update 2026-10-19 (embedded assistant): the last feature in 3.x is a local model inside the client. It answers questions about the local corpus, turns natural language into searches and filters, and runs app actions such as export. It is part of 3.x, not polish after 3.x. The model is not chosen. The minor is not numbered here, and numbered stages are not moved. Details are in §7.14.12.
+Update 2026-10-19 (embedded assistant): the last feature in 3.x is a local model inside the client. It answers questions about the local corpus, turns natural language into searches and filters, and runs app actions such as export. An AI button at the bottom center opens a chat strip that pushes the body and the side bars up. It is not a modal. The strip keeps the chat, and the actions change the body. It is part of 3.x, not polish after 3.x. The model is not chosen. The minor is not numbered here, and numbered stages are not moved. Details are in §7.14.12.
 
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
@@ -271,7 +271,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
 | Search history | later minor, when Search work is touched | Reopen a past query from the Search menu (§7.14.5). The row is the query and the filters only, a pick re-runs the search live, the rows live in the encrypted database, and Clear history deletes them. The default keeps every row. A preference can cap the list at the N most recent. An export of a search result carries that query and those filters with the posts. The version number is not assigned here, and numbered stages are not moved. |
 | Action history bar | later minor, required before 3.x closes | A collapsible right bar of the actions that led to the current view (§7.14.5). Click one to jump back, then export from that state. The left nick bar collapses the same way. The version number is not assigned here, and numbered stages are not moved. |
-| Embedded assistant | later minor, last 3.x feature | A local model inside the client (§7.14.12). It answers questions about the local corpus and invokes existing actions (search, filter, export, and the rest). Required before 3.x is finished. Not polish after 3.x. The model is not chosen. The version number is not assigned here, and numbered stages are not moved. |
+| Embedded assistant | later minor, last 3.x feature | A local model inside the client (§7.14.12). It answers questions about the local corpus and invokes existing actions (search, filter, export, and the rest). A bottom-center button opens a chat strip that pushes the body and side bars up. It is not a modal. Required before 3.x is finished. Not polish after 3.x. The model is not chosen. The version number is not assigned here, and numbered stages are not moved. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -1131,6 +1131,9 @@ This is the last feature Michael wants in 3.x. It is part of 3.x, not polish aft
 - The user can ask questions about the data they already have, the local corpus.
 - Natural language can drive searches and filters.
 - Natural language can issue commands that call existing app actions. "Export this" is one. Search, filter, and export are in that set, and so are the other actions the app already has.
+- **Chrome (decided 2026-10-19).** An AI button sits at the bottom center of the terminal UI. It opens an AI chat panel. That panel is not a modal overlay. It pushes the body and the side bars up, so the chat strip is visible below while the main layout stays usable.
+- The panel shows the chat: the user's tasks and prompts, and the assistant's replies.
+- What the assistant does changes the main body. A search, a filter, or another content change appears in the body as the result of the chat.
 - Not blocking: which model, whether it is offline only, and how a request turns into those existing actions.
 
 ---
@@ -1200,7 +1203,7 @@ This is the last feature Michael wants in 3.x. It is part of 3.x, not polish aft
     - ~~State~~ lives in the encrypted database, with only a bootstrap file and `preferences.toml` outside it (§7.14.5).
     - ~~**Search history (2026-10-19):**~~ rows in that same database. Each row is the query and the filters only, not a snapshot of the results. Picking one re-runs the search live. Clear history deletes the rows. The default keeps every row. A preference can instead keep the N most recent. An export of a search result carries that query and those filters (§7.14.5).
     - ~~**Action history (2026-10-19):**~~ a collapsible right bar of the actions that led to the current view. Click one to jump back, then export from that state. The left nick bar collapses the same way (§7.14.5).
-    - ~~**Embedded assistant (2026-10-19):**~~ the last 3.x feature. A local model inside the client answers questions about the local corpus and invokes existing actions such as search, filter, and export. The model is not chosen (§7.14.12).
+    - ~~**Embedded assistant (2026-10-19):**~~ the last 3.x feature. A local model inside the client answers questions about the local corpus and invokes existing actions such as search, filter, and export. A bottom-center button opens a chat strip that pushes the layout up. It is not a modal. The model is not chosen (§7.14.12).
     - ~~Peers~~ are transient and checked automatically after a restore, with a Peers tab and `--peer-*` commands. Own nodes are never revoked automatically (§7.14.5).
     - ~~The certificate~~ is returned to the new node by the approver inside the enrollment bundle (§7.14.2).
     - ~~Dart SDK~~ is a thin package over FFI to the embedded Rust crates, with a separate `acp_rs_node_ffi` crate (§7.14.7).
