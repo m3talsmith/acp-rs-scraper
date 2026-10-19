@@ -1,9 +1,10 @@
 //! Local files a New post or Reply would attach.
 //!
-//! The site form names are `media_attachments` (avif, gif, jpg, png, tiff,
-//! webp, mkv, mov, mp4, webm) and `file_attachments` (pdf). `jpg` includes
-//! `.jpeg`, and `tiff` includes `.tif`. This module only checks the path.
-//! It does not build an `allow_upload` preflight or an `lvu` frame.
+//! Any regular file stays on the local copy. The site copy takes images and
+//! videos only (`image/*` and `video/*`); see
+//! [`SITE_ATTACHMENT_MIME_PREFIXES`](crate::config::SITE_ATTACHMENT_MIME_PREFIXES).
+//! This module checks the path. It does not build an `allow_upload` preflight
+//! or an `lvu` frame.
 
 use std::path::{Path, PathBuf};
 
@@ -48,11 +49,6 @@ pub struct PlannedAttachment {
     /// This file is in the site subset. The local and network copies still keep it when this is false.
     pub on_site: bool,
 }
-
-/// Extensions the plan lists for `media_attachments`, plus the usual aliases.
-const MEDIA_EXT: &[&str] = &[
-    "avif", "gif", "jpg", "jpeg", "png", "tif", "tiff", "webp", "mkv", "mov", "mp4", "webm",
-];
 
 /// `~` and `~/…` expand with `home`. `~user` is left unchanged. A path that is
 /// not Unicode is left unchanged.
@@ -172,7 +168,7 @@ fn common_prefix<'a>(names: impl IntoIterator<Item = &'a str>) -> String {
     prefix
 }
 
-/// Check one path. `~/…` is expanded before the file is checked. Missing files and other types are refused. Nothing is uploaded.
+/// Check one path. `~/…` is expanded before the file is checked. Missing paths and directories are refused. Any other file is kept locally. Nothing is uploaded.
 pub fn plan_attachment(path: &Path) -> Result<PlannedAttachment, String> {
     let path = expand_with_home(path, crate::config::home().ok().as_deref());
     let shown = path.display().to_string();
@@ -194,19 +190,13 @@ pub fn plan_attachment(path: &Path) -> Result<PlannedAttachment, String> {
         .and_then(|e| e.to_str())
         .unwrap_or("")
         .to_ascii_lowercase();
-    let kind = if ext == "pdf" {
-        AttachmentKind::File
-    } else if MEDIA_EXT.contains(&ext.as_str()) {
-        AttachmentKind::Media
-    } else {
-        return Err(format!(
-            "{shown} is not an allowed attachment. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A file attachment is pdf. Nothing was sent."
-        ));
-    };
+    let mime = crate::config::mime_for_attachment_ext(&ext);
+    let on_site = crate::config::site_accepts_mime(mime);
+    let kind = if on_site { AttachmentKind::Media } else { AttachmentKind::File };
     let bytes = std::fs::metadata(&path)
         .map(|m| m.len())
         .map_err(|e| format!("could not read the size of {shown}: {e}. Nothing was sent."))?;
-    Ok(PlannedAttachment { path, name, kind, bytes, on_site: true })
+    Ok(PlannedAttachment { path, name, kind, bytes, on_site })
 }
 
 /// Which files are the site copy, and which stay on the local and network copies only.
@@ -221,31 +211,37 @@ pub struct SiteSplit {
 }
 
 impl SiteSplit {
-    /// The sentence printed when the first files were kept because no choice was given.
+    /// The sentence printed when the first images or videos were kept because no choice was given.
     pub fn notice(&self, files: &[PlannedAttachment]) -> Option<String> {
         if !self.took_default {
             return None;
         }
         let max = crate::config::SITE_MAX_ATTACHMENTS;
-        let kept = files.iter().filter(|f| f.on_site).count();
-        let n = files.len();
-        let left = files.iter().enumerate().filter(|(_, f)| !f.on_site).map(|(i, f)| format!("{} {}", i + 1, f.name)).collect::<Vec<_>>().join(", ");
-        Some(format!("site copy keeps the first {kept} of {n} attachments (Red Star allows {max}). Left off the site: {left}"))
+        let kinds = crate::config::site_attachment_kinds();
+        let eligible = files.iter().filter(|f| crate::config::site_accepts_path(&f.path)).count();
+        let kept = self.site.len();
+        let left = self.local_only.iter().filter_map(|&i| files.get(i).map(|f| format!("{} {}", i + 1, f.name))).collect::<Vec<_>>().join(", ");
+        Some(format!("site copy keeps the first {kept} of {eligible} images or videos (Red Star allows {max}: {kinds}). Left off the site: {left}"))
     }
 }
 
-/// Split `count` attachments into the site subset.
+/// Split attachments into the site subset.
 ///
-/// `chosen` is 0-based. `None` keeps every file when `count` is at most
-/// [`SITE_MAX_ATTACHMENTS`](crate::config::SITE_MAX_ATTACHMENTS), and the first
-/// ones when it is longer. `Some` is checked even when the list is short:
-/// duplicates, indexes past `count`, and more than the site cap are refused.
-/// An empty choice sends no file to the site.
-pub fn split_for_site(count: usize, chosen: Option<&[usize]>) -> Result<SiteSplit, String> {
+/// Only images and videos are eligible
+/// ([`site_accepts_path`](crate::config::site_accepts_path)). `chosen` is
+/// 0-based. `None` keeps every eligible file when there are at most
+/// [`SITE_MAX_ATTACHMENTS`](crate::config::SITE_MAX_ATTACHMENTS) of them, and
+/// the first ones when there are more. Ineligible files are skipped. `Some`
+/// is checked even when the list is short: duplicates, indexes past the list,
+/// more than the site cap, and a file that is not an image or a video are
+/// refused. The refusal names that file. An empty choice sends no file to the site.
+pub fn split_for_site(files: &[PlannedAttachment], chosen: Option<&[usize]>) -> Result<SiteSplit, String> {
     let max = crate::config::SITE_MAX_ATTACHMENTS;
+    let count = files.len();
+    let eligible: Vec<usize> = files.iter().enumerate().filter(|(_, f)| crate::config::site_accepts_path(&f.path)).map(|(i, _)| i).collect();
     let (site, took_default) = match chosen {
-        None if count <= max => ((0..count).collect::<Vec<_>>(), false),
-        None => ((0..max.min(count)).collect::<Vec<_>>(), count > max),
+        None if eligible.len() <= max => (eligible, false),
+        None => (eligible.into_iter().take(max).collect(), true),
         Some(picked) => {
             if picked.len() > max {
                 return Err(format!("Red Star allows {max} attachments on the site copy; {} were chosen", picked.len()));
@@ -262,6 +258,9 @@ pub fn split_for_site(count: usize, chosen: Option<&[usize]>) -> Result<SiteSpli
                 }
                 if !seen.insert(i) {
                     return Err(format!("attachment {} is listed twice", i + 1));
+                }
+                if !crate::config::site_accepts_path(&files[i].path) {
+                    return Err(crate::config::site_attachment_refusal(&files[i].name));
                 }
             }
             (picked.to_vec(), false)
@@ -383,31 +382,71 @@ mod tests {
         let _ = std::fs::remove_dir_all(&cwd);
     }
 
+    fn planned(name: &str) -> PlannedAttachment {
+        PlannedAttachment { path: PathBuf::from(name), name: name.into(), kind: AttachmentKind::File, bytes: 1, on_site: false }
+    }
+
     #[test]
-    fn the_site_split_keeps_four_or_fewer_and_checks_a_choice() {
+    fn only_images_and_videos_are_eligible_for_the_site() {
+        assert_eq!(crate::config::SITE_ATTACHMENT_MIME_PREFIXES, &["image/", "video/"]);
+        assert!(crate::config::site_accepts_path(Path::new("photo.jpg")));
+        assert!(crate::config::site_accepts_path(Path::new("clip.MP4")));
+        assert!(crate::config::site_accepts_path(Path::new("film.mkv")));
+        assert!(crate::config::site_accepts_path(Path::new("scan.tif")));
+        assert!(crate::config::site_accepts_mime("image/png; charset=binary"));
+        assert!(!crate::config::site_accepts_path(Path::new("talk.mp3")));
+        assert!(!crate::config::site_accepts_path(Path::new("notes.pdf")));
+        assert!(!crate::config::site_accepts_path(Path::new("notes.txt")));
+        assert!(!crate::config::site_accepts_mime("audio/mpeg"));
+        assert!(crate::config::site_attachment_kinds().contains("image/*"));
+        assert!(crate::config::site_attachment_kinds().contains("video/*"));
+    }
+
+    #[test]
+    fn the_site_split_keeps_four_images_or_videos_and_skips_the_rest() {
         let max = crate::config::SITE_MAX_ATTACHMENTS;
         assert_eq!(max, 4);
-        let all = split_for_site(4, None).unwrap();
+        let four: Vec<_> = (1..=4).map(|i| planned(&format!("{i}.jpg"))).collect();
+        let all = split_for_site(&four, None).unwrap();
         assert_eq!(all.site, vec![0, 1, 2, 3]);
         assert!(all.local_only.is_empty());
         assert!(!all.took_default);
-        let short = split_for_site(2, None).unwrap();
+        let short: Vec<_> = (1..=2).map(|i| planned(&format!("{i}.png"))).collect();
+        let short = split_for_site(&short, None).unwrap();
         assert_eq!(short.site, vec![0, 1]);
         assert!(!short.took_default);
-        let over = split_for_site(6, None).unwrap();
+        let six: Vec<_> = (1..=6).map(|i| planned(&format!("{i}.jpg"))).collect();
+        let over = split_for_site(&six, None).unwrap();
         assert_eq!(over.site, vec![0, 1, 2, 3]);
         assert_eq!(over.local_only, vec![4, 5]);
         assert!(over.took_default);
-        let picked = split_for_site(6, Some(&[0, 2, 4, 5])).unwrap();
+        let picked = split_for_site(&six, Some(&[0, 2, 4, 5])).unwrap();
         assert_eq!(picked.site, vec![0, 2, 4, 5]);
         assert_eq!(picked.local_only, vec![1, 3]);
         assert!(!picked.took_default);
-        let none = split_for_site(6, Some(&[])).unwrap();
+        let none = split_for_site(&six, Some(&[])).unwrap();
         assert!(none.site.is_empty());
         assert_eq!(none.local_only, vec![0, 1, 2, 3, 4, 5]);
-        assert!(split_for_site(6, Some(&[0, 1, 2, 3, 4])).unwrap_err().contains("allows 4"));
-        assert!(split_for_site(6, Some(&[1, 1])).unwrap_err().contains("listed twice"));
-        assert!(split_for_site(6, Some(&[6])).unwrap_err().contains("not in the list"));
-        assert!(split_for_site(3, Some(&[0, 2])).is_ok());
+        assert!(split_for_site(&six, Some(&[0, 1, 2, 3, 4])).unwrap_err().contains("allows 4"));
+        assert!(split_for_site(&six, Some(&[1, 1])).unwrap_err().contains("listed twice"));
+        assert!(split_for_site(&six, Some(&[6])).unwrap_err().contains("not in the list"));
+        let three: Vec<_> = (1..=3).map(|i| planned(&format!("{i}.webm"))).collect();
+        assert!(split_for_site(&three, Some(&[0, 2])).is_ok());
+
+        let mut mix = vec![planned("talk.mp3")];
+        mix.extend((1..=5).map(|i| planned(&format!("clip{i}.mp4"))));
+        let skipped = split_for_site(&mix, None).unwrap();
+        assert_eq!(skipped.site, vec![1, 2, 3, 4], "auto-selection skips audio and keeps the first 4 videos");
+        assert_eq!(skipped.local_only, vec![0, 5]);
+        assert!(skipped.took_default);
+        let err = split_for_site(&mix, Some(&[0])).unwrap_err();
+        assert!(err.contains("talk.mp3"), "{err}");
+        assert!(err.contains("image/*"), "{err}");
+        assert!(err.contains("video/*"), "{err}");
+        let images_around_audio = vec![planned("one.jpg"), planned("talk.mp3"), planned("two.png")];
+        let under = split_for_site(&images_around_audio, None).unwrap();
+        assert_eq!(under.site, vec![0, 2]);
+        assert_eq!(under.local_only, vec![1]);
+        assert!(!under.took_default);
     }
 }

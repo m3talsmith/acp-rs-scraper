@@ -173,7 +173,7 @@ pub struct Draft {
     /// Local files. Classified in [`prepare`]. Not uploaded.
     pub attachments: Vec<std::path::PathBuf>,
     /// 0-based indexes into [`Self::attachments`] that go to the site.
-    /// `None` means the default: every file, or the first [`crate::config::SITE_MAX_ATTACHMENTS`] when there are more.
+    /// `None` means the default: every image or video, or the first [`crate::config::SITE_MAX_ATTACHMENTS`] of those when there are more. Other types stay local.
     pub site_attachments: Option<Vec<usize>>,
     /// Rendered page, when a probe already has it. Dry-run usually has none.
     pub html: Option<String>,
@@ -235,7 +235,7 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
         return Err(err("writes are off. Set ui.writes = true in preferences.toml, or unset ACP_WRITES. ACP_WRITES=off wins. Nothing was sent."));
     }
     let mut attachments = attach::plan_attachments(&d.attachments).map_err(err)?;
-    let split = attach::split_for_site(attachments.len(), d.site_attachments.as_deref()).map_err(err)?;
+    let split = attach::split_for_site(&attachments, d.site_attachments.as_deref()).map_err(err)?;
     for (i, file) in attachments.iter_mut().enumerate() {
         file.on_site = split.site.contains(&i);
     }
