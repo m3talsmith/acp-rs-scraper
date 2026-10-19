@@ -11,7 +11,7 @@ Update 2026-10-18 (versioning): **3.0.0 is identity, encryption at rest, and bac
 
 Update 2026-10-19: **3.1.0 is the job-details window** (click a running job in the terminal UI). The write core moves to 3.2.0, and every later phase moves up one minor with it.
 
-Update 2026-10-19 (crate split): **3.2.0** is `acp_rs_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.23.0 and later. There is no 4.0.
+Update 2026-10-19 (crate split): **3.2.0** is `acp_rs_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.23.0 and later. A later 4.0 line (§4.0) does not move that work.
 
 Update 2026-10-19 (write core): **3.4.0** ships compose for New post and Reply, the Markdown to ProseMirror writer, and the safety layer (writes on by default, Cancel first, `--dry-run`, the 30 second gap, bundle-hash refusal). Publish does not open a connection. The P0 capture has not confirmed the submit payload, so validate/save, `_target`, uploads, mention-query replies, and read-back stay stubbed. Attachments wait for 3.5.0. Later write features stay in their own minors.
 
@@ -25,7 +25,9 @@ Update 2026-10-19 (server and relay packaging, parked on the same gate): the ser
 
 Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the serve and relay work. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists.
 
-Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
+Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. A later 4.0 line (§4.0) does not move it.
+
+Update 2026-10-19 (4.0, docs only): two roadmap items sit beside the embedded local assistant. **Post source** records where each post came from (Red Star, a YouTube transcript, later others), with an identifier, a URL, and time offsets for a transcript segment. **The Haz stream corpus** ingests every Haz stream, keeps corrected transcripts with their history, and stores speaker turns (Haz, and each debater or guest). The corpus depends on post source. The source columns can land early as a 3.x minor; nothing in this note is implemented, and numbered 3.x stages are not moved. Details are in §4.0 and §7.14.12.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -272,6 +274,16 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | 3.22.0: Password change / re-key | **3.22.0** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. |
 | P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
+
+### 4.0 Later product work
+
+4.0 is a later major. Decentralization stays in 3.x (3.23.0 and later). Opening this line does not move peers, relays, or the network node. Nothing in this section is implemented.
+
+| Item | When | What |
+|---|---|---|
+| Embedded assistant | 4.0 | A local model inside the client. Questions about the local corpus, and existing actions such as search, filter, and export. A bottom-center button opens a chat strip that pushes the body and side bars up. It is not a modal. The model is not chosen. |
+| Post source | 4.0; the columns may land in a 3.x minor | Each post records where it came from (§7.14.12). Red Star is the default. A YouTube transcript, and later other sources, can be scraped into the same database. This is the prerequisite for the Haz stream corpus. |
+| Haz stream corpus | 4.0 | If a model is made, it uses the Haz streams: every stream, and all of the data from those streams (§7.14.12). Transcripts are checked and corrected, and the correction history is kept. Speaker turns are labeled, so a debate distinguishes Haz from the debater. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -1081,7 +1093,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
   - the header, an About screen (version, build date and commit, protocol version, whether the `p2p` feature is built in), `--version` and `--node-status`
   - the node chip in the header, the Nodes list for every node (§7.14.5, which also warns about lagging versions), the relay binary's `--version`, and the tray menu header
   - every window title of the tray apps
-  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and 3.5.0 is attachments (confirmed). Interactions were numbered 3.5.0–3.9.0 before that and have not started; Michael confirmed that this note does not shift them or the later stages. Live stays 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). There is no 4.0 in this plan. Inserting 3.22.0 moved each later stage up one minor.
+  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and 3.5.0 is attachments (confirmed). Interactions were numbered 3.5.0–3.9.0 before that and have not started; Michael confirmed that this note does not shift them or the later stages. Live stays 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). A 4.0 line (§4.0) is later product work and does not move these stages. Inserting 3.22.0 moved each later stage up one minor.
 - **Tray apps** to control the node and the relay without a terminal: a small separate binary, `acp-rs-tray`, in its own crate, that talks to the node and relay over the local control socket (§7.2).
   - **Menu:** status (running, stopped, locked, peers online, sync state, version), Start, Stop and Restart for the node and for the relay, **Unlock** (prompts for the passphrase when the node started locked), Open TUI, Nearby nodes and pending enrollments (approve from the tray), Pause syncing, Copy `acp-id`, Open logs, Quit.
   - **Notifications** for a pairing request, a new node enrolled, a certificate close to expiry, a revocation received, and a sync error. Each is optional.
@@ -1113,6 +1125,67 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
   - The package version is the release version (§7.14.10), shown by `acp-rs-relay --version`.
 - **Publishing (decided 2026-10-19, §8 Q14).** APT, Fedora COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing (3.25.0), replies (3.4.0), review (3.28.0), the node crates (through 3.27.0), and the Dart package (3.29.0). Until that set has shipped, packaging in this repository stays unpublished. Someone can still build a package by hand from the tree.
 - **Roadmap:** the relay crate lands in 3.23.0 (§7.14.9). It is not published to APT, COPR, AUR, or Homebrew in that release. Those repositories wait for the full set above.
+
+#### 7.14.12 Post source and the Haz stream corpus (4.0)
+
+These two items sit beside the embedded assistant in §4.0. This note does not implement them, does not choose a model, and does not move numbered 3.x stages. The Haz corpus is the collection a 4.0 model would be built from. Michael's requirement: "If we are to make a model, we use the haz streams, all the data from all the streams. We have to make sure the transcripts are correct and then we also have to make sure that the speakers are defined, so if it's a debate, we distinguish between Haz and the debater."
+
+##### Post source
+
+Every post stores its source next to the post, in the same `posts` table the scraper already uses. A Red Star post, a YouTube transcript turn, and a later source are rows in that table. Search, export, and the assistant then see one corpus.
+
+`post_versions.source` is a different column. It records where an edit was observed (`site`, `peer`, `local`, `draft`). The columns below record where the post itself came from.
+
+Sketch, added to `posts` the same way `in_reply_to_id`, `body_json`, and `score` were added:
+
+```sql
+ALTER TABLE posts ADD COLUMN source TEXT NOT NULL DEFAULT 'redstar';
+ALTER TABLE posts ADD COLUMN source_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE posts ADD COLUMN source_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE posts ADD COLUMN source_start_ms INTEGER;
+ALTER TABLE posts ADD COLUMN source_end_ms INTEGER;
+ALTER TABLE posts ADD COLUMN speaker TEXT NOT NULL DEFAULT '';
+```
+
+- `source` is a short name: `redstar`, `youtube`, and later others. The default is `redstar`.
+- `source_id` is the id at that source. For Red Star it is the post id. For YouTube it is the video id. Many turns share one video id.
+- `source_url` is the page or video URL.
+- `source_start_ms` and `source_end_ms` are the offsets of a transcript segment. They stay null on a Red Star post.
+- `speaker` is empty on a Red Star post. On a transcript turn it is the label, such as `Haz` or the debater's or guest's name.
+
+A transcript turn is one row. The whole stream is the set of rows that share `source`, `source_id`, and `source_url`, ordered by `source_start_ms`.
+
+**Migration.** Existing rows default to `source = 'redstar'`. `source_id`, `source_url`, and `speaker` default to empty, and the two offsets stay null. No row is copied into a new database, and `~/.acp/ai/data/rs.database` is not renamed. An optional backfill may set `source_id` from `post_id` and `source_url` from `https://acp.us/rs/post/…`. Empty `source_id` on an old row still means Red Star, because `source` is `redstar`.
+
+**Encrypted database.** The file stays SQLCipher. The `ALTER TABLE` runs on the unlocked connection, as the earlier column adds do. It does not re-key the database and it does not write a second file. A `*.acpbackup` is a copy of that file, so a backup taken after the migration contains the columns, and a backup from before is migrated the next time it is opened.
+
+**Export and import.** Export format version 2 has no source fields. A later format version adds `source`, `source_id`, `source_url`, `source_start_ms`, `source_end_ms`, and `speaker` on each post, including the copy embedded in an HTML export. Import of a version 2 file treats a missing source as `redstar`. This note does not bump `EXPORT_FORMAT_VERSION`.
+
+**Early groundwork.** The columns are additive and defaulted, and they do not change scraping. They can land in a 3.x minor before 4.0, the same way `body_json` landed before every reader needed it. The minor is not numbered here, and 3.10.0 and later are not moved. Ingest, review, and diarization stay in 4.0.
+
+##### Haz stream corpus
+
+This depends on post source. A turn that has no source, no URL, and no offsets cannot be tied back to the stream it came from.
+
+- **Ingest every Haz stream.** All of the streams, and all of the data from those streams. A partial set is not the corpus.
+- **Transcripts are checked.** An automatic transcript is not accepted as the text people will train or quote. A person reviews it and corrects it.
+- **The correction history is kept.** The latest text lives on the post. Each correction appends a row, and the previous text is not thrown away:
+
+```sql
+CREATE TABLE transcript_corrections (
+    id INTEGER PRIMARY KEY,
+    post_id TEXT NOT NULL,
+    corrected_at TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    prior_content TEXT NOT NULL,
+    provenance TEXT NOT NULL,
+    note TEXT NOT NULL DEFAULT ''
+);
+```
+
+  `actor` is who made the change (a nick, or `machine` for the first transcript). `provenance` says what the previous text was: the machine transcript, or an earlier human review. `prior_content` is that previous text. The row is append-only.
+
+- **Speakers are labeled.** Diarization splits the audio into turns, and each turn gets a speaker. In a debate the labels are Haz and the debater. A guest stream labels Haz and that guest. The label is `posts.speaker`. The turn's words are `posts.content`. The time range is `source_start_ms` and `source_end_ms`.
 
 ---
 
@@ -1148,7 +1221,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~Networks: private and invite-only by default, and should public nodes exist?~~ **Decided 2026-10-19.** The default stays private and invite-only. Public nodes exist and are opt-in (`--serve --public`). What that means for relay scopes, the node record, and the stage order is in §7.4. The flag lands in 3.23.0. Kademlia advertisement lands in 3.24.0.
     - ~~Should peer tombstones delete local copies, or only flag them?~~ **Revised 2026-10-19.** This supersedes the earlier note that dropped the body after a grace period. A signed tombstone keeps the post data. Never let data go to waste. The post is shown as deleted with a tombstone icon (🪦, ASCII fallback `[RIP]`), and the content stays viewable. If the author publishes again, re-signs the same post id, or retracts the tombstone with a signed restore record, the post id is restored and the tombstone is cleared. The restore record is signed by the author's key, references the tombstone, and a newer timestamp wins (§7.5, `docs/PROTOCOL.md`). The icon is part of the interactions and feeds UI (§1b, §6.6).
     - Is an MSRV bump OK when libp2p 0.58 needs it?
-    - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.23.0 and later (§7.14.10).
+    - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.23.0 and later (§7.14.10). A 4.0 line opened for the embedded assistant, post source, and the Haz stream corpus (§4.0) does not move this decision.
 11. **Keys, identity and backup (§7.13). Resolved 2026-10-18:**
     - ~~Backup and restore~~ is designed (§7.13.7).
     - ~~Email as a salt~~: no. The seed is random and the email is never an input (§7.13.1).
@@ -1192,7 +1265,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
-13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap. Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0.
+13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap. Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. A 4.0 line is later product work (§4.0): the embedded assistant, post source, and the Haz stream corpus. It does not move these stages.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later. **Confirmed 2026-10-19:** the server (`acp-rs`, `--serve`) is also its own install, and both the server and the relay stay available embedded in the app. That packaging waits for the alpha gate. No server or relay release is cut on this note.
     **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.29.0, §7.14.11). Until then, packaging stays unpublished.
