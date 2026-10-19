@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-10-19
+
+### Added
+
+- **Node identity.** `--node-init` generates an ed25519 signing key and an X25519 wrapping key on this machine. Those keys are not derived from the master. The master, rebuilt from the sealed phrase and the password (or from the phrase you type when there is no seal), signs an authorizer certificate and a node certificate, then it is dropped. The secret is sealed at `~/.acp/node/keystore` (mode `0600`) under the unlocked database key. A plain `identity.key` is not written. `--node-id` prints the name, the account id, the peer id, the fingerprint, six verification words, and whether the certificate still checks. The header shows `◉ name` when a node exists. Backups skip the keystore, so a restore does not clone the node. Certificate lifetimes in this release are the plan's proposed defaults (30 days for a node, 365 days for an authorizer, 5 minutes of clock skew). The format is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
+
 ## [3.2.0] - 2026-10-19
 
 ### Added

@@ -37,6 +37,15 @@ fn base_layout_renders_title_menu_nicks_and_empty_state() {
 }
 
 #[test]
+fn header_shows_the_node_name_when_one_is_configured() {
+    let mut a = app();
+    a.node_chip = "◉ laptop".to_string();
+    let s = render(&mut a, 140, 30);
+    assert!(s.contains("◉ laptop"), "{s}");
+    assert!(s.contains(env!("CARGO_PKG_VERSION")), "{s}");
+}
+
+#[test]
 fn empty_database_has_friendly_state() {
     let mut a = App::new(Box::new(crate::tui::data::MemStore::default()), &no_args(), crate::tui::theme::Theme::acp(), false);
     let s = render(&mut a, 100, 24);

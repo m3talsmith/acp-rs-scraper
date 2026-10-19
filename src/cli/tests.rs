@@ -42,6 +42,18 @@ fn identity_flags_parse_and_do_not_open_the_tui() {
     let a = Args::try_parse_from(["x", "--identity-init"]).unwrap();
     assert!(a.identity_init);
     assert!(Args::try_parse_from(["x", "--acp-id"]).unwrap().acp_id);
+    assert!(Args::try_parse_from(["x", "--node-init"]).unwrap().node_init);
+    assert!(Args::try_parse_from(["x", "--node-id"]).unwrap().node_id);
+    assert_eq!(
+        Args::try_parse_from(["x", "--node-init", "--node-label", "laptop"]).unwrap().node_label.as_deref(),
+        Some("laptop")
+    );
+    assert!(Args::try_parse_from(["x", "--node-label", "laptop"]).is_err());
+    assert!(Args::try_parse_from(["x", "--node-init", "--node-id"]).is_err());
+    assert!(Args::try_parse_from(["x", "--node-init", "--scrape"]).is_err());
+    assert!(Args::try_parse_from(["x", "--node-id", "--identity-init"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--node-id"]).unwrap();
+    assert!(!wants_tui(&m));
     assert!(Args::try_parse_from(["x", "--identity-init", "--scrape"]).is_err());
     assert!(Args::try_parse_from(["x", "--identity-init", "--acp-id"]).is_err());
     assert!(Args::try_parse_from(["x", "--shares-print"]).unwrap().shares_print);

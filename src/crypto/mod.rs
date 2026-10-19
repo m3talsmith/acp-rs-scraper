@@ -18,6 +18,7 @@ pub mod backup;
 pub mod cmd;
 pub mod master;
 pub mod password;
+pub mod node_store;
 pub mod pin;
 pub mod progress;
 pub mod recovery;

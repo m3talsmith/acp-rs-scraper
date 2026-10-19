@@ -1,3 +1,9 @@
+acp-rs-scraper (3.3.0) unstable; urgency=medium
+
+  * Node identity on this computer: --node-init, --node-id, and a header chip. The node secret is not in a backup.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 18:00:00 +0000
+
 acp-rs-scraper (3.2.0) unstable; urgency=medium
 
   * Shared core crate: identity, canonical CBOR, and a secret-store interface. CLI flags and the encrypted database are unchanged.

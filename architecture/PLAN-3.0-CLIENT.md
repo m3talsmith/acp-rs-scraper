@@ -1,6 +1,6 @@
 # Plan: acp-rs-scraper 3.0, a full Red Star client
 
-Status: **3.0.0 is implemented** (identity, encryption at rest, backup and restore). **3.1.0 is implemented** (job details). **3.2.0 is implemented** (shared `acp_rs_node_core`). Later phases in this file are still design.
+Status: **3.0.0 is implemented** (identity, encryption at rest, backup and restore). **3.1.0 is implemented** (job details). **3.2.0 is implemented** (shared `acp_rs_node_core`). **3.3.0 is implemented** (local node identity). Later phases in this file are still design.
 Base: 2.16.1 (`55fd11cd`); 2.17.0 (full Markdown rendering) is in progress. Companion docs: [SPECS.md](./SPECS.md) and [PLAN-2.0-TUI.md](./PLAN-2.0-TUI.md).
 
 Update 2026-10-18: §7.13 (keys, identity, encryption at rest, backup and recovery) and §7.14 (onboarding, operations, crates, Dart SDK, local-first posts and review)
@@ -860,7 +860,7 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
   - The **password is not in the shares.** Colluding holders get the seed at most, and the seed alone can't produce the master. The password stays in the owner's head (or their own password manager).
   - `--shares-verify` checks any 3 shares without writing anything down, and the tool reminds you to run it after setup and once a year.
   - Reissuing shares of the *same* seed can't invalidate old ones. Truly invalidating a share set means rotating the master (`--master-rotate`), and the UI says so.
-- **Crates:** use vetted implementations (`bip39`, a SLIP-39 crate), pass the official SLIP-39 test vectors, and ask for an external crypto review before the node certificates in 3.22.0 ship. 3.0.0 ships the phrase, the shares and encryption at rest ahead of that review.
+- **Crates:** use vetted implementations (`bip39`, a SLIP-39 crate), pass the official SLIP-39 test vectors, and ask for an external crypto review before network enrollment in 3.22.0. 3.0.0 shipped the phrase, the shares and encryption at rest ahead of that review. 3.3.0 ships the local certificate format ahead of it as well. The format is in `docs/PROTOCOL.md` and is covered by test vectors.
 - **Warnings shown at creation:** no password reset exists, and a lost password together with lost shares means the data can't be recovered.
 
 #### 7.13.9 Identity claims (optional, never required)
@@ -1017,7 +1017,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 
 #### 7.14.9 Roadmap changes
 
-- **3.0.0** is identity, encryption at rest, and backup/restore (§7.13, without a node). It does not depend on P2P and it has shipped. **3.1.0** is the job-details window and has shipped. **3.2.0** is `acp_rs_node_core` and has shipped. **3.3.0** is local node identity. The write core is 3.4.0. Writes stay off until then. Every later feature is one minor (§4).
+- **3.0.0** is identity, encryption at rest, and backup/restore (§7.13, without a node). It does not depend on P2P and it has shipped. **3.1.0** is the job-details window and has shipped. **3.2.0** is `acp_rs_node_core` and has shipped. **3.3.0** is local node identity and has shipped. The write core is 3.4.0. Writes stay off until then. Every later feature is one minor (§4).
 - **Local-first posts, drafts and `post_versions`** land with the Outbox in P6 (3.16.0).
 - **3.22.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, and authorizer and node certificates.
 - **3.27.0:** draft review links, comments and suggestions.

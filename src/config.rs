@@ -79,9 +79,15 @@ pub const SHARES_PENDING_REL_PATH: &str = ".acp/shares-pending";
 /// Unix time of the last successful `--shares-verify` or `--shares-print`. Not a secret.
 pub const SHARES_VERIFIED_REL_PATH: &str = ".acp/shares-verified";
 
-/// Future node secret (§7.2, §7.13.2). Not created in this release. Backups skip it
-/// so a restore cannot clone a node identity.
+/// Plain node secret from an earlier draft. This build does not create it.
+/// Backups skip it so a restore cannot clone a node identity.
 pub const NODE_SECRET_REL_PATH: &str = ".acp/node/identity.key";
+
+/// Sealed node keystore (`0600`). The database key opens it. Backups skip it.
+pub const NODE_KEYSTORE_REL_PATH: &str = ".acp/node/keystore";
+
+/// Public node record: label, peer id, fingerprint, and certificates. No secrets.
+pub const NODE_PUBLIC_REL_PATH: &str = ".acp/node/node.public";
 
 /// Log directory (for `--enable-logging` / `--debug`), relative to `$HOME`.
 pub const LOGS_REL_DIR: &str = ".acp/logs";

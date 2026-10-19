@@ -31,7 +31,8 @@ use super::pin::Pin;
 use super::progress::set_stage;
 use crate::config::{
     ACP_ID_REL_PATH, ATTACH_REL_PATH, DB_REL_PATH, EXPORTS_REL_PATH, LOGS_REL_DIR,
-    NODE_SECRET_REL_PATH, PREFS_REL_PATH, RECOVERY_NEXT_REL_PATH, RECOVERY_SEAL_REL_PATH,
+    NODE_KEYSTORE_REL_PATH, NODE_SECRET_REL_PATH, PREFS_REL_PATH, RECOVERY_NEXT_REL_PATH,
+    RECOVERY_SEAL_REL_PATH,
     RESEARCH_REL_DIR, SESSION_REL_PATH, SHARES_PENDING_REL_PATH, SHARES_VERIFIED_REL_PATH,
     THEMES_REL_DIR,
 };
@@ -638,6 +639,7 @@ fn skip_source(rel: &Path) -> bool {
 fn never_restore(name: &str) -> bool {
     name == SESSION_REL_PATH
         || name == NODE_SECRET_REL_PATH
+        || name == NODE_KEYSTORE_REL_PATH
         || name.starts_with(LOGS_REL_DIR)
         || name.starts_with(".acp/cache")
         || name.starts_with(EXPORTS_REL_PATH)
@@ -757,6 +759,7 @@ mod tests {
         let node = home.join(NODE_SECRET_REL_PATH);
         std::fs::create_dir_all(node.parent().unwrap()).unwrap();
         std::fs::write(&node, "NODE-SECRET-SENTINEL").unwrap();
+        std::fs::write(home.join(NODE_KEYSTORE_REL_PATH), "KEYSTORE-SENTINEL").unwrap();
     }
 
     fn post_content(home: &Path) -> String {
@@ -780,6 +783,7 @@ mod tests {
         );
         assert!(!raw.windows(24).any(|w| w == b"SESSION-SENTINEL-do-not"));
         assert!(!raw.windows(18).any(|w| w == b"NODE-SECRET-SENTINEL"));
+        assert!(!raw.windows(17).any(|w| w == b"KEYSTORE-SENTINEL"));
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -805,6 +809,7 @@ mod tests {
         );
         assert!(!fresh.join(SESSION_REL_PATH).exists());
         assert!(!fresh.join(NODE_SECRET_REL_PATH).exists());
+        assert!(!fresh.join(NODE_KEYSTORE_REL_PATH).exists());
         assert_eq!(
             std::fs::read(fresh.join(RECOVERY_SEAL_REL_PATH)).unwrap(),
             b"sealed-phrase"

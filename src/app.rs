@@ -202,6 +202,8 @@ pub async fn run() -> Result<()> {
     }
     if args.identity_init { return crate::crypto::cmd::identity_init(); }
     if args.acp_id { return crate::crypto::cmd::print_acp_id(); }
+    if args.node_init { return crate::crypto::cmd::node_init(args.node_label.as_deref()); }
+    if args.node_id { return crate::crypto::cmd::print_node_id(); }
     if args.shares_print { return crate::crypto::cmd::shares_print(args.shares_file.as_deref()); }
     if args.shares_verify { return crate::crypto::cmd::shares_verify(args.shares_file.as_deref()); }
     if args.show_phrase { return crate::crypto::cmd::show_phrase(); }

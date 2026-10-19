@@ -65,6 +65,9 @@ pub async fn run(args: Args) -> Result<()> {
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
         session_path().map(|p| p.exists()).unwrap_or(false));
+    if let Ok(Some(node)) = crate::crypto::node_store::PublicNode::load(&home_dir) {
+        app.node_chip = node.chip();
+    }
     setup_themes(&mut app, &args, &prefs)?;
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }

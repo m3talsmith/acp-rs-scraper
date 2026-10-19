@@ -13,6 +13,7 @@
 pub mod cbor;
 pub mod hpke;
 pub mod master;
+pub mod node;
 pub mod password;
 pub mod slip39;
 pub mod stage;

@@ -107,6 +107,81 @@ pub fn print_acp_id() -> Result<()> {
     }
 }
 
+/// Create this machine's node key, certify it with the master, and drop the master.
+///
+/// The phrase is read from the seal when that file exists. Otherwise it is typed
+/// on a terminal and is not printed back. The node secret is not printed.
+pub fn node_init(label: Option<&str>) -> Result<()> {
+    let home = home()?;
+    if Pin::load(&home)?.is_none() {
+        bail!("no acp-id is pinned yet. Run --identity-init on a terminal.");
+    }
+    let password = password_for_db(true)?;
+    let entropy = if super::recovery::seal_exists(&home) {
+        super::recovery::open(&home, password.as_str())?
+    } else {
+        if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            bail!(
+                "--node-init needs the recovery phrase, and this computer has no sealed copy. Run it on a terminal."
+            );
+        }
+        let typed = Zeroizing::new(read_block(
+            "Paste the 24-word phrase, or at least 3 shares, then a blank line:",
+        )?);
+        master::seed_from_material(typed.as_str())?
+    };
+    let label = match label {
+        Some(label) => label.to_string(),
+        None => super::node_store::default_label(),
+    };
+    let public = super::node_store::create_first_node(&home, password.as_str(), &label, &entropy)?;
+    println!("Node: {}", public.label);
+    println!("Account: {}", public.acp_id);
+    println!("Peer id: {}", public.peer_id);
+    println!("Fingerprint: {}", public.fingerprint);
+    println!("Verification: {}", public.verification_words()?);
+    println!(
+        "Node certificate expires at {} (unix time). Authorizer certificate expires at {}.",
+        public.node_expires, public.authorizer_expires
+    );
+    println!("The node secret was not printed. It is not in a backup.");
+    Ok(())
+}
+
+/// Print the public node record and whether its certificate still checks out.
+pub fn print_node_id() -> Result<()> {
+    let home = home()?;
+    let Some(public) = super::node_store::PublicNode::load(&home)? else {
+        bail!("no node on this computer yet. Run --node-init after --identity-init.");
+    };
+    println!("Node: {}", public.label);
+    println!("Account: {}", public.acp_id);
+    println!("Peer id: {}", public.peer_id);
+    println!("Fingerprint: {}", public.fingerprint);
+    println!("Verification: {}", public.verification_words()?);
+    println!("Node certificate expires at {}.", public.node_expires);
+    match Pin::load(&home)? {
+        Some(pin) => {
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0);
+            match acp_rs_node_core::node::verify_chain(
+                &public.node,
+                Some(&public.authorizer),
+                &pin.sign_pub,
+                now,
+                None,
+            ) {
+                Ok(()) => println!("Certificate: valid"),
+                Err(err) => println!("Certificate: {err}"),
+            }
+        }
+        None => println!("Certificate: no pinned acp-id to check it against"),
+    }
+    Ok(())
+}
+
 fn store_pin(home: &std::path::Path, master: &Master) -> Result<()> {
     let pin = Pin {
         acp_id: master.acp_id.clone(),

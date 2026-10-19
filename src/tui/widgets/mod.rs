@@ -79,7 +79,11 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
         f.render_widget(Paragraph::new(Span::styled("ACP", t.bar().bold(true))), Rect { x, ..mid });
         x += 5;
     }
-    let left = format!("{}  v{}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"));
+    let left = if app.node_chip.is_empty() {
+        format!("{}  v{}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"))
+    } else {
+        format!("{}  v{}  {}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"), app.node_chip)
+    };
     let session = match app.session {
         SessionState::LoggedOut => "○ logged out",
         SessionState::Saved => "◐ session saved",

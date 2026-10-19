@@ -65,3 +65,52 @@ blake3 = f1285198df182da88c543a25dbb058a77c5b5887d10e257157141866e9cede8b
 ```
 
 The key `n` sorts before `type` because `616e` is less than `6474797065`.
+
+## Peer id
+
+A node's libp2p identity is the ed25519 signing public key. There is no protobuf dependency. The bytes that libp2p hashes are the protobuf encoding of that key, written by hand:
+
+```text
+08 01          field 1, varint, key type Ed25519 = 1
+12 20          field 2, length-delimited, 32 bytes
+<32-byte public key>
+```
+
+The peer id is base58btc of the sha2-256 multihash of those bytes: `12 20` followed by the 32-byte hash. A 34-byte multihash is short enough that the peer id is the multihash itself.
+
+Vector. Public key `11` repeated 32 times:
+
+```text
+fingerprint = 4a78877c4a0926fc
+peer id     = QmXS53cQyDRT7RaXiKYLjfkX8xSc9pBDPohDh1F3HxzjAz
+```
+
+The fingerprint is the first 8 bytes of blake3(public key), hex encoded.
+
+## Certificates
+
+Certificates are canonical CBOR maps. ed25519 signs the canonical bytes of the map. The signature is not a field of the map. Version is `v = 1`.
+
+An authorizer certificate has `type = "authorizer"`, `account` (master signing public key), `subject` (the authorizer's node signing public key), `serial`, `issued_at`, `expires_at`, and `limits`. The limits map has `max_nodes`, `max_node_ttl`, `history_grant` (`allowed` or `forbidden`), and `may_revoke` (`own`).
+
+A node certificate has `type = "node"`, `account`, `node_sign_pub`, `node_enc_pub`, `peer_id`, `label`, `serial`, `issuer`, `issued_at`, `expires_at`, and `caps`. The first machine's capabilities are `intent-sender`, `publish`, and `sync`, sorted as text.
+
+The first machine uses serial 1 for the authorizer and serial 2 for the node. The master signs both. The node certificate's issuer is the master public key, so the chain is node → master. The authorizer certificate is what lets this machine certify a later node.
+
+Proposed lifetimes, still open: a node certificate lasts 30 days, an authorizer certificate lasts 365 days, and a verifier allows 5 minutes of clock skew. On the first machine `history_grant` is `allowed` and `max_nodes` is 16. Those two numbers are local defaults.
+
+A verifier checks the signature, that the chain ends at the pinned master, that `now` is inside the validity window plus the skew, and, when a capability is required, that it is in `caps`. A node certificate that names a different account is rejected.
+
+## Verification words
+
+An enrollment request is a canonical map: `type = "enroll-request"`, `v = 1`, `sign`, `enc`, `label`, `nonce` (16 bytes). The six words are BIP-39 English words from the first 66 bits of blake3 of that encoding. Word 0 is the top 11 bits.
+
+Vector. Signing key seed `11` repeated, wrapping seed `22` repeated, label `home`, nonce `03` repeated 16 times:
+
+```text
+zebra cloud van any butter science
+```
+
+## Node keystore
+
+`~/.acp/node/keystore` is not a certificate and it is not inside a `.acpbackup`. The file is `ACPKEY01`, then a 24-byte nonce, then XChaCha20-Poly1305 ciphertext. The additional data is `acp-node-keystore-v1`. The key is HKDF-SHA256 of the unlocked database key with info `acp-node-keystore-v1`. The plaintext is canonical CBOR with `v`, `sign` (32-byte seed), and `enc` (32-byte seed). A wrong key fails the authenticator. The file mode is `0600`.

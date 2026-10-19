@@ -431,6 +431,8 @@ pub struct App {
     pub pending_feed: Option<String>,
     /// Thread whose reply order a running sort job should restore.
     pub pending_sort: Option<(String, ThreadSort)>,
+    /// Header chip for this machine's node (`◉ label`). Empty when no node exists.
+    pub node_chip: String,
 }
 
 impl App {
@@ -445,7 +447,7 @@ impl App {
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
-            pending_feed: None, pending_sort: None,
+            pending_feed: None, pending_sort: None, node_chip: String::new(),
         };
         app.refresh_nicks();
         app.reload_marks();

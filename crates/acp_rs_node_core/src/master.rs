@@ -18,7 +18,7 @@
 
 use anyhow::{Context, Result, bail};
 use bip39::{Language, Mnemonic};
-use ed25519_dalek::SigningKey;
+use ed25519_dalek::{Signer, SigningKey};
 use hkdf::Hkdf;
 use sha2::Sha256;
 use x25519_dalek::{PublicKey, StaticSecret};
@@ -114,8 +114,7 @@ pub struct Master {
     /// and so a later ceremony can use it without re-running Argon2.
     #[allow(dead_code)]
     secret: Zeroizing<[u8; 32]>,
-    /// ed25519 seed. Same reason as `secret`. Certificates are a later stage.
-    #[allow(dead_code)]
+    /// ed25519 seed. Used to sign a certificate during a ceremony, then dropped.
     sign_seed: Zeroizing<[u8; 32]>,
     /// X25519 seed. Same reason as `secret`.
     #[allow(dead_code)]
@@ -145,6 +144,18 @@ impl Master {
         ciphertext: &[u8],
     ) -> Result<Zeroizing<Vec<u8>>> {
         super::hpke::open(&self.wrap_seed, encapped, ciphertext)
+    }
+
+    /// The signing seed. Tests use it to prove a node key is not this master.
+    #[cfg(test)]
+    pub(crate) fn sign_seed_test(&self) -> &[u8; 32] {
+        &self.sign_seed
+    }
+
+    /// Sign `msg` with the master ed25519 key. The seed stays inside this value.
+    pub fn sign(&self, msg: &[u8]) -> [u8; 64] {
+        let key = SigningKey::from_bytes(&self.sign_seed);
+        key.sign(msg).to_bytes()
     }
 
     /// Refuse unless `expected` is this master's id. The error includes the derived
