@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-10-19
+
+### Added
+
+- **Job details.** Click the status bar, or the `⟳` running mark in the header, or press Tab until Status is focused and then Enter. The window shows the job name and what started it, whether it is running, finished, failed or cancelled, the start time and elapsed time, the current stage and a spinner, and a scrollable log tail. When several jobs are running they are a list. `c` or Cancel stops a job that is still running. Esc closes the window. The password and the database key are not shown. Encrypting the database, backup and restore still use the progress screen; they are not jobs in this window.
+
 ## [3.0.0] - 2026-10-18
 
 ### BREAKING CHANGES

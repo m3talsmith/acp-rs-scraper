@@ -3,6 +3,7 @@
 
 pub mod confirm;
 pub mod help;
+pub mod job;
 pub mod login;
 pub mod message;
 pub mod palette;
@@ -15,6 +16,7 @@ use crossterm::event::KeyEvent;
 
 pub use confirm::*;
 pub use help::*;
+pub use job::JobModal;
 pub use login::*;
 pub use message::*;
 pub use palette::*;
@@ -76,6 +78,8 @@ pub enum Modal {
     ThemePicker(Box<ThemePickerModal>),
     /// Read-only actions for one post (`p`).
     Post(PostMenu),
+    /// Running and recent jobs.
+    Job(JobModal),
 }
 
 impl Modal {
@@ -85,6 +89,7 @@ impl Modal {
             Modal::Login(m) => m, Modal::Help(m) => m, Modal::Confirm(m) => m,
             Modal::Message(m) => m, Modal::Search(m) => m, Modal::Palette(m) => m, Modal::Research(m) => m, Modal::ThemePicker(m) => m.as_mut(),
             Modal::Post(m) => m,
+            Modal::Job(m) => m,
         }
     }
 }

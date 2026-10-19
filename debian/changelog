@@ -1,3 +1,9 @@
+acp-rs-scraper (3.1.0) unstable; urgency=medium
+
+  * Job details: click the status bar or the header running mark to see state, elapsed time and the log.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 12:00:00 +0000
+
 acp-rs-scraper (3.0.0) unstable; urgency=medium
 
   * Breaking: the local database is encrypted and needs a password. A 2.x plaintext database is not opened; migrate with --encrypt-db (writes a backup first).

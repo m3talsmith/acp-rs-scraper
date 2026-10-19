@@ -72,9 +72,9 @@ fn b_toggles_the_open_detail_and_the_detail_has_a_star() {
 fn side_job_end_reloads_only_when_all_writes_landed() {
     let mut a = app();
     a.marks.insert("ALICE0001".into());
-    a.side_job_finished(true, &[], 1);
+    a.side_job_finished(1, true, Some(0), &[], 1);
     assert!(a.is_marked("ALICE0001"), "another write still pending: keep the optimistic state");
-    a.side_job_finished(true, &[], 0);
+    a.side_job_finished(2, true, Some(0), &[], 0);
     assert!(!a.is_marked("ALICE0001"), "re-read from the store");
 }
 

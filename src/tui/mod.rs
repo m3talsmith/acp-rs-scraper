@@ -181,6 +181,9 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 if let Some(im) = app.images.as_mut() { im.flush(&mut std::io::stdout()); }
             }
         let mut wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
+        if app.has_running_job() || matches!(app.modal, Some(modals::Modal::Job(_))) {
+            wait = wait.min(Duration::from_millis(80));
+        }
         // The empty-Body animation: wake exactly when its next frame is due (one draw per frame).
         if app.empty_anim_frame.is_some() && let Some(fr) = &app.empty_anim {
             wait = wait.min(fr.until_next(Instant::now().saturating_duration_since(app.empty_anim_start)));
@@ -204,7 +207,11 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         while let Ok(l) = log_rx.try_recv() { app.push_status(l); }
         if let Some(j) = &mut job {
             let (lines, status) = j.poll();
-            for l in lines { app.push_status(l); }
+            let pid = j.pid();
+            for l in lines {
+                app.note_job_line(pid, &l);
+                app.push_status(modals::job::redact_line(&l));
+            }
             if let Some(st) = status {
                 let tail = jobs::tail(&j.log, 12);
                 app.job_finished(st.success(), st.code(), &tail);
@@ -213,10 +220,12 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         }
         let mut k = 0;
         while k < side.len() {
-            let (_, status) = side[k].poll();
+            let (lines, status) = side[k].poll();
+            let pid = side[k].pid();
+            for l in &lines { app.note_job_line(pid, l); }
             if let Some(st) = status {
                 let j = side.remove(k);
-                app.side_job_finished(st.success(), &jobs::tail(&j.log, 3), side.len());
+                app.side_job_finished(pid, st.success(), st.code(), &jobs::tail(&j.log, 3), side.len());
                 if st.success() { let _ = std::fs::remove_file(&j.log); }
             } else { k += 1; }
         }
@@ -265,13 +274,24 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     });
                 }
                 Effect::RunSideJob(kind, argv) => match jobs::Job::spawn(kind, &argv) {
-                    Ok(j) => side.push(j),
+                    Ok(j) => {
+                        app.track_side(kind, j.pid(), j.log.clone(), &j.cmd);
+                        side.push(j);
+                    }
                     Err(e) => app.error("Cannot start", &format!("{e:#}")),
                 },
                 Effect::OpenFile(p) => if let Err(e) = open_file(&p) { app.error("Cannot open", &format!("{e:#}")); },
                 Effect::CancelJob => if let Some(mut j) = job.take() {
                     if let Err(e) = j.cancel() { app.push_status(format!("error: cancel: {e:#}")); }
                     app.job_cancelled();
+                },
+                Effect::CancelSide(pid) => {
+                    if let Some(i) = side.iter().position(|j| j.pid() == pid) {
+                        let mut j = side.remove(i);
+                        if let Err(e) = j.cancel() { app.push_status(format!("error: cancel: {e:#}")); }
+                        app.mark_job_cancelled(pid);
+                        app.push_status(format!("{} cancelled (pid {pid})", j.kind.name()));
+                    }
                 },
                 Effect::LoginEmail(email) => {
                     // The LiveView login future is not Send: run it on its own

@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        3.0.0
+Version:        3.1.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.1.0-1
+- Job details: click the status bar or the header running mark
+
 * Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 3.0.0-1
 - Breaking: encrypted database, mandatory password, --encrypt-db migrates a 2.x file after a backup
 
