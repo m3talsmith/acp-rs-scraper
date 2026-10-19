@@ -1,3 +1,9 @@
+acp-rs-scraper (3.4.0) unstable; urgency=medium
+
+  * New post and Reply. A confirmed publish is not sent until a guided capture. Attachments wait.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 22:00:00 +0000
+
 acp-rs-scraper (3.3.1) unstable; urgency=medium
 
   * Job details: elapsed time stops when the job finishes, fails, or is cancelled.

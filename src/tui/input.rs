@@ -100,6 +100,7 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('b') => app.act(Action::ToggleBookmark),
         KeyCode::Char('p') => app.open_post_menu(),
         KeyCode::Char('x') => app.act(Action::ToggleBasket),
+        KeyCode::Char('n') => app.open_new_post(),
         KeyCode::Char('r') => app.act(Action::AddToResearch),
         KeyCode::Char('v') => app.act(Action::CycleView),
         KeyCode::Char(',') => app.act(Action::StackPrev),
@@ -151,6 +152,8 @@ fn body_key(app: &mut App, k: KeyEvent) {
             KeyCode::Right | KeyCode::Char(']') => app.move_link(1),
             KeyCode::Enter => { if let Some(i) = app.top().map(|f| f.link_cursor) { app.open_link(i); } }
             KeyCode::Char('s') => app.cycle_thread_sort(),
+            KeyCode::Char('r') => { app.open_reply(); return; }
+            KeyCode::Char('Q') => { app.open_quote(); return; }
             KeyCode::Esc | KeyCode::Backspace => { app.pop_detail(); }
             _ => { common_key(app, k); }
         }

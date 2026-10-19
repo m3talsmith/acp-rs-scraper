@@ -201,6 +201,23 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
     c.execute_batch(POSTS_MIGRATIONS)?;
     c.execute_batch(POST_TAGS_SCHEMA)?;
     c.execute_batch(POST_VERSIONS_SCHEMA)?;
+    c.execute_batch(SITE_STATE_SCHEMA)?;
+    Ok(())
+}
+
+/// Read one `site_state` value. The table is created if this database is already open.
+pub fn site_state_get(c: &Connection, key: &str) -> Result<Option<String>> {
+    c.execute_batch(SITE_STATE_SCHEMA)?;
+    c.query_row("SELECT value FROM site_state WHERE key = ?1", params![key], |r| r.get(0)).optional().map_err(Into::into)
+}
+
+/// Write one `site_state` value.
+pub fn site_state_set(c: &Connection, key: &str, value: &str) -> Result<()> {
+    c.execute_batch(SITE_STATE_SCHEMA)?;
+    c.execute(
+        "INSERT INTO site_state (key, value) VALUES (?1, ?2) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        params![key, value],
+    )?;
     Ok(())
 }
 

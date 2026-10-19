@@ -1,6 +1,7 @@
 //! Modals: floating over the layout (small margin, dimmed background), each
 //! closing with [`ModalResult::ClosedCancelled`] or [`ModalResult::ClosedSubmitted`].
 
+pub mod compose;
 pub mod confirm;
 pub mod help;
 pub mod job;
@@ -14,6 +15,7 @@ pub mod theme_picker;
 
 use crossterm::event::KeyEvent;
 
+pub use compose::*;
 pub use confirm::*;
 pub use help::*;
 pub use job::JobModal;
@@ -80,6 +82,8 @@ pub enum Modal {
     Post(PostMenu),
     /// Running and recent jobs.
     Job(JobModal),
+    /// New post or reply. Publish does not open a connection.
+    Compose(ComposeModal),
 }
 
 impl Modal {
@@ -90,6 +94,7 @@ impl Modal {
             Modal::Message(m) => m, Modal::Search(m) => m, Modal::Palette(m) => m, Modal::Research(m) => m, Modal::ThemePicker(m) => m.as_mut(),
             Modal::Post(m) => m,
             Modal::Job(m) => m,
+            Modal::Compose(m) => m,
         }
     }
 }

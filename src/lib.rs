@@ -14,6 +14,7 @@
 //! - [`auth`]: email + one-time-code login, saved preferences.
 //! - [`liveview`]: LiveView websocket client and diff renderer.
 //! - [`scrape`]: profile/site feeds, threads, "Posts and replies" filter, mentions.
+//! - [`site`]: New post and Reply (3.4.0). Publish stays gated until a guided capture.
 //! - [`media`]: attachment discovery and download.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
@@ -44,6 +45,7 @@ pub mod maintenance;
 pub mod media;
 pub mod research;
 pub mod scrape;
+pub mod site;
 pub mod storage;
 pub mod themes;
 pub mod tui;

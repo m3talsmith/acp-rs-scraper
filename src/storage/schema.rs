@@ -186,6 +186,14 @@ pub const QUARANTINE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS quarantine (
             body BLOB NOT NULL
         );";
 
+/// Verified site bundle and the last protocol check (3.4.0). The writes switch
+/// lives in preferences, not here. Nothing stores a bundle until a capture
+/// confirms one.
+pub const SITE_STATE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_state (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );";
+
 /// Backup bookkeeping inside the database. The archive files themselves live outside it.
 pub const BACKUPS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS backups (
             id INTEGER PRIMARY KEY,

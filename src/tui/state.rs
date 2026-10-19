@@ -433,6 +433,9 @@ pub struct App {
     pub pending_sort: Option<(String, ThreadSort)>,
     /// Header chip for this machine's node (`◉ label`). Empty when no node exists.
     pub node_chip: String,
+    /// Unix seconds of the last confirmed post or reply in this session.
+    /// The capture gate still applies; the stamp only feeds the rate limit.
+    pub last_write_unix: Option<i64>,
 }
 
 impl App {
@@ -447,7 +450,7 @@ impl App {
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
-            pending_feed: None, pending_sort: None, node_chip: String::new(),
+            pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -647,6 +650,53 @@ impl App {
             .or_else(|| self.view().posts.iter().find(|p| p.post_id == id).cloned());
         let thread_id = thread.map(|p| if p.parent_post_id.is_empty() { p.post_id } else { p.parent_post_id }).unwrap_or_else(|| id.clone());
         self.modal = Some(Modal::Post(PostMenu::new(&id, &thread_id)));
+    }
+    /// Nicks and tags the compose box can complete without asking the site.
+    fn compose_sources(&self) -> (Vec<crate::site::NickHint>, Vec<String>) {
+        let nicks = self.nicks.iter().map(|n| crate::site::NickHint { nick: n.nick.clone(), user_id: String::new() }).collect();
+        let mut tags = Vec::new();
+        for post in &self.view().posts {
+            for tag in crate::scrape::extract_tags(&post.body_json, &post.content) {
+                if !tags.iter().any(|e: &String| e.eq_ignore_ascii_case(&tag)) { tags.push(tag); }
+            }
+        }
+        (nicks, tags)
+    }
+    fn writes_are_on(&self) -> bool { crate::site::writes_enabled() }
+    fn show_writes_off(&mut self) {
+        self.modal = Some(Modal::Message(MessageModal::info(
+            "Writes are off",
+            "Set ui.writes = true in preferences.toml, or unset ACP_WRITES. ACP_WRITES=off wins.",
+        )));
+    }
+    /// `n`: compose a new post. Cancel is the default button.
+    pub fn open_new_post(&mut self) {
+        if !self.writes_are_on() { self.show_writes_off(); return; }
+        let (nicks, tags) = self.compose_sources();
+        self.modal = Some(Modal::Compose(ComposeModal::new_post(nicks, tags)));
+    }
+    /// The open or highlighted post, when there is one.
+    fn current_post(&self) -> Option<Post> {
+        if let Some(f) = self.top() { return Some(f.post.clone()); }
+        let v = self.view();
+        v.posts.get(v.cursor).cloned()
+    }
+    /// `r` on an open post: reply. A comment pre-fills `postRef`.
+    pub fn open_reply(&mut self) {
+        if !self.writes_are_on() { self.show_writes_off(); return; }
+        let Some(post) = self.current_post() else { self.push_status("no post: open one to reply"); return; };
+        let thread = if post.parent_post_id.is_empty() { post.post_id.clone() } else { post.parent_post_id.clone() };
+        let in_reply_to = if post.parent_post_id.is_empty() { None } else { Some(post.post_id.clone()) };
+        let (nicks, tags) = self.compose_sources();
+        self.modal = Some(Modal::Compose(ComposeModal::reply(&thread, in_reply_to, None, None, nicks, tags)));
+    }
+    /// `Q` on an open post: reply with the body quoted.
+    pub fn open_quote(&mut self) {
+        if !self.writes_are_on() { self.show_writes_off(); return; }
+        let Some(post) = self.current_post() else { self.push_status("no post: open one to quote"); return; };
+        let thread = if post.parent_post_id.is_empty() { post.post_id.clone() } else { post.parent_post_id.clone() };
+        let (nicks, tags) = self.compose_sources();
+        self.modal = Some(Modal::Compose(ComposeModal::reply(&thread, None, Some(post.content.clone()), Some(post.post_id.clone()), nicks, tags)));
     }
     /// Post menu › View reposts.
     pub fn open_reposts(&mut self, id: &str) {
@@ -1480,6 +1530,21 @@ impl App {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
                 PostAction::Edits => self.open_edits(&m.post_id, &m.thread_id),
             },
+            (Modal::Compose(c), ModalResult::ClosedCancelled) => {
+                self.push_status("nothing sent");
+                let _ = c;
+            }
+            (Modal::Compose(c), ModalResult::ClosedSubmitted) => {
+                let now = chrono::Utc::now().timestamp();
+                let draft = c.draft(now, self.last_write_unix, true);
+                match crate::site::decide(&draft, true, false) {
+                    Ok(text) => self.push_status(text),
+                    Err(e) => {
+                        if e.message.contains("nothing was published") { self.last_write_unix = Some(now); }
+                        self.error("Write", &e.message);
+                    }
+                }
+            }
             (Modal::Search(s), ModalResult::ClosedSubmitted) => {
                 if s.cleared { self.clear_search(); }
                 else if s.site { self.open_site_search(&s); }

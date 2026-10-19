@@ -12,6 +12,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - **Tombstones, revised.** A signed tombstone keeps the post. The plan no longer drops the body after a grace period. The UI shows a tombstone icon (🪦, or `[RIP]`), the content stays viewable, and a signed restore record or a newer signature of the same post id clears the tombstone. The restore record is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 - **Password change / re-key is 3.22.0.** It does not change the master or the `acp-id`. It re-wraps the SQLCipher key, the keystore, the sealed phrase, and the backup-wrapping key in one transaction, with rollback, and it requires the old password. It sits before the daemon and the OS keyring. Stages that were 3.22.0 through 3.28.0 are now 3.23.0 through 3.29.0. The write core stays 3.4.0.
 
+## [3.4.0] - 2026-10-19
+
+### Added
+
+- **New post and Reply.** `n` opens a compose box. `r` on an open post replies; on a comment it pre-fills a `postRef`. `Q` quotes that post. `--new-post`, `--reply`, `--body`, `--in-reply-to`, `--quote`, and `--quote-post` do the same from the command line. The body is Markdown turned into the editor's ProseMirror document (paragraphs, lists, task lists, quotes, bold, italic, underline, links, mentions, and tags). Anything that schema cannot express is refused before a frame is built.
+- **Safety.** Writes are on unless `ui.writes` is false or `ACP_WRITES=off` (the environment wins). The compose box starts on Cancel. `--yes` confirms; without it a terminal asks `Publish? [y/N]`. `--dry-run` prints the documented LiveView frames and opens no connection. A post or reply inside 30 seconds of the last confirmed attempt waits. A changed site script URL refuses writes until `--accept-site-update`.
+
+### Not sent
+
+- **The guided capture has not happened.** Confirming Publish does not open a connection and does not post. `--capture-reply` is hidden, copies nothing, and sends nothing. `_target`, hidden fields from a live page, the upload channel, `mention-query` / `tag-query` replies, and read-back of the saved post stay omitted. Attachments are refused and wait for 3.5.0. Vote, subscribe, delete, edit, and repost are later releases.
+
 ## [3.3.1] - 2026-10-19
 
 ### Fixed

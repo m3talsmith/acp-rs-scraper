@@ -36,6 +36,8 @@ pub struct UiPrefs {
     /// `false` stops the first run from downloading the default theme into an empty
     /// `~/.acp/themes` (default `true`; `ACP_THEME_DOWNLOAD=off` does the same).
     pub theme_download: Option<bool>,
+    /// Writes (3.4.0). Omitted means on. `ACP_WRITES=off` wins over this field.
+    pub writes: Option<bool>,
 }
 
 /// Set `[ui] theme` in `~/.acp/preferences.toml`, keeping every other key (also unknown

@@ -129,6 +129,16 @@ pub fn redact_secrets(s: &str) -> String {
             format!("{}{}{}{}", &caps[1], &caps[2], REDACTED, &caps[4])
         })
         .into_owned();
+    static JWT: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r"eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}").expect("jwt re")
+    });
+    static LIVEKIT: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r#"(?i)"(token|livekit_token)"\s*:\s*"(?:\\.|[^"\\])*""#).expect("livekit re")
+    });
+    out = JWT.replace_all(&out, REDACTED).into_owned();
+    out = LIVEKIT
+        .replace_all(&out, |caps: &regex::Captures| format!(r#""{}":"{REDACTED}""#, &caps[1]))
+        .into_owned();
     out
 }
 
@@ -266,5 +276,20 @@ mod tests {
             "{out}"
         );
         assert!(out.contains(r#"name=\"_csrf_token\""#));
+    }
+
+    #[test]
+    fn redacts_jwt_and_livekit_token() {
+        // Pieces, so the source does not contain a JWT-shaped string.
+        let raw = format!(
+            r#"{{"token":"{}.{}.{}","event":"space-join"}}"#,
+            "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9",
+            "eyJzdWIiOiIxMjM0NTY3ODkwIn0",
+            "dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U"
+        );
+        let out = redact_secrets(&raw);
+        assert!(!out.contains("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"), "{out}");
+        assert!(out.contains("space-join"), "{out}");
+        assert!(out.contains("[REDACTED]"), "{out}");
     }
 }

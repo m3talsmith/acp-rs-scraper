@@ -2,6 +2,7 @@
 //! the read-only store, modals and headless renders (ratatui `TestBackend`).
 
 mod commands;
+mod compose;
 mod bookmarks;
 mod data;
 mod empty_anim;
