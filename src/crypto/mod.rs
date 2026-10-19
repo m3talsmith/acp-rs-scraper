@@ -1,8 +1,11 @@
 //! Keys for the account: the master secret, the recovery phrase and the `acp-id`.
 //!
-//! This is the part of §7.13 that does not need a node. Certificates, enrollment,
-//! revocation, relays and peers stay out of this crate until that stage; the types
-//! they will need (a master signing key and a master wrapping key) are derived here.
+//! The derivation, canonical CBOR, and the secret-store trait live in
+//! [`acp_rs_node_core`]. This module keeps encryption at rest, backup, and the
+//! terminal progress screen, which depend on the database and the terminal.
+//! Certificates, enrollment, revocation, relays and peers stay out until the
+//! node-identity stage. The master signing key and the master wrapping key are
+//! derived in the core crate.
 //!
 //! The plaintext phrase and the master secret are not written to disk. A pinned
 //! [`pin::Pin`] stores the public `acp-id`, the Argon2 parameters and the two public

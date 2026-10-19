@@ -29,10 +29,8 @@ use anyhow::{Context, Result, bail};
 use chacha20poly1305::aead::{Aead, Payload};
 use chacha20poly1305::{KeyInit, XChaCha20Poly1305};
 use ciborium::Value;
-use hpke::aead::ChaCha20Poly1305;
-use hpke::kdf::HkdfSha256;
+#[cfg(test)]
 use hpke::kem::X25519HkdfSha256;
-use hpke::{Deserializable, Kem as KemTrait, OpModeR, OpModeS, Serializable};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
@@ -51,14 +49,12 @@ use crate::storage::schema::{
 const BOOT_VERSION: u64 = 1;
 const LOCAL_INFO: &[u8] = b"acp-local-key-v1";
 const ACCOUNT_PASS_INFO: &[u8] = b"acp-account-pass-v1";
-const ACCOUNT_HPKE_INFO: &[u8] = b"acp-account-dek-v1";
 const KIND_PASS: u64 = 0;
 const KIND_MASTER: u64 = 1;
 const KIND_NODE: u64 = 2;
 
+#[cfg(test)]
 type HpkeKem = X25519HkdfSha256;
-type AeadHpke = ChaCha20Poly1305;
-type Kdf = HkdfSha256;
 
 fn cache() -> &'static Mutex<HashMap<PathBuf, Zeroizing<[u8; 32]>>> {
     static CACHE: std::sync::OnceLock<Mutex<HashMap<PathBuf, Zeroizing<[u8; 32]>>>> =
@@ -906,39 +902,12 @@ fn aead_decrypt(
 }
 
 fn hpke_seal(pk: &[u8; 32], plain: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
-    let public = <HpkeKem as KemTrait>::PublicKey::from_bytes(pk)
-        .map_err(|e| anyhow::anyhow!("wrapping key: {e}"))?;
-    let mut rng = rand::rngs::OsRng;
-    let (enc, mut ctx) = hpke::setup_sender::<AeadHpke, Kdf, HpkeKem, _>(
-        &OpModeS::Base,
-        &public,
-        ACCOUNT_HPKE_INFO,
-        &mut rng,
-    )
-    .map_err(|e| anyhow::anyhow!("hpke seal: {e}"))?;
-    let body = ctx
-        .seal(plain, b"")
-        .map_err(|e| anyhow::anyhow!("hpke seal: {e}"))?;
-    Ok((enc.to_bytes().to_vec(), body))
+    acp_rs_node_core::hpke::seal(pk, plain)
 }
 
 /// Open an HPKE wrap with a raw X25519 secret.
 pub fn hpke_open(sk: &[u8; 32], enc: &[u8], body: &[u8]) -> Result<Zeroizing<Vec<u8>>> {
-    let secret = <HpkeKem as KemTrait>::PrivateKey::from_bytes(sk)
-        .map_err(|e| anyhow::anyhow!("wrapping key: {e}"))?;
-    let encapped = <HpkeKem as KemTrait>::EncappedKey::from_bytes(enc)
-        .map_err(|e| anyhow::anyhow!("hpke: {e}"))?;
-    let mut ctx = hpke::setup_receiver::<AeadHpke, Kdf, HpkeKem>(
-        &OpModeR::Base,
-        &secret,
-        &encapped,
-        ACCOUNT_HPKE_INFO,
-    )
-    .map_err(|e| anyhow::anyhow!("hpke open: {e}"))?;
-    let plain = ctx
-        .open(body, b"")
-        .map_err(|_| anyhow::anyhow!("hpke open failed"))?;
-    Ok(Zeroizing::new(plain))
+    acp_rs_node_core::hpke::open(sk, enc, body)
 }
 
 /// Argon2id parameters for a new wrap of `db`: the pin, `ACP_ARGON_FAST`, or the floor.
@@ -1009,6 +978,7 @@ mod tests {
     use super::*;
     use crate::config::DB_REL_PATH;
     use hpke::Kem as KemTrait;
+    use hpke::Serializable;
 
     const PASSWORD: &str = "correct horse battery staple";
 

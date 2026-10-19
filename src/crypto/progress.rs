@@ -25,6 +25,11 @@ thread_local! {
     static STAGES: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 
+/// Point the core crate's derivation hook at [`set_stage`] on this thread.
+fn install_stage_hook() {
+    acp_rs_node_core::stage::set_stage_hook(set_stage);
+}
+
 /// Name the step that is running. No effect unless [`run_busy`] installed a
 /// reporter on this thread.
 pub(crate) fn set_stage(stage: &str) {
@@ -51,11 +56,13 @@ where
     F: FnOnce() -> Result<T> + Send + 'static,
 {
     if !io::stdout().is_terminal() {
+        install_stage_hook();
         return work();
     }
     let (stage_tx, stage_rx) = mpsc::channel();
     let (done_tx, done_rx) = mpsc::channel();
     thread::spawn(move || {
+        install_stage_hook();
         STAGE_TX.with(|slot| *slot.borrow_mut() = Some(stage_tx));
         let outcome = catch_unwind(AssertUnwindSafe(work));
         STAGE_TX.with(|slot| *slot.borrow_mut() = None);
@@ -88,6 +95,7 @@ where
 /// Start collecting [`set_stage`] names on this thread.
 #[cfg(test)]
 pub(crate) fn record_stages() {
+    install_stage_hook();
     RECORD.with(|on| on.set(true));
     STAGES.with(|slot| slot.borrow_mut().clear());
 }

@@ -6,6 +6,16 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-10-19
+
+### Added
+
+- **Shared core crate.** `acp_rs_node_core` holds the master secret, the 24-word phrase, the SLIP-39 shares, canonical CBOR, the HPKE wrap of an account key, and a `SecretStore` interface. The terminal app depends on it. A later relay-only package, tray app, or Dart FFI crate can depend on it without the terminal UI. Canonical CBOR is specified in [docs/PROTOCOL.md](docs/PROTOCOL.md), with test vectors. Signing and hashing use that encoding. There is no protobuf.
+
+### Changed
+
+- Nothing a current install reads or writes. Command-line flags, `preferences.toml`, the SQLCipher database, `rs.database.bootstrap`, `~/.acp/acp-id`, `~/.acp/recovery.seal`, and `.acpbackup` format version 1 are the same bytes as in 3.1.0.
+
 ## [3.1.0] - 2026-10-19
 
 ### Added

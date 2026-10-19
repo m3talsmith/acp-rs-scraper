@@ -1,3 +1,9 @@
+acp-rs-scraper (3.2.0) unstable; urgency=medium
+
+  * Shared core crate: identity, canonical CBOR, and a secret-store interface. CLI flags and the encrypted database are unchanged.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 15:00:00 +0000
+
 acp-rs-scraper (3.1.0) unstable; urgency=medium
 
   * Job details: click the status bar or the header running mark to see state, elapsed time and the log.
