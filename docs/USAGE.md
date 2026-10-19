@@ -77,7 +77,7 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   (whichever is installed first); images are shrunk to at most 1024 px.
 - **Search** (Search menu, or `Shift-S` for keyword + nicks + post id + date range + posts/replies)
   replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears.
-  Search history is not on the bar yet. When it ships it is part of Search: each local or site search keeps the query and the filters (keyword, nicks, post id, dates, posts or replies or both, and Where) in the encrypted database, and picking one runs that search again. Clear history removes those rows. The default keeps every search. A preference can instead keep the N most recent. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
+  Search history is not on the bar yet. When it ships it is part of Search: each local or site search keeps the query and the filters (keyword, nicks, post id, dates, posts or replies or both, and Where) in the encrypted database, and picking one runs that search again. Clear history removes those rows. The default keeps every search. A preference can instead keep the N most recent. Exporting that result includes the same query and filters with the posts. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 - **Menu → flags:**
 
   | Menu | Flags it builds |
@@ -428,6 +428,8 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 
 Default names: `<nick>-<YYYYmmdd-HHMMSS>`, `nick1+nick2-<ts>` for several nicks (`multi-<ts>` for more than 4 nicks or more than 40 characters), `search-<slug>-<ts>` for a search, `basket-<ts>` for `--post-ids`, and `db-<ts>` for a full dump.
 
+A search export does not yet record the query. Before 3.x is finished, exporting a search result includes the query and the filters that produced it (keyword, nicks, post id, dates, posts or replies or both, and Where), along with the posts. A full dump, a nick filter, or a basket does not add a search. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
+
 ### Maintenance (offline)
 
 | Flag | Meaning |
@@ -760,6 +762,7 @@ CREATE TABLE research_items (
 - **Parent ids:** `parent_post_id` is the thread root and `in_reply_to_id` the immediate parent (equal to the root for a direct reply, `""` for roots). Import reads `in_reply_to_id` when present and falls back to `parent_post_id`.
 - **Research exports** (`--research-export`) add `"research": { "name", "description", "created_at", "items": [ { "id", "kind", "ref", "title", "note", "meta", "content", "file", "added_at" } ] }`, where `file` is the bundle-relative path of the copy or snapshot (`attachments/…`) or the absolute one outside a bundle. The HTML page gets a Research section listing every item with its note, linking posts to their `#post-` article. Import ignores the section.
 - **Versions:** import accepts versions 1 (no profiles or mentions) and 2, and refuses newer versions or unknown formats.
+- **Search metadata, not in version 2 yet.** Before 3.x is finished, an export of a search result also carries the query and the filters that produced those posts. A dump, a nick filter, or a basket does not. The field names are not assigned here. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 
 ## Troubleshooting and debugging
 
