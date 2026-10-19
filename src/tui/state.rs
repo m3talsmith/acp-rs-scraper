@@ -35,6 +35,8 @@ pub enum Focus {
     Body,
     /// Menu bar.
     Menu,
+    /// Status bar (Enter opens job details).
+    Status,
 }
 
 /// What a link in a detail points at.
@@ -215,6 +217,8 @@ pub enum Effect {
     RunSideJob(JobKind, Vec<String>),
     /// Kill the running job.
     CancelJob,
+    /// Kill one side job (research, bookmarks) by pid.
+    CancelSide(u32),
     /// Open a file with the desktop's default app (`xdg-open`).
     OpenFile(PathBuf),
     /// Start logging in with this email.
@@ -301,6 +305,10 @@ pub enum Hit {
     ThemeSwitch,
     /// n-th row of the theme editor's list.
     EditorRow(usize),
+    /// The header's `⟳ … running` mark.
+    Job,
+    /// The status bar.
+    Status,
 }
 
 /// Menu bar state.
@@ -359,6 +367,8 @@ pub struct App {
     pub session: SessionState,
     /// Running job.
     pub job: Option<JobView>,
+    /// Jobs the details window can show (every running one, plus a short history).
+    pub tracked: Vec<crate::tui::modals::job::TrackedJob>,
     /// Job (scan / sync) waiting for a login.
     pub pending_job: Option<(JobKind, Vec<String>)>,
     /// Bookmarked post ids (local changes show at once; a side job stores them).
@@ -432,7 +442,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
+            job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
             pending_feed: None, pending_sort: None,
@@ -907,9 +917,11 @@ impl App {
     }
 
     /// A side job ended; `pending` = side jobs still running.
-    pub fn side_job_finished(&mut self, ok: bool, tail: &[String], pending: usize) {
-        if !ok { self.push_status(format!("error: change not saved: {}", tail.last().map(String::as_str).unwrap_or("?"))); }
-        else if let Some(l) = tail.iter().rev().find_map(|l| l.find("research \"").map(|i| &l[i..])) { self.push_status(format!("◈ {l}")); }
+    pub fn side_job_finished(&mut self, pid: u32, ok: bool, code: Option<i32>, tail: &[String], pending: usize) {
+        self.settle_job(pid, ok, code, tail);
+        let shown = tail.iter().rev().find(|l| !l.trim().is_empty()).map(|l| crate::tui::modals::job::redact_line(l)).unwrap_or_else(|| "?".into());
+        if !ok { self.push_status(format!("error: change not saved: {shown}")); }
+        else if let Some(l) = tail.iter().rev().find_map(|l| l.find("research \"").map(|i| l[i..].to_string())) { self.push_status(format!("◈ {}", crate::tui::modals::job::redact_line(&l))); }
         // Re-read only once every write landed, so quick toggles don't flicker back.
         if pending == 0 {
             self.reload_marks();
@@ -1362,11 +1374,13 @@ impl App {
     /// A job started.
     pub fn job_started(&mut self, j: JobView, cmd: &str) {
         self.push_status(format!("started {} (pid {}): {cmd}", j.kind.name(), j.pid));
+        self.remember_job(j.kind, j.pid, j.log.clone(), cmd, false);
         self.job = Some(j);
     }
     /// The job ended (`ok` = exit 0); `tail` = its last log lines.
     pub fn job_finished(&mut self, ok: bool, code: Option<i32>, tail: &[String]) {
         let Some(j) = self.job.take() else { return };
+        self.settle_job(j.pid, ok, code, tail);
         let auto = std::mem::take(&mut self.auto_running);
         let feed = self.pending_feed.take();
         let sort = self.pending_sort.take();
@@ -1392,7 +1406,7 @@ impl App {
             // The log line is already in the status bar. A modal would paint it
             // a second time, over the post list.
             let code = code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into());
-            let detail = tail.iter().rev().find(|l| !l.trim().is_empty()).map(|l| l.trim()).unwrap_or("no output");
+            let detail = tail.iter().rev().find(|l| !l.trim().is_empty()).map(|l| crate::tui::modals::job::redact_line(l.trim())).unwrap_or_else(|| "no output".into());
             self.push_status(format!("error: {} failed (exit {code}): {detail}", j.kind.name()));
         }
     }
@@ -1401,7 +1415,10 @@ impl App {
         self.auto_running = false;
         self.pending_feed = None;
         self.pending_sort = None;
-        if let Some(j) = self.job.take() { self.push_status(format!("{} cancelled (pid {})", j.kind.name(), j.pid)); }
+        if let Some(j) = self.job.take() {
+            self.mark_job_cancelled(j.pid);
+            self.push_status(format!("{} cancelled (pid {})", j.kind.name(), j.pid));
+        }
         self.refresh_nicks();
         self.load_base_keep();
     }

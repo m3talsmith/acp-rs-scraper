@@ -6,6 +6,7 @@ mod bookmarks;
 mod data;
 mod empty_anim;
 mod jobs;
+mod jobs_modal;
 mod layout;
 mod markdown;
 mod content;

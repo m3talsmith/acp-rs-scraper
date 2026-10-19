@@ -2,7 +2,7 @@
 
 use crate::tui::layout::{modal_rect, wrap};
 use crate::tui::modals::*;
-use crate::tui::state::{App, Hit};
+use crate::tui::state::{status_line_is_problem, App, Hit};
 use crate::tui::theme::Theme;
 use crate::tui::widgets::text::TextField;
 use ratatui::Frame;
@@ -49,6 +49,68 @@ fn field_line(label: &str, tf: &TextField, focused: bool, t: &Theme) -> Line<'st
     if focused { let b = v.char_indices().nth(tf.cursor).map(|(b, _)| b).unwrap_or(v.len()); v.insert(b, '▏'); }
     Line::from(vec![Span::styled(format!("{label:>18}: "), if focused { t.accent_bold() } else { t.plain() }),
         Span::styled(format!("{v:<30}"), t.field())])
+}
+
+fn clip(s: &str, w: usize) -> String {
+    let w = w.max(1);
+    if s.chars().count() <= w { return s.to_string(); }
+    s.chars().take(w.saturating_sub(1)).chain(['…']).collect()
+}
+
+fn draw_job(f: &mut Frame, app: &mut App, area: Rect, m: &JobModal, t: &Theme) {
+    let many = m.rows.len() > 1;
+    let list_rows = if many { (m.rows.len() as u16).min(6) } else { 0 };
+    let r = modal_rect(area, 88, (list_rows + 16).max(12));
+    let title = if many { "Jobs · ↑↓ select · j/k log · Esc closes" } else { "Job · j/k PgUp PgDn scroll · Esc closes" };
+    let inner = frame(f, t, r, title);
+    if inner.height < 2 || inner.width < 4 { return; }
+    let row = |y: u16| Rect { y, height: 1, ..inner };
+    let mut y = inner.y;
+    if many {
+        let skip = m.cursor.saturating_sub(list_rows.saturating_sub(1) as usize);
+        for (k, (i, job)) in m.rows.iter().enumerate().skip(skip).take(list_rows as usize).enumerate() {
+            let rr = row(y + k as u16);
+            let mark = if i == m.cursor { "▸" } else { " " };
+            let text = format!(" {mark} {} · {} · {} · pid {}", job.name, job.source, job.state, job.pid);
+            let st = if i == m.cursor { t.selected() } else { t.plain() };
+            f.render_widget(Paragraph::new(Span::styled(clip(&text, inner.width as usize), st)), rr);
+            app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+        }
+        y += list_rows;
+    }
+    let Some(job) = m.rows.get(m.cursor) else { return };
+    let w = inner.width as usize;
+    let line = |text: String, st: ratatui::style::Style| Line::styled(clip(&text, w), st);
+    let stage = if job.running { format!("{} {}", job.spinner, job.stage) } else { job.stage.clone() };
+    let mut lines = vec![
+        line(format!("Job: {}", job.name), t.plain().into()),
+        line(format!("Started by: {}", job.source), t.plain().into()),
+        line(format!("State: {}", job.state), if job.running { t.accent().into() } else { t.plain().into() }),
+        line(format!("Started: {}", job.started_at), t.plain().into()),
+        line(format!("Elapsed: {}", job.elapsed), t.plain().into()),
+        line(format!("Stage: {stage}"), t.plain().into()),
+        line(format!("Pid: {}", job.pid), t.muted().into()),
+    ];
+    if !job.running { lines.push(line(format!("Exit: {}", job.exit), t.plain().into())); }
+    if !job.error.is_empty() { lines.push(line(format!("Error: {}", job.error), t.accent().into())); }
+    if !job.cmd.is_empty() { lines.push(line(format!("Command: {}", job.cmd), t.muted().into())); }
+    lines.push(line("Log:".into(), t.bold().into()));
+    let used = lines.len() as u16;
+    let btn_y = inner.y + inner.height.saturating_sub(1);
+    let body_h = btn_y.saturating_sub(y);
+    let head_h = used.min(body_h);
+    f.render_widget(Paragraph::new(lines), Rect { y, height: head_h, ..inner });
+    let log_top = y + head_h;
+    let log_h = btn_y.saturating_sub(log_top) as usize;
+    let max_scroll = job.tail.len().saturating_sub(log_h);
+    let scroll = m.scroll.min(max_scroll);
+    for (k, line) in job.tail.iter().skip(scroll).take(log_h).enumerate() {
+        let rr = row(log_top + k as u16);
+        let st = if status_line_is_problem(line) { t.accent() } else { t.muted() };
+        f.render_widget(Paragraph::new(Span::styled(clip(line, inner.width as usize), st)), rr);
+    }
+    let labels: Vec<String> = if job.running { vec!["Cancel".into(), "Close".into()] } else { vec!["Close".into()] };
+    buttons(f, app, Rect { y: btn_y, height: 1, ..inner }, &labels, None);
 }
 
 /// Draw the open modal.
@@ -229,6 +291,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
             }
         }
+        Modal::Job(m) => draw_job(f, app, area, m, &t),
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

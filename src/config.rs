@@ -252,9 +252,10 @@ pub const EMPTY_ANIM_MIN: (u16, u16) = (24, 8);
 pub const TUI_JOB_LOG_PREFIX: &str = "tui-";
 /// Key bindings shown in the Help modal (and the README).
 pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
-    ("Tab / Shift-Tab", "Focus Nicks → Body → Menu"),
+    ("Tab / Shift-Tab", "Focus Nicks → Body → Menu → Status"),
     ("↑ ↓  j k", "Move in the focused list; scroll a detail"),
-    ("Enter", "Open: nick (only it), post detail, linked post, menu item"),
+    ("Enter", "Open: nick (only it), post detail, linked post, menu item; on Status, job details"),
+    ("Status · Enter / click", "Job details (status bar or the header ⟳). Esc closes. c cancels a running job. j/k scroll the log"),
     ("Space", "Nicks: add/remove from the selection; menu: toggle checkbox"),
     ("Shift-↑ / Shift-↓", "Nicks: extend the selection"),
     ("Ctrl-A", "Nicks: select every (shown) nick"),
