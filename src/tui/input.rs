@@ -172,7 +172,7 @@ fn body_key(app: &mut App, k: KeyEvent) {
 
 impl App {
     /// Close the dropdown but keep focus where it is.
-    pub fn close_menu_dropdown(&mut self) { self.menu.open = None; self.menu.editing = false; }
+    pub fn close_menu_dropdown(&mut self) { self.menu.open = None; self.menu.editing = false; self.needs_redraw = true; }
 }
 
 fn menu_key(app: &mut App, k: KeyEvent) {

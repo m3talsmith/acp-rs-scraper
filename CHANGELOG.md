@@ -26,6 +26,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - **Progress for the slow steps.** Creating a database, `--encrypt-db`, `--change-password`, `--backup`, and `--restore` run the long work off the thread that draws the terminal. While stdout is a terminal you get a spinner, the stage (deriving the key, encrypting the database, verifying, and the backup and restore stages), and the elapsed time. Keypresses are ignored until that step finishes, so it is not cancelled in the middle of a copy.
 - **`--change-password`.** Rewraps the local database key and the account passphrase wrap. The account id does not change. A backup written with the old password still needs that password.
 
+### Fixed
+
+- **A running session does not ask for the password again.** Scrape, Research, Explore, Executive Board, Sync, and the other jobs are a second copy of this program. That copy did not have the key the terminal UI had just unlocked, so it exited with `Error: this database needs a password. Set ACP_PASSWORD, or run from a terminal.` The terminal UI copied that line into the status bar and opened the same text again over the post list, which is what was left on the screen when changing tabs. The unlocked key now stays in memory for the session and is passed to those jobs on a private pipe (not on the command line and not in the environment). It is wiped when the process exits. `ACP_PASSWORD` and the password prompt are only used at startup. A job that fails is reported in the status bar, and changing tabs redraws the whole screen.
+
 ### Changed
 
 - **One Argon2id stretch per operation.** Migration used to stretch the password three times (the backup, the local key, and the account key) with no feedback. Those wraps now share one stretch and split the keys with HKDF. The parameters are unchanged: 64 MiB, three iterations, one lane. A password change stretches the old password and the new password once each when those wraps share a salt. An older wrap that stored its own salt still opens.

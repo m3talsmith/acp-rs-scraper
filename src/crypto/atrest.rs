@@ -70,6 +70,71 @@ fn cache_key(db: &Path) -> PathBuf {
     std::fs::canonicalize(db).unwrap_or_else(|_| db.to_path_buf())
 }
 
+/// Remember `key` as the local key for `db` for the rest of this process.
+///
+/// Job children receive the key on stdin and call this. The bytes are copied
+/// into a [`Zeroizing`] buffer; the caller's copy is theirs to wipe.
+pub(crate) fn install_cached_key(db: &Path, key: &[u8; 32]) {
+    cache()
+        .lock()
+        .expect("key cache")
+        .insert(cache_key(db), Zeroizing::new(*key));
+}
+
+/// The local key for `db`, when this process has already unlocked it.
+pub(crate) fn cached_key(db: &Path) -> Option<Zeroizing<[u8; 32]>> {
+    cache().lock().expect("key cache").get(&cache_key(db)).cloned()
+}
+
+/// Whether this process can open `db` without a password.
+pub(crate) fn is_unlocked(db: &Path) -> bool {
+    cached_key(db).is_some()
+}
+
+/// Drop the cached key for `db`. Other databases in this process stay unlocked.
+#[cfg(test)]
+pub(crate) fn forget(db: &Path) {
+    cache().lock().expect("key cache").remove(&cache_key(db));
+}
+
+/// Drop every cached database key. Each value is zeroed as it is removed.
+pub(crate) fn clear_cached_keys() {
+    cache().lock().expect("key cache").clear();
+}
+
+/// Wipes every cached database key when the process command returns.
+///
+/// The cache is a process-lifetime map, so leaving the process does not by
+/// itself run [`Zeroizing`]'s drop. Hold one of these for the whole command.
+pub(crate) struct KeyWipe;
+
+impl Drop for KeyWipe {
+    fn drop(&mut self) {
+        clear_cached_keys();
+    }
+}
+
+/// If `ACP_INHERIT_DB_KEY=1` and stdin is not a terminal, read the 32-byte local
+/// key from stdin and cache it.
+///
+/// The variable is only a signal. The key is the first 32 bytes of stdin, never
+/// the environment and never argv. A terminal is ignored, so an exported flag
+/// cannot take keystrokes as a key. The flag is left in this process (it is not
+/// a secret). A job that does not receive a key clears it for that child.
+pub(crate) fn accept_inherited_key() -> Result<()> {
+    let armed = std::env::var_os("ACP_INHERIT_DB_KEY").is_some_and(|v| v == "1");
+    if !armed || std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        return Ok(());
+    }
+    let mut buf = Zeroizing::new([0u8; 32]);
+    std::io::stdin()
+        .read_exact(buf.as_mut())
+        .context("the unlocked database key was not passed on stdin")?;
+    let db = crate::config::home()?.join(crate::config::DB_REL_PATH);
+    install_cached_key(&db, &buf);
+    Ok(())
+}
+
 /// Bootstrap file for `db` (`rs.database.bootstrap`).
 pub fn bootstrap_path(db: &Path) -> PathBuf {
     PathBuf::from(format!("{}.bootstrap", db.display()))
@@ -348,6 +413,12 @@ pub fn rewrap_local(
         .expect("key cache")
         .insert(cache_key(db), local);
     Ok(phrase_follows)
+}
+
+/// An encrypted database with the fast Argon2 parameters. Unit tests only.
+#[cfg(test)]
+pub(crate) fn create_fast(db: &Path, password: &str) -> Result<()> {
+    create_new(db, password, Argon2Params::FAST)
 }
 
 fn create_new(db: &Path, password: &str, params: Argon2Params) -> Result<()> {
@@ -1328,6 +1399,43 @@ mod tests {
             "passphrase open {pass_open:?} should show the KDF the raw key skips (raw {raw_open:?})"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_unlocked_database_opens_again_without_a_password() {
+        let home = scratch("session");
+        let db = db_of(&home);
+        create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        let key = cached_key(&db).expect("creating the database caches its key");
+        forget(&db);
+        let err = prepare(&db, None).unwrap_err().to_string();
+        assert!(err.contains("password"), "{err}");
+        if std::env::var_os("ACP_PASSWORD").is_none() {
+            let err = crate::storage::db::open_db(&db).unwrap_err().to_string();
+            assert!(err.contains("ACP_PASSWORD"), "{err}");
+        }
+        if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            let err = crate::crypto::cmd::prepare_path(&db).unwrap_err().to_string();
+            assert!(
+                err.contains(
+                    "this database needs a password. Set ACP_PASSWORD, or run from a terminal."
+                ),
+                "{err}"
+            );
+        }
+        install_cached_key(&db, &key);
+        prepare(&db, None).unwrap();
+        crate::crypto::cmd::prepare_path(&db).unwrap();
+        let conn = crate::storage::db::open_db(&db).unwrap();
+        let n: i64 = conn
+            .query_row("SELECT count(*) FROM key_epochs", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(n, 1);
+        forget(&db);
+        unlock(&db, PASSWORD).unwrap();
+        prepare(&db, None).unwrap();
+        let _ = std::fs::remove_dir_all(&home);
+        forget(&db);
     }
 
     fn account_dek(db: &Path, password: &str) -> Vec<u8> {

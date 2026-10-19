@@ -290,7 +290,7 @@ The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip 
 **What breaks**
 
 - Starting 3.0.0 against `~/.acp/ai/data/rs.database` from 2.x stops immediately. The message names the file and tells you to run `--encrypt-db`. It does not try to read the plaintext file as if it were SQLCipher.
-- A new database, and every later open, asks for a password on a terminal, or reads `ACP_PASSWORD` when there is no terminal. The password is at least 8 characters and has to pass a strength check. There is no password reset.
+- A new database, and every later start of the program, asks for a password on a terminal, or reads `ACP_PASSWORD` when there is no terminal. After that, the same run keeps the unlocked key in memory: Scrape, Research, Explore, Executive Board, Sync, and the other jobs use it and do not ask again. The key is wiped when the process exits. The password is at least 8 characters and has to pass a strength check. There is no password reset.
 - Files 2.x does not know: `~/.acp/ai/data/rs.database.bootstrap` (the wrapped database key), `~/.acp/recovery.seal` (the encrypted recovery phrase, after `--identity-init`), and `~/.acp/acp-id`. `session.json` is still the login session and is still outside the backup.
 
 **Migrate**

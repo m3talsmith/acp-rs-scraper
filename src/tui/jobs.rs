@@ -2,6 +2,11 @@
 //! CLI in a child process (same binary, argv built by [`crate::tui::commands`]),
 //! in its own process group with output in `~/.acp/logs/tui-<kind>-<stamp>.log`.
 //! Cancel kills it; quitting the TUI leaves it running (detached).
+//!
+//! When this process has already unlocked the database, the child receives that
+//! 32-byte local key on stdin. `ACP_INHERIT_DB_KEY=1` only marks the pipe; the
+//! key is not an argument and not an environment value. A child with nothing to
+//! unlock (and the tests that run `/bin/sh`) gets a closed stdin and no flag.
 
 use crate::prelude::*;
 
@@ -63,20 +68,54 @@ fn open_log(p: &Path) -> Result<std::fs::File> {
     Ok(o.open(p)?)
 }
 
+/// The local key of the default database, when this process has unlocked it.
+fn session_key() -> Option<zeroize::Zeroizing<[u8; 32]>> {
+    let home = crate::config::home().ok()?;
+    let db = home.join(crate::config::DB_REL_PATH);
+    crate::crypto::atrest::cached_key(&db)
+}
+
+/// Start `exe`. When `key` is set, stdin is that 32-byte local key and
+/// `ACP_INHERIT_DB_KEY` is `1`. Otherwise stdin is closed and the flag is cleared.
+pub(crate) fn spawn_child(exe: &Path, kind: JobKind, argv: &[String], log: PathBuf, key: Option<&[u8; 32]>) -> Result<Job> {
+    let f = open_log(&log)?;
+    let mut c = std::process::Command::new(exe);
+    c.args(argv.iter().skip(1))
+        .stdout(std::process::Stdio::null())
+        .stderr(f);
+    if key.is_some() {
+        c.stdin(std::process::Stdio::piped()).env("ACP_INHERIT_DB_KEY", "1");
+    } else {
+        c.stdin(std::process::Stdio::null()).env_remove("ACP_INHERIT_DB_KEY");
+    }
+    // Own process group: terminal signals (Ctrl-C, closing the TUI) don't reach it.
+    #[cfg(unix)]
+    { use std::os::unix::process::CommandExt; c.process_group(0); }
+    let mut child = c.spawn().with_context(|| format!("starting {}", exe.display()))?;
+    if let Some(key) = key {
+        let Some(mut stdin) = child.stdin.take() else {
+            let _ = child.kill();
+            let _ = child.wait();
+            bail!("the key pipe was not created");
+        };
+        if let Err(e) = stdin.write_all(key) {
+            drop(stdin);
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(e).context("passing the unlocked database key");
+        }
+        drop(stdin);
+    }
+    Ok(Job { kind, child, log, cmd: crate::tui::commands::shell_line(argv), offset: 0, partial: String::new() })
+}
+
 impl Job {
     /// Start `argv` (`argv[0]` is ignored; this binary runs) with `exe`, logging to `log`.
+    ///
+    /// Passes the unlocked database key when this process has one. argv stays free of credentials.
     pub fn spawn_with(exe: &Path, kind: JobKind, argv: &[String], log: PathBuf) -> Result<Job> {
-        let f = open_log(&log)?;
-        let mut c = std::process::Command::new(exe);
-        c.args(argv.iter().skip(1))
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::null())
-            .stderr(f);
-        // Own process group: terminal signals (Ctrl-C, closing the TUI) don't reach it.
-        #[cfg(unix)]
-        { use std::os::unix::process::CommandExt; c.process_group(0); }
-        let child = c.spawn().with_context(|| format!("starting {}", exe.display()))?;
-        Ok(Job { kind, child, log, cmd: crate::tui::commands::shell_line(argv), offset: 0, partial: String::new() })
+        let key = session_key();
+        spawn_child(exe, kind, argv, log, key.as_deref())
     }
     /// Start `argv` with this binary, logging to a fresh `~/.acp/logs/tui-*.log`.
     pub fn spawn(kind: JobKind, argv: &[String]) -> Result<Job> {

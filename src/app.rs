@@ -173,6 +173,10 @@ async fn run_list_themes(args: &Args) -> Result<()> {
 
 /// Run the program for the current process arguments.
 pub async fn run() -> Result<()> {
+    // The cache lives for the process. Dropping this wipes every key, including
+    // on the early returns below. A job child installs its copy before this runs.
+    let _wipe = crate::crypto::atrest::KeyWipe;
+    crate::crypto::atrest::accept_inherited_key()?;
     let (args, tui) = match parse_with_mode(std::env::args_os()) {
         Ok(v) => v,
         Err(e) => e.exit(),

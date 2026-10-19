@@ -169,6 +169,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         app.tick(now);
         app.sync_tick(now);
         if let Some(im) = app.images.as_mut() { im.poll(); }
+        if std::mem::take(&mut app.needs_redraw) { term.0.clear()?; }
         term.0.draw(|f| widgets::draw(f, app, now))?;
         if osc8 { emit_osc8(&app.osc_links, &app.theme); }
         if let Some(im) = app.images.as_mut()

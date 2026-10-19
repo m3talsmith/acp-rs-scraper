@@ -173,12 +173,21 @@ pub fn prepare_db() -> Result<()> {
 /// Open or create the database without printing the recovery steps.
 /// The terminal UI calls this, then shows those steps itself.
 pub fn prepare_db_quiet() -> Result<()> {
-    let db = home()?.join(crate::config::DB_REL_PATH);
-    if let Some(msg) = super::atrest::legacy_plaintext_notice(&db) {
+    prepare_path(&home()?.join(crate::config::DB_REL_PATH))
+}
+
+/// Unlock or create `db`. A key already cached for this process is reused, so a
+/// job started from the terminal UI does not prompt and does not read `ACP_PASSWORD`.
+pub(crate) fn prepare_path(db: &Path) -> Result<()> {
+    if let Some(msg) = super::atrest::legacy_plaintext_notice(db) {
         bail!("{msg}");
+    }
+    if super::atrest::is_unlocked(db) {
+        return super::atrest::prepare(db, None);
     }
     let existing = db.is_file();
     let password = password_for_db(existing)?;
+    let db = db.to_path_buf();
     let title = if existing {
         "Opening the database"
     } else {

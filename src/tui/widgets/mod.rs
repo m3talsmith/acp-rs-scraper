@@ -11,7 +11,7 @@ pub mod text;
 
 use crate::prelude::*;
 use crate::tui::layout::areas;
-use crate::tui::state::{App, Hit, SessionState};
+use crate::tui::state::{status_line_is_problem, App, Hit, SessionState};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
@@ -115,7 +115,7 @@ fn status(f: &mut Frame, app: &App, r: Rect) {
         vec![Line::styled("? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit", t.muted())]
     } else {
         app.status.iter().rev().take(n).rev().map(|l| {
-            let st = if l.starts_with("error") || l.starts_with("warning") { t.accent() } else { t.muted() };
+            let st = if status_line_is_problem(l) { t.accent() } else { t.muted() };
             Line::styled(l.clone(), st)
         }).collect()
     };
