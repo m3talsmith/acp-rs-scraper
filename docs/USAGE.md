@@ -79,7 +79,7 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   (whichever is installed first); images are shrunk to at most 1024 px.
 - **Search** (Search menu, or `Shift-S` for keyword + nicks + post id + date range + posts/replies)
   replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears.
-  Search history is not on the bar yet. When it ships it is part of Search: each local or site search keeps the query and the filters (keyword, nicks, post id, dates, posts or replies or both, and Where) in the encrypted database, and picking one runs that search again. Clear history removes those rows. The default keeps every search. A preference can instead keep the N most recent. Exporting that result includes the same query and filters with the posts. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
+  Search history is not on the bar yet. When it ships it is part of Search: each local or site search keeps the query and the filters (keyword, nicks, post id, dates, posts or replies or both, Where, order, and limit) in the encrypted database, and picking one runs that search again. Clear history removes those rows. The default keeps every search. A preference can instead keep the N most recent. Exporting that result includes the same query and filters with the posts. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 - **Menu → flags:**
 
   | Menu | Flags it builds |
@@ -430,7 +430,7 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 
 Default names: `<nick>-<YYYYmmdd-HHMMSS>`, `nick1+nick2-<ts>` for several nicks (`multi-<ts>` for more than 4 nicks or more than 40 characters), `search-<slug>-<ts>` for a search, `basket-<ts>` for `--post-ids`, and `db-<ts>` for a full dump.
 
-A search export does not yet record the query. Before 3.x is finished, exporting a search result includes the query and the filters that produced it (keyword, nicks, post id, dates, posts or replies or both, and Where), along with the posts. A full dump, a nick filter, or a basket does not add a search. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
+A search export does not yet record the query. Before 3.x is finished, exporting a search result includes the query and the filters that produced it (keyword, nicks, post id, dates, posts or replies or both, Where, order, and limit), along with the posts. A full dump, a nick filter, or a basket does not add a search. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 
 ### Maintenance (offline)
 
