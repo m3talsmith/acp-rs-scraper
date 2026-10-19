@@ -13,6 +13,22 @@ use crate::tui::widgets::text::TextField;
 /// Program name used as `argv[0]` for validation.
 pub const ARGV0: &str = "acp-rs-scraper";
 
+/// A menu path the child process will open. `~` and `~/…` expand here because the
+/// TUI does not pass the line through a shell. Other paths are unchanged.
+pub fn expand_menu_path(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() { return String::new(); }
+    let home = crate::config::home().ok();
+    crate::site::expand_with_home(std::path::Path::new(trimmed), home.as_deref()).to_string_lossy().into_owned()
+}
+
+/// Menu text fields that name a file or directory.
+pub fn is_path_field(id: CommandId, key: &str) -> bool {
+    matches!((id, key),
+        (CommandId::Scrape, "output") | (CommandId::Export, "path") | (CommandId::Import, "path")
+        | (CommandId::Research, "file") | (CommandId::Research, "export_path"))
+}
+
 /// Menu bar items, left to right.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandId {
@@ -301,7 +317,7 @@ impl Menu {
                 opt("attachments", "Attachments", "--no-attachments when off", false, check(true)),
                 opt("full", "Full", "--full", false, check(false)),
                 opt("refetch", "Refetch truncated", "--refetch-truncated", false, check(false)),
-                opt("output", "Output file", "--output (blank: database only)", false, text("")),
+                opt("output", "Output file", "--output (blank: database only)  Tab completes", false, text("")),
                 opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
                 opt("start", "Start Scanning", "", false, button(Action::StartScan)),
             ]},
@@ -315,7 +331,7 @@ impl Menu {
                 opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
             ]},
             MenuCommand { id: Export, label: "Export", hint: 'x', action: None, opts: vec![
-                opt("path", "Path", "--export", true, text("")),
+                opt("path", "Path", "--export  Tab completes", true, text("")),
                 opt("scope", "From", "--nicks / --search", false, choice(SCOPE_CHOICES)),
                 opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
                 opt("name", "Name", "--name", false, text("")),
@@ -327,7 +343,7 @@ impl Menu {
                 opt("basket_clear", "Clear basket", "", false, button(Action::ClearBasket)),
             ]},
             MenuCommand { id: Import, label: "Import", hint: 'i', action: None, opts: vec![
-                opt("path", "Path", "--import", true, text("")),
+                opt("path", "Path", "--import  Tab completes", true, text("")),
                 opt("compress", "Compressed tar.gz", "--compress --tar-gz", false, check(false)),
                 opt("run", "Import", "", false, button(Action::RunImport)),
             ]},
@@ -348,13 +364,13 @@ impl Menu {
                 opt("show", "Show project", "--research-show", false, button(Action::ShowResearch)),
                 opt("add", "Add current post…", "r · --post-ids", false, button(Action::AddToResearch)),
                 opt("add_view", "Add current view / search…", "--search / --post-ids", false, button(Action::AddViewToResearch)),
-                opt("file", "Local file", "--file", false, text("")),
+                opt("file", "Local file", "--file  Tab completes", false, text("")),
                 opt("add_file", "Add local file…", "--file", false, button(Action::AddFileToResearch)),
                 opt("url", "Web page URL", "--url", false, text("")),
                 opt("add_url", "Add web page…", "--url", false, button(Action::AddUrlToResearch)),
                 opt("gdrive", "Google Drive (coming later)", "pinned for later", false, button(Action::ComingLater(0))),
                 opt("telegram", "Telegram (coming later)", "pinned for later", false, button(Action::ComingLater(1))),
-                opt("export_path", "Export to", "--export", false, text("")),
+                opt("export_path", "Export to", "--export  Tab completes", false, text("")),
                 opt("export_format", "Format", "--format", false, choice(FORMAT_CHOICES)),
                 opt("export_compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
                 opt("export", "Export project", "--research-export", false, button(Action::ExportResearch)),
@@ -478,7 +494,7 @@ impl Menu {
         if !self.check(S, "attachments") { v.push("--no-attachments".into()); }
         if self.check(S, "full") { v.push("--full".into()); }
         if self.check(S, "refetch") { v.push("--refetch-truncated".into()); }
-        let out = self.text(S, "output");
+        let out = expand_menu_path(&self.text(S, "output"));
         if !out.is_empty() { v.extend(["--format".into(), self.choice(S, "format").into(), "--output".into(), out]); }
         v.extend(self.debug_args());
         validate(v)
@@ -493,7 +509,7 @@ impl Menu {
     pub fn export_argv_with(&self, selected: &[String], view: Option<&SearchFilter>, basket: &[String], scope: Option<&str>)
         -> std::result::Result<Vec<String>, String> {
         use CommandId::Export as E;
-        let path = self.text(E, "path");
+        let path = expand_menu_path(&self.text(E, "path"));
         if path.is_empty() { return Err("Export needs a Path".into()); }
         let mut v = vec![ARGV0.to_string(), "--export".into(), path];
         let nicks_arg = |v: &mut Vec<String>, n: &[String]| if !n.is_empty() { v.extend(["--nicks".into(), n.join(",")]); };
@@ -526,7 +542,7 @@ impl Menu {
     /// argv for Import.
     pub fn import_argv(&self) -> std::result::Result<Vec<String>, String> {
         use CommandId::Import as I;
-        let path = self.text(I, "path");
+        let path = expand_menu_path(&self.text(I, "path"));
         if path.is_empty() { return Err("Import needs a Path".into()); }
         let mut v = vec![ARGV0.to_string(), "--import".into(), path];
         if self.check(I, "compress") { v.extend(["--compress".into(), "--tar-gz".into()]); }
@@ -557,7 +573,7 @@ impl Menu {
     pub fn research_export_argv(&self, name: &str) -> std::result::Result<Vec<String>, String> {
         use CommandId::Research as R;
         if name.trim().is_empty() { return Err("pick a research project first (Research › Projects…)".into()); }
-        let path = self.text(R, "export_path");
+        let path = expand_menu_path(&self.text(R, "export_path"));
         if path.is_empty() { return Err("Research › Export to needs a path".into()); }
         let mut v = vec![ARGV0.to_string(), "--research-export".into(), name.trim().into(), "--export".into(), path,
             "--format".into(), self.choice(R, "export_format").into()];

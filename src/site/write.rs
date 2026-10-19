@@ -172,6 +172,9 @@ pub struct Draft {
     pub quote_post: Option<String>,
     /// Local files. Classified in [`prepare`]. Not uploaded.
     pub attachments: Vec<std::path::PathBuf>,
+    /// 0-based indexes into [`Self::attachments`] that go to the site.
+    /// `None` means the default: every file, or the first [`crate::config::SITE_MAX_ATTACHMENTS`] when there are more.
+    pub site_attachments: Option<Vec<usize>>,
     /// Rendered page, when a probe already has it. Dry-run usually has none.
     pub html: Option<String>,
     /// `--accept-site-update`.
@@ -207,6 +210,8 @@ pub struct WritePlan {
     pub title: String,
     /// Local files the dry-run lists. Their bytes are not in [`Self::fields`].
     pub attachments: Vec<PlannedAttachment>,
+    /// Set when the default first-files policy left some files off the site copy.
+    pub site_notice: Option<String>,
 }
 
 /// `Some` when another post or reply must wait.
@@ -229,7 +234,12 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
     if !d.writes_on {
         return Err(err("writes are off. Set ui.writes = true in preferences.toml, or unset ACP_WRITES. ACP_WRITES=off wins. Nothing was sent."));
     }
-    let attachments = attach::plan_attachments(&d.attachments).map_err(err)?;
+    let mut attachments = attach::plan_attachments(&d.attachments).map_err(err)?;
+    let split = attach::split_for_site(attachments.len(), d.site_attachments.as_deref()).map_err(err)?;
+    for (i, file) in attachments.iter_mut().enumerate() {
+        file.on_site = split.site.contains(&i);
+    }
+    let site_notice = split.notice(&attachments);
     let kind = if d.thread.is_some() { Kind::Reply } else { Kind::Post };
     let thread = d.thread.as_deref().map(str::trim).filter(|s| !s.is_empty());
     if kind == Kind::Reply && thread.is_none() {
@@ -308,6 +318,7 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
         preview_text: crate::scrape::tidy_text(&preview),
         title,
         attachments,
+        site_notice,
     })
 }
 
@@ -350,11 +361,21 @@ pub fn dry_run_text(plan: &WritePlan) -> String {
     s.push_str("\n\n");
     if plan.attachments.is_empty() {
         s.push_str("attachments: none\n");
+    } else if plan.attachments.iter().any(|f| !f.on_site) {
+        s.push_str("attachments (local copy keeps every file; the site copy is a subset):\n");
+        for file in &plan.attachments {
+            let place = if file.on_site { "site" } else { "local-only" };
+            s.push_str(&format!("- {place} {} {} ({} bytes) {}\n", file.kind.label(), file.name, file.bytes, file.path.display()));
+        }
     } else {
         s.push_str("attachments (local only, not uploaded):\n");
         for file in &plan.attachments {
             s.push_str(&format!("- {} {} ({} bytes) {}\n", file.kind.label(), file.name, file.bytes, file.path.display()));
         }
+    }
+    if let Some(note) = &plan.site_notice {
+        s.push_str(note);
+        s.push('\n');
     }
     s.push('\n');
     s.push_str(&redact_secrets(&frames));

@@ -13,6 +13,24 @@ fn nicks_parse() {
 }
 
 #[test]
+fn site_attachments_are_one_based_and_capped_at_four() {
+    let a = Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "1,3,5,6"]).unwrap();
+    assert_eq!(a.site_attachments.as_deref(), Some(&[0usize, 2, 4, 5][..]));
+    let a = Args::try_parse_from(["x", "--reply", "T", "--site-attachments", " 1, 2 "]).unwrap();
+    assert_eq!(a.site_attachments.as_deref(), Some(&[0usize, 1][..]));
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "0"]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "1,2,3,4,5"]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "1,1"]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "no"]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", ""]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "1,,2"]).is_err());
+    let help = Args::command().render_long_help().to_string();
+    assert!(help.contains("--site-attachments"), "{help}");
+    assert!(help.contains("1,3,5,6"), "{help}");
+    assert!(!parse_with_mode(["x", "--site-attachments", "1"]).unwrap().1);
+}
+
+#[test]
 fn post_limit_is_a_positive_nick_scrape_flag() {
     let a = Args::try_parse_from(["x", "--nick", "alice", "--limit", "100"]).unwrap();
     assert_eq!(a.limit, Some(100));

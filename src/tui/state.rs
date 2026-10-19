@@ -334,6 +334,10 @@ pub struct MenuState {
     pub opt: usize,
     /// Typing into the highlighted text option.
     pub editing: bool,
+    /// Other path completions for the field being typed. Empty when there is one match or none.
+    pub path_matches: Vec<String>,
+    /// Which [`MenuState::path_matches`] entry is highlighted.
+    pub path_at: usize,
 }
 
 /// Everything the TUI shows.
@@ -489,7 +493,7 @@ impl App {
         let mut app = App {
             store, nicks: Vec::new(), all_nicks: Vec::new(), nick_filter: Default::default(), filter_editing: false, nick_cursor: 0, nick_offset: 0, selected: Vec::new(),
             base: BodyView::default(), search: None, focus: Focus::Nicks,
-            menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
+            menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false, path_matches: Vec::new(), path_at: 0 },
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,

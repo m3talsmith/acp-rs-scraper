@@ -94,6 +94,21 @@ fn help_topics() -> Vec<String> {
         "  F2, or Resend code, asks for another code without starting over.",
         "  ? or F1 on the login window opens this topic and leaves the attempt running.",
         "  A finished login is saved in ~/.acp/session.json.",
+        "",
+        "[[site-attachments]]",
+        "Site attachments",
+        "  Red Star accepts 4 attachments on a post. This app does not. Local compose, the",
+        "  archive, and the network keep every file. Only the copy published to the site is capped.",
+        "  When a post or reply has more than 4 files and Publish is chosen, the compose box",
+        "  asks which 4 go to Red Star. The first four start checked. The line shows",
+        "  n/4 selected for Red Star. Space checks or unchecks the highlighted file. More than",
+        "  4 cannot be checked. Fewer than 4 is allowed, including none. Enter confirms.",
+        "  Esc leaves the picker and does not publish. With 4 or fewer files the picker is skipped.",
+        "  On the command line, --site-attachments takes 1-based indexes, for example",
+        "  --site-attachments 1,3,5,6. At most 4 indexes, and each one has to be in the",
+        "  attachment list. Omit the flag and the first 4 are the site copy. The notice names",
+        "  the files left off the site. The post detail shows On Red Star: 4 of 6.",
+        "  ? on the picker opens this topic.",
     ].into_iter().map(str::to_string).collect()
 }
 

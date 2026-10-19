@@ -52,6 +52,12 @@ pub const DB_REL_PATH: &str = ".acp/ai/data/rs.database";
 /// Downloaded attachments, relative to `$HOME`.
 pub const ATTACH_REL_PATH: &str = ".acp/ai/data/attachments";
 
+/// How many files one Red Star post can carry.
+///
+/// This is the site cap, not an app cap. Local compose, the archive, and the
+/// network keep every file. Only a publish to the site uses this number.
+pub const SITE_MAX_ATTACHMENTS: usize = 4;
+
 /// Default export / archive directory, relative to `$HOME`.
 pub const EXPORTS_REL_PATH: &str = ".acp/ai/data/exports";
 
@@ -274,6 +280,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("n", "New post. Cancel is the default; Publish does not send until a guided capture"),
     ("Compose · Attach", "Type a path. Tab completes a real segment. Enter adds the file. Backspace on an empty line removes the last file. Nothing is uploaded"),
+    ("Compose · site files", "More than 4 files: check which go to Red Star. Space toggles. Enter confirms. ? site-attachments"),
     ("r", "On an open post: reply (a comment pre-fills the reference). Otherwise add to a research project"),
     ("Q", "On an open post: reply with that post quoted"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),

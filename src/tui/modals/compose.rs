@@ -19,6 +19,8 @@ pub enum ComposeFocus {
     Complete,
     /// A local file path. Enter adds it. Nothing is uploaded.
     Attach,
+    /// Which files go to Red Star. Shown only when the post has more than the site cap.
+    SitePick,
     /// Default. Enter closes and sends nothing.
     Cancel,
     /// Enter asks the caller to publish. The send stays gated.
@@ -72,6 +74,10 @@ pub struct ComposeModal {
     pub path_at: usize,
     /// Files already accepted. Not uploaded.
     pub attachments: Vec<std::path::PathBuf>,
+    /// Checked files for the site copy. `None` until Publish opens the picker, and when the list is within the site cap.
+    pub site_pick: Option<Vec<bool>>,
+    /// Highlighted picker row.
+    pub site_at: usize,
 }
 
 impl ComposeModal {
@@ -105,6 +111,8 @@ impl ComposeModal {
             path_matches: Vec::new(),
             path_at: 0,
             attachments: Vec::new(),
+            site_pick: None,
+            site_at: 0,
         }
     }
 
@@ -122,6 +130,7 @@ impl ComposeModal {
             quote: self.quote.clone(),
             quote_post: self.quote_post.clone(),
             attachments: self.attachments.clone(),
+            site_attachments: self.site_pick.as_ref().map(|pick| pick.iter().enumerate().filter(|(_, on)| **on).map(|(i, _)| i).collect()),
             html: None,
             accept_bundle: false,
             stored_bundle: None,
@@ -145,6 +154,9 @@ impl ComposeModal {
         }
         v.push(ComposeFocus::Body);
         v.push(ComposeFocus::Attach);
+        if self.site_pick.is_some() {
+            v.push(ComposeFocus::SitePick);
+        }
         if self.pending.is_some() {
             v.push(ComposeFocus::Complete);
         }
@@ -165,7 +177,7 @@ impl ComposeModal {
             ComposeFocus::Body => Some(&mut self.body),
             ComposeFocus::Attach => Some(&mut self.attach_path),
             ComposeFocus::Complete => self.pending.as_mut(),
-            ComposeFocus::Cancel | ComposeFocus::Publish => None,
+            ComposeFocus::Cancel | ComposeFocus::Publish | ComposeFocus::SitePick => None,
         }
     }
 
@@ -213,6 +225,57 @@ impl ComposeModal {
         self.attachments.push(planned.path);
         self.attach_path.clear();
         self.error = None;
+        self.note_attachments_changed();
+    }
+
+    fn note_attachments_changed(&mut self) {
+        let n = self.attachments.len();
+        let max = crate::config::SITE_MAX_ATTACHMENTS;
+        if n <= max {
+            self.site_pick = None;
+            if self.focus == ComposeFocus::SitePick {
+                self.focus = ComposeFocus::Attach;
+            }
+            return;
+        }
+        if let Some(pick) = &mut self.site_pick {
+            pick.resize(n, false);
+            if self.site_at >= n {
+                self.site_at = n - 1;
+            }
+        }
+    }
+
+    fn open_site_picker(&mut self) {
+        let max = crate::config::SITE_MAX_ATTACHMENTS;
+        let mut pick = vec![false; self.attachments.len()];
+        for on in pick.iter_mut().take(max) {
+            *on = true;
+        }
+        self.site_at = 0;
+        self.site_pick = Some(pick);
+        self.focus = ComposeFocus::SitePick;
+    }
+
+    fn toggle_site(&mut self) {
+        let max = crate::config::SITE_MAX_ATTACHMENTS;
+        let Some(pick) = self.site_pick.as_mut() else { return };
+        if pick.is_empty() {
+            return;
+        }
+        let i = self.site_at.min(pick.len() - 1);
+        if pick[i] {
+            pick[i] = false;
+            self.error = None;
+            return;
+        }
+        let n = pick.iter().filter(|on| **on).count();
+        if n >= max {
+            self.error = Some(format!("Red Star allows {max}. Uncheck one first."));
+            return;
+        }
+        pick[i] = true;
+        self.error = None;
     }
 
     fn complete_attach(&mut self) {
@@ -238,10 +301,23 @@ impl ComposeModal {
     }
 
     fn try_publish(&mut self) -> Option<ModalResult> {
+        if self.attachments.len() > crate::config::SITE_MAX_ATTACHMENTS && self.site_pick.is_none() {
+            self.open_site_picker();
+            return None;
+        }
+        if let Some(pick) = &self.site_pick {
+            let n = pick.iter().filter(|on| **on).count();
+            let max = crate::config::SITE_MAX_ATTACHMENTS;
+            if n > max {
+                self.error = Some(format!("Red Star allows {max} attachments on the site copy"));
+                self.focus = ComposeFocus::SitePick;
+                return None;
+            }
+        }
         let draft = self.draft(0, None, true);
         if let Err(e) = prepare(&draft) {
             self.error = Some(e.message);
-            self.focus = ComposeFocus::Body;
+            self.focus = if self.site_pick.is_some() { ComposeFocus::SitePick } else { ComposeFocus::Body };
             return None;
         }
         Some(ModalResult::ClosedSubmitted)
@@ -263,6 +339,14 @@ impl ModalState for ComposeModal {
                 self.clear_path_matches();
                 None
             }
+            KeyCode::Esc if self.focus == ComposeFocus::SitePick => {
+                self.site_pick = None;
+                self.focus = ComposeFocus::Publish;
+                None
+            }
+            KeyCode::Char('?') | KeyCode::F(1) if self.focus == ComposeFocus::SitePick => {
+                Some(ModalResult::Help("site-attachments"))
+            }
             KeyCode::Esc if self.pending.is_some() => {
                 self.pending = None;
                 self.focus = ComposeFocus::Body;
@@ -280,6 +364,12 @@ impl ModalState for ComposeModal {
             KeyCode::BackTab => {
                 self.clear_path_matches();
                 self.move_focus(-1);
+                None
+            }
+            KeyCode::Up | KeyCode::Down if self.focus == ComposeFocus::SitePick => {
+                let n = self.site_pick.as_ref().map(|p| p.len()).unwrap_or(1).max(1);
+                let d = if k.code == KeyCode::Up { -1 } else { 1 };
+                self.site_at = cycle(self.site_at, n, d);
                 None
             }
             KeyCode::Up | KeyCode::Down
@@ -303,7 +393,7 @@ impl ModalState for ComposeModal {
             }
             KeyCode::Enter => match self.focus {
                 ComposeFocus::Cancel => Some(ModalResult::ClosedCancelled),
-                ComposeFocus::Publish => self.try_publish(),
+                ComposeFocus::Publish | ComposeFocus::SitePick => self.try_publish(),
                 ComposeFocus::Complete => {
                     self.apply_completion();
                     None
@@ -338,6 +428,7 @@ impl ModalState for ComposeModal {
                 }
                 if self.focus == ComposeFocus::Attach && self.attach_path.is_empty() {
                     self.attachments.pop();
+                    self.note_attachments_changed();
                 } else if let Some(field) = self.field_mut() {
                     field.pop();
                 }
@@ -351,10 +442,12 @@ impl ModalState for ComposeModal {
                 None
             }
             KeyCode::Char(c) => {
-                if self.focus == ComposeFocus::Attach {
+                if self.focus == ComposeFocus::SitePick && c == ' ' {
+                    self.toggle_site();
+                } else if self.focus == ComposeFocus::Attach {
                     self.clear_path_matches();
                     self.attach_path.push(c);
-                } else if self.focus != ComposeFocus::Cancel && self.focus != ComposeFocus::Publish {
+                } else if self.focus != ComposeFocus::Cancel && self.focus != ComposeFocus::Publish && self.focus != ComposeFocus::SitePick {
                     if self.focus == ComposeFocus::Complete {
                         self.focus = ComposeFocus::Body;
                     }
@@ -399,6 +492,11 @@ impl ModalState for ComposeModal {
                 None
             }
             ModalHit::Button(_) => None,
+            ModalHit::Item(i) if self.focus == ComposeFocus::SitePick => {
+                self.site_at = i;
+                self.toggle_site();
+                None
+            }
             ModalHit::Item(i) if self.focus == ComposeFocus::Attach && !self.path_matches.is_empty() => {
                 self.path_at = i;
                 self.accept_path_match();

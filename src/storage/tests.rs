@@ -129,3 +129,69 @@ fn posts_by_ids_keeps_the_order_and_reports_missing_ones() {
     assert_eq!(missing, ["NOPE"]);
     std::fs::remove_file(db).ok();
 }
+
+#[test]
+fn site_subset_round_trips_and_old_rows_count_as_on_the_site() {
+    let dir = std::env::temp_dir().join(format!("acp-on-site-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("rs.database");
+    let a = dir.join("a.jpg");
+    let b = dir.join("b.jpg");
+    std::fs::write(&a, b"a").unwrap();
+    std::fs::write(&b, b"b").unwrap();
+    let c = Connection::open(&db).unwrap();
+    c.execute_batch("CREATE TABLE attachments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            post_id TEXT NOT NULL,
+            url TEXT NOT NULL,
+            local_path TEXT NOT NULL,
+            mime_type TEXT NOT NULL
+        );").unwrap();
+    c.execute("INSERT INTO attachments (post_id, url, local_path, mime_type) VALUES ('P1', 'https://media.example/a.jpg', ?1, 'image/jpeg')", [a.to_string_lossy()]).unwrap();
+    c.execute("INSERT INTO attachments (post_id, url, local_path, mime_type) VALUES ('P1', 'https://media.example/b.jpg', ?1, 'image/jpeg')", [b.to_string_lossy()]).unwrap();
+    drop(c);
+    use crate::tui::data::Store;
+    let store = crate::tui::data::SqliteStore::new(db.clone());
+    let got = store.attachments("P1").unwrap();
+    assert_eq!(got.len(), 2);
+    assert!(got.iter().all(|x| x.on_site));
+    let c = Connection::open(&db).unwrap();
+    assert!(!crate::storage::db::attachments_have_on_site(&c));
+    drop(c);
+    crate::storage::db::set_post_site_attachments(&db, "P1", &[a.clone()]).unwrap();
+    let got = store.attachments("P1").unwrap();
+    let on = |name: &str| got.iter().find(|x| x.local_path.ends_with(name)).unwrap().on_site;
+    assert!(on("a.jpg"));
+    assert!(!on("b.jpg"));
+    let c = Connection::open(&db).unwrap();
+    c.execute_batch("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id TEXT NOT NULL,
+            parent_post_id TEXT NOT NULL, nick TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, posted_at TEXT NOT NULL);
+        INSERT INTO posts (post_id,parent_post_id,nick,title,content,posted_at) VALUES ('P1','','ada','t','c','1');").unwrap();
+    drop(c);
+    let (posts, atts, _) = crate::storage::db::posts_by_ids(&db, &["P1".into()]).unwrap();
+    assert_eq!(atts.len(), 2);
+    let doc = build_json("ada", &posts, &atts, &[], &[], &|x| x.local_path.display().to_string());
+    let files = doc["posts"][0]["attachments"].as_array().unwrap();
+    assert!(files.iter().any(|f| f["on_site"] == false));
+    assert!(files.iter().any(|f| f["on_site"] == true));
+    let json_path = dir.join("out.json");
+    let body = serde_json::json!({
+        "format": EXPORT_FORMAT,
+        "format_version": EXPORT_FORMAT_VERSION,
+        "posts": [{
+            "post_id": "P1", "parent_post_id": "", "nick": "ada", "title": "t", "content": "c", "posted_at": "1",
+            "attachments": [
+                {"url": "https://media.example/a.jpg", "kind": "image", "mime_type": "image/jpeg", "local_path": "a.jpg", "on_site": false},
+                {"url": "https://media.example/c.jpg", "kind": "image", "mime_type": "image/jpeg", "local_path": "b.jpg"}
+            ]
+        }]
+    });
+    std::fs::write(&json_path, body.to_string()).unwrap();
+    let att_dir = dir.join("imported");
+    let (_posts, imported, _, _) = import(&json_path, None, &att_dir, &dir).unwrap();
+    let flag = |url: &str| imported.iter().find(|x| x.url == url).unwrap().on_site;
+    assert!(!flag("https://media.example/a.jpg"));
+    assert!(flag("https://media.example/c.jpg"));
+    let _ = std::fs::remove_dir_all(&dir);
+}

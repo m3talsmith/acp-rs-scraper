@@ -45,6 +45,8 @@ pub struct PlannedAttachment {
     pub kind: AttachmentKind,
     /// Size in bytes. The file is not read.
     pub bytes: u64,
+    /// This file is in the site subset. The local and network copies still keep it when this is false.
+    pub on_site: bool,
 }
 
 /// Extensions the plan lists for `media_attachments`, plus the usual aliases.
@@ -204,12 +206,69 @@ pub fn plan_attachment(path: &Path) -> Result<PlannedAttachment, String> {
     let bytes = std::fs::metadata(&path)
         .map(|m| m.len())
         .map_err(|e| format!("could not read the size of {shown}: {e}. Nothing was sent."))?;
-    Ok(PlannedAttachment {
-        path,
-        name,
-        kind,
-        bytes,
-    })
+    Ok(PlannedAttachment { path, name, kind, bytes, on_site: true })
+}
+
+/// Which files are the site copy, and which stay on the local and network copies only.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SiteSplit {
+    /// 0-based indexes that go to the site, in the order chosen.
+    pub site: Vec<usize>,
+    /// 0-based indexes left off the site copy.
+    pub local_only: Vec<usize>,
+    /// No choice was given and the list was longer than the site cap, so the first files were kept.
+    pub took_default: bool,
+}
+
+impl SiteSplit {
+    /// The sentence printed when the first files were kept because no choice was given.
+    pub fn notice(&self, files: &[PlannedAttachment]) -> Option<String> {
+        if !self.took_default {
+            return None;
+        }
+        let max = crate::config::SITE_MAX_ATTACHMENTS;
+        let kept = files.iter().filter(|f| f.on_site).count();
+        let n = files.len();
+        let left = files.iter().enumerate().filter(|(_, f)| !f.on_site).map(|(i, f)| format!("{} {}", i + 1, f.name)).collect::<Vec<_>>().join(", ");
+        Some(format!("site copy keeps the first {kept} of {n} attachments (Red Star allows {max}). Left off the site: {left}"))
+    }
+}
+
+/// Split `count` attachments into the site subset.
+///
+/// `chosen` is 0-based. `None` keeps every file when `count` is at most
+/// [`SITE_MAX_ATTACHMENTS`](crate::config::SITE_MAX_ATTACHMENTS), and the first
+/// ones when it is longer. `Some` is checked even when the list is short:
+/// duplicates, indexes past `count`, and more than the site cap are refused.
+/// An empty choice sends no file to the site.
+pub fn split_for_site(count: usize, chosen: Option<&[usize]>) -> Result<SiteSplit, String> {
+    let max = crate::config::SITE_MAX_ATTACHMENTS;
+    let (site, took_default) = match chosen {
+        None if count <= max => ((0..count).collect::<Vec<_>>(), false),
+        None => ((0..max.min(count)).collect::<Vec<_>>(), count > max),
+        Some(picked) => {
+            if picked.len() > max {
+                return Err(format!("Red Star allows {max} attachments on the site copy; {} were chosen", picked.len()));
+            }
+            let mut seen = std::collections::HashSet::new();
+            for &i in picked {
+                if i >= count {
+                    let shown = i + 1;
+                    return Err(if count == 0 {
+                        format!("attachment {shown} is not in the list (there are no attachments)")
+                    } else {
+                        format!("attachment {shown} is not in the list (1 to {count})")
+                    });
+                }
+                if !seen.insert(i) {
+                    return Err(format!("attachment {} is listed twice", i + 1));
+                }
+            }
+            (picked.to_vec(), false)
+        }
+    };
+    let local_only = (0..count).filter(|i| !site.contains(i)).collect();
+    Ok(SiteSplit { site, local_only, took_default })
 }
 
 /// Classify every path, in order.
@@ -322,5 +381,33 @@ mod tests {
             assert_eq!(link.text, "linkdir/");
         }
         let _ = std::fs::remove_dir_all(&cwd);
+    }
+
+    #[test]
+    fn the_site_split_keeps_four_or_fewer_and_checks_a_choice() {
+        let max = crate::config::SITE_MAX_ATTACHMENTS;
+        assert_eq!(max, 4);
+        let all = split_for_site(4, None).unwrap();
+        assert_eq!(all.site, vec![0, 1, 2, 3]);
+        assert!(all.local_only.is_empty());
+        assert!(!all.took_default);
+        let short = split_for_site(2, None).unwrap();
+        assert_eq!(short.site, vec![0, 1]);
+        assert!(!short.took_default);
+        let over = split_for_site(6, None).unwrap();
+        assert_eq!(over.site, vec![0, 1, 2, 3]);
+        assert_eq!(over.local_only, vec![4, 5]);
+        assert!(over.took_default);
+        let picked = split_for_site(6, Some(&[0, 2, 4, 5])).unwrap();
+        assert_eq!(picked.site, vec![0, 2, 4, 5]);
+        assert_eq!(picked.local_only, vec![1, 3]);
+        assert!(!picked.took_default);
+        let none = split_for_site(6, Some(&[])).unwrap();
+        assert!(none.site.is_empty());
+        assert_eq!(none.local_only, vec![0, 1, 2, 3, 4, 5]);
+        assert!(split_for_site(6, Some(&[0, 1, 2, 3, 4])).unwrap_err().contains("allows 4"));
+        assert!(split_for_site(6, Some(&[1, 1])).unwrap_err().contains("listed twice"));
+        assert!(split_for_site(6, Some(&[6])).unwrap_err().contains("not in the list"));
+        assert!(split_for_site(3, Some(&[0, 2])).is_ok());
     }
 }

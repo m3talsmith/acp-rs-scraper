@@ -8,6 +8,10 @@
 
 Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that browses everything you have scraped; with flags it logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
 
+**v3 pre-launch write-up (historical draft, coming soon):** [docs/history/v3/redstar-v3-prelaunch-post.md](docs/history/v3/redstar-v3-prelaunch-post.md)
+
+<!-- TODO(3.0 release): switch the link above from the pre-launch post to docs/history/v3/redstar-v3-launch-post.md. Publish that launch post only when 3.x has fully shipped. -->
+
 ## Breaking changes in 3.0.0
 
 3.0.0 encrypts the local database and requires a password of at least 8 characters that passes a strength check. A 2.x install does not.
@@ -19,7 +23,7 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 The header of the terminal UI shows `v3.5.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.5.0** attaches local files to New post and Reply. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. `--dry-run` lists those files and does not upload them. A confirmed publish still does not send, and the upload channel has not been captured.
+**3.5.0** attaches local files to New post and Reply. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star allows 4 on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), and with no choice the first 4 are the site copy. `--dry-run` lists those files and does not upload them. A confirmed publish still does not send, and the upload channel has not been captured. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
 **3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed publish is not sent until a guided capture of a real reply. Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
 

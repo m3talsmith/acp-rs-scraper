@@ -72,6 +72,8 @@ pub struct Attachment {
     pub local_path: PathBuf,
     /// MIME type of the file.
     pub mime_type: String,
+    /// This file is on the Red Star copy of the post. The local copy keeps it either way.
+    pub on_site: bool,
 }
 
 /// File extension for a known media MIME type.
@@ -154,7 +156,7 @@ pub async fn download_all(http: &reqwest::Client, posts: &[Post], dir: &Path) ->
             if let Some(Some((path, mime))) = done.get(&m.url) {
                 out.push(Attachment {
                     post_id: p.post_id.clone(), url: m.url.clone(), kind: m.kind.clone(),
-                    local_path: path.clone(), mime_type: mime.clone(),
+                    local_path: path.clone(), mime_type: mime.clone(), on_site: true,
                 });
             }
         }

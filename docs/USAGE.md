@@ -130,7 +130,9 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   that post or reply to the basket (`✓` = in it; click again to take it out). Export › Show basket
   lists it (`<` back), Export basket writes it with Export's Path / Format / Name / Compress
   (`--export PATH --post-ids …`), Clear basket empties it; Export › From also has a Basket choice.
-  The basket lives for the TUI session.
+  The basket lives for the TUI session. Export › Path, Import › Path, Research › Export to,
+  Research › Local file, and Start Scanning › Output file complete a real path on Tab
+  (`~` becomes `~/`). The job expands `~` before it runs, because it is not a shell.
 - **Research:** a `◈` button left of the basket button on every card and detail (click, or `r`)
   opens the research picker: **Add** (‹ › chooses: this post or reply, the posts it links, its
   attachment files, the web pages in its body, or all posts of the view / the search results),
@@ -687,7 +689,8 @@ CREATE TABLE attachments (        -- unique (post_id, url)
   post_id TEXT NOT NULL,
   url TEXT NOT NULL,
   local_path TEXT NOT NULL,
-  mime_type TEXT NOT NULL
+  mime_type TEXT NOT NULL,
+  on_site INTEGER NOT NULL DEFAULT 1  -- 1 when this file is on the Red Star copy (at most 4)
 );
 
 CREATE TABLE mentions (           -- unique (post_id, mentioned_nick, match_type)
@@ -828,7 +831,7 @@ CREATE TABLE research_items (
 
 In the terminal UI, `n` opens New post. On an open post, `r` replies (a comment pre-fills the reference) and `Q` quotes that post. The button under the cursor starts on Cancel. Publish checks the body locally and then stops: the guided capture of a real reply has not confirmed the payload, so nothing is sent. `--dry-run` prints the same frames and opens no connection. A confirmed attempt starts the 30 second gap even when that send is refused. `--dry-run` does not start the gap.
 
-3.5.0 adds local attachments on that same compose box. The attach line takes a path; Enter adds the file, and Backspace on an empty line removes the last one. Tab on a non-empty line completes the next real directory entry. `~` becomes `~/`. `~/…` is completed under the home directory and keeps the `~/` prefix on the line; the stored path is expanded. `~user` is not completed. A name starting with `.` is offered only when the prefix starts with `.`. One match fills the line (a directory ends with `/`). Several matches stay listed: Tab, Up, and Down move the highlight, Enter writes that path and does not attach it yet, and Esc clears the list and stays on the line. A Tab that changes nothing moves to the next field, including a second Tab on a file that is already complete, and a second Tab on a completed directory lists what is inside it. An empty attach line still moves focus. `--attachment PATH` repeats for `--new-post` and `--reply`. The shell completes that flag; Tab completion is the compose box. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment (`file_attachments` in the plan; the others are `media_attachments`). `--dry-run` prints that list and does not upload. The upload channel (`allow_upload`, `lvu`) has not been captured, so those inputs are not encoded and no file bytes are sent. A confirmed publish still does not send `validate` or `save`.
+3.5.0 adds local attachments on that same compose box. The attach line takes a path; Enter adds the file, and Backspace on an empty line removes the last one. Tab on a non-empty line completes the next real directory entry. `~` becomes `~/`. `~/…` is completed under the home directory and keeps the `~/` prefix on the line; the stored path is expanded. `~user` is not completed. A name starting with `.` is offered only when the prefix starts with `.`. One match fills the line (a directory ends with `/`). Several matches stay listed: Tab, Up, and Down move the highlight, Enter writes that path and does not attach it yet, and Esc clears the list and stays on the line. A Tab that changes nothing moves to the next field, including a second Tab on a file that is already complete, and a second Tab on a completed directory lists what is inside it. An empty attach line still moves focus. `--attachment PATH` repeats for `--new-post` and `--reply`. The shell completes that flag; Tab completion is the compose box. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment (`file_attachments` in the plan; the others are `media_attachments`). `--dry-run` prints that list and does not upload. The upload channel (`allow_upload`, `lvu`) has not been captured, so those inputs are not encoded and no file bytes are sent. A confirmed publish still does not send `validate` or `save`. The app, the archive, and the network keep every file. Red Star allows 4 on the site copy. More than 4, with no choice, keeps the first 4 for the site and names the rest in a notice. `--site-attachments 1,3,5,6` (1-based, at most 4, no duplicates) chooses which files are that site copy. In the compose box the same choice is a picker: Space toggles, a fifth check is refused, Enter confirms, Esc returns to Publish without sending. `?` opens the `site-attachments` Help topic. Each attachment row stores `on_site`; a row from before that column counts as on the site. Export JSON includes `"on_site"`.
 
 ```bash
 acp-rs-scraper --new-post "Title" --body "hello **world**" --attachment photo.jpg --dry-run
