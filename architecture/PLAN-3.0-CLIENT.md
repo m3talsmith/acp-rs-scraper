@@ -21,6 +21,8 @@ Update 2026-10-19 (search history): recent searches are rows in the SQLCipher da
 
 Update 2026-10-19 (action history): before 3.x is finished, a right bar pulls out and collapses. It lists the actions that led to the current view, as a stack. Clicking an earlier action jumps back to that state, and an export from a search state still carries the query and the filters. The left nick bar collapses the same way, so the main view can use that width. This replaces a simple previous/next along that path. It is not the previous and next post controls. The minor is not numbered here. Details are in §7.14.5.
 
+Update 2026-10-19 (embedded assistant): the last feature in 3.x is a local model inside the client. It answers questions about the local corpus, turns natural language into searches and filters, and runs app actions such as export. It is part of 3.x, not polish after 3.x. The model is not chosen. The minor is not numbered here, and numbered stages are not moved. Details are in §7.14.12.
+
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
@@ -269,6 +271,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
 | Search history | later minor, when Search work is touched | Reopen a past query from the Search menu (§7.14.5). The row is the query and the filters only, a pick re-runs the search live, the rows live in the encrypted database, and Clear history deletes them. The default keeps every row. A preference can cap the list at the N most recent. An export of a search result carries that query and those filters with the posts. The version number is not assigned here, and numbered stages are not moved. |
 | Action history bar | later minor, required before 3.x closes | A collapsible right bar of the actions that led to the current view (§7.14.5). Click one to jump back, then export from that state. The left nick bar collapses the same way. The version number is not assigned here, and numbered stages are not moved. |
+| Embedded assistant | later minor, last 3.x feature | A local model inside the client (§7.14.12). It answers questions about the local corpus and invokes existing actions (search, filter, export, and the rest). Required before 3.x is finished. Not polish after 3.x. The model is not chosen. The version number is not assigned here, and numbered stages are not moved. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -1078,6 +1081,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **3.23.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, authorizer and node certificates, and OS keyring unlock for the daemon.
 - **3.28.0:** draft review links, comments and suggestions.
 - **3.29.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
+- **Embedded assistant (§7.14.12)** is the last 3.x feature. It is required before 3.x is finished, and it is not polish after 3.x. Its minor is not assigned here, and numbered stages are not moved.
 - **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.23.0 together with the service install. The TUI header already shows `v<version>` from 3.0.0.
 
 #### 7.14.10 Version display and desktop trays
@@ -1118,6 +1122,16 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
   - The package version is the release version (§7.14.10), shown by `acp-rs-relay --version`.
 - **Publishing (decided 2026-10-19, §8 Q14).** APT, Fedora COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing (3.25.0), replies (3.4.0), review (3.28.0), the node crates (through 3.27.0), and the Dart package (3.29.0). Until that set has shipped, packaging in this repository stays unpublished. Someone can still build a package by hand from the tree.
 - **Roadmap:** the relay crate lands in 3.23.0 (§7.14.9). It is not published to APT, COPR, AUR, or Homebrew in that release. Those repositories wait for the full set above.
+
+#### 7.14.12 Embedded assistant (required before 3.x is finished)
+
+This is the last feature Michael wants in 3.x. It is part of 3.x, not polish after 3.x. This note does not implement it, does not choose a model, does not assign a minor, and does not move numbered stages.
+
+- A local, embedded model runs inside the client. Michael's example is Gemma 4, or a similar local model. That example is not a selection.
+- The user can ask questions about the data they already have, the local corpus.
+- Natural language can drive searches and filters.
+- Natural language can issue commands that call existing app actions. "Export this" is one. Search, filter, and export are in that set, and so are the other actions the app already has.
+- Not blocking: which model, whether it is offline only, and how a request turns into those existing actions.
 
 ---
 
@@ -1186,6 +1200,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~State~~ lives in the encrypted database, with only a bootstrap file and `preferences.toml` outside it (§7.14.5).
     - ~~**Search history (2026-10-19):**~~ rows in that same database. Each row is the query and the filters only, not a snapshot of the results. Picking one re-runs the search live. Clear history deletes the rows. The default keeps every row. A preference can instead keep the N most recent. An export of a search result carries that query and those filters (§7.14.5).
     - ~~**Action history (2026-10-19):**~~ a collapsible right bar of the actions that led to the current view. Click one to jump back, then export from that state. The left nick bar collapses the same way (§7.14.5).
+    - ~~**Embedded assistant (2026-10-19):**~~ the last 3.x feature. A local model inside the client answers questions about the local corpus and invokes existing actions such as search, filter, and export. The model is not chosen (§7.14.12).
     - ~~Peers~~ are transient and checked automatically after a restore, with a Peers tab and `--peer-*` commands. Own nodes are never revoked automatically (§7.14.5).
     - ~~The certificate~~ is returned to the new node by the approver inside the enrollment bundle (§7.14.2).
     - ~~Dart SDK~~ is a thin package over FFI to the embedded Rust crates, with a separate `acp_rs_node_ffi` crate (§7.14.7).
@@ -1199,7 +1214,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
-13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Password change / re-key is 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0.
+13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Password change / re-key is 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0. An embedded local assistant is the last 3.x feature (§7.14.12). Its minor is not assigned here, and numbered stages are not moved.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later.
     **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.29.0, §7.14.11). Until then, packaging stays unpublished.
