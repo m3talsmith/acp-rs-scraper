@@ -8,14 +8,27 @@ use crate::tui::modals::{Modal, ModalHit};
 use crate::tui::state::{Effect, Focus, Hit, JobView};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{Terminal, backend::TestBackend};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
-fn render(a: &mut App, w: u16, h: u16) -> String {
+fn render_at(a: &mut App, w: u16, h: u16, now: Instant) -> String {
     let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
-    let now = Instant::now() + std::time::Duration::from_secs(5);
     t.draw(|f| crate::tui::widgets::draw(f, a, now)).unwrap();
     let buf = t.backend().buffer().clone();
     (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n")
+}
+
+fn render(a: &mut App, w: u16, h: u16) -> String {
+    render_at(a, w, h, Instant::now() + Duration::from_secs(5))
+}
+
+fn elapsed_of(screen: &str) -> String {
+    screen.lines().find_map(|l| {
+        let t = l.trim();
+        let i = t.find("Elapsed:")?;
+        let rest = t[i + "Elapsed:".len()..].trim();
+        let value = rest.split_whitespace().next().unwrap_or("");
+        Some(format!("Elapsed: {value}"))
+    }).unwrap_or_else(|| panic!("no Elapsed line in {screen}"))
 }
 
 fn click(a: &mut App, hit: Hit) {
@@ -159,4 +172,74 @@ fn cancel_main_and_side_from_the_window() {
     render(&mut a, 120, 36);
     click(&mut a, Hit::Modal(ModalHit::Button(0)));
     assert_eq!(a.effects, [Effect::CancelSide(22)]);
+}
+
+#[test]
+fn finished_elapsed_does_not_change_between_renders() {
+    let early = Instant::now();
+    let late = early + Duration::from_secs(7200);
+
+    let mut running = app();
+    started(&mut running, JobKind::Sync, 1, "acp-rs-scraper --sync");
+    running.open_jobs();
+    let run_early = elapsed_of(&render_at(&mut running, 120, 36, early));
+    let run_late = elapsed_of(&render_at(&mut running, 120, 36, late));
+    assert_ne!(run_early, run_late, "a running job should keep counting");
+
+    let mut done = app();
+    started(&mut done, JobKind::Sync, 258651, "acp-rs-scraper --sync");
+    done.job_finished(true, Some(0), &[]);
+    done.open_jobs();
+    let _ = render_at(&mut done, 120, 36, early);
+    let Some(Modal::Job(m)) = &done.modal else { panic!("window stayed open"); };
+    let frozen: Vec<String> = m.rows.iter().map(|r| r.elapsed.clone()).collect();
+    let first = elapsed_of(&render_at(&mut done, 120, 36, early));
+    let second = elapsed_of(&render_at(&mut done, 120, 36, late));
+    assert_eq!(first, second, "finished elapsed changed with the clock");
+    assert!(first.starts_with("Elapsed: "), "{first}");
+    assert!(!first.contains("unknown"), "{first}");
+    let Some(Modal::Job(m)) = &done.modal else { panic!("window stayed open"); };
+    assert_eq!(frozen, m.rows.iter().map(|r| r.elapsed.clone()).collect::<Vec<_>>());
+
+    done.tracked[0].ended = None;
+    let unknown_early = elapsed_of(&render_at(&mut done, 120, 36, early));
+    let unknown_late = elapsed_of(&render_at(&mut done, 120, 36, late));
+    assert_eq!(unknown_early, unknown_late);
+    assert!(unknown_early.contains("unknown"), "{unknown_early}");
+
+    let mut failed = app();
+    started(&mut failed, JobKind::Import, 9, "acp-rs-scraper --import /tmp/in.json");
+    let boom = "boom".to_string();
+    failed.job_finished(false, Some(1), std::slice::from_ref(&boom));
+    failed.open_jobs();
+    assert_eq!(
+        elapsed_of(&render_at(&mut failed, 120, 36, early)),
+        elapsed_of(&render_at(&mut failed, 120, 36, late)),
+    );
+
+    let mut cancelled = app();
+    started(&mut cancelled, JobKind::Scan, 4, "acp-rs-scraper --scrape");
+    cancelled.job_cancelled();
+    cancelled.open_jobs();
+    assert_eq!(
+        elapsed_of(&render_at(&mut cancelled, 120, 36, early)),
+        elapsed_of(&render_at(&mut cancelled, 120, 36, late)),
+    );
+
+    let mut both = app();
+    started(&mut both, JobKind::Sync, 11, "acp-rs-scraper --sync");
+    both.track_side(JobKind::Research, 22, "/tmp/research.log".into(), "acp-rs-scraper --research-add Strikes");
+    both.job_finished(true, Some(0), &[]);
+    both.open_jobs();
+    let _ = render_at(&mut both, 120, 36, early);
+    let Some(Modal::Job(m)) = &both.modal else { panic!("list stayed open"); };
+    let snap: Vec<(u32, String, bool)> = m.rows.iter().map(|r| (r.pid, r.elapsed.clone(), r.running)).collect();
+    let _ = render_at(&mut both, 120, 36, late);
+    let Some(Modal::Job(m)) = &both.modal else { panic!("list stayed open"); };
+    assert_eq!(snap.len(), 2);
+    for (pid, elapsed, running) in &snap {
+        let row = m.rows.iter().find(|r| r.pid == *pid).unwrap();
+        if *running { assert_ne!(&row.elapsed, elapsed, "running list row pid {pid}"); }
+        else { assert_eq!(&row.elapsed, elapsed, "finished list row pid {pid}"); }
+    }
 }

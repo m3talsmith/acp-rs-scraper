@@ -20,7 +20,7 @@ use std::time::Instant;
 
 /// Draw the whole screen.
 pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
-    app.refresh_job_modal();
+    app.refresh_job_modal_at(now);
     app.hits.clear();
     app.osc_links.clear();
     if let Some(im) = app.images.as_mut() { im.frame.clear(); }

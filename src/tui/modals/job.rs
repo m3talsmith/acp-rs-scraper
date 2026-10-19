@@ -1,5 +1,8 @@
-//! Job details: what the terminal UI started, how long it has been going, and
-//! the recent log. The password and the database key never appear here.
+//! Job details: what the terminal UI started, how long it ran, and the recent
+//! log. Elapsed ticks only while the job is running. After it finishes, fails,
+//! or is cancelled, the line is the recorded end minus the start. A stopped job
+//! with no recorded end shows `unknown` rather than the time until now. The
+//! password and the database key never appear here.
 
 use crate::tui::jobs::JobKind;
 use crate::tui::state::{App, Effect};
@@ -59,6 +62,9 @@ pub struct TrackedJob {
     pub started: Instant,
     /// Local wall time at the start.
     pub started_at: String,
+    /// When it stopped. Absent while it is running, and absent when a stopped
+    /// job was kept without an end. Elapsed then stays `unknown`.
+    pub ended: Option<Instant>,
     /// State.
     pub phase: JobPhase,
     /// Exit code, once it has one.
@@ -166,19 +172,36 @@ fn fmt_elapsed(d: Duration) -> String {
     format!("{:02}:{:02}:{:02}", s / 3600, (s % 3600) / 60, s % 60)
 }
 
+/// Remember the end the first time the job leaves the running state.
+fn stamp_end(job: &mut TrackedJob) {
+    if job.ended.is_none() { job.ended = Some(Instant::now()); }
+}
+
 impl TrackedJob {
     fn begin(kind: JobKind, pid: u32, log: PathBuf, cmd: &str, side: bool) -> Self {
         Self {
             kind, pid, log, cmd: cmd.to_string(), source: job_source(kind, cmd),
             started: Instant::now(),
             started_at: chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string(),
+            ended: None,
             phase: JobPhase::Running, code: None, error: String::new(), tail: VecDeque::new(), side,
+        }
+    }
+
+    /// How long it has run. `None` when it has stopped and the end was not recorded.
+    fn run_so_far(&self, now: Instant) -> Option<Duration> {
+        match self.phase {
+            JobPhase::Running => Some(now.saturating_duration_since(self.started)),
+            JobPhase::Finished | JobPhase::Failed | JobPhase::Cancelled => {
+                self.ended.map(|end| end.saturating_duration_since(self.started))
+            }
         }
     }
 
     fn row(&self, now: Instant) -> JobRow {
         let stage = self.tail.iter().rev().find(|l| !l.trim().is_empty()).cloned().unwrap_or_else(|| "Starting".into());
-        let frame = (now.saturating_duration_since(self.started).as_millis() / 80) as usize % SPINNER.len();
+        let run = self.run_so_far(now);
+        let frame = (run.unwrap_or_default().as_millis() / 80) as usize % SPINNER.len();
         let exit = match (self.phase, self.code) {
             (JobPhase::Running, _) => String::new(),
             (_, Some(c)) => c.to_string(),
@@ -192,7 +215,7 @@ impl TrackedJob {
             cmd: redact_line(&self.cmd),
             state: self.phase.label().into(),
             started_at: self.started_at.clone(),
-            elapsed: fmt_elapsed(now.saturating_duration_since(self.started)),
+            elapsed: run.map(fmt_elapsed).unwrap_or_else(|| "unknown".into()),
             stage,
             spinner: SPINNER[frame].into(),
             exit,
@@ -282,8 +305,7 @@ fn absorb_tail(job: &mut TrackedJob, tail: &[String]) {
 }
 
 impl App {
-    fn snapshot(&self) -> Vec<JobRow> {
-        let now = Instant::now();
+    fn snapshot(&self, now: Instant) -> Vec<JobRow> {
         let mut v = self.tracked.clone();
         v.sort_by(|a, b| (a.phase != JobPhase::Running).cmp(&(b.phase != JobPhase::Running)).then(a.started.cmp(&b.started)));
         v.iter().map(|j| j.row(now)).collect()
@@ -328,6 +350,7 @@ impl App {
     pub(crate) fn settle_job(&mut self, pid: u32, ok: bool, code: Option<i32>, tail: &[String]) {
         if let Some(j) = self.tracked.iter_mut().find(|j| j.pid == pid) {
             absorb_tail(j, tail);
+            stamp_end(j);
             j.phase = if ok { JobPhase::Finished } else { JobPhase::Failed };
             j.code = code;
             if !ok {
@@ -343,6 +366,7 @@ impl App {
     /// The user stopped this job.
     pub(crate) fn mark_job_cancelled(&mut self, pid: u32) {
         if let Some(j) = self.tracked.iter_mut().find(|j| j.pid == pid) {
+            stamp_end(j);
             j.phase = JobPhase::Cancelled;
         }
         self.needs_redraw = true;
@@ -370,19 +394,27 @@ impl App {
             self.needs_redraw = true;
             return;
         }
-        let rows = self.snapshot();
+        let rows = self.snapshot(Instant::now());
         let cursor = rows.iter().position(|r| r.running).unwrap_or(0);
         self.modal = Some(Modal::Job(JobModal { cursor, scroll: usize::MAX, stick: true, rows, pending_cancel: None }));
         self.needs_redraw = true;
     }
 
-    /// Copy the live jobs into an open details window.
+    /// Copy the live jobs into an open details window, measured at `Instant::now`.
     pub(crate) fn refresh_job_modal(&mut self) {
+        self.refresh_job_modal_at(Instant::now());
+    }
+
+    /// Copy the live jobs into an open details window, measured at `now`.
+    ///
+    /// A running job uses `now`. A stopped job uses its recorded end, so a later
+    /// `now` does not change the elapsed line.
+    pub(crate) fn refresh_job_modal_at(&mut self, now: Instant) {
         let pid = match &self.modal {
             Some(Modal::Job(m)) => m.rows.get(m.cursor).map(|r| r.pid),
             _ => return,
         };
-        let rows = self.snapshot();
+        let rows = self.snapshot(now);
         let Some(Modal::Job(m)) = &mut self.modal else { return };
         m.rows = rows;
         if let Some(pid) = pid {
