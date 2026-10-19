@@ -1,12 +1,12 @@
 # Build from source: scripts/package.sh rpm   (or rpmbuild -ba with Source0 =
-# a tarball of the source tree, top directory acp-rs-scraper-%{version}/).
-# Uninstall: sudo dnf remove acp-rs-scraper
+# a tarball of the source tree, top directory acp-red-star-%{version}/).
+# Uninstall: sudo dnf remove acp-red-star
 # Rustup users whose distro cargo is missing/too old: rpmbuild --nodeps.
 # Crates are fetched from crates.io during %build, so offline builders
 # (mock/koji) need network or a vendored tree.
 %global debug_package %{nil}
 
-Name:           acp-rs-scraper
+Name:           acp-red-star
 Version:        3.5.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them

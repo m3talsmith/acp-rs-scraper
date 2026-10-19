@@ -196,9 +196,9 @@ pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "ena
 pub const THEMES_REL_DIR: &str = ".acp/themes";
 /// Where themes are downloaded from: the repo's `themes/` at this version's tag
 /// (`<base><name>.toml`). Themes are never installed by packages or built into the binary.
-pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/");
+pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v", env!("CARGO_PKG_VERSION"), "/themes/");
 /// The default theme's download URL (fetched on the first run into an empty themes folder).
-pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
+pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
 /// Overrides [`THEME_DOWNLOAD_BASE`] (a URL ending in `/`), e.g. the mocked tests' server.
 pub const THEME_URL_ENV: &str = "ACP_THEME_URL";
 /// `off` / `0` / `false` / `no` turns the automatic first-run theme download off.
@@ -225,9 +225,9 @@ pub const MIGRATED_THEME: &str = "custom";
 pub const THEME_MIN_CONTRAST: f64 = 3.0;
 
 /// Title shown in the TUI top bar.
-pub const TUI_TITLE: &str = "ACP Red Star Scraper";
+pub const TUI_TITLE: &str = "ACP Red Star";
 /// The header text next to the big "ACP".
-pub const TUI_SUBTITLE: &str = "Red Star Scraper";
+pub const TUI_SUBTITLE: &str = "ACP Red Star";
 /// Deepest stack of nested post details (linked posts opened from a detail).
 pub const MAX_DETAIL_DEPTH: usize = 8;
 /// Width of the nick bar (cells).
@@ -317,3 +317,32 @@ pub fn bookmarks_url() -> String {
 /// The site's current page sends this. 2.5.0 used the click `toggle-bookmark`;
 /// that name still worked then and may disappear (2.24.1).
 pub const BOOKMARK_EVENT: &str = "bookmark";
+
+/// Where the encrypted database lives under a home directory.
+///
+/// The directory stays `~/.acp`. It is not named after the old binary, so a
+/// rename of the program does not move or copy `rs.database`.
+pub fn database_path(home: &std::path::Path) -> std::path::PathBuf {
+    home.join(DB_REL_PATH)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_existing_encrypted_database_is_not_moved() {
+        let home = std::env::temp_dir().join(format!("acp-keep-db-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let db = database_path(&home);
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        std::fs::write(&db, b"sealed").unwrap();
+        assert_eq!(database_path(&home), db);
+        assert_eq!(std::fs::read(&db).unwrap(), b"sealed");
+        assert!(!home.join(".acp-red-star").exists());
+        assert!(!home.join("acp-rs-scraper").exists());
+        assert_eq!(BASE_URL_ENV, "ACP_BASE_URL");
+        assert_eq!(DB_REL_PATH, ".acp/ai/data/rs.database");
+        let _ = std::fs::remove_dir_all(&home);
+    }
+}

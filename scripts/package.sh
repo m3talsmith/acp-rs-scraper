@@ -2,7 +2,7 @@
 # Build native packages FROM SOURCE into dist/.
 #   scripts/package.sh [deb|rpm|arch|all] [--container] [--nodeps]
 # deb : debian/ source package via dpkg-buildpackage (binary + source)
-# rpm : packaging/fedora/acp-rs-scraper.spec via rpmbuild -ba (RPM + SRPM)
+# rpm : packaging/fedora/acp-red-star.spec via rpmbuild -ba (RPM + SRPM)
 # arch: packaging/arch/PKGBUILD via makepkg (.pkg.tar.zst)
 # Each target uses the host tools when present; otherwise (or with
 # --container) it builds inside a debian:13 / fedora:latest / archlinux
@@ -11,7 +11,7 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
-name=acp-rs-scraper
+name=acp-red-star
 ver=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 dist="$root/dist"
 targets=() failed=() container=0 nodeps=0

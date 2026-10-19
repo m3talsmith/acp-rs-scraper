@@ -13,93 +13,93 @@ pub fn prompt(msg: &str) -> Result<String> {
 
 #[derive(clap::Parser, Clone)]
 #[command(
-    name = "acp-rs-scraper",
+    name = "acp-red-star",
     version,
-    about = "Scrape Red Star (acp.us/rs) posts into SQLite and export them",
-    long_about = "Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.",
+    about = "ACP Red Star: a local client for the Red Star forum (acp.us/rs)",
+    long_about = "ACP Red Star. Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.",
     after_help = concat!(include_str!("crypto/recovery_guide.txt"), "
 Examples:
-  acp-rs-scraper                      # terminal UI
-  acp-rs-scraper --tui --nicks @hazaldin -v
-  acp-rs-scraper --theme default      # terminal UI with this theme
-  acp-rs-scraper --list-themes
-  acp-rs-scraper --theme-init all     # download every theme in the repo into ~/.acp/themes
-  acp-rs-scraper --theme-starter mine # a minimal theme to edit (Shift-F5)
-  acp-rs-scraper --scrape             # headless scrape; asks for nicks
-  acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
-  acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
-  acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
-  acp-rs-scraper --nick alice --limit 100
-  acp-rs-scraper --nick alice --order oldest --limit 100
-  acp-rs-scraper --nick alice --profile-feed top --limit 100
-  acp-rs-scraper --search \"general strike\" --format json
-  acp-rs-scraper --export all.json
-  acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
-  acp-rs-scraper --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
-  acp-rs-scraper --research-create strike --research-description \"1877 and after\"
-  acp-rs-scraper --research-add strike --post-ids A1B2C3D4 --note \"key source\"
-  acp-rs-scraper --research-add strike --url https://example.org/article
-  acp-rs-scraper --research-add strike --file ~/notes/strike.md
-  acp-rs-scraper --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
-  acp-rs-scraper --import strike.tar.gz --compress --tar-gz
-  acp-rs-scraper --import all.json
-  ACP_DEBUG=1 acp-rs-scraper --nick alice --debug
-  acp-rs-scraper --list-nicks
-  acp-rs-scraper --list-nicks --format json
-  acp-rs-scraper --nick alice --full
-  acp-rs-scraper --nick alice --said-by
+  acp-red-star                      # terminal UI
+  acp-red-star --tui --nicks @hazaldin -v
+  acp-red-star --theme default      # terminal UI with this theme
+  acp-red-star --list-themes
+  acp-red-star --theme-init all     # download every theme in the repo into ~/.acp/themes
+  acp-red-star --theme-starter mine # a minimal theme to edit (Shift-F5)
+  acp-red-star --scrape             # headless scrape; asks for nicks
+  acp-red-star --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
+  acp-red-star --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
+  acp-red-star --nick alice --no-mentions --crawl-limit 200
+  acp-red-star --nick alice --limit 100
+  acp-red-star --nick alice --order oldest --limit 100
+  acp-red-star --nick alice --profile-feed top --limit 100
+  acp-red-star --search \"general strike\" --format json
+  acp-red-star --export all.json
+  acp-red-star --export strike.tar.gz --search strike --compress --tar-gz --name strike
+  acp-red-star --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
+  acp-red-star --research-create strike --research-description \"1877 and after\"
+  acp-red-star --research-add strike --post-ids A1B2C3D4 --note \"key source\"
+  acp-red-star --research-add strike --url https://example.org/article
+  acp-red-star --research-add strike --file ~/notes/strike.md
+  acp-red-star --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
+  acp-red-star --import strike.tar.gz --compress --tar-gz
+  acp-red-star --import all.json
+  ACP_DEBUG=1 acp-red-star --nick alice --debug
+  acp-red-star --list-nicks
+  acp-red-star --list-nicks --format json
+  acp-red-star --nick alice --full
+  acp-red-star --nick alice --said-by
   \
-acp-rs-scraper --nick alice -q
+acp-red-star --nick alice -q
   \
-acp-rs-scraper --nick alice -v
+acp-red-star --nick alice -v
   \
-acp-rs-scraper --nicks @hazaldin --latest
+acp-red-star --nicks @hazaldin --latest
   \
-acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 200
+acp-red-star --nicks @hazaldin --trending --crawl-limit 200
   \
-acp-rs-scraper --top week
+acp-red-star --top week
   \
-acp-rs-scraper --top all --top-replies
+acp-red-star --top all --top-replies
   \
-acp-rs-scraper --eb
+acp-red-star --eb
   \
-acp-rs-scraper --eb --eb-replies
+acp-red-star --eb --eb-replies
   \
-acp-rs-scraper --explore
+acp-red-star --explore
   \
-acp-rs-scraper --explore-latest
+acp-red-star --explore-latest
   \
-acp-rs-scraper --site-search strike
+acp-red-star --site-search strike
   \
-acp-rs-scraper --tag strike
+acp-red-star --tag strike
   \
-acp-rs-scraper --backfill-tags
+acp-red-star --backfill-tags
   \
-acp-rs-scraper --backfill-tags --nick alice
+acp-red-star --backfill-tags --nick alice
   \
-acp-rs-scraper --sort-thread THREAD --thread-sort oldest
+acp-red-star --sort-thread THREAD --thread-sort oldest
   \
-acp-rs-scraper --sort-thread THREAD --thread-sort top
+acp-red-star --sort-thread THREAD --thread-sort top
   \
-acp-rs-scraper --reposts POST
+acp-red-star --reposts POST
   \
-acp-rs-scraper --edits THREAD/POST
+acp-red-star --edits THREAD/POST
   \
-acp-rs-scraper --identity-init
+acp-red-star --identity-init
   \
-acp-rs-scraper --show-phrase
+acp-red-star --show-phrase
   \
-acp-rs-scraper --acp-id
+acp-red-star --acp-id
   \
-acp-rs-scraper --shares-print
+acp-red-star --shares-print
   \
-acp-rs-scraper --shares-verify --shares-file shares.txt
+acp-red-star --shares-verify --shares-file shares.txt
   \
-acp-rs-scraper --backup --output backup.acpbackup
+acp-red-star --backup --output backup.acpbackup
   \
-acp-rs-scraper --restore backup.acpbackup
+acp-red-star --restore backup.acpbackup
   \
-acp-rs-scraper --backup-schedule weekly --keep 4 --dest ~/backups
+acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 "),
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
@@ -207,7 +207,7 @@ pub struct Args {
     /// List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit.
     #[arg(long, help_heading = "Interface")]
     pub list_themes: bool,
-    /// Download a theme from the acp-rs-scraper repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), or all. Never replaces an existing file.
+    /// Download a theme from the acp-red-star repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), or all. Never replaces an existing file.
     #[arg(long, value_name = "NAME", num_args = 0..=1, default_missing_value = "default", help_heading = "Interface")]
     pub theme_init: Option<String>,
     /// Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file.
@@ -542,11 +542,11 @@ pub struct Args {
 /// Targets for the hidden `--generate` packaging flag.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Generate {
-    /// roff man page (`acp-rs-scraper.1`).
+    /// roff man page (`acp-red-star.1`).
     Man,
     /// bash completion script.
     Bash,
-    /// zsh completion function (`_acp-rs-scraper`).
+    /// zsh completion function (`_acp-red-star`).
     Zsh,
     /// fish completion script.
     Fish,

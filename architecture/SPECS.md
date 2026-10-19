@@ -7,7 +7,7 @@ Let's add a tui mode for searching and reading the posts in the db. This should 
 
 - I should be able to see clickable nicks on the left bar with their count of posts
     - When I click on them, I should see posts in a scrollable view in the body
-- The topbar should have the name of the scraper
+- The topbar should have the name ACP Red Star
 - I should have a list of clickable commands in the menu bar right below the top bar
     - Options that work with that command should be displayed with the label of the option and support these types on the right of the label:
         - Checkbox for boolean flags
@@ -251,10 +251,10 @@ default, a stable CLI↔TUI contract, and testable behavior.
 
 | Invocation | Behavior |
 |---|---|
-| `acp-rs-scraper` (no flags) | Open the TUI (read DB offline first; login only when a scan needs it) |
-| `acp-rs-scraper --tui` | Force TUI even if other offline flags are present (optional alias) |
+| `acp-red-star` (no flags) | Open the TUI (read DB offline first; login only when a scan needs it) |
+| `acp-red-star --tui` | Force TUI even if other offline flags are present (optional alias) |
 | Any scrape / search / export / import / maintenance / generate flag | Current headless CLI path (unchanged) |
-| `acp-rs-scraper --help` / `-V` / `--generate` | Unchanged |
+| `acp-red-star --help` / `-V` / `--generate` | Unchanged |
 
 **Suggested change:** add an explicit `--scrape` (or keep "any scraping flag
 implies scrape") so headless scrape stays reachable without relying on the

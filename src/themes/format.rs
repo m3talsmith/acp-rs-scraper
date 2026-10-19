@@ -344,7 +344,7 @@ pub fn parse(src: &str, stem: &str) -> std::result::Result<(ThemeFile, Vec<Strin
     let version = match table.get("version") {
         None => { warn.push(format!("no version; reading it as version {THEME_FORMAT_VERSION}")); THEME_FORMAT_VERSION }
         Some(toml::Value::Integer(v)) if *v > THEME_FORMAT_VERSION => return Err(format!(
-            "format version {v} is newer than this acp-rs-scraper reads ({THEME_FORMAT_VERSION}); update acp-rs-scraper")),
+            "format version {v} is newer than this acp-red-star reads ({THEME_FORMAT_VERSION}); update acp-red-star")),
         Some(toml::Value::Integer(v)) if *v >= 1 => *v,
         Some(v) => return Err(format!("version must be {THEME_FORMAT_VERSION}, found {v}")),
     };
@@ -431,7 +431,7 @@ fn parse_section(k: &str, t: &toml::Table, w: &mut Vec<String>) -> Section {
 /// The file text for `f` (canonical order: core palette keys first).
 pub fn to_toml(f: &ThemeFile) -> String {
     let q = |s: &str| toml::Value::String(s.into()).to_string();
-    let mut o = format!("# acp-rs-scraper theme, format v{THEME_FORMAT_VERSION}. See docs/USAGE.md (Themes).\nversion = {}\nname = {}\ndescription = {}\n",
+    let mut o = format!("# acp-red-star theme, format v{THEME_FORMAT_VERSION}. See docs/USAGE.md (Themes).\nversion = {}\nname = {}\ndescription = {}\n",
         f.version, q(&f.name), q(&f.description));
     let mut sec = |k: &str, s: &Section| {
         o.push_str(&format!("\n[{k}.palette]\n"));

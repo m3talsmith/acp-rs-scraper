@@ -11,7 +11,7 @@ use crate::tui::state::ViewMode;
 use crate::tui::widgets::text::TextField;
 
 /// Program name used as `argv[0]` for validation.
-pub const ARGV0: &str = "acp-rs-scraper";
+pub const ARGV0: &str = "acp-red-star";
 
 /// A menu path the child process will open. `~` and `~/…` expand here because the
 /// TUI does not pass the line through a shell. Other paths are unchanged.

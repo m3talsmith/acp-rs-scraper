@@ -13,7 +13,7 @@ pub struct HelpModal {
     pub scroll: usize,
 }
 
-/// Help text: key bindings, the order and limit topics, then `acp-rs-scraper --help`.
+/// Help text: key bindings, the order and limit topics, then `acp-red-star --help`.
 pub fn help_text() -> Vec<String> {
     use clap::CommandFactory;
     let guide = crate::crypto::recovery::GUIDE.trim();

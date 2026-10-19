@@ -27,7 +27,7 @@ thread_local! {
 
 /// Point the core crate's derivation hook at [`set_stage`] on this thread.
 fn install_stage_hook() {
-    acp_rs_node_core::stage::set_stage_hook(set_stage);
+    acp_red_star_node_core::stage::set_stage_hook(set_stage);
 }
 
 /// Name the step that is running. No effect unless [`run_busy`] installed a

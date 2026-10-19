@@ -1,6 +1,6 @@
-# acp-rs-scraper: usage guide
+# acp-red-star: usage guide
 
-Run `acp-rs-scraper` with no flags (or `--tui`) for the [terminal UI](#terminal-ui). With flags, `acp-rs-scraper` logs in to the Red Star forum (https://acp.us/rs) as Firefox and scrapes one or more nicks' posts, the replies in their threads, the posts that mention them, and their profiles into a local SQLite database. It downloads attachments and exports to JSON or HTML, optionally compressed. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` run offline.
+Run `acp-red-star` with no flags (or `--tui`) for the [terminal UI](#terminal-ui). With flags, `acp-red-star` logs in to the Red Star forum (https://acp.us/rs) as Firefox and scrapes one or more nicks' posts, the replies in their threads, the posts that mention them, and their profiles into a local SQLite database. It downloads attachments and exports to JSON or HTML, optionally compressed. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` run offline.
 
 **v3 pre-launch write-up (historical draft, coming soon):** [redstar-v3-prelaunch-post.md](history/v3/redstar-v3-prelaunch-post.md). The launch post, [redstar-v3-launch-post.md](history/v3/redstar-v3-launch-post.md), stays unpublished until 3.x has shipped. At the 3.0 release, switch this link to the launch post.
 
@@ -25,17 +25,17 @@ For distro packages (Arch, Debian, Fedora and derivatives), `scripts/install.sh`
 You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus let-chains in the `scraper` dependency) (install with [rustup](https://rustup.rs)). SQLite is compiled in (rusqlite `bundled`) and TLS uses rustls, so there are no system libraries to install.
 
     git clone https://github.com/m3talsmith/acp-rs-scraper
-    cd acp-rs-scraper
+    cd acp-red-star
     cargo build --release
-    ./target/release/acp-rs-scraper --help
+    ./target/release/acp-red-star --help
 
 You can also run it through cargo with `cargo run --release -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
-The workspace also builds `acp_rs_node_core`, the library that holds the account identity, canonical CBOR, and a secret-store interface. The `acp-rs-scraper` binary is the terminal client and depends on that library. Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
+The workspace also builds `acp_red_star_node_core`, the library that holds the account identity, canonical CBOR, and a secret-store interface. The `acp-red-star` binary is the terminal client and depends on that library. Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
 
 ## Terminal UI
 
-`acp-rs-scraper` (no flags) or `acp-rs-scraper --tui` opens it. It needs a terminal on stdin/stdout
+`acp-red-star` (no flags) or `acp-red-star --tui` opens it. It needs a terminal on stdin/stdout
 (at least 60×19); piped or scripted runs get an error naming the headless flags instead.
 
 - **Layout:** a 4-row header on the red bar (the red star logo in white over all four rows, a big
@@ -179,7 +179,7 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   installed by the packages, nothing built in.
 - **First run: downloading the default.** When `~/.acp/themes` is empty the TUI starts at once with
   the terminal's colours and downloads `default.toml` in the background from
-  `https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`
+  `https://raw.githubusercontent.com/m3talsmith/acp-red-star/v<version>/themes/default.toml`
   (`ACP_THEME_URL` replaces everything before `default.toml`, for tests). The download uses the
   program's HTTP client with an empty cookie jar (no cookies), gives up after 3 seconds, refuses
   more than 64 KiB, must parse as a theme file, and is written atomically with mode 0600, never
@@ -296,7 +296,7 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 
 ## First run and login
 
-1. Run a scrape, for example `acp-rs-scraper --nick alice` (or Start Scanning in the TUI, whose Login modal asks for the email and code instead of the prompts below).
+1. Run a scrape, for example `acp-red-star --nick alice` (or Start Scanning in the TUI, whose Login modal asks for the email and code instead of the prompts below).
 2. **Email:** the tool reads `email` from `~/.acp/preferences.toml`. If the file doesn't exist, it creates `~/.acp/`, asks for your email, and saves it:
 
        email = "you@example.com"
@@ -322,12 +322,12 @@ The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip 
 **Migrate**
 
 1. If you may want to go back to 2.x, copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp`.
-2. Run `acp-rs-scraper --encrypt-db`.
+2. Run `acp-red-star --encrypt-db`.
 3. The command writes a `*.acpbackup` under the exports directory first, then encrypts the database. It deletes the plaintext file only after the row counts and a content hash match. You choose the password during this command. After Enter, the terminal shows a spinner, the stage it is on, and how long it has been running. Keypresses are ignored until it finishes.
 
 Stretching the password is the slow part on a small database. The settings are Argon2id with 64 MiB of memory, 3 iterations, and 1 lane, and one migration does that once (the backup, the database key, and the account key are labels of that single stretch). On a 4-core test machine that stretch took about 0.1 seconds in a release build and about 1.7 seconds in an unoptimized `cargo run` build; three separate stretches, which is what an earlier build did, took about 0.3 seconds and about 5 seconds. Copying the database was about 0.1 seconds at 20 MB and about 0.5 seconds at 100 MB in a release build (a few milliseconds per megabyte, including SQLCipher's per-page HMAC). A database of a few thousand posts is usually tens of megabytes, so a release build finishes in well under a second after the password is accepted, most of it the single key stretch. A debug build spends most of that wait on the stretch and shows "Deriving key" while it does.
 
-When `--encrypt-db` finishes on a terminal, it prints what to do next. The password you just chose is not the master key. The master key is a 24-word recovery phrase. The command offers to create that phrase immediately. You type the words a second time to confirm you wrote them down, and you can print the 5 shares in the same step. If you skip it, run `acp-rs-scraper --identity-init` later. After the phrase exists, `acp-rs-scraper --show-phrase` shows the words again. It asks for the password, warns that they will be on the screen and may stay in scrollback, and offers to clear the terminal. The same explanation is in `--help` and in the terminal UI (press `?` or F1). A new database created from the terminal UI opens that Help screen after encryption.
+When `--encrypt-db` finishes on a terminal, it prints what to do next. The password you just chose is not the master key. The master key is a 24-word recovery phrase. The command offers to create that phrase immediately. You type the words a second time to confirm you wrote them down, and you can print the 5 shares in the same step. If you skip it, run `acp-red-star --identity-init` later. After the phrase exists, `acp-red-star --show-phrase` shows the words again. It asks for the password, warns that they will be on the screen and may stay in scrollback, and offers to clear the terminal. The same explanation is in `--help` and in the terminal UI (press `?` or F1). A new database created from the terminal UI opens that Help screen after encryption.
 
 `--change-password` (on a terminal) asks for the current password and a new one, then rewraps the database. The account id does not change. When a recovery phrase is saved on this computer, it moves to the new password too. `--backup` and `--restore` use the same progress screen. `ACP_PASSWORD` with no terminal skips the screen and does the work inline. A non-interactive `--encrypt-db` does not dump the recovery steps into the output; the next run on a terminal shows them.
 
@@ -551,8 +551,8 @@ Whether the file is unpacked depends on the flags, not the file name. If the fil
 Several formats (`--format json,html` or `--format json --format html`) all come from the same run; duplicates are ignored. Paths: with `--output <dir>` each goes to `<dir>/<name>.<ext>`; with `--output <file>` (or `--export <file>`) the stem is kept and each format gets `<stem>.<ext>` (`--output out/haz.html` writes `out/haz.json` and `out/haz.html`); with `--compress` both files go into the same archive folder (`<name>/<name>.json`, `<name>/<name>.html`, one shared `attachments/`). Several formats can't go to stdout, so pass `--output`, `--export` or `--compress`. The 0-post skip applies to every format.
 
 ```sh
-acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.html   # hazaldin.json + hazaldin.html
-acp-rs-scraper --export db --format html --format json                               # db.html + db.json
+acp-red-star --nick @hazaldin --format json,html --output hazaldin/hazaldin.html   # hazaldin.json + hazaldin.html
+acp-red-star --export db --format html --format json                               # db.html + db.json
 ```
 
 An archive contains `<name>/<name>.<ext>` (one per format) and `<name>/attachments/`. It's written to `--output` or `--export`. A path that already ends in `.tar.gz` or `.tgz` is that file. A directory, or a path ending in `/`, gets `<dir>/<export-name>.tar.gz` (the export name, as a file name: `Resonance Cosmos` becomes `resonance-cosmos.tar.gz`). Any other path gets `.tar.gz` appended, so a bare name such as `resonance-cosmos` becomes `resonance-cosmos.tar.gz` instead of failing with "Is a directory". The success log prints `wrote <final path>`. With no path, the archive is `~/.acp/ai/data/exports/<name>.tar.gz`. `--tar-gz` is the only format for now. Once the archive is written, the uncompressed `<name>/` folder is removed; if compression fails it is left in place. The terminal UI expands a leading `~` or `~/` on Export › Path before it starts that export.
@@ -571,64 +571,64 @@ An archive contains `<name>/<name>.<ext>` (one per format) and `<name>/attachmen
 
 ```bash
 # One nick, JSON to stdout (prompts for login)
-acp-rs-scraper --nick alice > alice.json
+acp-red-star --nick alice > alice.json
 
 # Several nicks in one session, HTML bundle with attachments
-acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz --name comrades
+acp-red-star --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz --name comrades
 # -> ~/.acp/ai/data/exports/comrades.tar.gz
 
 # Skip mentions; or scan fewer feed posts for them
-acp-rs-scraper --nick alice --no-mentions
-acp-rs-scraper --nick alice --crawl-limit 200
+acp-red-star --nick alice --no-mentions
+acp-red-star --nick alice --crawl-limit 200
 
 # Only the nick's own posts and replies (no thread crawl, no mentions)
-acp-rs-scraper --nick alice --said-by
+acp-red-star --nick alice --said-by
 
 # Newest 100, oldest 100, or the top of the profile
-acp-rs-scraper --nick alice --limit 100
-acp-rs-scraper --nick alice --order oldest --limit 100
-acp-rs-scraper --nick alice --profile-feed top --limit 100
+acp-red-star --nick alice --limit 100
+acp-red-star --nick alice --order oldest --limit 100
+acp-red-star --nick alice --profile-feed top --limit 100
 
 # Latest (default) vs Trending for the site-wide mentions crawl
-acp-rs-scraper --nicks @hazaldin --latest
-acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 300
+acp-red-star --nicks @hazaldin --latest
+acp-red-star --nicks @hazaldin --trending --crawl-limit 300
 
 # Complete posts/comments stored with truncated ("show more") text
-acp-rs-scraper --refetch-truncated                     # every nick in the DB, nothing else
-acp-rs-scraper --nick alice --said-by --refetch-truncated   # backfill alice, then scrape as usual
+acp-red-star --refetch-truncated                     # every nick in the DB, nothing else
+acp-red-star --nick alice --said-by --refetch-truncated   # backfill alice, then scrape as usual
 
 # Incremental re-run (default) vs full re-crawl
-acp-rs-scraper --nick alice          # stops paging at known posts, skips unchanged threads
-acp-rs-scraper --nick alice --full   # refetches everything
+acp-red-star --nick alice          # stops paging at known posts, skips unchanged threads
+acp-red-star --nick alice --full   # refetches everything
 
 # What's in the DB?
-acp-rs-scraper --list-nicks
-acp-rs-scraper --list-nicks --format json
+acp-red-star --list-nicks
+acp-red-star --list-nicks --format json
 
 # Offline search and export
-acp-rs-scraper --search "general strike" --format html --output strike.html
-acp-rs-scraper --search strike --nicks alice,bob > strike.json
-acp-rs-scraper --export all.json
-acp-rs-scraper --export alice.html --format html --nick alice
-acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
-acp-rs-scraper --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
+acp-red-star --search "general strike" --format html --output strike.html
+acp-red-star --search strike --nicks alice,bob > strike.json
+acp-red-star --export all.json
+acp-red-star --export alice.html --format html --nick alice
+acp-red-star --export strike.tar.gz --search strike --compress --tar-gz --name strike
+acp-red-star --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
 
 # Round trip into another machine / fresh DB
-acp-rs-scraper --export backup.tar.gz --compress --tar-gz
-acp-rs-scraper --import backup.tar.gz --compress --tar-gz
-acp-rs-scraper --import all.json
-acp-rs-scraper --import alice.html
+acp-red-star --export backup.tar.gz --compress --tar-gz
+acp-red-star --import backup.tar.gz --compress --tar-gz
+acp-red-star --import all.json
+acp-red-star --import alice.html
 
 # Maintenance
-acp-rs-scraper --remove-nick @spam,@bot --dry-run
-acp-rs-scraper --remove-nick alice                  # prompts with counts
-acp-rs-scraper --remove-nick alice --keep-replies -y
-acp-rs-scraper --clear-all                          # type 'yes'; prefs and exports are kept
+acp-red-star --remove-nick @spam,@bot --dry-run
+acp-red-star --remove-nick alice                  # prompts with counts
+acp-red-star --remove-nick alice --keep-replies -y
+acp-red-star --clear-all                          # type 'yes'; prefs and exports are kept
 
 # Logging levels
-acp-rs-scraper --nick alice -q
-acp-rs-scraper --nick alice -v
-acp-rs-scraper --nick alice --debug 2> wire.log
+acp-red-star --nick alice -q
+acp-red-star --nick alice -v
+acp-red-star --nick alice --debug 2> wire.log
 ```
 
 When the mentions crawl is on, these steps happen in order:
@@ -797,7 +797,7 @@ CREATE TABLE research_items (
 - **Login errors:**
   - Run with `--debug` and look at the `submit-code` reply and the sign-in POST (its field names are printed with `-v`).
   - Remove `~/.acp/preferences.toml` to enter a different email.
-  - Run `acp-rs-scraper --logout` to forget the saved session (`~/.acp/session.json`) and log in again.
+  - Run `acp-red-star --logout` to forget the saved session (`~/.acp/session.json`) and log in again.
 - **"feed paging stopped before at_end":**
   - Rerun with `--debug`.
   - Check the `page-next` replies: posts should be in `response.diff.r`, or in a rebuilt `forum/Feed` data-props.
@@ -810,7 +810,7 @@ CREATE TABLE research_items (
 
       sqlite3 ~/.acp/ai/data/rs.database 'select nick,count(*) from posts group by nick'
 
-- **Check the output:** stdout carries only the export, so `acp-rs-scraper ... | jq .` works.
+- **Check the output:** stdout carries only the export, so `acp-red-star ... | jq .` works.
 
 ## Known limitations
 
@@ -842,9 +842,9 @@ In the terminal UI, `n` opens New post. On an open post, `r` replies (a comment 
 3.5.0 adds local attachments on that same compose box. The attach line takes a path; Enter adds the file, and Backspace on an empty line removes the last one. Tab on a non-empty line completes the next real directory entry. `~` becomes `~/`. `~/…` is completed under the home directory and keeps the `~/` prefix on the line; the stored path is expanded. `~user` is not completed. A name starting with `.` is offered only when the prefix starts with `.`. One match fills the line (a directory ends with `/`). Several matches stay listed: Tab, Up, and Down move the highlight, Enter writes that path and does not attach it yet, and Esc clears the list and stays on the line. A Tab that changes nothing moves to the next field, including a second Tab on a file that is already complete, and a second Tab on a completed directory lists what is inside it. An empty attach line still moves focus. `--attachment PATH` repeats for `--new-post` and `--reply`. The shell completes that flag; Tab completion is the compose box. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment (`file_attachments` in the plan; the others are `media_attachments`). `--dry-run` prints that list and does not upload. The upload channel (`allow_upload`, `lvu`) has not been captured, so those inputs are not encoded and no file bytes are sent. A confirmed publish still does not send `validate` or `save`. The app, the archive, and the network keep every file. Red Star allows 4 on the site copy. More than 4, with no choice, keeps the first 4 for the site and names the rest in a notice. `--site-attachments 1,3,5,6` (1-based, at most 4, no duplicates) chooses which files are that site copy. In the compose box the same choice is a picker: Space toggles, a fifth check is refused, Enter confirms, Esc returns to Publish without sending. `?` opens the `site-attachments` Help topic. Each attachment row stores `on_site`; a row from before that column counts as on the site. Export JSON includes `"on_site"`.
 
 ```bash
-acp-rs-scraper --new-post "Title" --body "hello **world**" --attachment photo.jpg --dry-run
-acp-rs-scraper --reply THREAD --in-reply-to COMMENT --body "agreed" --attachment notes.pdf --dry-run
-acp-rs-scraper --reply THREAD --quote "selected lines" --quote-post POST --body "yes" --yes
+acp-red-star --new-post "Title" --body "hello **world**" --attachment photo.jpg --dry-run
+acp-red-star --reply THREAD --in-reply-to COMMENT --body "agreed" --attachment notes.pdf --dry-run
+acp-red-star --reply THREAD --quote "selected lines" --quote-post POST --body "yes" --yes
 ```
 
 `--yes` confirms. Without it, a terminal asks `Publish? [y/N]`. A second confirmed attempt within 30 seconds waits. Vote, subscribe, delete, edit, and repost are later releases. The hidden `--capture-reply` flag does not copy the session and does not send; it is described in `architecture/PLAN-3.0-CLIENT.md`.

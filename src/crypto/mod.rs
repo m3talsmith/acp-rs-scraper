@@ -1,7 +1,7 @@
 //! Keys for the account: the master secret, the recovery phrase and the `acp-id`.
 //!
 //! The derivation, canonical CBOR, and the secret-store trait live in
-//! [`acp_rs_node_core`]. This module keeps encryption at rest, backup, and the
+//! [`acp_red_star_node_core`]. This module keeps encryption at rest, backup, and the
 //! terminal progress screen, which depend on the database and the terminal.
 //! Certificates, enrollment, revocation, relays and peers stay out until the
 //! node-identity stage. The master signing key and the master wrapping key are
