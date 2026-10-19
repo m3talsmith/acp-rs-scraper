@@ -11,6 +11,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - **Draft GitHub Releases.** A version that is not on `main` is a draft release, with the notes from its changelog section and no attached files. The maintainer publishes the draft after that version is merged. Releases for versions already on `main` (2.16.0 and earlier) are left alone. The post-commit hook still only creates the git tag. Nothing in CI publishes a release.
 - **Tombstones, revised.** A signed tombstone keeps the post. The plan no longer drops the body after a grace period. The UI shows a tombstone icon (🪦, or `[RIP]`), the content stays viewable, and a signed restore record or a newer signature of the same post id clears the tombstone. The restore record is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 - **Password change / re-key is 3.22.0.** It does not change the master or the `acp-id`. It re-wraps the SQLCipher key, the keystore, the sealed phrase, and the backup-wrapping key in one transaction, with rollback, and it requires the old password. It sits before the daemon and the OS keyring. Stages that were 3.22.0 through 3.28.0 are now 3.23.0 through 3.29.0. The write core stays 3.4.0.
+- **4.0 roadmap, docs only.** Post source and the Haz stream corpus sit beside the embedded local assistant in `architecture/PLAN-3.0-CLIENT.md` (§4.0, §7.14.12). No schema change and no scraper in this note. The source columns may land later as a 3.x minor.
 
 ## [3.5.0] - 2026-10-19
 
