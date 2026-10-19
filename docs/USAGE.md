@@ -77,7 +77,7 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   (whichever is installed first); images are shrunk to at most 1024 px.
 - **Search** (Search menu, or `Shift-S` for keyword + nicks + post id + date range + posts/replies)
   replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears.
-  Search history is not on the bar yet. When it ships it is part of Search: each local or site search keeps the query and the filters (keyword, nicks, post id, dates, posts or replies or both, and Where) in the encrypted database, and picking one runs that search again. Clear history removes those rows. How many to keep is not decided. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
+  Search history is not on the bar yet. When it ships it is part of Search: each local or site search keeps the query and the filters (keyword, nicks, post id, dates, posts or replies or both, and Where) in the encrypted database, and picking one runs that search again. Clear history removes those rows. The default keeps every search. A preference can instead keep the N most recent. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 - **Menu → flags:**
 
   | Menu | Flags it builds |

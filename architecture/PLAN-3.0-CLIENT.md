@@ -17,7 +17,7 @@ Update 2026-10-19 (write core): **3.4.0** ships compose for New post and Reply, 
 
 Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the serve and relay work. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists.
 
-Update 2026-10-19 (search history): recent searches are rows in the SQLCipher database that already holds posts and nicks. A row stores the query and the filters only, not a snapshot of the results. Picking a history item re-runs that search live. Clear history deletes the rows. It belongs in the Search menu and is its own minor once Search work is touched; that minor is not numbered here, and numbered stages are not moved. How many entries to keep is still open. Details are in §7.14.5.
+Update 2026-10-19 (search history): recent searches are rows in the SQLCipher database that already holds posts and nicks. A row stores the query and the filters only, not a snapshot of the results. Picking a history item re-runs that search live. Clear history deletes the rows. The default keeps the entire history, with no automatic pruning. A preference can instead keep the N most recent entries. It belongs in the Search menu and is its own minor once Search work is touched; that minor is not numbered here, and numbered stages are not moved. Details are in §7.14.5.
 
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
@@ -265,7 +265,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | 3.22.0: Password change / re-key | **3.22.0** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. |
 | P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
-| Search history | later minor, when Search work is touched | Reopen a past query from the Search menu (§7.14.5). The row is the query and the filters only, a pick re-runs the search live, the rows live in the encrypted database, and Clear history deletes them. How many entries to keep is still open. The version number is not assigned here, and numbered stages are not moved. |
+| Search history | later minor, when Search work is touched | Reopen a past query from the Search menu (§7.14.5). The row is the query and the filters only, a pick re-runs the search live, the rows live in the encrypted database, and Clear history deletes them. The default keeps every row. A preference can cap the list at the N most recent. The version number is not assigned here, and numbered stages are not moved. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -1003,7 +1003,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
   - A row stores the query and the filters only: keyword, nicks, post id, the from and to dates, posts or replies or both, and whether the search was local or on the site. It does not store a snapshot of the results.
   - Picking a history item re-runs that search live, against the database as it is now, or against the site when the row says site.
   - Clear history deletes these rows and leaves posts, nicks, and preferences in place.
-  - Still open: how many entries to keep.
+  - **Retention (decided 2026-10-19).** The default keeps the entire history. Nothing is pruned on its own. A preference chooses either the entire history or a cap of the N most recent entries. A cap drops the older rows. The preference is a setting in `preferences.toml`. That file still does not hold the list of queries.
 - **Fleet view:** one Nodes list showing last seen, version, certificate expiry, sync lag and disk use, with rename, role change and revoke from any authorizer. `--doctor` checks the local setup.
 - **Version compatibility:** nodes speak the current and the previous protocol version, announce their version, and warn when one lags.
 - **Peer management:** a Peers tab with status (up, down, unknown), last seen, trust level, source (invite, mDNS, bootstrap, backup), bytes in and out and notes, with actions to change trust, block, forget and re-check.
@@ -1174,7 +1174,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~Node roles~~ are opt-in. Every node starts equal (§7.14.4).
     - ~~Service install~~ covers Linux (systemd), macOS (launchd) and Windows (Windows Service) (§7.14.5).
     - ~~State~~ lives in the encrypted database, with only a bootstrap file and `preferences.toml` outside it (§7.14.5).
-    - ~~**Search history (2026-10-19):**~~ rows in that same database. Each row is the query and the filters only, not a snapshot of the results. Picking one re-runs the search live. Clear history deletes the rows (§7.14.5).
+    - ~~**Search history (2026-10-19):**~~ rows in that same database. Each row is the query and the filters only, not a snapshot of the results. Picking one re-runs the search live. Clear history deletes the rows. The default keeps every row. A preference can instead keep the N most recent (§7.14.5).
     - ~~Peers~~ are transient and checked automatically after a restore, with a Peers tab and `--peer-*` commands. Own nodes are never revoked automatically (§7.14.5).
     - ~~The certificate~~ is returned to the new node by the approver inside the enrollment bundle (§7.14.2).
     - ~~Dart SDK~~ is a thin package over FFI to the embedded Rust crates, with a separate `acp_rs_node_ffi` crate (§7.14.7).
@@ -1184,7 +1184,6 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~On publish~~ all versions become public, reviewers' comments stay private but are retained, and the site's existing edit history is captured too.
 
     Still open:
-    - How many search-history entries to keep (§7.14.5). The row contents, the encrypted database, Clear history, and a live re-run are decided.
     - Should ciphertext of a draft with a review link replicate to third-party peers (proposed, since it leaks only existence, size and timing), or only travel between the author and reviewers directly?
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
