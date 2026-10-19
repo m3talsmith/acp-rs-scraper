@@ -181,6 +181,7 @@ pub async fn run() -> Result<()> {
         Ok(v) => v,
         Err(e) => e.exit(),
     };
+    apply_color_mode(resolve_color_mode(args.color, load_prefs().ui.as_ref().and_then(|u| u.color.as_deref())));
     if let Some(what) = args.generate {
         return generate(what, &mut io::stdout().lock());
     }

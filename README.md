@@ -127,6 +127,9 @@ Interface:
       --theme-starter <NAME>
           Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file
 
+      --color <WHEN>
+          Colour output. auto follows NO_COLOR (a non-empty value turns colours off). always forces colours on, even when NO_COLOR is set. never turns colours off. Omitted: [ui] color in preferences.toml, or auto
+
 Scraping:
       --scrape
           Scrape headlessly, without the terminal UI (what a bare invocation did before 2.0). Asks for nicks when no --nick/--nicks is given. Implied by any other scraping flag
@@ -608,7 +611,7 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   `~/.acp/preferences.toml`. `[ui] theme_mode = "dark" | "light" | "system"` picks the variant;
   `system` (the default) uses `COLORFGBG` when set, else asks the terminal (`OSC 11`), else
   dark. `--theme NAME` uses a theme for one run without saving it;
-  `--list-themes` prints them all.
+  `--list-themes` prints them all. `--color auto|always|never` follows `NO_COLOR`, forces colour on, or turns it off. `[ui] color` is the default when the flag is omitted.
 - **Editor** (`Shift-F5`): see [Theme editor](#theme-editor) below.
 - **Safety.** A missing or broken theme file never stops the TUI: it falls back to the terminal's
   colours and a notice names the file and how to fix it. Broken files are never overwritten

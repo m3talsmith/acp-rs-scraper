@@ -91,7 +91,7 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
-  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; ◂ Previous post / Next post ▸ (TUI only) |
+  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; Colour; ◂ Previous post / Next post ▸ (TUI only) |
   | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked |
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
@@ -211,6 +211,12 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
   (`OSC 11`), else dark. `--theme NAME` overrides for one run; `--list-themes`
   lists them.
+- **Colour.** `--color auto|always|never`. `auto` (the default) follows `NO_COLOR`: a non-empty value
+  turns colours off and leaves bold, dim, and underline. `always` forces colours on, which is what a
+  recording needs when the shell exported `NO_COLOR=1`. `never` turns colours off. `[ui] color` in
+  `preferences.toml` is used when the flag is omitted. View › Colour sets it and remembers it.
+  When `NO_COLOR` is set and colours are off, the status line, the theme picker, and the theme editor
+  say `NO_COLOR is set, so colours are off (use --color always)`. `?` on View › Colour opens that Help topic.
 - **Format v1.**
 
   ```toml

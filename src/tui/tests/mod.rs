@@ -24,6 +24,7 @@ mod history;
 mod nick_filter;
 mod order;
 mod site_attachments;
+mod color;
 mod reads;
 mod session;
 mod theming;

@@ -33,7 +33,9 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
     let title = format!(" Theme editor · {}{dirty} · {mode} (Tab) · ^S save ^R revert (r: row) ^N new ^D duplicate ^X delete · [ ] other theme · h highlight · Esc close",
         ed.file.name);
     f.render_widget(Paragraph::new(Span::styled(title, ui.bar().bold(true))).style(ui.bar()), Rect { height: 1, ..area });
-    let body = Rect { y: area.y + 1, height: area.height.saturating_sub(2), ..area };
+    let hint = app.color_hint();
+    let foot_rows = 1 + u16::from(hint.is_some());
+    let body = Rect { y: area.y + 1, height: area.height.saturating_sub(1 + foot_rows), ..area };
     let lw = (body.width / 2).clamp(30, 52).min(body.width);
     let left = Rect { width: lw, ..body };
     let right = Rect { x: body.x + lw, width: body.width.saturating_sub(lw), ..body };
@@ -107,7 +109,10 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
     }
 
     // Footer: the result of the last action, or what the row is.
-    let foot = Rect { y: area.y + area.height.saturating_sub(1), height: 1, ..area };
+    let foot = Rect { y: area.y + area.height.saturating_sub(foot_rows), height: foot_rows, ..area };
+    if let Some(h) = hint {
+        f.render_widget(Paragraph::new(Span::styled(format!(" {h}"), ui.accent_bold())), Rect { height: 1, ..foot });
+    }
     let (err, text) = ed.message.clone().unwrap_or_else(|| (false, match ed.current() {
         Row::Palette(n) => PALETTE_KEYS.iter().find(|(k, _)| *k == n).map(|(_, a)| a.to_string()).unwrap_or_else(|| format!("@{n}: your own colour for references")) + " · Enter picks · Del resets · a adds a colour",
         Row::Element(e) => format!("{} · Enter shows its keys · Del clears its overrides · r reverts", e.about()),
@@ -115,7 +120,8 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
         Row::Field(..) => "Enter cycles on / off / built-in · Del clears".into(),
         Row::Heading(_) => String::new(),
     }));
-    f.render_widget(Paragraph::new(Span::styled(format!(" {text}"), if err { ui.accent_bold() } else { ui.muted() })), foot);
+    let msg = Rect { y: foot.y + u16::from(hint.is_some()), height: 1, ..foot };
+    f.render_widget(Paragraph::new(Span::styled(format!(" {text}"), if err { ui.accent_bold() } else { ui.muted() })), msg);
 
     if ed.picker.is_some() { draw_picker(f, &ui, ed, area); }
     if let Some(p) = &ed.prompt {

@@ -41,6 +41,9 @@ pub struct UiPrefs {
     /// Per-list order and the nick-list limit (`[ui.list_order]`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub list_order: Option<ListOrderPrefs>,
+    /// `auto`, `always`, or `never`. Omitted means auto (follow NO_COLOR).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
 }
 
 /// `[ui.list_order]` in `~/.acp/preferences.toml`.
@@ -92,6 +95,25 @@ pub fn save_list_order_at(path: &Path, prefs: &ListOrderPrefs) -> Result<()> {
 /// Write `[ui.list_order]` in `~/.acp/preferences.toml`, keeping every other key.
 pub fn save_list_order(prefs: &ListOrderPrefs) -> Result<()> {
     save_list_order_at(&home()?.join(PREFS_REL_PATH), prefs)
+}
+
+/// Set `[ui] color` in `path`, keeping every other key (also unknown ones).
+pub fn save_ui_color_at(path: &Path, color: &str) -> Result<()> {
+    let mut t: toml::Table = match std::fs::read_to_string(path) {
+        Ok(s) => toml::from_str(&s).with_context(|| format!("{} is not valid TOML; not changing it", path.display()))?,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => toml::Table::new(),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    };
+    let ui = t.entry("ui").or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    let Some(ui) = ui.as_table_mut() else { bail!("[ui] in {} is not a table; not changing it", path.display()) };
+    ui.insert("color".into(), toml::Value::String(color.into()));
+    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+    crate::themes::atomic_write(path, toml::to_string(&t)?.as_bytes()).with_context(|| format!("writing {}", path.display()))
+}
+
+/// Set `[ui] color` in `~/.acp/preferences.toml`, keeping every other key.
+pub fn save_ui_color(color: &str) -> Result<()> {
+    save_ui_color_at(&home()?.join(PREFS_REL_PATH), color)
 }
 
 /// Set `[ui] theme` in `~/.acp/preferences.toml`, keeping every other key (also unknown

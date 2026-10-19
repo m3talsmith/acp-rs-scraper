@@ -351,10 +351,12 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &m.buttons(), focus);
         }
         Modal::ThemePicker(p) => {
+            let hint = app.color_hint();
+            let extra = u16::from(hint.is_some());
             let rows = p.rows() as u16;
-            let r = modal_rect(area, 76, (rows + 4).min(area.height.saturating_sub(2)));
+            let r = modal_rect(area, 76, (rows + 4 + extra).min(area.height.saturating_sub(2)));
             let inner = frame(f, &t, r, &p.title());
-            let list = Rect { y: inner.y + 1, height: inner.height.saturating_sub(1), ..inner };
+            let list = Rect { y: inner.y + 1, height: inner.height.saturating_sub(1 + extra), ..inner };
             let skip = p.cursor.saturating_sub(list.height.saturating_sub(1) as usize);
             for (row, i) in (0..p.rows()).skip(skip).take(list.height as usize).enumerate() {
                 let rr = Rect { y: list.y + row as u16, height: 1, ..list };
@@ -378,6 +380,10 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 let text: String = if text.chars().count() > w { text.chars().take(w.saturating_sub(1)).chain(['…']).collect() } else { text };
                 f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+            if let Some(h) = hint {
+                let rr = Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner };
+                f.render_widget(Paragraph::new(Span::styled(format!(" {h}"), t.muted())), rr);
             }
         }
         Modal::Post(p) => {
