@@ -18,7 +18,7 @@ Run `acp-rs-scraper` with no flags (or `--tui`) for the [terminal UI](#terminal-
 
 ## Install and build
 
-For distro packages (Arch, Debian, Fedora and derivatives), `scripts/install.sh` and uninstalling, see [INSTALL.md](INSTALL.md). Building by hand:
+For distro packages (Arch, Debian, Fedora and derivatives), `scripts/install.sh` and uninstalling, see [INSTALL.md](INSTALL.md). Published binaries and alphas, once a release includes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. Building by hand:
 
 You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus let-chains in the `scraper` dependency) (install with [rustup](https://rustup.rs)). SQLite is compiled in (rusqlite `bundled`) and TLS uses rustls, so there are no system libraries to install.
 
@@ -29,7 +29,7 @@ You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus le
 
 You can also run it through cargo with `cargo run --release -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
-The workspace also builds `acp_rs_node_core`, the library that holds the account identity, canonical CBOR, and a secret-store interface. The `acp-rs-scraper` binary is the terminal client and depends on that library. Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
+The workspace members are `acp-rs-scraper` (repository root, the terminal client and binary) and `acp_rs_node_core` (`crates/acp_rs_node_core`), the library for account identity, canonical CBOR, and a secret-store interface. `acp_rs_node_core` is `publish = false`. The binary depends on that library. The module list is in [INSTALL.md](INSTALL.md#workspace-crates). Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
 
 ## Terminal UI
 

@@ -31,6 +31,8 @@ Update 2026-10-19 (tooltip Help links, parked): every action tooltip includes a 
 
 Update 2026-10-19 (attachments, confirmed): Michael confirmed the three 3.5.0 decisions. `.jpeg` is accepted as jpg and `.tif` as tiff. There is no count cap and no size cap. Attachments keep **3.5.0**. Interactions (vote, subscribe, delete, edit, repost) were numbered 3.5.0–3.9.0 and have not started. That numbering is not shifted onto 3.10.0 and later, including the locked 3.22.0 re-key. Later stages stay as written. Live upload stays behind `CAPTURE_BLOCK`.
 
+Update 2026-10-19 (crates, install, alpha parked): launch docs name the two crates that are in the workspace today: `acp-rs-scraper` at the repository root, and `acp_rs_node_core` at `crates/acp_rs_node_core`. Source install stays `scripts/install.sh`. Docs also point at the repository [Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page for binaries and alphas once a release publishes them, and they do not invent a download URL for an unpublished file. Alpha packaging waits until both gates are clear: writes and replies with attachments are done, and the decentralized network work (P9) is completed. This note does not tag an alpha and does not attach release assets. Details are in §4.5.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -280,7 +282,8 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | Hover tooltips | later minor, required before 3.x closes | Every button, menu item, and card icon explains itself on hover, including its key when it has one, and a deep link to the Help topic for that action (§4.3). One generic Help page for every tooltip does not count, and neither does a description without a link. One shared helper. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here, and numbered stages are not moved. |
 | Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). Every flag and control is described. `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
 | About | later minor, required before 3.x closes | A menu item with three segments opens one modal focused on that section: Credits, Why this is necessary, and ACP platform (§4.2). Each segment has a tooltip and a Help topic. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here. |
-| Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
+| Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, the two workspace crates, source install plus the Releases page, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
+| Alpha packaging | parked until both gates | Pack alphas only after writes and replies with attachments are done and the decentralized network (P9, 3.23.0–3.27.0) is completed. Notes separate functional from stubbed. No alpha tag and no release assets until then (§4.5). |
 | Launch communications | end of 3.0, after launch docs | Pitch, demo, two sticker sets, ethos backgrounds, a cutscene in video and ASCII, a separate community-work video, and a comrades' forum post for v3 (§4.5). The historical draft is [docs/history/redstar-v3-launch-post.md](../docs/history/redstar-v3-launch-post.md). It is not the live forum post. Not built in this note. |
 
 ### 4.0 Later product work
@@ -383,13 +386,45 @@ Today Help is one scroll: the recovery guide, then the key list, then the genera
 
 ### 4.5 Launch docs and communications (3.x)
 
-Two lists. The first is required before the 3.0 client is presented as launched. The second is communications after that pass. Neither blocks attachments (3.5.0). Neither assigns a minor or moves a numbered stage. This note does not write the files and does not produce the communications.
+Two lists. The first is required before the 3.0 client is presented as launched. The second is communications after that pass. Neither blocks attachments (3.5.0). Neither assigns a minor or moves a numbered stage. The crate pointer and the Releases-page link are written in the README and in [docs/INSTALL.md](../docs/INSTALL.md). The rest of the launch-docs pass is not written here. This note does not produce the communications and does not cut an alpha.
 
 #### Launch docs (before the 3.0 client is presented)
 
-The user-facing name is **ACP Red Star**. The client is no longer only a scraper. Apply that name where a reader meets the product: the README, [docs/USAGE.md](../docs/USAGE.md), [docs/INSTALL.md](../docs/INSTALL.md), the introduction of [docs/PROTOCOL.md](../docs/PROTOCOL.md), changelog and release titles for this pass, titles in the API docs, and this plan. Historical 2.x changelog sections stay as they were written. The Cargo package stays `acp-rs-scraper`. The shipping binary is `acp-rs-scraper`. The plan's later `acp-rs` names are for the daemon and related commands, not a rename of this binary. The GitHub repo stays `m3talsmith/acp-rs-scraper` until a later decision. Open, and not blocking: when the repo is renamed, and what the crate names become. `CONTRIBUTING.md` already exists and is refreshed with the name. `SECURITY.md` is added; it does not exist today. [SPECS.md](./SPECS.md) and [PLAN-2.0-TUI.md](./PLAN-2.0-TUI.md) are refreshed or marked superseded by this plan. Menu categories, search history, and attachments are merged into the main docs when those notes are ready. `docs/GETTING-STARTED.md` is the walkthrough in §4.4, including About.
+The user-facing name is **ACP Red Star**. The client is no longer only a scraper. Apply that name where a reader meets the product: the README, [docs/USAGE.md](../docs/USAGE.md), [docs/INSTALL.md](../docs/INSTALL.md), the introduction of [docs/PROTOCOL.md](../docs/PROTOCOL.md), changelog and release titles for this pass, titles in the API docs, and this plan. Historical 2.x changelog sections stay as they were written. The Cargo package stays `acp-rs-scraper`. The shipping binary is `acp-rs-scraper`. The plan's later `acp-rs` names are for the daemon and related commands, not a rename of this binary. The GitHub repo stays `m3talsmith/acp-rs-scraper` until a later decision. Open, and not blocking: when the repo is renamed, and whether the two crate names below change later. The names in the tree today are the ones these docs use. `CONTRIBUTING.md` already exists and is refreshed with the name. `SECURITY.md` is added; it does not exist today. [SPECS.md](./SPECS.md) and [PLAN-2.0-TUI.md](./PLAN-2.0-TUI.md) are refreshed or marked superseded by this plan. Menu categories, search history, and attachments are merged into the main docs when those notes are ready. `docs/GETTING-STARTED.md` is the walkthrough in §4.4, including About.
 
-Checklist: the name, the walkthrough, Help completeness (§4.4), About (§4.2), SPECS and PLAN-2.0, CONTRIBUTING and SECURITY, and the UX drafts once their branches land.
+Checklist: the name, the two workspace crates, source install plus the Releases page, the walkthrough, Help completeness (§4.4), About (§4.2), SPECS and PLAN-2.0, CONTRIBUTING and SECURITY, and the UX drafts once their branches land.
+
+#### Workspace crates
+
+The workspace members in the root `Cargo.toml` are `"."` and `"crates/acp_rs_node_core"`. Launch docs name those two and no others.
+
+| Package | Path | Role |
+|---|---|---|
+| `acp-rs-scraper` | repository root | Terminal client and the `acp-rs-scraper` binary. Cargo description: "ACP Scraper". |
+| `acp_rs_node_core` | `crates/acp_rs_node_core` | Shared identity, canonical CBOR, and sealed secrets. `publish = false`. The root package depends on it by path. It does not open the database, draw the terminal, or talk to the network. |
+
+The README carries a short "build on this foundation" pointer. [docs/INSTALL.md](../docs/INSTALL.md) carries the module list. Planned crates that are not in the tree (`acp-rs-relay`, `acp-rs-tray`, `acp_rs_node_ffi`) stay future work and are not described as present.
+
+#### Install
+
+Source install stays [`scripts/install.sh`](../scripts/install.sh): a native package on Arch, Debian, Fedora, and their derivatives, or `--user` into `~/.local`. Docs also point at the repository Releases page, <https://github.com/m3talsmith/acp-rs-scraper/releases>, for binaries and alphas once a release publishes them. The link is the page. An asset URL is written only after that file is published.
+
+#### Alpha packaging (parked)
+
+Do not cut an alpha from this note. No alpha tag and no release assets until both gates are clear.
+
+1. Writes and replies **with attachments** are done. Local files on New post and Reply, while upload stays behind `CAPTURE_BLOCK`, do not clear this gate.
+2. The decentralized network work is completed: P9, 3.23.0–3.27.0 (`--serve`, enrollment, relays, peers, replication).
+
+Until both are clear, the checklist is the work:
+
+- [ ] A confirmed New post and Reply send, including attachments. The upload channel is captured. `CAPTURE_BLOCK` is lifted for that path.
+- [ ] P9 is completed.
+- [ ] Alpha notes separate what is functional from what is stubbed.
+- [ ] Assets are attached to a GitHub Release. Docs link the Releases page. An asset URL is written only after the file exists.
+- [ ] No alpha is tagged or published on the strength of this note alone.
+
+What those future notes can already call functional: identity and encryption (3.0.0), job details (3.1.0), `acp_rs_node_core` (3.2.0), local node identity (3.3.0), and compose for New post and Reply with publish still gated (3.4.0). Local attachments are 3.5.0, and the upload is still unsent. Stubbed or not started: live upload, interactions, live updates, account writes, the outbox, feeds, spaces, the network node, About, tooltips, and topic Help.
 
 #### Communications after the docs pass
 

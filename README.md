@@ -10,6 +10,8 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 **v3 launch write-up (historical draft):** [docs/history/redstar-v3-launch-post.md](docs/history/redstar-v3-launch-post.md)
 
+**Build on this foundation.** The Cargo workspace has two crates. [`acp-rs-scraper`](Cargo.toml) at the repository root is the terminal client and the `acp-rs-scraper` binary. [`acp_rs_node_core`](crates/acp_rs_node_core) is the shared library for identity, canonical CBOR, and sealed secrets. The client depends on it. The list is in [docs/INSTALL.md](docs/INSTALL.md#workspace-crates).
+
 ## Breaking changes in 3.0.0
 
 3.0.0 encrypts the local database and requires a password of at least 8 characters that passes a strength check. A 2.x install does not.
@@ -35,7 +37,7 @@ The header of the terminal UI shows `v3.4.0`. Details are in [CHANGELOG.md](CHAN
 
 ## Install
 
-Every install builds from source. You need Rust 1.88 or newer; the installer offers rustup if it's missing or too old.
+Source install uses `scripts/install.sh`. You need Rust 1.88 or newer; the installer offers rustup if it's missing or too old. Binaries and alphas, once a release publishes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. This page links that index. An asset URL is added only after the file is published. An alpha waits until writes and replies with attachments work and the decentralized network work is done ([plan](architecture/PLAN-3.0-CLIENT.md)).
 
 ```sh
 git clone https://github.com/m3talsmith/acp-rs-scraper.git
@@ -818,7 +820,7 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 
 ## Releases
 
-A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.3.1. 3.3.2 and 3.4.0 stay drafts until those versions are merged; publish them by hand after the merge. Releases for 2.16.0 and earlier stay as they were published. Drafts that already exist for versions now on `main` are left for the maintainer to publish.
+A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.3.1. 3.3.2 and 3.4.0 stay drafts until those versions are merged; publish them by hand after the merge. Releases for 2.16.0 and earlier stay as they were published. Drafts that already exist for versions now on `main` are left for the maintainer to publish. Binaries and alphas, when a release publishes them, are listed on the [Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. An alpha waits until writes and replies with attachments work and the decentralized network work is done.
 
 `.githooks/post-commit` tags `vX.Y.Z` when the version in `Cargo.toml` changes. It does not create a GitHub Release, and no workflow publishes one. A release is created with `gh release create --draft`, notes from the matching [CHANGELOG.md](CHANGELOG.md) section, and no attached files. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
