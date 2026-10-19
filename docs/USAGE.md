@@ -2,6 +2,8 @@
 
 Run `acp-rs-scraper` with no flags (or `--tui`) for the [terminal UI](#terminal-ui). With flags, `acp-rs-scraper` logs in to the Red Star forum (https://acp.us/rs) as Firefox and scrapes one or more nicks' posts, the replies in their threads, the posts that mention them, and their profiles into a local SQLite database. It downloads attachments and exports to JSON or HTML, optionally compressed. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` run offline.
 
+**v3 pre-launch write-up (historical draft, coming soon):** [redstar-v3-prelaunch-post.md](history/v3/redstar-v3-prelaunch-post.md). The launch post, [redstar-v3-launch-post.md](history/v3/redstar-v3-launch-post.md), stays unpublished until 3.x has shipped. At the 3.0 release, switch this link to the launch post.
+
 - [Install and build](#install-and-build)
 - [Terminal UI](#terminal-ui)
 - [First run and login](#first-run-and-login)
