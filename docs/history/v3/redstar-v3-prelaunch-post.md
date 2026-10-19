@@ -1,7 +1,5 @@
 # ACP Red Star 3.0 — a full client for our forum
 
-Historical draft for version 3. This is not the live forum post. The sign-off below is m3talsmith.
-
 Comrades,
 
 **ACP Red Star** (formerly the RS scraper) is moving to version 3 as a **full Red Star client**: a local, encrypted archive of the forum you can browse, search, research, and eventually write from — without leaving everything stuck in a browser tab.
@@ -64,6 +62,7 @@ scripts/install.sh          # or: scripts/install.sh --user
 
 Docs: `docs/INSTALL.md`, `docs/USAGE.md`, and the 3.0 plan under `architecture/PLAN-3.0-CLIENT.md`. Repo: https://github.com/m3talsmith/acp-rs-scraper (product name **ACP Red Star**; binary name may still say scraper until the rebrand finishes).
 
+
 ## Launch showcase
 
 Along with this post we’re packing a few things so comrades can *see* the client, not only read about it:
@@ -80,3 +79,6 @@ Bug reports and patches welcome. If you’re testing 3.x, say what machine you�
 
 For the working class,
 — m3talsmith (and contributors)
+
+---
+*Draft for Red Star — sign as m3talsmith online. Pitch, demo movie (real CLI+TUI capture), and IR/historical cutscene (video + ASCII) feature in this post’s launch showcase; stickers and backgrounds remain end-of-3.0 promo.*

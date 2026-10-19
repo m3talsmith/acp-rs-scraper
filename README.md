@@ -8,7 +8,9 @@
 
 Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that browses everything you have scraped; with flags it logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
 
-**v3 launch write-up (historical draft):** [docs/history/redstar-v3-launch-post.md](docs/history/redstar-v3-launch-post.md)
+**v3 pre-launch write-up (historical draft, coming soon):** [docs/history/v3/redstar-v3-prelaunch-post.md](docs/history/v3/redstar-v3-prelaunch-post.md)
+
+<!-- TODO(3.0 release): switch the link above from the pre-launch post to docs/history/v3/redstar-v3-launch-post.md. Publish that launch post only when 3.x has fully shipped. -->
 
 **Build on this foundation.** The Cargo workspace has two crates. [`acp-rs-scraper`](Cargo.toml) at the repository root is the terminal client and the `acp-rs-scraper` binary. [`acp_rs_node_core`](crates/acp_rs_node_core) is the shared library for identity, canonical CBOR, and sealed secrets. The client depends on it. The list is in [docs/INSTALL.md](docs/INSTALL.md#workspace-crates).
 
