@@ -19,7 +19,7 @@ Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a no
 
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
-Update 2026-10-19 (TUI menu, required before 3.x is finished): the menu bar is reorganized into the categories in §4.2. This is a hard requirement for 3.x, and it is its own minor. It is not polish after 3.x. This note does not assign that minor a number and does not move stages that already have one. 3.5.0 attachments does not include it. Start Scanning stays pinned on the right. **Bookmarks** is its own top-level menu, not an item under Library. **Sync** keeps the local copy up to date. **Discover** finds people, nodes, and rooms. Those two menus stay separate. Hover tooltips on every actionable control are the same kind of requirement (§4.3). They can ship with that menu minor or as their own.
+Update 2026-10-19 (TUI menu, required before 3.x is finished): the menu bar is reorganized into the categories in §4.2. This is a hard requirement for 3.x, and it is its own minor. It is not polish after 3.x. This note does not assign that minor a number and does not move stages that already have one. 3.5.0 attachments does not include it. Start Scanning stays pinned on the right. **Bookmarks** is its own top-level menu, not an item under Library. **Sync** keeps the local copy up to date. **Discover** finds people, nodes, and rooms. Those two menus stay separate. Hover tooltips on every actionable control are the same kind of requirement (§4.3). Friendlier, searchable Help, with a help icon on the chrome, is the same kind of requirement (§4.4). Each can ship with that menu minor or as its own.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -267,6 +267,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
 | TUI menu categories | later minor, required before 3.x closes | Reorganize the menu bar (§4.2). Must ship before 3.x is finished. The version number is not assigned here, and numbered stages are not moved. |
 | Hover tooltips | later minor, required before 3.x closes | Every button, menu item, and card icon explains itself on hover, including its key when it has one (§4.3). One shared helper. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
+| Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -339,6 +340,16 @@ Hover shows a brief explanation of what that control does. When the control has 
 One shared helper draws these tooltips. A new control uses that helper, and every control has that text.
 
 This must land before 3.x is finished. It can ship with the menu reorganization (§4.2) or as its own later minor. This note does not implement it, does not assign that minor a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0. The mouse path today handles clicks and the wheel. Hover help is part of this requirement.
+
+### 4.4 Help topics (required before 3.x is finished)
+
+Help stays reachable with `?` and F1. Three changes must land before 3.x is finished. They can ship with the menu reorganization (§4.2), with the hover tooltips (§4.3), or as their own later minor. This note does not implement them, does not assign a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0.
+
+1. **A help icon on the chrome.** A small help icon sits on the interface, and a tooltip may carry the same mark. Choosing it opens Help on the topic for that control.
+2. **Topics you can move between.** Help is no longer one flat list of keys. It is sections you step through: Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the others that the app needs. Keys stay inside the Keys topic, and the command-line help stays available from a topic rather than as the whole screen.
+3. **Search inside Help.** Typing filters the topics and the key bindings, so a word or a key finds its place.
+
+Today Help is one scroll: the recovery guide, then the key list, then the generated command-line help.
 
 ---
 

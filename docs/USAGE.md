@@ -98,6 +98,8 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
 
   Hover tooltips are not built yet. Before 3.x is finished, every button, menu item, and icon (the star, the basket, the research ◈, and the rest) shows a short explanation on hover, including its key when it has one, as in `Bookmark (b)`. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.3.
 
+  Help stays on `?` and F1. Before 3.x is finished it becomes topics you can move between (Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the rest), with search inside Help. A help icon on the chrome opens the topic for that control. Today Help is one scroll of keys and the command-line help. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.4.
+
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
   process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
   quitting asks whether to keep it running in the background (default) or cancel it.

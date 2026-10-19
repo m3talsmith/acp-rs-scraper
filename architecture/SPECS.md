@@ -315,6 +315,8 @@ minor. The layout is in [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2.
 
 Before 3.x is finished, every actionable control shows a short tooltip on hover, including menu-bar entries and the icons on a card or detail. When the control has a key, the tooltip includes it (`Bookmark (b)`). One shared helper draws them. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.3. There is no hover tooltip today.
 
+Before 3.x is finished, Help is topics you can move between, with search inside Help. A help icon on the chrome opens the topic for that control. `?` and F1 stay the entry. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.4. Today Help is one scroll of keys and the generated command-line help.
+
 **Suggested change:** selecting a nick in the left bar pre-fills Scrape's
 Nicks field and filters the Body. Multi-select nicks (Shift/Space) are a must have
 for 2.0.
