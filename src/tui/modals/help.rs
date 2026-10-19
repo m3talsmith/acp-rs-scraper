@@ -85,6 +85,15 @@ fn help_topics() -> Vec<String> {
         "  Search › Limit and the Shift-S Limit field keep N matches at the chosen end. Blank keeps",
         "  every match. The status line shows the window, for example:",
         "  search \"strike\": 100 of 236 posts · oldest.",
+        "",
+        "[[color]]",
+        "Colour",
+        "  --color auto|always|never, and View › Colour. auto (the default) follows NO_COLOR: a",
+        "  non-empty NO_COLOR turns colours off and bold, dim, and underline stay. always forces",
+        "  colours on, which is what a demo needs when the shell exported NO_COLOR. never turns",
+        "  colours off. [ui] color in ~/.acp/preferences.toml is used when the flag is omitted.",
+        "  When NO_COLOR is set and colours are off, the status line, the theme picker, and the",
+        "  theme editor say: NO_COLOR is set, so colours are off (use --color always).",
     ].into_iter().map(str::to_string).collect()
 }
 

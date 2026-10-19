@@ -210,6 +210,9 @@ pub struct Args {
     /// Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file.
     #[arg(long, value_name = "NAME", help_heading = "Interface")]
     pub theme_starter: Option<String>,
+    /// Colour output. auto follows NO_COLOR (a non-empty value turns colours off). always forces colours on, even when NO_COLOR is set. never turns colours off. Omitted: [ui] color in preferences.toml, or auto.
+    #[arg(long, value_name = "WHEN", value_parser = parse_color_mode, help_heading = "Interface")]
+    pub color: Option<ColorMode>,
     /// Scrape headlessly, without the terminal UI (what a bare invocation did before 2.0). Asks for nicks when no --nick/--nicks is given. Implied by any other scraping flag.
     #[arg(long, help_heading = "Scraping")]
     pub scrape: bool,
@@ -596,6 +599,111 @@ impl std::fmt::Display for FeedMode {
 /// A parsed `--nicks` list: `@` stripped, trimmed, deduplicated case-insensitively.
 pub struct NickList(pub Vec<String>);
 
+/// Whether coloured output is forced on, forced off, or left to NO_COLOR.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ColorMode {
+    /// Follow NO_COLOR. A non-empty value turns colours off.
+    #[default]
+    Auto,
+    /// Colours on, even when NO_COLOR is set.
+    Always,
+    /// Colours off.
+    Never,
+}
+
+impl ColorMode {
+    /// `auto`, `always`, or `never`. Case does not matter.
+    pub fn parse(s: &str) -> std::result::Result<Self, String> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "auto" => Ok(Self::Auto),
+            "always" => Ok(Self::Always),
+            "never" => Ok(Self::Never),
+            _ => Err(format!("--color must be auto, always, or never, not {s:?}")),
+        }
+    }
+    /// The preferences and menu spelling.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Always => "always",
+            Self::Never => "never",
+        }
+    }
+}
+
+impl std::fmt::Display for ColorMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) }
+}
+
+/// Menu label for `mode`.
+pub fn color_choice(mode: ColorMode) -> &'static str {
+    match mode {
+        ColorMode::Auto => "Auto",
+        ColorMode::Always => "Always",
+        ColorMode::Never => "Never",
+    }
+}
+
+/// `Auto`, `Always`, or `Never` from a menu choice. Anything else is auto.
+pub fn color_from_choice(choice: &str) -> ColorMode {
+    ColorMode::parse(choice).unwrap_or_default()
+}
+
+/// Flag wins. Otherwise `[ui] color`. Otherwise auto.
+pub fn resolve_color_mode(flag: Option<ColorMode>, pref: Option<&str>) -> ColorMode {
+    if let Some(mode) = flag { return mode; }
+    pref.and_then(|s| ColorMode::parse(s).ok()).unwrap_or_default()
+}
+
+/// NO_COLOR is set to a non-empty value (<https://no-color.org/>).
+pub fn no_color_set() -> bool {
+    std::env::var("NO_COLOR").ok().is_some_and(|v| !v.is_empty())
+}
+
+/// Colours are off for this mode when `no_color` is the NO_COLOR check.
+pub fn colors_suppressed(mode: ColorMode, no_color: bool) -> bool {
+    match mode {
+        ColorMode::Always => false,
+        ColorMode::Never => true,
+        ColorMode::Auto => no_color,
+    }
+}
+
+/// Shown when NO_COLOR is set and colours are off.
+pub const NO_COLOR_HINT: &str = "NO_COLOR is set, so colours are off (use --color always). Help: color";
+
+/// The hint, when NO_COLOR is set and this mode leaves colours off.
+pub fn no_color_hint(mode: ColorMode, no_color: bool) -> Option<&'static str> {
+    (no_color && colors_suppressed(mode, no_color)).then_some(NO_COLOR_HINT)
+}
+
+static COLOR_MODE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+fn color_mode_code(mode: ColorMode) -> u8 {
+    match mode { ColorMode::Auto => 0, ColorMode::Always => 1, ColorMode::Never => 2 }
+}
+
+/// The mode last passed to [`apply_color_mode`]. Auto until then.
+pub fn current_color_mode() -> ColorMode {
+    match COLOR_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => ColorMode::Always,
+        2 => ColorMode::Never,
+        _ => ColorMode::Auto,
+    }
+}
+
+/// Apply `mode` for this process. `always` forces colour on. `never` forces it off.
+/// `auto` follows NO_COLOR. Call this before `enable_raw_mode`.
+pub fn apply_color_mode(mode: ColorMode) {
+    COLOR_MODE.store(color_mode_code(mode), std::sync::atomic::Ordering::Relaxed);
+    let enabled = match mode {
+        ColorMode::Always => true,
+        ColorMode::Never => false,
+        ColorMode::Auto => !no_color_set(),
+    };
+    crossterm::style::force_color_output(enabled);
+}
+
 /// `--profile-feed` is `newest` or `top`.
 pub fn parse_profile_feed(s: &str) -> std::result::Result<ProfileFeed, String> {
     ProfileFeed::parse(s)
@@ -604,6 +712,11 @@ pub fn parse_profile_feed(s: &str) -> std::result::Result<ProfileFeed, String> {
 /// `--order` is `newest` or `oldest`.
 pub fn parse_scrape_order(s: &str) -> std::result::Result<ScrapeOrder, String> {
     ScrapeOrder::parse(s)
+}
+
+/// `--color` is `auto`, `always`, or `never`.
+pub fn parse_color_mode(s: &str) -> std::result::Result<ColorMode, String> {
+    ColorMode::parse(s)
 }
 
 /// `--limit` must be a whole number of at least 1.

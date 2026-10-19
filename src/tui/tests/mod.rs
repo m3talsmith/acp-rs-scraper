@@ -23,6 +23,7 @@ mod views;
 mod history;
 mod nick_filter;
 mod order;
+mod color;
 mod reads;
 mod session;
 mod theming;

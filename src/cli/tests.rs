@@ -44,6 +44,36 @@ fn profile_feed_and_order_are_nick_scrape_flags() {
 }
 
 #[test]
+fn color_flag_parses_and_resolution_follows_the_flag_then_the_preference() {
+    assert_eq!(ColorMode::parse("Always").unwrap(), ColorMode::Always);
+    assert_eq!(ColorMode::parse("NEVER").unwrap(), ColorMode::Never);
+    assert!(ColorMode::parse("on").is_err());
+    let a = Args::try_parse_from(["x", "--color", "always"]).unwrap();
+    assert_eq!(a.color, Some(ColorMode::Always));
+    assert!(parse_with_mode(["x", "--color", "never"]).unwrap().1, "--color alone still opens the terminal UI");
+    assert!(Args::try_parse_from(["x", "--color", "sometimes"]).is_err());
+    assert_eq!(Args::try_parse_from(["x"]).unwrap().color, None);
+    assert_eq!(resolve_color_mode(Some(ColorMode::Never), Some("always")), ColorMode::Never);
+    assert_eq!(resolve_color_mode(None, Some("always")), ColorMode::Always);
+    assert_eq!(resolve_color_mode(None, Some("nope")), ColorMode::Auto);
+    assert_eq!(resolve_color_mode(None, None), ColorMode::Auto);
+    assert!(!colors_suppressed(ColorMode::Always, true));
+    assert!(colors_suppressed(ColorMode::Never, false));
+    assert!(colors_suppressed(ColorMode::Auto, true));
+    assert!(!colors_suppressed(ColorMode::Auto, false));
+    assert_eq!(no_color_hint(ColorMode::Auto, true), Some(NO_COLOR_HINT));
+    assert_eq!(no_color_hint(ColorMode::Always, true), None);
+    assert_eq!(no_color_hint(ColorMode::Never, false), None);
+    assert!(no_color_hint(ColorMode::Never, true).unwrap().contains("--color always"));
+    apply_color_mode(ColorMode::Never);
+    assert!(crossterm::style::Colored::ansi_color_disabled_memoized());
+    apply_color_mode(ColorMode::Always);
+    assert!(!crossterm::style::Colored::ansi_color_disabled_memoized());
+    apply_color_mode(ColorMode::Auto);
+    assert_eq!(current_color_mode(), ColorMode::Auto);
+}
+
+#[test]
 fn nicks_cli() {
     let a = Args::try_parse_from(["x", "--nicks", "@hazaldin, @m3talsmith,@hazaldin"]).unwrap();
     assert_eq!(a.nick_list().unwrap(), ["hazaldin", "m3talsmith"]);

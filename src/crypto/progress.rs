@@ -110,6 +110,7 @@ struct TermGuard;
 
 impl TermGuard {
     fn enter() -> io::Result<Self> {
+        crate::cli::apply_color_mode(crate::cli::current_color_mode());
         crossterm::terminal::enable_raw_mode()?;
         crossterm::execute!(
             io::stdout(),

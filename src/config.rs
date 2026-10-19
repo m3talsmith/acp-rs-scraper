@@ -184,7 +184,7 @@ pub const HTML_DATA_ID: &str = "acp-data";
 // ---------------------------------------------------------------- terminal UI
 /// Arguments that do not count as "a flag was given" when deciding whether a bare
 /// invocation opens the terminal UI (logging only; they carry over to TUI scans).
-pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log", "theme"];
+pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log", "theme", "color"];
 
 /// Theme files (`<name>.toml`), under `$HOME`. Every theme, the default included, lives here.
 pub const THEMES_REL_DIR: &str = ".acp/themes";
@@ -288,7 +288,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("F5", "Theme picker (also the ‹theme› ▾ switch in the header)"),
     ("Shift-F5", "Theme editor"),
     ("Shift-S", "Search modal: keyword, nicks, post id, dates, posts/replies, order, limit"),
-    ("? on a menu option", "Help for that option (Order, Limit, Nick order, Nick limit)"),
+    ("? on a menu option", "Help for that option (Order, Limit, Nick order, Nick limit, Colour)"),
     ("Ctrl-S (Ctrl-Shift-S)", "Clear the search"),
     ("Ctrl-Space / Ctrl-P", "Command palette"),
     ("l", "Show / hide the log panel"),
