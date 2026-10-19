@@ -27,7 +27,7 @@ Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a no
 
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. A later 4.0 line (§4.0) does not move it.
 
-Update 2026-10-19 (4.0, docs only): two roadmap items sit beside the embedded local assistant. **Post source** records where each post came from (Red Star, a YouTube transcript, later others), with an identifier, a URL, and time offsets for a transcript segment. **The Haz stream corpus** ingests every Haz stream, keeps corrected transcripts with their history, and stores speaker turns (Haz, and each debater or guest). The corpus depends on post source. The source columns can land early as a 3.x minor; nothing in this note is implemented, and numbered 3.x stages are not moved. Details are in §4.0 and §7.14.12.
+Update 2026-10-19 (4.0, docs only): the living 4.0 plan is [PLAN-4.0.md](./PLAN-4.0.md). **Post source** records where each post came from (Red Star, a YouTube transcript, later others), with an identifier, a URL, and time offsets for a transcript segment. **The Haz stream corpus** ingests every Haz stream, keeps corrected transcripts with their history, and stores speaker turns (Haz, and each debater or guest). The corpus depends on post source. The embedded local assistant stays the design on [draft PR #10](https://github.com/m3talsmith/acp-rs-scraper/pull/10); this file does not copy that write-up. The source columns can land early as a 3.x minor; nothing in this note is implemented, and numbered 3.x stages are not moved. Details are in §4.0 and §7.14.12.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -277,13 +277,13 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 
 ### 4.0 Later product work
 
-4.0 is a later major. Decentralization stays in 3.x (3.23.0 and later). Opening this line does not move peers, relays, or the network node. Nothing in this section is implemented.
+4.0 is a later major. The living write-up is [PLAN-4.0.md](./PLAN-4.0.md). Decentralization stays in 3.x (3.23.0 and later). Opening this line does not move peers, relays, or the network node. Nothing in this section is implemented.
 
 | Item | When | What |
 |---|---|---|
-| Embedded assistant | 4.0 | A local model inside the client. Questions about the local corpus, and existing actions such as search, filter, and export. A bottom-center button opens a chat strip that pushes the body and side bars up. It is not a modal. The model is not chosen. |
-| Post source | 4.0; the columns may land in a 3.x minor | Each post records where it came from (§7.14.12). Red Star is the default. A YouTube transcript, and later other sources, can be scraped into the same database. This is the prerequisite for the Haz stream corpus. |
-| Haz stream corpus | 4.0 | If a model is made, it uses the Haz streams: every stream, and all of the data from those streams (§7.14.12). Transcripts are checked and corrected, and the correction history is kept. Speaker turns are labeled, so a debate distinguishes Haz from the debater. |
+| Embedded local assistant | 4.0 | The design is on [draft PR #10](https://github.com/m3talsmith/acp-rs-scraper/pull/10), in that branch's §7.14.12: a local model in the client and a chat strip for questions about the local corpus. This file does not copy that write-up. [PLAN-4.0.md](./PLAN-4.0.md) is where 4.0 keeps the row. |
+| Post source | 4.0; the columns may land in a 3.x minor | Each post records where it came from (§7.14.12, [PLAN-4.0.md](./PLAN-4.0.md)). Red Star is the default. A YouTube transcript, and later other sources, can be scraped into the same database. This is the prerequisite for the Haz stream corpus. |
+| Haz stream corpus | 4.0 | If a model is made, it uses the Haz streams: every stream, and all of the data from those streams (§7.14.12, [PLAN-4.0.md](./PLAN-4.0.md)). Transcripts are checked and corrected, and the correction history is kept. Speaker turns are labeled, so a debate distinguishes Haz from the debater. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -1128,7 +1128,9 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
 
 #### 7.14.12 Post source and the Haz stream corpus (4.0)
 
-These two items sit beside the embedded assistant in §4.0. This note does not implement them, does not choose a model, and does not move numbered 3.x stages. The Haz corpus is the collection a 4.0 model would be built from. Michael's requirement: "If we are to make a model, we use the haz streams, all the data from all the streams. We have to make sure the transcripts are correct and then we also have to make sure that the speakers are defined, so if it's a debate, we distinguish between Haz and the debater."
+The wider 4.0 plan, including proposed sources and local-model ideas Michael has not accepted yet, is [PLAN-4.0.md](./PLAN-4.0.md). The embedded assistant's own write-up stays on [draft PR #10](https://github.com/m3talsmith/acp-rs-scraper/pull/10) (§7.14.12 on that branch). This section does not copy it.
+
+These two items sit beside that assistant in §4.0. This note does not implement them, does not choose a model, and does not move numbered 3.x stages. The Haz corpus is the collection a 4.0 model would be built from. Michael's requirement: "If we are to make a model, we use the haz streams, all the data from all the streams. We have to make sure the transcripts are correct and then we also have to make sure that the speakers are defined, so if it's a debate, we distinguish between Haz and the debater."
 
 ##### Post source
 
