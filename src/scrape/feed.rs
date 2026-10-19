@@ -129,6 +129,51 @@ pub async fn page_rest(
     Ok((stopped_incremental, pages))
 }
 
+/// Nick profile items to keep.
+///
+/// With no limit, the Posts feed stays first and the replies feed is merged in.
+/// The second value is how many kept items came only from the replies feed.
+///
+/// With a limit, the replies feed is newest-first and already lists posts, so
+/// it is the window of the newest `limit` authored items. Posts-feed items fill
+/// that window only when the replies feed is shorter. Without a replies feed,
+/// the Posts feed (also newest-first) is truncated to `limit`.
+pub fn window_feed_items(posts: Vec<Value>, replies: Option<Vec<Value>>, limit: Option<usize>) -> (Vec<Value>, usize) {
+    let id_of = |v: &Value| s(v, "id");
+    match replies {
+        None => {
+            let mut items = posts;
+            if let Some(n) = limit { items.truncate(n); }
+            (items, 0)
+        }
+        Some(extra) => {
+            let post_ids: HashSet<String> = posts.iter().map(id_of).filter(|id| !id.is_empty()).collect();
+            if let Some(n) = limit {
+                let mut items = extra;
+                items.truncate(n);
+                if items.len() < n {
+                    let mut have: HashSet<String> = items.iter().map(id_of).collect();
+                    for p in posts {
+                        if items.len() >= n { break; }
+                        let id = id_of(&p);
+                        if id.is_empty() || !have.insert(id) { continue; }
+                        items.push(p);
+                    }
+                }
+                let added = items.iter().filter(|it| {
+                    let id = id_of(it);
+                    !id.is_empty() && !post_ids.contains(&id)
+                }).count();
+                (items, added)
+            } else {
+                let mut items = posts;
+                let added = merge_feed_items(&mut items, extra);
+                (items, added)
+            }
+        }
+    }
+}
+
 /// Append `extra` feed items whose `id` isn't already in `items`.
 /// Returns how many were added.
 pub fn merge_feed_items(items: &mut Vec<Value>, extra: Vec<Value>) -> usize {

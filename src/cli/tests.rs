@@ -13,6 +13,18 @@ fn nicks_parse() {
 }
 
 #[test]
+fn post_limit_is_a_positive_nick_scrape_flag() {
+    let a = Args::try_parse_from(["x", "--nick", "alice", "--limit", "100"]).unwrap();
+    assert_eq!(a.limit, Some(100));
+    assert_eq!(a.crawl_limit, crate::config::DEFAULT_CRAWL_LIMIT);
+    assert!(Args::try_parse_from(["x", "--nick", "alice", "--limit", "0"]).is_err());
+    assert!(Args::try_parse_from(["x", "--nick", "alice", "--limit", "no"]).is_err());
+    assert!(Args::try_parse_from(["x", "--import", "f", "--limit", "10"]).is_err());
+    let a = Args::try_parse_from(["x", "--nick", "alice"]).unwrap();
+    assert_eq!(a.limit, None);
+}
+
+#[test]
 fn nicks_cli() {
     let a = Args::try_parse_from(["x", "--nicks", "@hazaldin, @m3talsmith,@hazaldin"]).unwrap();
     assert_eq!(a.nick_list().unwrap(), ["hazaldin", "m3talsmith"]);

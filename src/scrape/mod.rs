@@ -363,21 +363,25 @@ pub struct ScrapeStats {
 pub async fn scrape(
     http: &reqwest::Client, jar: &Jar, nick: &str,
     known: &HashSet<String>, reply_counts: &HashMap<String, usize>, full: bool, said_by: bool,
+    limit: Option<usize>,
 ) -> Result<(Vec<Post>, String, ScrapeStats)> {
     let nick = nick.trim_start_matches('@');
     let known_opt = if full { None } else { Some(known) };
     // Profile feed is always Latest (/rs/@nick); Trending does not apply to profiles.
     let profile_url = profile_url(nick);
-    let mut feed = fetch_feed(http, jar, &profile_url, None, known_opt, true).await?;
+    let mut feed = fetch_feed(http, jar, &profile_url, limit, known_opt, true).await?;
     // Also walk the "Posts and replies" filter (?replies=1) (the nick's replies in other threads).
-    let mut replies_tab_added = 0;
-    match fetch_replies_feed(http, jar, nick, &feed.html, known_opt).await {
-        Ok(extra) => {
-            replies_tab_added = merge_feed_items(&mut feed.items, extra);
-            info!("@{nick}: posts and replies added {replies_tab_added} items");
-        }
-        Err(e) => err!("warning: posts and replies feed: {e:#}"),
+    let posts_items = std::mem::take(&mut feed.items);
+    let replies = match fetch_replies_feed(http, jar, nick, &feed.html, known_opt, limit).await {
+        Ok(extra) => Some(extra),
+        Err(e) => { err!("warning: posts and replies feed: {e:#}"); None }
+    };
+    let (items, replies_tab_added) = window_feed_items(posts_items, replies, limit);
+    feed.items = items;
+    if let Some(n) = limit {
+        info!("@{nick}: --limit {n}: keeping the newest {} profile items", feed.items.len());
     }
+    info!("@{nick}: posts and replies added {replies_tab_added} items");
     let mut seen = HashSet::new();
     let mut out = Vec::new();
     let mut roots: Vec<(String, usize)> = Vec::new(); // (id, replies_count from feed)

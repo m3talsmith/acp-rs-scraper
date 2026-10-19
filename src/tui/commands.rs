@@ -278,6 +278,7 @@ impl Menu {
                 opt("nicks", "Nicks", "--nicks (blank: selected nicks)", true, text("")),
                 opt("mentions", "Mentions", "--no-mentions when off", false, check(true)),
                 opt("said_by", "Said by", "--said-by", false, check(false)),
+                opt("limit", "Post limit", "--limit (blank: whole profile)", false, text("")),
                 opt("crawl_limit", "Crawl limit", "--crawl-limit", false, text(&DEFAULT_CRAWL_LIMIT.to_string())),
                 opt("attachments", "Attachments", "--no-attachments when off", false, check(true)),
                 opt("full", "Full", "--full", false, check(false)),
@@ -438,6 +439,12 @@ impl Menu {
         if self.choice(S, "mode") == "Trending" { v.push("--trending".into()); } else { v.push("--latest".into()); }
         if !self.check(S, "mentions") { v.push("--no-mentions".into()); }
         if self.check(S, "said_by") { v.push("--said-by".into()); }
+        let lim = self.text(S, "limit");
+        if !lim.is_empty() {
+            let n: usize = lim.parse().map_err(|_| format!("Post limit must be a number, not {lim:?}"))?;
+            if n == 0 { return Err("Post limit must be at least 1".into()); }
+            v.extend(["--limit".into(), n.to_string()]);
+        }
         let cl = self.text(S, "crawl_limit");
         if !cl.is_empty() {
             let n: usize = cl.parse().map_err(|_| format!("Crawl limit must be a number, not {cl:?}"))?;

@@ -29,6 +29,7 @@ fn scrape_defaults_map_to_cli_defaults() {
     assert_eq!(a.nick_list().unwrap(), ["alice"]);
     assert!(a.mentions && !a.said_by && !a.full && !a.no_attachments && !a.trending);
     assert_eq!(a.crawl_limit, DEFAULT_CRAWL_LIMIT);
+    assert_eq!(a.limit, None);
 }
 
 #[test]
@@ -39,6 +40,7 @@ fn scrape_every_option_maps_to_its_flag() {
     m.set_text(S, "nicks", "@a, b");
     m.set_check(S, "mentions", false);
     m.set_check(S, "said_by", true);
+    m.set_text(S, "limit", "100");
     m.set_text(S, "crawl_limit", "200");
     m.set_check(S, "attachments", false);
     m.set_check(S, "full", true);
@@ -52,6 +54,7 @@ fn scrape_every_option_maps_to_its_flag() {
     assert_eq!(a.nick_list().unwrap(), ["a", "b"], "the Nicks field wins over the selection");
     assert!(a.trending && !a.mentions && a.said_by && a.no_attachments && a.full && a.refetch_truncated);
     assert_eq!(a.crawl_limit, 200);
+    assert_eq!(a.limit, Some(100));
     assert_eq!(a.output.as_deref(), Some(Path::new("/tmp/out.json")));
     assert_eq!(a.formats(), [Format::Json, Format::Html]);
     assert!(a.verbose && a.enable_logging && !a.debug);
@@ -64,6 +67,9 @@ fn scrape_errors() {
     m.set_text(CommandId::Scrape, "crawl_limit", "lots");
     assert!(m.scrape_argv(&["a".into()]).unwrap_err().contains("Crawl limit"));
     m.set_text(CommandId::Scrape, "crawl_limit", "");
+    m.set_text(CommandId::Scrape, "limit", "0");
+    assert!(m.scrape_argv(&["a".into()]).unwrap_err().contains("Post limit"));
+    m.set_text(CommandId::Scrape, "limit", "");
     m.set_text(CommandId::Scrape, "nicks", "a b");
     assert!(m.scrape_argv(&[]).is_err());
 }

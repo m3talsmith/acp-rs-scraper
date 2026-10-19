@@ -142,6 +142,9 @@ Scraping:
       --refetch-truncated
           Complete bodies stored shortened: re-read the thread page (the full text "show more" opens) of every stored row not marked complete — rows saved from a truncated feed item, and rows stored before 1.26.0 — for the given nicks (or every nick when none is given; then nothing else is scraped). New scrapes complete truncated items on their own
 
+      --limit <N>
+          Newest posts to take from each nick: the profile Posts feed and Posts and replies, newest first. Omit to scrape the whole profile. Replies in those threads are still fetched unless --said-by. --crawl-limit still only bounds the mentions scan
+
       --crawl-limit <CRAWL_LIMIT>
           Max site-feed posts to scan when hunting mentions (default 500)
           
