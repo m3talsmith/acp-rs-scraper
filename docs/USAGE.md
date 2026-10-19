@@ -553,7 +553,7 @@ acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.ht
 acp-rs-scraper --export db --format html --format json                               # db.html + db.json
 ```
 
-An archive contains `<name>/<name>.<ext>` (one per format) and `<name>/attachments/`. It's written to `--output`, or to `~/.acp/ai/data/exports/<name>.tar.gz` by default. `--tar-gz` is the only format for now. Once the archive is written, the uncompressed `<name>/` folder is removed; if compression fails it is left in place.
+An archive contains `<name>/<name>.<ext>` (one per format) and `<name>/attachments/`. It's written to `--output` or `--export`. A path that already ends in `.tar.gz` or `.tgz` is that file. A directory, or a path ending in `/`, gets `<dir>/<export-name>.tar.gz` (the export name, as a file name: `Resonance Cosmos` becomes `resonance-cosmos.tar.gz`). Any other path gets `.tar.gz` appended, so a bare name such as `resonance-cosmos` becomes `resonance-cosmos.tar.gz` instead of failing with "Is a directory". The success log prints `wrote <final path>`. With no path, the archive is `~/.acp/ai/data/exports/<name>.tar.gz`. `--tar-gz` is the only format for now. Once the archive is written, the uncompressed `<name>/` folder is removed; if compression fails it is left in place. The terminal UI expands a leading `~` or `~/` on Export › Path before it starts that export.
 
 ### Debug
 

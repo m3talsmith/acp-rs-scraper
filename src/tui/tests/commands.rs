@@ -157,6 +157,10 @@ fn export_import_and_output_paths_expand_a_tilde() {
     m.set_choice(CommandId::Export, "scope", "Everything");
     let a = parsed(&m.export_argv(&[], None).unwrap());
     assert_eq!(a.export.as_deref(), Some(Path::new(&format!("{home}/out.json"))));
+    m.set_text(CommandId::Export, "path", "~/resonance-cosmos.tar.gz");
+    let a = parsed(&m.export_argv(&[], None).unwrap());
+    assert_eq!(a.export.as_deref(), Some(Path::new(&format!("{home}/resonance-cosmos.tar.gz"))));
+    assert!(!a.export.as_deref().unwrap().to_string_lossy().contains("/~/"), "a leading ~ is not a relative directory");
     m.set_text(CommandId::Import, "path", "~/in.tar.gz");
     let a = parsed(&m.import_argv().unwrap());
     assert_eq!(a.import.as_deref(), Some(Path::new(&format!("{home}/in.tar.gz"))));

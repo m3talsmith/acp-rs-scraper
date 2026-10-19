@@ -27,6 +27,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - **Terminal UI login.** Entering the emailed code no longer fails with "websocket closed" and then drops the attempt. The login keeps the LiveView socket alive with Phoenix heartbeats while the code is read, reconnects and retries verification if that socket closes, and stays on the code step when the code is wrong. Resend code (F2) asks for another code on the same login. A finished login is written to `~/.acp/session.json`, the same file the command line writes. The command line also heartbeats while it waits at the prompt.
+- **Compressed export paths.** With Compress (tar.gz) on, a path that does not already end in `.tar.gz` or `.tgz` is no longer used as both the archive and the staging directory (that failed with "Is a directory"). A bare name gets `.tar.gz` appended (`resonance-cosmos` becomes `resonance-cosmos.tar.gz`). A directory, or a path ending in `/`, is `<dir>/<export-name>.tar.gz` (`Resonance Cosmos` becomes `resonance-cosmos.tar.gz`). The success log line is `wrote <final path>`. Export › Path still expands a leading `~` / `~/` before that child runs, so `~/resonance-cosmos.tar.gz` is `$HOME/resonance-cosmos.tar.gz` and not `./~/resonance-cosmos.tar.gz`.
 
 ### Not sent
 
