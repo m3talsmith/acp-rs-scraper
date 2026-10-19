@@ -804,6 +804,10 @@ CREATE TABLE research_items (
 
 The repo ships `.githooks/pre-commit`, a credential scanner, and `build.rs` sets `git config core.hooksPath .githooks` on the first `cargo build`.
 
+### Releases
+
+A GitHub Release for a version that is not yet on `main` is a draft. The maintainer publishes that draft after the merge. Versions already on `main` (2.16.0 and earlier) are left as published. `.githooks/post-commit` creates the annotated git tag `vX.Y.Z` when `Cargo.toml` changes and does not create a GitHub Release. There is no CI job that publishes a release. When a release is created it uses `gh release create --draft`, the matching `CHANGELOG.md` section, and no attached files. See [CONTRIBUTING.md](../CONTRIBUTING.md).
+
 The hook blocks commits that contain:
 - **Secret files:** `preferences.toml`, `*.database`, `*.db`, `.env`, keys, cookies and similar.
 - **Credential patterns:** private keys, cloud and GitHub tokens, JWTs, `_acp_key=` cookies and `password=`-style assignments.

@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # Tags every commit that changes the crate version as vX.Y.Z (annotated).
+# This hook does not create a GitHub Release. A release for a version that
+# is not on main is a draft (`gh release create --draft`), with notes from
+# the matching CHANGELOG section and no assets. The maintainer publishes
+# the draft after merging to main. Do not publish a release from this hook.
 set -euo pipefail
 ver() { sed -n 's/^version *= *"\(.*\)"/\1/p' | head -1; }
 new_v=$(git show HEAD:Cargo.toml 2>/dev/null | ver || true)

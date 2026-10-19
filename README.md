@@ -810,6 +810,12 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
   debug frames are written only with `--debug`. The directory is created as needed; files are appended.
 - **`--log <PATH>` / `--error-log <PATH>`:** override either file; giving one turns logging on.
 
+## Releases
+
+A GitHub Release for a version that is not on `main` is a draft. `main` is at 2.16.0, so 2.17.0 through 3.3.1 are drafts. Publish a draft by hand after that version is merged into `main`. Releases for 2.16.0 and earlier stay as they were published.
+
+`.githooks/post-commit` tags `vX.Y.Z` when the version in `Cargo.toml` changes. It does not create a GitHub Release, and no workflow publishes one. A release is created with `gh release create --draft`, notes from the matching [CHANGELOG.md](CHANGELOG.md) section, and no attached files. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## License
 
 Licensed under the GNU General Public License v3.0 or later. See [LICENSE](LICENSE).
