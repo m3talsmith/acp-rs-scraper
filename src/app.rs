@@ -392,7 +392,7 @@ pub async fn run() -> Result<()> {
     let known = db_known_ids(&db)?;
     let reply_counts = db_reply_counts(&db)?;
     let known_infos = list_nicks_db(&db)?;
-    info!("== mode: {} (site crawl); profiles always use Latest", args.feed_mode());
+    info!("== mode: {} (mentions crawl); profile feed: {} ({})", args.feed_mode(), args.profile_feed, args.order);
     if args.said_by { info!("== --said-by: only the nicks' own posts and replies; no thread crawl, no mentions"); }
     info!("== targets");
     for nick in &nicks {
@@ -414,7 +414,7 @@ pub async fn run() -> Result<()> {
     let mut ok_nicks = Vec::new();
     for nick in &nicks {
         info!("== scraping @{nick}");
-        match scrape(&http, &jar, nick, &known, &reply_counts, args.full, args.said_by, args.limit).await {
+        match scrape(&http, &jar, nick, &known, &reply_counts, args.full, args.said_by, args.limit, args.profile_feed, args.order).await {
             Ok((ps, html, st)) => {
                 info!("  @{nick}: feed {} items ({} from posts and replies), ~{} new, {} skipped known, threads fetched {} / skipped {}",
                     st.feed_items, st.replies_tab_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);

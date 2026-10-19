@@ -30,6 +30,8 @@ Examples:
   acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
   acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
   acp-rs-scraper --nick alice --limit 100
+  acp-rs-scraper --nick alice --order oldest --limit 100
+  acp-rs-scraper --nick alice --profile-feed top --limit 100
   acp-rs-scraper --search \"general strike\" --format json
   acp-rs-scraper --export all.json
   acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
@@ -230,9 +232,15 @@ pub struct Args {
     #[arg(long, help_heading = "Scraping",
           conflicts_with_all = ["import", "export", "search", "list_nicks", "remove_nick", "clear_all", "logout"])]
     pub refetch_truncated: bool,
-    /// Newest posts to take from each nick: the profile Posts feed and Posts and replies, newest first. Omit to scrape the whole profile. Replies in those threads are still fetched unless --said-by. --crawl-limit still only bounds the mentions scan.
+    /// How many profile items to keep from each nick. With --order newest (the default) this is the start of the feed: the newest posts, or the top of --profile-feed top. With --order oldest this is the end of that feed. Omit it to scrape the whole profile. Replies in those threads are still fetched unless --said-by. --crawl-limit still only bounds the mentions scan.
     #[arg(long, value_name = "N", value_parser = parse_post_limit, help_heading = "Scraping")]
     pub limit: Option<usize>,
+    /// Which profile feed a nick scrape reads. newest (default) is /rs/@nick plus Posts and replies (?replies=1). top is the profile Top feed (/rs/@nick/top?t=all) only. Other Top periods were not captured for profiles. This is not --latest / --trending, which still choose the mentions crawl.
+    #[arg(long, value_name = "FEED", default_value = "newest", value_parser = parse_profile_feed, help_heading = "Scraping")]
+    pub profile_feed: ProfileFeed,
+    /// Which end of that profile feed --limit keeps. newest (default) keeps the start of the site's list. oldest keeps the end, so a limited scrape reads the whole feed first. On newest that is the oldest posts. On top that is the end of the Top ranking. The site has no oldest-first profile URL.
+    #[arg(long, value_name = "ORDER", default_value = "newest", value_parser = parse_scrape_order, help_heading = "Scraping")]
+    pub order: ScrapeOrder,
     /// Max site-feed posts to scan when hunting mentions (default 500).
     #[arg(long, default_value_t = DEFAULT_CRAWL_LIMIT, help_heading = "Scraping")]
     pub crawl_limit: usize,
@@ -262,7 +270,7 @@ pub struct Args {
 
     /// Offline: import a previous export into the DB. Add --compress --tar-gz for archives.
     #[arg(long, value_name = "FILE", help_heading = "Import",
-          conflicts_with_all = ["export", "search", "nick", "nicks", "output", "format", "name", "no_attachments", "mentions", "crawl_limit", "limit", "full", "list_nicks", "said_by"])]
+          conflicts_with_all = ["export", "search", "nick", "nicks", "output", "format", "name", "no_attachments", "mentions", "crawl_limit", "limit", "profile_feed", "order", "full", "list_nicks", "said_by"])]
     pub import: Option<PathBuf>,
 
     /// Export format(s): comma-separated or repeated (e.g. json,html). Several formats need --output, --export or --compress.
@@ -281,16 +289,16 @@ pub struct Args {
 
     /// Offline: delete these nicks (comma-separated, @ optional) — their posts, replies in their threads, attachments, mentions and profiles.
     #[arg(long, value_parser = parse_nicks, value_name = "LIST", help_heading = "Maintenance",
-          conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "limit", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
+          conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "limit", "profile_feed", "order", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
     pub remove_nick: Option<NickList>,
     /// With --remove-nick: keep other people's replies in the removed nicks' threads (they become orphans).
     #[arg(long, requires = "remove_nick", conflicts_with = "clear_all", help_heading = "Maintenance")]
     pub keep_replies: bool,
     /// Offline: delete the whole database and the attachments directory (preferences.toml and exports are kept).
-    #[arg(long, help_heading = "Maintenance", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "limit", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
+    #[arg(long, help_heading = "Maintenance", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "limit", "profile_feed", "order", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz"])]
     pub clear_all: bool,
     /// Offline: forget the saved login (delete ~/.acp/session.json); the next scrape asks for a code again.
-    #[arg(long, help_heading = "Session", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "limit", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz", "remove_nick", "clear_all"])]
+    #[arg(long, help_heading = "Session", conflicts_with_all = ["latest", "trending", "nick", "nicks", "mentions", "crawl_limit", "limit", "profile_feed", "order", "no_attachments", "full", "said_by", "list_nicks", "search", "export", "name", "import", "format", "output", "compress", "tar_gz", "remove_nick", "clear_all"])]
     pub logout: bool,
     /// Offline: bookmark these posts locally (comma-separated post ids). --sync-bookmarks pushes them to the site.
     #[arg(long, value_name = "IDS", value_parser = parse_post_id_arg, help_heading = "Bookmarks",
@@ -587,6 +595,16 @@ impl std::fmt::Display for FeedMode {
 #[derive(Clone, Debug, PartialEq)]
 /// A parsed `--nicks` list: `@` stripped, trimmed, deduplicated case-insensitively.
 pub struct NickList(pub Vec<String>);
+
+/// `--profile-feed` is `newest` or `top`.
+pub fn parse_profile_feed(s: &str) -> std::result::Result<ProfileFeed, String> {
+    ProfileFeed::parse(s)
+}
+
+/// `--order` is `newest` or `oldest`.
+pub fn parse_scrape_order(s: &str) -> std::result::Result<ScrapeOrder, String> {
+    ScrapeOrder::parse(s)
+}
 
 /// `--limit` must be a whole number of at least 1.
 pub fn parse_post_limit(s: &str) -> std::result::Result<usize, String> {

@@ -129,49 +129,162 @@ pub async fn page_rest(
     Ok((stopped_incremental, pages))
 }
 
-/// Nick profile items to keep.
+/// Which profile feed a nick scrape reads.
 ///
-/// With no limit, the Posts feed stays first and the replies feed is merged in.
-/// The second value is how many kept items came only from the replies feed.
-///
-/// With a limit, the replies feed is newest-first and already lists posts, so
-/// it is the window of the newest `limit` authored items. Posts-feed items fill
-/// that window only when the replies feed is shorter. Without a replies feed,
-/// the Posts feed (also newest-first) is truncated to `limit`.
-pub fn window_feed_items(posts: Vec<Value>, replies: Option<Vec<Value>>, limit: Option<usize>) -> (Vec<Value>, usize) {
-    let id_of = |v: &Value| s(v, "id");
-    match replies {
-        None => {
-            let mut items = posts;
-            if let Some(n) = limit { items.truncate(n); }
-            (items, 0)
-        }
-        Some(extra) => {
-            let post_ids: HashSet<String> = posts.iter().map(id_of).filter(|id| !id.is_empty()).collect();
-            if let Some(n) = limit {
-                let mut items = extra;
-                items.truncate(n);
-                if items.len() < n {
-                    let mut have: HashSet<String> = items.iter().map(id_of).collect();
-                    for p in posts {
-                        if items.len() >= n { break; }
-                        let id = id_of(&p);
-                        if id.is_empty() || !have.insert(id) { continue; }
-                        items.push(p);
-                    }
-                }
-                let added = items.iter().filter(|it| {
-                    let id = id_of(it);
-                    !id.is_empty() && !post_ids.contains(&id)
-                }).count();
-                (items, added)
-            } else {
-                let mut items = posts;
-                let added = merge_feed_items(&mut items, extra);
-                (items, added)
-            }
+/// `newest` is `/rs/@nick` (and Posts and replies). `top` is the captured
+/// profile Top URL `/rs/@nick/top?t=all`. No other profile ranking was captured.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ProfileFeed {
+    /// Latest profile (`/rs/@nick`), newest first.
+    #[default]
+    Newest,
+    /// Profile Top (`/rs/@nick/top?t=all`). Not chronological.
+    Top,
+}
+
+impl ProfileFeed {
+    /// `newest` or `top`, ignoring case.
+    pub fn parse(s: &str) -> std::result::Result<Self, String> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "newest" => Ok(Self::Newest),
+            "top" => Ok(Self::Top),
+            other => Err(format!("--profile-feed must be newest or top, not {other:?}")),
         }
     }
+}
+
+impl std::fmt::Display for ProfileFeed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self { Self::Newest => "newest", Self::Top => "top" })
+    }
+}
+
+/// Which end of a profile feed `--limit` keeps.
+///
+/// The site lists both the Latest profile and the profile Top feed from the
+/// start of that ranking. There is no oldest-first profile URL. `oldest` reads
+/// the list to the end and keeps that end.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ScrapeOrder {
+    /// Keep the start of the site's list (newest posts, or the top of Top).
+    #[default]
+    Newest,
+    /// Keep the end of the site's list (oldest posts, or the end of Top).
+    Oldest,
+}
+
+impl ScrapeOrder {
+    /// `newest` or `oldest`, ignoring case.
+    pub fn parse(s: &str) -> std::result::Result<Self, String> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "newest" => Ok(Self::Newest),
+            "oldest" => Ok(Self::Oldest),
+            other => Err(format!("--order must be newest or oldest, not {other:?}")),
+        }
+    }
+}
+
+impl std::fmt::Display for ScrapeOrder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self { Self::Newest => "newest", Self::Oldest => "oldest" })
+    }
+}
+
+/// Nick profile items to keep.
+///
+/// With no limit and [`ScrapeOrder::Newest`], the Posts feed stays first and
+/// the replies feed is merged in. The second value is how many kept items came
+/// only from the replies feed.
+///
+/// With a limit and `newest`, the replies feed is newest-first and already
+/// lists posts, so it is the window. Posts-feed items fill that window only
+/// when the replies feed is shorter. Without a replies feed, the Posts feed
+/// is truncated to `limit`.
+///
+/// [`ScrapeOrder::Oldest`] keeps the other end of those same newest-first
+/// lists, then reverses the window so the oldest item is first. With a limit
+/// that is the oldest `limit` items. With no limit the set matches `newest`
+/// and only the order changes.
+pub fn window_feed_items(
+    posts: Vec<Value>, replies: Option<Vec<Value>>, limit: Option<usize>, order: ScrapeOrder,
+) -> (Vec<Value>, usize) {
+    let id_of = |v: &Value| s(v, "id");
+    let post_ids: HashSet<String> = posts.iter().map(&id_of).filter(|id| !id.is_empty()).collect();
+    let items = match replies {
+        None => take_window(posts, limit, order),
+        Some(extra) => match (limit, order) {
+            (None, ScrapeOrder::Newest) => {
+                let mut items = posts;
+                merge_feed_items(&mut items, extra);
+                items
+            }
+            (Some(n), ScrapeOrder::Newest) => newest_window(posts, extra, n),
+            (_, ScrapeOrder::Oldest) => oldest_window(posts, extra, limit),
+        },
+    };
+    let added = items.iter().filter(|it| {
+        let id = id_of(it);
+        !id.is_empty() && !post_ids.contains(&id)
+    }).count();
+    (items, added)
+}
+
+/// Keep the head (`newest`) or the tail (`oldest`) of a newest-first list.
+fn take_window(mut items: Vec<Value>, limit: Option<usize>, order: ScrapeOrder) -> Vec<Value> {
+    if let Some(n) = limit {
+        match order {
+            ScrapeOrder::Newest => items.truncate(n),
+            ScrapeOrder::Oldest => {
+                if items.len() > n { items = items.split_off(items.len() - n); }
+                items.reverse();
+            }
+        }
+    } else if order == ScrapeOrder::Oldest {
+        items.reverse();
+    }
+    items
+}
+
+/// Newest `n` authored items: the head of the replies feed, filled from the Posts head.
+fn newest_window(posts: Vec<Value>, mut items: Vec<Value>, n: usize) -> Vec<Value> {
+    items.truncate(n);
+    if items.len() < n {
+        let mut have: HashSet<String> = items.iter().map(|v| s(v, "id")).collect();
+        for p in posts {
+            if items.len() >= n { break; }
+            let id = s(&p, "id");
+            if id.is_empty() || !have.insert(id) { continue; }
+            items.push(p);
+        }
+    }
+    items
+}
+
+/// Oldest end of the replies feed, filled from the Posts tail when the replies feed is shorter.
+/// The result is oldest-first. With no limit the merged set is reversed.
+fn oldest_window(posts: Vec<Value>, extra: Vec<Value>, limit: Option<usize>) -> Vec<Value> {
+    let Some(n) = limit else {
+        let mut items = posts;
+        merge_feed_items(&mut items, extra);
+        items.reverse();
+        return items;
+    };
+    let mut items = extra;
+    if items.len() > n { items = items.split_off(items.len() - n); }
+    if items.len() < n {
+        let mut have: HashSet<String> = items.iter().map(|v| s(v, "id")).collect();
+        let mut fill = Vec::new();
+        for p in posts.into_iter().rev() {
+            if items.len() + fill.len() >= n { break; }
+            let id = s(&p, "id");
+            if id.is_empty() || !have.insert(id) { continue; }
+            fill.push(p);
+        }
+        fill.reverse();
+        items.extend(fill);
+    }
+    items.reverse();
+    items
 }
 
 /// Append `extra` feed items whose `id` isn't already in `items`.

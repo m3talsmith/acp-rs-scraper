@@ -252,8 +252,12 @@ fn text(v: &str) -> Widget { Widget::Text(TextField::new(v)) }
 fn choice(choices: &'static [&'static str]) -> Widget { Widget::Choice { choices, idx: 0 } }
 fn button(a: Action) -> Widget { Widget::Button(a) }
 
-/// Scrape feed choices.
+/// Scrape feed choices for the mentions crawl (`--latest` / `--trending`).
 pub const MODE_CHOICES: &[&str] = &["Latest", "Trending"];
+/// Profile feed a nick scrape reads (`--profile-feed`).
+pub const PROFILE_FEED_CHOICES: &[&str] = &["Newest", "Top"];
+/// Which end of that feed `--limit` keeps (`--order`).
+pub const ORDER_CHOICES: &[&str] = &["Newest", "Oldest"];
 /// Export format choices.
 pub const FORMAT_CHOICES: &[&str] = &["json", "html", "json,html"];
 /// Export scope choices.
@@ -278,6 +282,8 @@ impl Menu {
                 opt("nicks", "Nicks", "--nicks (blank: selected nicks)", true, text("")),
                 opt("mentions", "Mentions", "--no-mentions when off", false, check(true)),
                 opt("said_by", "Said by", "--said-by", false, check(false)),
+                opt("profile_feed", "Profile feed", "--profile-feed (default: newest)", false, choice(PROFILE_FEED_CHOICES)),
+                opt("order", "Order", "--order (default: newest)", false, choice(ORDER_CHOICES)),
                 opt("limit", "Post limit", "--limit (blank: whole profile)", false, text("")),
                 opt("crawl_limit", "Crawl limit", "--crawl-limit", false, text(&DEFAULT_CRAWL_LIMIT.to_string())),
                 opt("attachments", "Attachments", "--no-attachments when off", false, check(true)),
@@ -439,6 +445,8 @@ impl Menu {
         if self.choice(S, "mode") == "Trending" { v.push("--trending".into()); } else { v.push("--latest".into()); }
         if !self.check(S, "mentions") { v.push("--no-mentions".into()); }
         if self.check(S, "said_by") { v.push("--said-by".into()); }
+        if self.choice(S, "profile_feed") == "Top" { v.extend(["--profile-feed".into(), "top".into()]); }
+        if self.choice(S, "order") == "Oldest" { v.extend(["--order".into(), "oldest".into()]); }
         let lim = self.text(S, "limit");
         if !lim.is_empty() {
             let n: usize = lim.parse().map_err(|_| format!("Post limit must be a number, not {lim:?}"))?;

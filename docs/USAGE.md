@@ -81,7 +81,7 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
 
   | Menu | Flags it builds |
   |---|---|
-  | Scrape (Start Scanning, `F6`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--limit` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format` |
+  | Scrape (Start Scanning, `F6`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--profile-feed` `--order` `--limit` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format` |
   | Search | in-app search (same matching as `--search`, plus the filters above) |
   | Export | `--export PATH` + `--nicks` (selection) or `--search`/`--nicks` (current view) or nothing (everything) or `--post-ids` (Basket, and the Export basket button), `--format`, `--name`, `--compress --tar-gz` |
   | Import | `--import PATH` `--compress --tar-gz` |
@@ -407,12 +407,14 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--no-mentions` | Skip the mentions crawl, which is on by default. |
 | `--said-by` | Only what the nick said: their own top-level posts **and** their own replies/comments, from the Posts and "Posts and replies" feeds. Other people's replies in the nick's threads aren't fetched and the mentions crawl is skipped (implies `--no-mentions`). A thread page is read only when one of the nick's own items has a blank body in the feed. Exports list the posts first and the replies after, each marked `"kind": "post"`/`"reply"` (JSON) and with a Post/Reply badge (HTML). |
 | `--refetch-truncated` | Complete bodies that were stored shortened. Feeds send long posts and comments truncated (`body_truncated: true`, the "show more" case); the scraper now reads the full text from the thread page during every scrape, and this flag backfills rows already in the DB: every row whose `body_state` isn't `full` (rows saved truncated, and every row stored before 1.26.0, `unknown`) for the given nicks — or all nicks when none is given, in which case nothing else is scraped. One thread page per thread, fetched one at a time with a short pause. Needs a login. |
-| `--limit <N>` | The newest N posts from each nick. The profile Posts feed and the Posts and replies feed are read newest first and stopped at N. Omit it to scrape the whole profile. Replies in the threads of those posts are still fetched, unless `--said-by`. This is not `--crawl-limit`. |
+| `--profile-feed <FEED>` | Which profile a nick scrape reads. `newest` (default) is `/rs/@nick` plus Posts and replies. `top` is the profile Top feed (`/rs/@nick/top?t=all`) only. Other Top periods were not captured for profiles, and this flag is not `--latest` / `--trending` (those still choose the mentions crawl). |
+| `--order <ORDER>` | Which end of that profile feed `--limit` keeps. `newest` (default) keeps the start of the site's list. `oldest` keeps the end, so a limited scrape reads the whole feed first. On `newest` that is the oldest posts. On `top` that is the end of the Top ranking. The site has no oldest-first profile URL. |
+| `--limit <N>` | How many profile items to keep from each nick. With `--order newest` this is the start of the feed (the newest posts, or the top of `--profile-feed top`). With `--order oldest` this is the end of that feed. Omit it to scrape the whole profile. Replies in those threads are still fetched, unless `--said-by`. This is not `--crawl-limit`. |
 | `--crawl-limit <N>` | The most site-feed posts to scan when looking for mentions (default 500). |
 | `--no-attachments` | Don't download media, avatars or banners. Profile images are otherwise saved to `~/.acp/ai/data/attachments/profiles/<nick>.<ext>` and shown in HTML exports. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
 
-**"Posts and replies":** every `--nick`/`--nicks` scrape reads the profile twice. First it reads the default **Posts** feed (`/rs/@nick`). Then it reads the **Posts and replies** view (`/rs/@nick?replies=1`, the profile Filter dialog's second option), which adds the nick's replies in other people's threads. Both are paged to the end, or to `--limit` when that is set, and merged by `post_id`, so nothing is stored twice; the database's unique `post_id` index enforces this too. With `--limit N` the replies feed is the window: the newest N items that nick wrote. The Posts feed fills that window only when the replies feed is shorter. Replies are stored with `parent_post_id` set to their thread's root post. Incremental runs stop each feed once a page is entirely already-known posts; `--full` walks both completely. If the `?replies=1` URL has no feed, the scraper falls back to submitting the Filter form (`configure-feed`, `replies=1`) on the profile's LiveView. The per-nick summary shows how many items came only from the replies view.
+**"Posts and replies":** every `--nick`/`--nicks` scrape reads the profile twice. First it reads the default **Posts** feed (`/rs/@nick`). Then it reads the **Posts and replies** view (`/rs/@nick?replies=1`, the profile Filter dialog's second option), which adds the nick's replies in other people's threads. Both are paged to the end, or to `--limit` when that is set, and merged by `post_id`, so nothing is stored twice; the database's unique `post_id` index enforces this too. With `--limit N` and `--order newest` (the default) the replies feed is the window: the newest N items that nick wrote. The Posts feed fills that window only when the replies feed is shorter. `--order oldest` reads both feeds to the end, with no incremental stop, and keeps the oldest N. `--profile-feed top` reads `/rs/@nick/top?t=all` instead and does not also read Posts and replies; `--limit` then keeps the start of that ranking, or the end of it with `--order oldest`. Replies are stored with `parent_post_id` set to their thread's root post. Incremental runs stop each feed once a page is entirely already-known posts; `--full` walks both completely. If the `?replies=1` URL has no feed, the scraper falls back to submitting the Filter form (`configure-feed`, `replies=1`) on the profile's LiveView. The per-nick summary shows how many items came only from the replies view.
 
 ### Search / Export (offline)
 
@@ -558,6 +560,11 @@ acp-rs-scraper --nick alice --crawl-limit 200
 
 # Only the nick's own posts and replies (no thread crawl, no mentions)
 acp-rs-scraper --nick alice --said-by
+
+# Newest 100, oldest 100, or the top of the profile
+acp-rs-scraper --nick alice --limit 100
+acp-rs-scraper --nick alice --order oldest --limit 100
+acp-rs-scraper --nick alice --profile-feed top --limit 100
 
 # Latest (default) vs Trending for the site-wide mentions crawl
 acp-rs-scraper --nicks @hazaldin --latest
@@ -789,7 +796,7 @@ CREATE TABLE research_items (
   - Profile fields beyond author info, data-props and `og:` tags.
   - Whether media hosts require the login cookies.
 - **Mentions are limited by the crawl:** the mentions pass still scans the chosen feed (there is no mentions search API). Only `--crawl-limit` posts of that feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed. Searching posts on the site is `--site-search` (or Shift-S › Where: Site).
-- **"Posts and replies":** this is the profile Filter dialog (`<dialog id="js-configureFeed">`, form `configure-feed`, radios `replies=0|1`). Checked on the live site: choosing it switches to `/rs/@nick?replies=1`, the URL the scraper loads. The fallback form submission is covered by the mocked end-to-end tests. Profiles also have a Top feed (`/rs/@nick/top?t=all`), which isn't scraped.
+- **"Posts and replies":** this is the profile Filter dialog (`<dialog id="js-configureFeed">`, form `configure-feed`, radios `replies=0|1`). Checked on the live site: choosing it switches to `/rs/@nick?replies=1`, the URL the scraper loads. The fallback form submission is covered by the mocked end-to-end tests. `--profile-feed top` scrapes the profile Top feed (`/rs/@nick/top?t=all`). Only `t=all` was captured for profiles; day, week, month, and year stay on the site-wide `--top` feed.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
 - **Logins:** a saved session is reused until the site expires it; then the next scrape asks for a fresh email code.

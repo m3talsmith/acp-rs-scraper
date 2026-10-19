@@ -143,7 +143,17 @@ Scraping:
           Complete bodies stored shortened: re-read the thread page (the full text "show more" opens) of every stored row not marked complete — rows saved from a truncated feed item, and rows stored before 1.26.0 — for the given nicks (or every nick when none is given; then nothing else is scraped). New scrapes complete truncated items on their own
 
       --limit <N>
-          Newest posts to take from each nick: the profile Posts feed and Posts and replies, newest first. Omit to scrape the whole profile. Replies in those threads are still fetched unless --said-by. --crawl-limit still only bounds the mentions scan
+          How many profile items to keep from each nick. With --order newest (the default) this is the start of the feed: the newest posts, or the top of --profile-feed top. With --order oldest this is the end of that feed. Omit it to scrape the whole profile. Replies in those threads are still fetched unless --said-by. --crawl-limit still only bounds the mentions scan
+
+      --profile-feed <FEED>
+          Which profile feed a nick scrape reads. newest (default) is /rs/@nick plus Posts and replies (?replies=1). top is the profile Top feed (/rs/@nick/top?t=all) only. Other Top periods were not captured for profiles. This is not --latest / --trending, which still choose the mentions crawl
+          
+          [default: newest]
+
+      --order <ORDER>
+          Which end of that profile feed --limit keeps. newest (default) keeps the start of the site's list. oldest keeps the end, so a limited scrape reads the whole feed first. On newest that is the oldest posts. On top that is the end of the Top ranking. The site has no oldest-first profile URL
+          
+          [default: newest]
 
       --crawl-limit <CRAWL_LIMIT>
           Max site-feed posts to scan when hunting mentions (default 500)

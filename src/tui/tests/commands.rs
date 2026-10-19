@@ -30,6 +30,8 @@ fn scrape_defaults_map_to_cli_defaults() {
     assert!(a.mentions && !a.said_by && !a.full && !a.no_attachments && !a.trending);
     assert_eq!(a.crawl_limit, DEFAULT_CRAWL_LIMIT);
     assert_eq!(a.limit, None);
+    assert_eq!(a.profile_feed, ProfileFeed::Newest);
+    assert_eq!(a.order, ScrapeOrder::Newest);
 }
 
 #[test]
@@ -40,6 +42,8 @@ fn scrape_every_option_maps_to_its_flag() {
     m.set_text(S, "nicks", "@a, b");
     m.set_check(S, "mentions", false);
     m.set_check(S, "said_by", true);
+    m.set_choice(S, "profile_feed", "Top");
+    m.set_choice(S, "order", "Oldest");
     m.set_text(S, "limit", "100");
     m.set_text(S, "crawl_limit", "200");
     m.set_check(S, "attachments", false);
@@ -55,6 +59,8 @@ fn scrape_every_option_maps_to_its_flag() {
     assert!(a.trending && !a.mentions && a.said_by && a.no_attachments && a.full && a.refetch_truncated);
     assert_eq!(a.crawl_limit, 200);
     assert_eq!(a.limit, Some(100));
+    assert_eq!(a.profile_feed, ProfileFeed::Top);
+    assert_eq!(a.order, ScrapeOrder::Oldest);
     assert_eq!(a.output.as_deref(), Some(Path::new("/tmp/out.json")));
     assert_eq!(a.formats(), [Format::Json, Format::Html]);
     assert!(a.verbose && a.enable_logging && !a.debug);
