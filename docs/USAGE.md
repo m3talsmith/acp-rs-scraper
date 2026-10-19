@@ -98,7 +98,9 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
 
   Hover tooltips are not built yet. Before 3.x is finished, every button, menu item, and icon (the star, the basket, the research ◈, and the rest) shows a short explanation on hover, including its key when it has one, as in `Bookmark (b)`. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.3.
 
-  Help stays on `?` and F1. Before 3.x is finished it becomes topics you can move between (Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the rest), with search inside Help. A help icon on the chrome opens the topic for that control. Today Help is one scroll of keys and the command-line help. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.4.
+  Help stays on `?` and F1. Before 3.x is finished it becomes topics you can move between (Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the rest), with search inside Help. A help icon on the chrome opens the topic for that control. Every user-facing flag, menu command, menu option, and control needs a description there, and a tooltip. Today Help is one scroll of keys and the command-line help, and a menu row only shows its label plus a flag hint. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.4.
+
+  About is a required menu entry beside Help (Account is an acceptable home). It opens a modal: who worked on the project, and why the client is necessary. It is not on the bar today. A new-user walkthrough, `docs/GETTING-STARTED.md`, will cover the command line, the terminal prompts outside the TUI, and the TUI, and it will be the Getting started topic. The user-facing name for that docs pass is ACP Red Star. End-of-3.0 communications (a pitch, a demo, stickers, backgrounds, a cutscene in video and ASCII from licensed archival footage, and a comrades' forum post) wait until those docs exist. The forum post is not in this repository. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.5.
 
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
   process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
@@ -134,7 +136,7 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   note, metadata and text; Enter opens one, its stored file is an attachment link), Add current
   post…, Add current view / search…, Local file + Add local file…, Web page URL + Add web page…,
   Google Drive / Telegram (pinned for later), Export to / Format / Compress + Export project
-  (`--research-export`).
+  (`--research-export`). Making **Add current view / search…** easier to find is required before 3.x is finished. It already queues the current list or search. Whether that should also mean an open thread's root and every loaded reply is still open, and no new key is assigned. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
 - **Sync:** Sync menu: Auto sync, Interval (minutes, default 15), Nicks (blank: selected), Mentions
   (off), Bookmarks (on), Sync now, Save as default (`[sync]` in `preferences.toml`). An automatic
   sync runs `--sync` as a background job when it's due and nothing else runs; it checks the saved

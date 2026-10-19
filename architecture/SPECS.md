@@ -315,7 +315,9 @@ minor. The layout is in [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2.
 
 Before 3.x is finished, every actionable control shows a short tooltip on hover, including menu-bar entries and the icons on a card or detail. When the control has a key, the tooltip includes it (`Bookmark (b)`). One shared helper draws them. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.3. There is no hover tooltip today.
 
-Before 3.x is finished, Help is topics you can move between, with search inside Help. A help icon on the chrome opens the topic for that control. `?` and F1 stay the entry. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.4. Today Help is one scroll of keys and the generated command-line help.
+Before 3.x is finished, Help is topics you can move between, with search inside Help. A help icon on the chrome opens the topic for that control. `?` and F1 stay the entry. Every user-facing flag, menu command, menu option, and control has a description in Help and a tooltip. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.4. Today Help is one scroll of keys and the generated command-line help. Menu rows show a label and a flag hint.
+
+About is a required menu entry beside Help. It opens a modal: who worked on the project, and why the client is necessary. Getting Started (`docs/GETTING-STARTED.md`) covers the command line, terminal prompts outside the TUI, and the TUI. The user-facing name in the launch docs is ACP Red Star. End-of-3.0 communications, including a cutscene in video and ASCII from public-domain or otherwise licensed archival footage, and a comrades' forum post, wait until those docs exist. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2 and §4.5.
 
 **Suggested change:** selecting a nick in the left bar pre-fills Scrape's
 Nicks field and filters the Body. Multi-select nicks (Shift/Space) are a must have

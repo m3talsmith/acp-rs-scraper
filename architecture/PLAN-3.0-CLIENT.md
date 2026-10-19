@@ -11,15 +11,19 @@ Update 2026-10-18 (versioning): **3.0.0 is identity, encryption at rest, and bac
 
 Update 2026-10-19: **3.1.0 is the job-details window** (click a running job in the terminal UI). The write core moves to 3.2.0, and every later phase moves up one minor with it.
 
-Update 2026-10-19 (crate split): **3.2.0** is `acp_rs_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.23.0 and later. There is no 4.0.
+Update 2026-10-19 (crate split): **3.2.0** is `acp_rs_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.23.0 and later. That work stays in 3.x. A later 4.0 line is other product work and does not move it.
 
 Update 2026-10-19 (write core): **3.4.0** ships compose for New post and Reply, the Markdown to ProseMirror writer, and the safety layer (writes on by default, Cancel first, `--dry-run`, the 30 second gap, bundle-hash refusal). Publish does not open a connection. The P0 capture has not confirmed the submit payload, so validate/save, `_target`, uploads, mention-query replies, and read-back stay stubbed. Attachments wait for 3.5.0. Later write features stay in their own minors.
 
 Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the serve and relay work. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists.
 
-Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
+Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. Decentralization still stays in 3.x. The later 4.0 line does not move it.
 
 Update 2026-10-19 (TUI menu, required before 3.x is finished): the menu bar is reorganized into the categories in §4.2. This is a hard requirement for 3.x, and it is its own minor. It is not polish after 3.x. This note does not assign that minor a number and does not move stages that already have one. 3.5.0 attachments does not include it. Start Scanning stays pinned on the right. **Bookmarks** is its own top-level menu, not an item under Library. **Sync** keeps the local copy up to date. **Discover** finds people, nodes, and rooms. Those two menus stay separate. Hover tooltips on every actionable control are the same kind of requirement (§4.3). Friendlier, searchable Help, with a help icon on the chrome, is the same kind of requirement (§4.4). Each can ship with that menu minor or as its own.
+
+Update 2026-10-19 (embedded assistant): a local assistant is not a 3.x requirement and is not a heavy interest of 3.0. It does not weigh down 3.0, and it does not displace attachments, interactions, categorized menus, tooltips, Help, search history, the action-history bar, or collapsible bars. It is a 4.0 roadmap item, and 4.0 may treat it as a substantial part of that major. Decentralization stays in 3.x. Opening a 4.0 line does not move peers, relays, or the network node. The model is not chosen. This note does not specify the assistant.
+
+Update 2026-10-19 (product name and launch docs): during 3.x the user-facing name is **ACP Red Star**. A docs pass is required before the 3.0 client is presented as launched. Communications (pitch, demo, stickers, backgrounds, a cutscene, and a comrades' forum post) wait until that pass exists. Neither list blocks attachments. Details are in §4.5.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -267,7 +271,16 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
 | TUI menu categories | later minor, required before 3.x closes | Reorganize the menu bar (§4.2). Must ship before 3.x is finished. The version number is not assigned here, and numbered stages are not moved. |
 | Hover tooltips | later minor, required before 3.x closes | Every button, menu item, and card icon explains itself on hover, including its key when it has one (§4.3). One shared helper. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
-| Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
+| Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). Every flag and control is described. `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
+| About | later minor, required before 3.x closes | A menu entry beside Help opens a modal: who worked on the project, and why the client is necessary (§4.2). Tooltip, Help text, and a Help topic. Can ship with Help. The version number is not assigned here. |
+| Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
+| Launch communications | end of 3.0, after launch docs | Pitch, demo, two sticker sets, ethos backgrounds, a cutscene in video and ASCII, and a comrades' forum post for v3 (§4.5). The post body is not in the repo until Michael asks. Not built in this note. |
+
+### 4.0 Later product work
+
+4.0 is a later major. Decentralization stays in 3.x (3.23.0 and later). Opening this line does not move peers, relays, or the network node.
+
+The embedded assistant is on this roadmap. It is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. The model is not chosen, and this note does not implement the assistant or specify it.
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -320,11 +333,11 @@ Left to right, with Start Scanning pinned on the right:
 3. **Compose** — New post, Reply, and Quote. Drafts and the outbox join this menu when that stage ships.
 4. **Library** — Export, Import, Basket, List, and Maintain.
 5. **Bookmarks** — Show, Bookmark current, and Sync with acp.us, as that menu works today. This is its own menu so it stays one click from the bar.
-6. **Research** — projects, add, and export, as the Research menu works today.
+6. **Research** — projects, add, and export, as the Research menu works today. **Add current view / search…** already queues the current list or search, and the ◈ picker can add all posts of the view or the search results. Making that action easier to find is a Research UX requirement before 3.x is finished. It does not add a second pipeline. Two questions stay open, and this note does not code either one. (a) How loud the existing action should be: clearer menu wording, a key, and a status line that says how many items were queued. `r` is already research-add for the current post, and on an open post `r` is Reply, so a new key is not assigned here. (b) Whether "the whole Body" means an open thread's root plus every loaded reply on the detail stack. Today the action adds the current list or search, not that stack.
 7. **Sync** — keep the local copy up to date. Today that is site sync and auto-sync. Peer replication of the local database joins this menu later.
 8. **Discover** — find people, nodes, and rooms. A stub until the network-node stage (P9). Then peers, public nodes, relays, and the spaces / live badge.
 9. **Account** — Session (login and logout) today. Profile, site settings, and password change join this menu in their own stages.
-10. **Debug** — verbose, logging, and help.
+10. **Debug** — verbose, logging, and help. **About** is a required entry beside Help. Account is an acceptable home if Michael prefers it. The entry itself is required, and it is not left unplaced the way Quit is. About opens a modal. The modal says who worked on the project and why this client is necessary. It gets a tooltip, a Help description, and a Help topic the help icon can open (§4.3, §4.4). Getting Started and the launch-docs checklist include it (§4.5).
 11. **Start Scanning** — pinned on the right. The scrape options (nicks, latest or trending, mentions, and the rest of today's Scrape menu) stay on this control.
 
 Bookmarks is not an item under Library. Sync and Discover stay two menus. Sync is how this machine's copy stays current. Discover is how you find someone or somewhere else.
@@ -343,13 +356,37 @@ This must land before 3.x is finished. It can ship with the menu reorganization 
 
 ### 4.4 Help topics (required before 3.x is finished)
 
-Help stays reachable with `?` and F1. Three changes must land before 3.x is finished. They can ship with the menu reorganization (§4.2), with the hover tooltips (§4.3), or as their own later minor. This note does not implement them, does not assign a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0.
+Help stays reachable with `?` and F1. These changes must land before 3.x is finished. They can ship with the menu reorganization (§4.2), with the hover tooltips (§4.3), or as their own later minor. This note does not implement them, does not assign a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0.
 
 1. **A help icon on the chrome.** A small help icon sits on the interface, and a tooltip may carry the same mark. Choosing it opens Help on the topic for that control.
 2. **Topics you can move between.** Help is sections you step through: Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the others that the app needs. Keys stay inside the Keys topic. The command-line help stays available from a topic.
 3. **Search inside Help.** Typing filters the topics and the key bindings, so a word or a key finds its place.
+4. **Complete coverage.** Every user-facing flag, menu command, menu option, and UI control has a description in Help, and a tooltip (§4.3). About is included (§4.2). An audit on 2026-10-19: command-line flags already have clap doc comments, and `--help` is generated from them. The Help modal is still one flat scroll (the recovery guide, the key list, then that generated text). There is no hover tooltip. A menu row shows its label, and the open dropdown shows the flag string as a muted hint. Those hints are not descriptions.
+5. **Getting Started.** A new-user walkthrough becomes `docs/GETTING-STARTED.md` and the Getting started Help topic. It covers three surfaces. **CLI** is headless flags. **Terminal** is the interactive prompts and progress when the full TUI is not running: the password, the recovery phrase, `Publish? [y/N]`, and scrape progress on stderr. **TUI** is the interactive client. The path is install, encrypt and identity, open the TUI, log in, scrape, browse and search, export, compose with dry-run, then Help and About. The walkthrough says where [SPECS.md](./SPECS.md) and [PLAN-2.0-TUI.md](./PLAN-2.0-TUI.md) are behind the client. Those files still describe the 2.0 design. The current chrome, compose safety (Cancel first, `--dry-run`, writes on unless opted out), the identity first-run (password, phrase, shares), research, themes, the basket, and the command palette are in the app and are thin or absent there. Hover tooltips, topic Help, and the action-history bars are planned and not built. The walkthrough follows the app. The launch docs pass refreshes or supersedes those two files (§4.5).
 
-Today Help is one scroll: the recovery guide, then the key list, then the generated command-line help.
+Today Help is one scroll: the recovery guide, then the key list, then the generated command-line help. Menu commands map to flags. There is no topic for About, and there is no Getting Started document.
+
+### 4.5 Launch docs and communications (3.x)
+
+Two lists. The first is required before the 3.0 client is presented as launched. The second is communications after that pass. Neither blocks attachments (3.5.0). Neither assigns a minor or moves a numbered stage. This note does not write the files and does not produce the communications.
+
+#### Launch docs (before the 3.0 client is presented)
+
+The user-facing name is **ACP Red Star**. The client is no longer only a scraper. Apply that name where a reader meets the product: the README, [docs/USAGE.md](../docs/USAGE.md), [docs/INSTALL.md](../docs/INSTALL.md), the introduction of [docs/PROTOCOL.md](../docs/PROTOCOL.md), changelog and release titles for this pass, titles in the API docs, and this plan. Historical 2.x changelog sections stay as they were written. The Cargo package stays `acp-rs-scraper`. The shipping binary is `acp-rs-scraper`. The plan's later `acp-rs` names are for the daemon and related commands, not a rename of this binary. The GitHub repo stays `m3talsmith/acp-rs-scraper` until a later decision. Open, and not blocking: when the repo is renamed, and what the crate names become. `CONTRIBUTING.md` already exists and is refreshed with the name. `SECURITY.md` is added; it does not exist today. [SPECS.md](./SPECS.md) and [PLAN-2.0-TUI.md](./PLAN-2.0-TUI.md) are refreshed or marked superseded by this plan. Menu categories, search history, and attachments are merged into the main docs when those notes are ready. `docs/GETTING-STARTED.md` is the walkthrough in §4.4, including About.
+
+Checklist: the name, the walkthrough, Help completeness (§4.4), About (§4.2), SPECS and PLAN-2.0, CONTRIBUTING and SECURITY, and the UX drafts once their branches land.
+
+#### Communications after the docs pass
+
+These are end-of-3.0 work. They wait until the launch docs exist. They are not a substitute for that pass. Nothing here is produced in this note.
+
+1. Elevator pitch.
+2. Demo movie, covering the CLI and the TUI.
+3. Graphical sticker set, matching the TUI and the graphical side of the client.
+4. A separate CLI-ethos sticker set, with its own design language, distinct from the graphical set.
+5. Ethos backgrounds. The research is the American Communist Party and Red Star: a red star, the geometry of the ACP logo as the constitution describes it, the slogan "The Future Belongs to the Working Class", and red, white, and black. Unofficial party seals are not shipped without clearance.
+6. A cutscene built from snippets of infrared-style footage and historical communist action. It ships in two forms: a normal video, and an ASCII-art form. Sources are public-domain or otherwise appropriately licensed archival material only, such as the Internet Archive, the Prelinger collection, or Soviet-era newsreels where the license clearly allows it. This note does not collect footage or make the cutscene.
+7. A Red Star forum launch write-up for comrades, covering v3. It is part of these launch communications. The draft stays with the assistant. The post body is not added to this repository until Michael asks for it.
 
 ---
 
@@ -1106,6 +1143,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **3.23.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, authorizer and node certificates, and OS keyring unlock for the daemon.
 - **3.28.0:** draft review links, comments and suggestions.
 - **3.29.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
+- **Embedded assistant** is a 4.0 roadmap item. It is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Numbered 3.x stages are not moved. Decentralization stays in 3.x.
 - **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.23.0 together with the service install. The TUI header already shows `v<version>` from 3.0.0.
 
 #### 7.14.10 Version display and desktop trays
@@ -1114,7 +1152,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
   - the header, an About screen (version, build date and commit, protocol version, whether the `p2p` feature is built in), `--version` and `--node-status`
   - the node chip in the header, the Nodes list for every node (§7.14.5, which also warns about lagging versions), the relay binary's `--version`, and the tray menu header
   - every window title of the tray apps
-  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and every later feature is one minor: interactions 3.5.0–3.9.0, live 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). There is no 4.0 in this plan. Inserting 3.22.0 moved each later stage up one minor.
+  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and every later feature is one minor: interactions 3.5.0–3.9.0, live 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). Decentralization stays in 3.x. A 4.0 line is later product work, including the embedded assistant, and it does not move the network node. The assistant is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Inserting 3.22.0 moved each later 3.x stage up one minor.
 - **Tray apps** to control the node and the relay without a terminal: a small separate binary, `acp-rs-tray`, in its own crate, that talks to the node and relay over the local control socket (§7.2).
   - **Menu:** status (running, stopped, locked, peers online, sync state, version), Start, Stop and Restart for the node and for the relay, **Unlock** (prompts for the passphrase when the node started locked), Open TUI, Nearby nodes and pending enrollments (approve from the tray), Pause syncing, Copy `acp-id`, Open logs, Quit.
   - **Notifications** for a pairing request, a new node enrolled, a certificate close to expiry, a revocation received, and a sync error. Each is optional.
@@ -1181,7 +1219,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~Networks: private and invite-only by default, and should public nodes exist?~~ **Decided 2026-10-19.** The default stays private and invite-only. Public nodes exist and are opt-in (`--serve --public`). What that means for relay scopes, the node record, and the stage order is in §7.4. The flag lands in 3.23.0. Kademlia advertisement lands in 3.24.0.
     - ~~Should peer tombstones delete local copies, or only flag them?~~ **Revised 2026-10-19.** This supersedes the earlier note that dropped the body after a grace period. A signed tombstone keeps the post data. Never let data go to waste. The post is shown as deleted with a tombstone icon (🪦, ASCII fallback `[RIP]`), and the content stays viewable. If the author publishes again, re-signs the same post id, or retracts the tombstone with a signed restore record, the post id is restored and the tombstone is cleared. The restore record is signed by the author's key, references the tombstone, and a newer timestamp wins (§7.5, `docs/PROTOCOL.md`). The icon is part of the interactions and feeds UI (§1b, §6.6).
     - Is an MSRV bump OK when libp2p 0.58 needs it?
-    - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.23.0 and later (§7.14.10).
+    - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.23.0 and later (§7.14.10). A 4.0 line opened on 2026-10-19 is later product work, including the embedded assistant. It does not move this decision. The assistant is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major.
 11. **Keys, identity and backup (§7.13). Resolved 2026-10-18:**
     - ~~Backup and restore~~ is designed (§7.13.7).
     - ~~Email as a salt~~: no. The seed is random and the email is never an input (§7.13.1).
@@ -1225,7 +1263,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
-13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Password change / re-key is 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0.
+13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Password change / re-key is 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. Decentralization stays in 3.x. A 4.0 line is later product work. The embedded assistant is on that line, not among the 3.x must-haves, and not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Numbered 3.x stages are not moved.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later.
     **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.29.0, §7.14.11). Until then, packaging stays unpublished.
