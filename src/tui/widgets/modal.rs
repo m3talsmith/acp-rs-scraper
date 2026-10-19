@@ -132,7 +132,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     app.hits.push((row(y), Hit::Modal(ModalHit::Field(1))));
     y += 1;
     let st = if m.focus == ComposeFocus::Attach { t.accent_bold() } else { t.plain() };
-    let shown = if m.attach_path.is_empty() { "path, then Enter".into() } else { m.attach_path.clone() };
+    let shown = if m.attach_path.is_empty() { "path · Tab completes · Enter adds".into() } else { m.attach_path.clone() };
     f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Attach: {shown}"), inner.width as usize), st)), row(y));
     app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
     y += 1;
@@ -145,12 +145,22 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
         f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Quote: {q}"), inner.width as usize), t.muted())), row(y));
         y += 1;
     }
-    let matches = m.pending.as_ref().map(|q| crate::site::completions(q, &m.nicks, &m.tags)).unwrap_or_default();
-    for (i, row_c) in matches.iter().take(4).enumerate() {
-        let st = if m.focus == ComposeFocus::Complete && i == m.complete_at { t.selected() } else { t.plain() };
-        f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {}", row_c.label), inner.width as usize), st)), row(y));
-        app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
-        y += 1;
+    if m.focus == ComposeFocus::Attach && !m.path_matches.is_empty() {
+        let start = m.path_at.saturating_sub(3);
+        for (i, text) in m.path_matches.iter().enumerate().skip(start).take(4) {
+            let st = if i == m.path_at { t.selected() } else { t.plain() };
+            f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {text}"), inner.width as usize), st)), row(y));
+            app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
+            y += 1;
+        }
+    } else {
+        let matches = m.pending.as_ref().map(|q| crate::site::completions(q, &m.nicks, &m.tags)).unwrap_or_default();
+        for (i, row_c) in matches.iter().take(4).enumerate() {
+            let st = if m.focus == ComposeFocus::Complete && i == m.complete_at { t.selected() } else { t.plain() };
+            f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {}", row_c.label), inner.width as usize), st)), row(y));
+            app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
+            y += 1;
+        }
     }
     let note = m.error.clone().unwrap_or_else(|| "Attach lists local files. Publish does not upload them.".into());
     f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));

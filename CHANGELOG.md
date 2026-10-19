@@ -16,7 +16,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Attachments on New post and Reply.** The compose box has an attach line: type a path and Enter. Backspace on an empty line removes the last file. `--attachment PATH` repeats on `--new-post` and `--reply`. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. `--dry-run` lists each file (kind, name, size, and path) and does not upload it.
+- **Attachments on New post and Reply.** The compose box has an attach line: type a path and Enter. Tab on a non-empty line completes the next real path segment (`~` becomes `~/`, and `~/…` stays in that form). Several matches are listed; Tab, Up, and Down move through them, and Enter writes the highlighted one without attaching yet. An empty line, or a Tab that changes nothing, moves focus. Backspace on an empty line removes the last file. `--attachment PATH` repeats on `--new-post` and `--reply`; the shell completes that flag. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. `--dry-run` lists each file (kind, name, size, and path) and does not upload it. `~/…` is stored as the expanded path.
 
 ### Not sent
 

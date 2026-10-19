@@ -66,6 +66,10 @@ pub struct ComposeModal {
     pub tags: Vec<String>,
     /// Path being typed on the attach line.
     pub attach_path: String,
+    /// Other real path segments when Tab found more than one.
+    pub path_matches: Vec<String>,
+    /// Highlighted path match.
+    pub path_at: usize,
     /// Files already accepted. Not uploaded.
     pub attachments: Vec<std::path::PathBuf>,
 }
@@ -98,6 +102,8 @@ impl ComposeModal {
             nicks,
             tags,
             attach_path: String::new(),
+            path_matches: Vec::new(),
+            path_at: 0,
             attachments: Vec::new(),
         }
     }
@@ -174,23 +180,61 @@ impl ComposeModal {
         self.focus = ComposeFocus::Body;
     }
 
+    fn clear_path_matches(&mut self) {
+        self.path_matches.clear();
+        self.path_at = 0;
+    }
+
+    fn accept_path_match(&mut self) {
+        if let Some(text) = self.path_matches.get(self.path_at).cloned() {
+            self.attach_path = text;
+        }
+        self.clear_path_matches();
+    }
+
     fn add_attachment(&mut self) {
-        let path = std::path::PathBuf::from(self.attach_path.trim());
-        if path.as_os_str().is_empty() {
+        self.clear_path_matches();
+        let raw = self.attach_path.trim();
+        if raw.is_empty() {
             self.error = Some("type a file path, then Enter".into());
             return;
         }
-        if self.attachments.iter().any(|p| p == &path) {
-            self.error = Some(format!("{} is already attached", path.display()));
+        let planned = match crate::site::plan_attachment(std::path::Path::new(raw)) {
+            Ok(planned) => planned,
+            Err(message) => {
+                self.error = Some(message);
+                return;
+            }
+        };
+        if self.attachments.iter().any(|p| p == &planned.path) {
+            self.error = Some(format!("{} is already attached", planned.path.display()));
             return;
         }
-        if let Err(message) = crate::site::plan_attachment(&path) {
-            self.error = Some(message);
-            return;
-        }
-        self.attachments.push(path);
+        self.attachments.push(planned.path);
         self.attach_path.clear();
         self.error = None;
+    }
+
+    fn complete_attach(&mut self) {
+        if !self.path_matches.is_empty() {
+            let n = self.path_matches.len();
+            self.path_at = cycle(self.path_at, n, 1);
+            return;
+        }
+        if self.attach_path.trim().is_empty() {
+            self.move_focus(1);
+            return;
+        }
+        let home = crate::config::home().ok();
+        let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+        let done = crate::site::complete_path(&self.attach_path, home.as_deref(), &cwd);
+        if done.matches.is_empty() && done.text == self.attach_path {
+            self.move_focus(1);
+            return;
+        }
+        self.attach_path = done.text;
+        self.path_matches = done.matches;
+        self.path_at = 0;
     }
 
     fn try_publish(&mut self) -> Option<ModalResult> {
@@ -215,18 +259,34 @@ impl ModalState for ComposeModal {
     fn on_key(&mut self, k: KeyEvent) -> Option<ModalResult> {
         self.error = None;
         match k.code {
+            KeyCode::Esc if self.focus == ComposeFocus::Attach && !self.path_matches.is_empty() => {
+                self.clear_path_matches();
+                None
+            }
             KeyCode::Esc if self.pending.is_some() => {
                 self.pending = None;
                 self.focus = ComposeFocus::Body;
                 None
             }
             KeyCode::Esc => Some(ModalResult::ClosedCancelled),
+            KeyCode::Tab if self.focus == ComposeFocus::Attach => {
+                self.complete_attach();
+                None
+            }
             KeyCode::Tab => {
                 self.move_focus(1);
                 None
             }
             KeyCode::BackTab => {
+                self.clear_path_matches();
                 self.move_focus(-1);
+                None
+            }
+            KeyCode::Up | KeyCode::Down
+                if self.focus == ComposeFocus::Attach && !self.path_matches.is_empty() =>
+            {
+                let d = if k.code == KeyCode::Up { -1 } else { 1 };
+                self.path_at = cycle(self.path_at, self.path_matches.len(), d);
                 None
             }
             KeyCode::Up if self.pending.is_some() => {
@@ -261,13 +321,20 @@ impl ModalState for ComposeModal {
                     None
                 }
                 ComposeFocus::Attach => {
-                    self.add_attachment();
+                    if self.path_matches.is_empty() {
+                        self.add_attachment();
+                    } else {
+                        self.accept_path_match();
+                    }
                     None
                 }
             },
             KeyCode::Backspace => {
                 if self.focus == ComposeFocus::Complete {
                     self.focus = ComposeFocus::Body;
+                }
+                if self.focus == ComposeFocus::Attach {
+                    self.clear_path_matches();
                 }
                 if self.focus == ComposeFocus::Attach && self.attach_path.is_empty() {
                     self.attachments.pop();
@@ -285,6 +352,7 @@ impl ModalState for ComposeModal {
             }
             KeyCode::Char(c) => {
                 if self.focus == ComposeFocus::Attach {
+                    self.clear_path_matches();
                     self.attach_path.push(c);
                 } else if self.focus != ComposeFocus::Cancel && self.focus != ComposeFocus::Publish {
                     if self.focus == ComposeFocus::Complete {
@@ -331,6 +399,11 @@ impl ModalState for ComposeModal {
                 None
             }
             ModalHit::Button(_) => None,
+            ModalHit::Item(i) if self.focus == ComposeFocus::Attach && !self.path_matches.is_empty() => {
+                self.path_at = i;
+                self.accept_path_match();
+                None
+            }
             ModalHit::Item(i) => {
                 self.complete_at = i;
                 self.focus = ComposeFocus::Complete;

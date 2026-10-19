@@ -204,6 +204,69 @@ fn reply_attach_line_accepts_a_pdf_and_drops_it_on_backspace() {
 }
 
 #[test]
+fn attach_tab_completes_a_real_segment_and_an_empty_line_still_moves() {
+    let dir = std::env::temp_dir().join(format!(
+        "acp-compose-tab-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let photo = dir.join("photo.jpg");
+    std::fs::write(&photo, b"j").unwrap();
+    std::fs::write(dir.join("other.jpg"), b"o").unwrap();
+    let mut a = app();
+    key(&mut a, KeyCode::Char('n'));
+    key(&mut a, KeyCode::BackTab);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.focus, ComposeFocus::Attach);
+    key(&mut a, KeyCode::Tab);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.focus, ComposeFocus::Cancel, "an empty attach line still moves focus");
+
+    key(&mut a, KeyCode::BackTab);
+    for c in format!("{}/p", dir.display()).chars() {
+        key(&mut a, KeyCode::Char(c));
+    }
+    key(&mut a, KeyCode::Tab);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.focus, ComposeFocus::Attach);
+    assert_eq!(m.attach_path, photo.display().to_string());
+    assert!(m.path_matches.is_empty(), "{:?}", m.path_matches);
+    assert!(m.attachments.is_empty());
+    key(&mut a, KeyCode::Tab);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.focus, ComposeFocus::Cancel, "a second Tab on a finished file moves focus");
+
+    key(&mut a, KeyCode::BackTab);
+    let typed = {
+        let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+        m.attach_path.chars().count()
+    };
+    for _ in 0..typed {
+        key(&mut a, KeyCode::Backspace);
+    }
+    for c in format!("{}/", dir.display()).chars() {
+        key(&mut a, KeyCode::Char(c));
+    }
+    key(&mut a, KeyCode::Tab);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.path_matches.len(), 2, "{:?}", m.path_matches);
+    assert_eq!(m.focus, ComposeFocus::Attach);
+    key(&mut a, KeyCode::Esc);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("Esc stays on the compose box: {:?}", a.modal); };
+    assert!(m.path_matches.is_empty());
+    assert_eq!(m.focus, ComposeFocus::Attach);
+    key(&mut a, KeyCode::Tab);
+    key(&mut a, KeyCode::Down);
+    key(&mut a, KeyCode::Enter);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert!(m.attachments.is_empty(), "choosing a match does not attach it");
+    assert!(m.path_matches.is_empty());
+    assert!(m.attach_path.ends_with("photo.jpg"), "{}", m.attach_path);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn list_r_is_still_research() {
     let mut a = app();
     a.select_only(nick_idx(&a, "bob"));

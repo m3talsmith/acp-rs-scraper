@@ -11,7 +11,9 @@ mod attach;
 mod prosemirror;
 mod write;
 
-pub use attach::{AttachmentKind, PlannedAttachment, plan_attachment, plan_attachments};
+pub use attach::{
+    AttachmentKind, PathCompletion, PlannedAttachment, complete_path, expand_with_home, plan_attachment, plan_attachments,
+};
 pub use prosemirror::{BODY_CHAR_LIMIT, assemble, markdown_to_doc, plain_blocks, post_ref};
 pub use write::{
     CAPTURE_BLOCK, Completion, Draft, Kind, NickHint, Probe, WriteError, WritePlan, bundle_changed, capture_stub_message,
