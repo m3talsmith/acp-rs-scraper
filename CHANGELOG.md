@@ -6,6 +6,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Documentation
+
+- **Tombstones, revised.** A signed tombstone keeps the post. The plan no longer drops the body after a grace period. The UI shows a tombstone icon (🪦, or `[RIP]`), the content stays viewable, and a signed restore record or a newer signature of the same post id clears the tombstone. The restore record is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
+- **Password change / re-key is 3.22.0.** It does not change the master or the `acp-id`. It re-wraps the SQLCipher key, the keystore, the sealed phrase, and the backup-wrapping key in one transaction, with rollback, and it requires the old password. It sits before the daemon and the OS keyring. Stages that were 3.22.0 through 3.28.0 are now 3.23.0 through 3.29.0. The write core stays 3.4.0.
+
 ## [3.3.1] - 2026-10-19
 
 ### Fixed
@@ -14,7 +19,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Documentation
 
-- **Plan decisions.** [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) records the answers from review: an authorizer certificate lasts 30 days, a node certificate lasts 365 days, and clock skew is 5 minutes; renewal, the 7-day grace period, and revocation stay in their planned stages. A future daemon may unlock from the OS keyring (Secret Service, Keychain, Credential Manager) behind `SecretStore`. Public nodes are opt-in and land with `--serve` in 3.22.0. Peer tombstones have a working design that can still change: hide immediately, drop the body after a short grace period, keep the signed stub. APT, COPR, AUR, and the Homebrew formula stay unpublished until decentralized publishing, replies, review, the crates, and the Dart package all exist. The first machine's history access is accepted (`allowed`, `max_nodes` 16). The 3.3.0 certificate constants are unchanged. Later plan numbers are unchanged.
+- **Plan decisions.** [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) records the answers from review: an authorizer certificate lasts 30 days, a node certificate lasts 365 days, and clock skew is 5 minutes; renewal, the 7-day grace period, and revocation stay in their planned stages. A future daemon may unlock from the OS keyring (Secret Service, Keychain, Credential Manager) behind `SecretStore`. Public nodes are opt-in and land with `--serve` in the network-node stage. The first machine's history access is accepted (`allowed`, `max_nodes` 16). The 3.3.0 certificate constants are unchanged. The tombstone rule and the stage numbers after 3.21.0 were revised after this note. See Unreleased.
 
 ## [3.3.0] - 2026-10-19
 

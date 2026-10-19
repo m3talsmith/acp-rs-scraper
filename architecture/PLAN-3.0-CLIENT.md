@@ -7,13 +7,15 @@ Update 2026-10-18: §7.13 (keys, identity, encryption at rest, backup and recove
 were added after review with Michael. §7.13 supersedes the single node identity key in §7.2, and §7.14 wins wherever it disagrees with an earlier section.
 Their decisions are marked resolved in §8 Q11 and Q12.
 
-Update 2026-10-18 (versioning): **3.0.0 is identity, encryption at rest, and backup/restore**, not the write core. It is a breaking change for a 2.x plaintext database. The write core and every later phase move up one minor (§4, §7.11, §7.14.9). Authorizer and node certificates, enrollment, revocation, relays and peers stay in P9 (3.22.0 and later).
+Update 2026-10-18 (versioning): **3.0.0 is identity, encryption at rest, and backup/restore**, not the write core. It is a breaking change for a 2.x plaintext database. The write core and every later phase move up one minor (§4, §7.11, §7.14.9). Authorizer and node certificates, enrollment, revocation, relays and peers stay in P9 (3.23.0 and later).
 
 Update 2026-10-19: **3.1.0 is the job-details window** (click a running job in the terminal UI). The write core moves to 3.2.0, and every later phase moves up one minor with it.
 
-Update 2026-10-19 (crate split): **3.2.0** is `acp_rs_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.22.0 and later. There is no 4.0.
+Update 2026-10-19 (crate split): **3.2.0** is `acp_rs_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.23.0 and later. There is no 4.0.
 
-Update 2026-10-19 (decisions, no new version): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the 3.22.0 serve and relay work. Peer tombstones have a working design that can still change. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists. Later phase numbers are unchanged.
+Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the serve and relay work. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists.
+
+Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -113,7 +115,7 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 25 | Mentions and tag autocomplete | `pushEventTo('#js-postForm', 'mention-query'\|'tag-query', {query})`. Results land in a listbox. Nodes are `mention {id, label:"@nick"}`; tags are `mention` with `mentionSuggestionChar:"#"`. | C | ✗ | Pop-up completion in the compose box |
 | 26 | Repost / quote-post | `/rs/post/new?repost={id}` (the post renders `quoted_post`), gated by `actions.repost` | C | ✗ | Post menu › Repost (Compose with an embedded quote) |
 | 27 | Edit post | `/rs/post/{id}/edit` (`actions.edit`). Probably the same editor form. | I | ✗ | Post menu › Edit (own posts) |
-| 28 | Delete post | hook `delete-post {id}` after `confirm()` (`actions.delete`) | C | ✗ | Post menu › Delete, typed confirmation |
+| 28 | Delete post | hook `delete-post {id}` after `confirm()` (`actions.delete`) | C | ✗ | Post menu › Delete, typed confirmation. A tombstoned post stays in the list with a tombstone icon and its body still readable (§7.5). |
 | 29 | Up/down vote | hook `vote {id, state:"1"\|"0"\|"-1"}`. The post has `score`, `vote` and `upvote_percentage`. | C | ✗ | `+` / `-` keys and a score column |
 | 30 | Bookmark | hook `bookmark {id, state}` (current), or the click `toggle-bookmark {id}` (what we use) | C | ✅ | Existing; move to the new event |
 | 31 | Subscribe to a thread | hook `subscribe {id, state:"1"\|"0"}` (field `subscribed`) | C | ✗ | Post menu › Subscribe |
@@ -250,14 +252,15 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | 3.2.0: Shared core | **3.2.0** | `acp_rs_node_core`: the master, the phrase, SLIP-39, canonical CBOR (with `docs/PROTOCOL.md` and test vectors), HPKE wraps, and a `SecretStore` interface. The terminal app depends on it. CLI flags, preferences, the SQLCipher database, and `.acpbackup` format version 1 stay as they are. The other crates in §7.14.7 are later. |
 | 3.3.0: Node identity | **3.3.0** | A node key generated on the machine and certified by the master (not derived from it). Label, fingerprint, PeerId, authorizer and node certificates, `--node-init`, `--node-id`, and a header chip. No `--serve`, relay, or enrollment over the network. |
 | P2: Write core | **3.4.0** | `src/site` layer, safety layer, Markdown→ProseMirror, compose **New post** + **Reply** (incl. reply-to-comment, quote, mention/tag completion). Attachments if the upload spike succeeded; otherwise they go to 3.5. |
-| P3: Interactions | 3.5.0 → 3.9.0 | Vote, Subscribe, Delete, Edit, Repost/quote-post |
+| P3: Interactions | 3.5.0 → 3.9.0 | Vote, Subscribe, Delete, Edit, Repost/quote-post. A deleted post shows a tombstone icon (🪦, or `[RIP]` when the terminal cannot draw that glyph) and the retained body stays openable (§6.6, §7.5). |
 | P4: Live | 3.10.0 → 3.11.0 | Live updates; Notifications pane |
 | P5: Account | 3.12.0 → 3.15.0 | Edit profile, Site settings, Report post, Report user |
 | P6: Outbox | 3.16.0 | Offline drafts and queue, plus **local-first posts, drafts and `post_versions`** (§7.14.8) |
 | P7: Feeds | 3.17.0 → 3.20.0 | Feeds core + view; editor + add-to-feed modal; export; share/import (§6) |
 | P8: Spaces (optional) | 3.21.0 | List of spaces / live badge / recordings link |
-| P9: Decentralization | 3.22.0 → 3.26.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. It stays inside 3.x (§7.14.10). |
-| P10: Review and Dart SDK | 3.27.0 → 3.28.0 | Draft review links, comments and suggestions (3.27.0). `acp_rs_node_ffi` and the Dart SDK (3.28.0). See §7.14. |
+| 3.22.0: Password change / re-key | **3.22.0** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. |
+| P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
+| P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -419,6 +422,7 @@ values = ["memes"]
   It's a modal like Bookmarks/Research, letting you pick a feed or create one. It's in the command palette and context menus.
   The suggested key is `f`, still to be checked against the existing bindings.
 - **Actions** (feed list menu and palette): Export…, Share… (shows the string and saves a `.acpfeed`), Import… and Delete.
+- **Tombstoned posts (interactions 3.5.0–3.9.0 and feeds 3.17.0–3.20.0).** A post with a tombstone stays in the feed and in the post list. The row shows a tombstone icon, the glyph 🪦, or the ASCII fallback `[RIP]` when the terminal cannot render that glyph. The body stays viewable. Opening it shows the retained content with the same icon and a "deleted" mark. Nothing in these stages drops the body (§7.5).
 
 ### 6.7 CLI
 | Flag | What it does |
@@ -447,7 +451,7 @@ values = ["memes"]
 
 ---
 
-## 7. Decentralization: nodes and P2P sync on libp2p (phase P9, 3.22.0 →)
+## 7. Decentralization: nodes and P2P sync on libp2p (phase P9, 3.23.0 →)
 
 Michael's decision: build on **rust-libp2p**. Alternatives were not weighed.
 
@@ -510,7 +514,7 @@ Michael's decision: build on **rust-libp2p**. Alternatives were not weighed.
   - A public node lets strangers dial it and fetch public posts (posts that are visible on the site, and local posts the user has published). Account-private tables, drafts, bookmarks, the keystore, enrollment, and write intents stay closed. An unknown dialer is `pull-only`: it can fetch, and this node stores nothing from it, until the user raises that peer's trust.
   - **Node record.** The signed node record gains `visibility` (`private` or `public`, default `private`). A public record carries the PeerId, the listen addresses, and `visibility`. It does not carry account-private topics or any secret. `p2p_peers` stores the same flag when the user keeps a foreign public node.
   - **Relay scopes (§7.14.3).** The local scope is unchanged. The public relay scope is how other people reach a public node: `--public` also turns on that node's public relay scope, with the same conservative limits (a handful of reservations, short circuits, a daily byte cap). A node may use the public relay scope without publishing its database. A public content node does not relay account-private streams.
-  - **Stage.** The flag, the `visibility` field, and the public relay scope land in **3.22.0** with `--serve` and the relay crate. Advertising a public node through Kademlia lands in **3.23.0**. This does not add a version.
+  - **Stage.** The flag, the `visibility` field, and the public relay scope land in **3.23.0** with `--serve` and the relay crate. Advertising a public node through Kademlia lands in **3.24.0**. This does not add a version.
 - **Connection limits** (`connection-limits`): maximum established connections in and out, a per-peer maximum (2), and a pending-dial maximum.
   On top of that, request-response quotas per peer (requests per minute and bytes per day), plus a global storage cap
   for peer-provided data (default 2 GiB) and a separate media cap.
@@ -534,9 +538,10 @@ Michael's decision: build on **rust-libp2p**. Alternatives were not weighed.
   2. The current version is the one with the highest `last_edited_at`, then the earliest `posted_at`-consistent version,
      then the most observations from site-sourced envelopes, then the lowest hash.
   3. A version **we scraped from the site ourselves always wins** over peer data for the same `last_edited_at`.
-  4. **Tombstones:** a site-observed deletion (ours) is authoritative. A peer tombstone is acted on only from a `trusted`
-     peer (§7.4). Otherwise it is shown as "reported deleted by peer X" and the local copy stays.
-     **Working design for an accepted peer tombstone (2026-10-19, changeable, §8 Q10).** On a signed tombstone, hide the post immediately. After a short grace period, drop the body and keep the signed stub, so a later sync cannot resurrect the post. The user can purge the stub or keep the hidden copy. The grace length is chosen when replication is built (3.22.0). This can still change before that stage.
+  4. **Tombstones (revised 2026-10-19, §8 Q10).** This replaces the earlier working design that dropped the body after a grace period. Never let data go to waste.
+     A site-observed deletion and a signed peer tombstone from a `trusted` peer (§7.4) both **keep the post data**. There is no grace-period deletion and the body is not dropped. A tombstone from a peer below `trusted` is shown as "reported deleted by peer X" and does not mark the local copy deleted.
+     The post is shown as deleted. The UI uses a tombstone icon (🪦, ASCII fallback `[RIP]`). The content stays viewable and retained locally. Interactions (3.5.0–3.9.0) and feeds (3.17.0–3.20.0) use that icon (§1b, §6.6).
+     **Restore.** If the author later publishes again or re-signs the same `post_id`, or retracts the tombstone with a signed restore record, the post id is restored retroactively: the tombstone is cleared and the post displays normally. The restore record is in `docs/PROTOCOL.md`. It is signed by the author's key, it references the tombstone, and a newer timestamp wins. The retained body is what comes back. Replication must not treat a tombstone as a reason to delete bytes.
 - **Set reconciliation:**
   - **Range-based set reconciliation (RBSR, Negentropy-style)** over items sorted by `(posted_at, record_hash)`.
   - Peers exchange fingerprints (an XOR/sum of hashes plus a count) for ranges and split them recursively until differences are found,
@@ -662,13 +667,14 @@ cookies or tokens. Peers only carry signed *intents*.
 | **3.1.0** | Job details in the terminal UI. Click the status bar or the header running mark. The window shows state, elapsed time and the log, and it does not show the password or the database key. |
 | **3.2.0** | `acp_rs_node_core`. Identity crypto, canonical CBOR, and the secret-store interface move out of the terminal crate. `docs/PROTOCOL.md` starts with the CBOR rules and test vectors. CLI flags, the encrypted database, and `.acpbackup` format version 1 do not change. |
 | **3.3.0** | Local node identity. An independent ed25519 and X25519 keypair, sealed in a keystore that backups skip, certified by the master on the first machine. `--node-init`, `--node-id`, and the header chip. Not in this release: `--serve`, mDNS, relays, enrollment over the network, peers, replication. |
-| **3.22.0** | `--serve`, enrollment over the network, renewal, revocation gossip (§7.13; the master and the local certificate format already shipped), pairing code and `--join`, mDNS on by default, relay crate and `acp-rs-relay`, peers and peer management, invites, allowlist, node roles (opt-in), cross-platform service install, post replication (sync + gossip) and provenance UI (§7.14). Also in this stage: public nodes (`--serve --public`, §7.4) and OS keyring unlock for the daemon behind `SecretStore` (§7.13.6, §7.14.5). Repository publishing waits (§7.14.11). |
-| 3.23.0 | NAT traversal (AutoNAT, relay, DCUtR) and Kademlia, including discovery of public nodes |
-| 3.24.0 | Write relay to the site: intents, certified devices, publisher, receipts (§7.6) |
-| 3.25.0 | Media blobs |
-| 3.26.0 | Opt-in feed and research sharing |
-| 3.27.0 | Draft review: links, comments, suggestions (§7.14.8) |
-| 3.28.0 | `acp_rs_node_ffi` and the first Dart SDK release (§7.14.7) |
+| **3.22.0** | Password change / re-key (§7.13.13). Local data only: the SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key, re-wrapped atomically with rollback. The old password is required. The master, the `acp-id`, and node certificates stay as they are. Tests: the data stays readable, and the `acp-id` is unchanged. Before the daemon and the OS keyring. |
+| **3.23.0** | `--serve`, enrollment over the network, renewal, revocation gossip (§7.13; the master and the local certificate format already shipped), pairing code and `--join`, mDNS on by default, relay crate and `acp-rs-relay`, peers and peer management, invites, allowlist, node roles (opt-in), cross-platform service install, post replication (sync + gossip) and provenance UI (§7.14). Also in this stage: public nodes (`--serve --public`, §7.4) and OS keyring unlock for the daemon behind `SecretStore` (§7.13.6, §7.14.5). Repository publishing waits (§7.14.11). |
+| 3.24.0 | NAT traversal (AutoNAT, relay, DCUtR) and Kademlia, including discovery of public nodes |
+| 3.25.0 | Write relay to the site: intents, certified devices, publisher, receipts (§7.6) |
+| 3.26.0 | Media blobs |
+| 3.27.0 | Opt-in feed and research sharing |
+| 3.28.0 | Draft review: links, comments, suggestions (§7.14.8) |
+| 3.29.0 | `acp_rs_node_ffi` and the first Dart SDK release (§7.14.7) |
 
 ### 7.12 Privacy and security risks
 - A node reveals its IP to peers, and gossip reveals who has which posts.
@@ -730,7 +736,7 @@ All certificates and revocations are canonical CBOR, signed with ed25519 and ver
 - **Node cert:** `{type:"node", account, node_sign_pub, node_enc_pub, peer_id, label, serial, issuer (master or authorizer pubkey),
   issued_at, expires_at (default +365 d), caps[sync, publish, intent-sender]}`, signed by the issuer.
   The authorizer signs only while its own certificate is still valid. The node certificate is not shortened to that authorizer expiry, so a 30-day authorizer can issue a 365-day node certificate.
-- **Lifetimes (decided 2026-10-19, §8 Q11).** An authorizer certificate lasts 30 days. A node certificate lasts 365 days. Verifiers allow 5 minutes of clock skew. Renewal, the 7-day grace period, and revocation are still to be built, in the stages already planned for them (3.22.0). 3.3.0 compiled the earlier draft of these two lifetimes (a node certificate of 30 days and an authorizer certificate of 365 days). Those constants are unchanged until the certificate stages are built.
+- **Lifetimes (decided 2026-10-19, §8 Q11).** An authorizer certificate lasts 30 days. A node certificate lasts 365 days. Verifiers allow 5 minutes of clock skew. Renewal, the 7-day grace period, and revocation are still to be built, in the stages already planned for them (3.23.0). 3.3.0 compiled the earlier draft of these two lifetimes (a node certificate of 30 days and an authorizer certificate of 365 days). Those constants are unchanged until the certificate stages are built.
 - **First machine (accepted 2026-10-19).** `history_grant` is `allowed` and `max_nodes` is 16, because this machine already holds the database. `max_node_ttl` is the node lifetime, 365 days. A later enrollment still asks the approver to choose history access (none, since a date, or full), as in §7.13.3.
 - **Chain:** `node cert → authorizer cert → master pubkey`, or `node cert → master pubkey` when the master signed it directly.
   The chain travels with the node's records (§7.5 envelopes carry the chain or its hash, with the chain fetchable on demand).
@@ -787,7 +793,7 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
   - It needs the master. `--authorizer-renew` is a short ceremony: bring out the phrase (or 3 shares) and password, the master signs a new authorizer cert with a new serial, and the master is erased again.
   - The 60-, 30- and 7-day reminder list was drafted for a year-long authorizer certificate. When `--authorizer-renew` is built, the reminders are timed for a 30-day certificate (banner, `--node-status`, and `--serve` logs).
   - If it lapses, the authorizer can't add or renew nodes. Existing node certs stay valid until their own expiry (365 days). Renewing the authorizer later restores enrollment. Nothing already issued is lost.
-  - Renewal, the 7-day grace period, and revocation are not built yet. They stay in 3.22.0.
+  - Renewal, the 7-day grace period, and revocation are not built yet. They stay in 3.23.0.
 - **Clocks:** certificate times are checked with ±5 minutes of tolerance. A record counts as validly signed if the cert was valid when the record was first seen locally.
 - **The master has no expiry.** Rotation is a separate, rare procedure (`--master-rotate`): the old master signs a "moved to" record for the new one, new shares and a new phrase are made, and every node is re-certified.
 
@@ -841,7 +847,7 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
   - A new node receives wraps for the epochs it's allowed (§7.13.3). A restore from shares uses the master's wrap (§7.13.7).
   - Each node also holds its own copy wrapped by the **local unlock passphrase** (Argon2id), so a stolen disk is useless without it.
 - **Unlock:** the passphrase is requested at TUI start. It is never stored in plain text.
-  **Daemon unlock (decided 2026-10-19, §8 Q11).** A future daemon may read the unlock secret from the OS keyring when the user opts in, and it may also start locked and wait for an unlock. The keyring sits behind the `SecretStore` interface from 3.2.0: Secret Service on Linux, Keychain on macOS, and Credential Manager on Windows. It lands with `--serve` and the service install in 3.22.0. It is not built in 3.3.1.
+  **Daemon unlock (decided 2026-10-19, §8 Q11).** A future daemon may read the unlock secret from the OS keyring when the user opts in, and it may also start locked and wait for an unlock. The keyring sits behind the `SecretStore` interface from 3.2.0: Secret Service on Linux, Keychain on macOS, and Credential Manager on Windows. It lands with `--serve` and the service install in 3.23.0. It is not built in 3.3.1.
 - **Table `key_epochs(epoch, created_at, reason, issuer, wraps BLOB)`** keeps this metadata. Secrets are held in zeroizing buffers and excluded from logs and core dumps.
 - **Between nodes and the site:** records travel as plaintext inside the Noise or QUIC-TLS link (§7.3), and site sync uses HTTPS. Private tables only sync between the user's own certified nodes.
 - **Migration:** `--encrypt-db` makes a backup (§7.13.7), converts the database, verifies row counts and hashes, then replaces it. The old file is removed only after a successful verification.
@@ -871,7 +877,7 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
   - The **password is not in the shares.** Colluding holders get the seed at most, and the seed alone can't produce the master. The password stays in the owner's head (or their own password manager).
   - `--shares-verify` checks any 3 shares without writing anything down, and the tool reminds you to run it after setup and once a year.
   - Reissuing shares of the *same* seed can't invalidate old ones. Truly invalidating a share set means rotating the master (`--master-rotate`), and the UI says so.
-- **Crates:** use vetted implementations (`bip39`, a SLIP-39 crate), pass the official SLIP-39 test vectors, and ask for an external crypto review before network enrollment in 3.22.0. 3.0.0 shipped the phrase, the shares and encryption at rest ahead of that review. 3.3.0 ships the local certificate format ahead of it as well. The format is in `docs/PROTOCOL.md` and is covered by test vectors.
+- **Crates:** use vetted implementations (`bip39`, a SLIP-39 crate), pass the official SLIP-39 test vectors, and ask for an external crypto review before network enrollment in 3.23.0. 3.0.0 shipped the phrase, the shares and encryption at rest ahead of that review. 3.3.0 ships the local certificate format ahead of it as well. The format is in `docs/PROTOCOL.md` and is covered by test vectors.
 - **Warnings shown at creation:** no password reset exists, and a lost password together with lost shares means the data can't be recovered.
 
 #### 7.13.9 Identity claims (optional, never required)
@@ -902,6 +908,21 @@ The TUI Nodes section (§7.9) gets an **Identity** tab (acp-id, certificate expi
 - SLIP-39 and BIP-39 official test vectors. A 3-of-5 recovery test with every combination of three shares, and a test that two shares fail.
 - Backup and restore round trips (§7.13.7).
 - No test touches the real site or the public internet.
+
+#### 7.13.13 Password change / re-key (3.22.0)
+
+**Decided 2026-10-19 (§8 Q11).** A password change does not change the master and does not change the `acp-id`. Node certificates stay valid. The password is not an input that rotates the account.
+
+`--change-password` asks for the old password and then re-wraps only local data, in one transaction. If any step fails, the whole change rolls back and the old password still opens everything it opened before:
+
+- the SQLCipher database key
+- the sealed node keystore
+- the sealed phrase or entropy
+- the backup-wrapping key
+
+3.0.0 already ships a `--change-password` that keeps the `acp-id` and rewraps the database bootstrap, and reseals the phrase when that phrase used the same password. 3.22.0 is the release that makes the four wraps above one atomic re-key, including the keystore and the backup-wrapping key. Archives already written stay sealed with the password that wrote them. This stage is before the daemon and the OS keyring (3.23.0).
+
+**Tests.** After a successful change, the database, the keystore, and the phrase open with the new password and the stored posts are readable. The pinned `acp-id` is byte-for-byte the same. A forced failure halfway through leaves the old password working and the `acp-id` unchanged. A wrong old password changes nothing.
 
 ### 7.14 Onboarding, operations, crates, local-first posts and review (decided 2026-10-18)
 
@@ -966,7 +987,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 
 - **Service install on every platform:** `acp-rs --service install|uninstall|start|stop|status` chooses a **systemd unit** on Linux, a **launchd** agent or daemon on macOS, and a **Windows Service** on Windows. `acp-rs-relay` has the same flag.
   - Services run as a normal user, never root or SYSTEM, with the data directory in that user's profile.
-  - A service can't type a passphrase. **Decided 2026-10-19:** installing asks whether to read the unlock secret from the OS keyring or to start locked and wait for an unlock. Both are supported. The keyring is a `SecretStore`: Secret Service on Linux, Keychain on macOS, Credential Manager on Windows (§7.13.6). This lands in 3.22.0 with the service install.
+  - A service can't type a passphrase. **Decided 2026-10-19:** installing asks whether to read the unlock secret from the OS keyring or to start locked and wait for an unlock. Both are supported. The keyring is a `SecretStore`: Secret Service on Linux, Keychain on macOS, Credential Manager on Windows (§7.13.6). This lands in 3.23.0 with the service install.
 - **State lives in the encrypted database.** Peers, bootstrap list, relay addresses, node roles, sync state and certificates are rows, not files, so they are encrypted at rest and included in backups.
   - Outside the database there are only the small bootstrap file (the database location and the Argon2 parameters needed to unlock) and `preferences.toml` for hand-edited settings, which holds no state.
   - The old `peers.toml` becomes a one-time import into `p2p_peers`.
@@ -1030,10 +1051,11 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 
 - **3.0.0** is identity, encryption at rest, and backup/restore (§7.13, without a node). It does not depend on P2P and it has shipped. **3.1.0** is the job-details window and has shipped. **3.2.0** is `acp_rs_node_core` and has shipped. **3.3.0** is local node identity and has shipped. The write core is 3.4.0. Writes stay off until then. Every later feature is one minor (§4).
 - **Local-first posts, drafts and `post_versions`** land with the Outbox in P6 (3.16.0).
-- **3.22.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, and authorizer and node certificates.
-- **3.27.0:** draft review links, comments and suggestions.
-- **3.28.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
-- **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.22.0 together with the service install. The TUI header already shows `v<version>` from 3.0.0.
+- **3.22.0** is password change / re-key (§7.13.13). It does not change the master or the `acp-id`. It is before the daemon.
+- **3.23.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, authorizer and node certificates, and OS keyring unlock for the daemon.
+- **3.28.0:** draft review links, comments and suggestions.
+- **3.29.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
+- **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.23.0 together with the service install. The TUI header already shows `v<version>` from 3.0.0.
 
 #### 7.14.10 Version display and desktop trays
 
@@ -1041,7 +1063,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
   - the header, an About screen (version, build date and commit, protocol version, whether the `p2p` feature is built in), `--version` and `--node-status`
   - the node chip in the header, the Nodes list for every node (§7.14.5, which also warns about lagging versions), the relay binary's `--version`, and the tray menu header
   - every window title of the tray apps
-  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and every later feature is one minor: interactions 3.5.0–3.9.0, live 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, the network node 3.22.0–3.26.0, review 3.27.0, the Dart SDK 3.28.0 (§7.11). There is no 4.0 in this plan.
+  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and every later feature is one minor: interactions 3.5.0–3.9.0, live 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). There is no 4.0 in this plan. Inserting 3.22.0 moved each later stage up one minor.
 - **Tray apps** to control the node and the relay without a terminal: a small separate binary, `acp-rs-tray`, in its own crate, that talks to the node and relay over the local control socket (§7.2).
   - **Menu:** status (running, stopped, locked, peers online, sync state, version), Start, Stop and Restart for the node and for the relay, **Unlock** (prompts for the passphrase when the node started locked), Open TUI, Nearby nodes and pending enrollments (approve from the tray), Pause syncing, Copy `acp-id`, Open logs, Quit.
   - **Notifications** for a pairing request, a new node enrolled, a certificate close to expiry, a revocation received, and a sync error. Each is optional.
@@ -1071,8 +1093,8 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
   - Packages are built as release assets with checksums and a detached signature when a release is cut. That is not the same as publishing them to a distribution repository.
   - Package smoke tests in CI: install in a clean container or VM, start the service, check that it listens, uninstall, and confirm that nothing is left behind.
   - The package version is the release version (§7.14.10), shown by `acp-rs-relay --version`.
-- **Publishing (decided 2026-10-19, §8 Q14).** APT, Fedora COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing (3.24.0), replies (3.4.0), review (3.27.0), the node crates (through 3.26.0), and the Dart package (3.28.0). Until that set has shipped, packaging in this repository stays unpublished. Someone can still build a package by hand from the tree.
-- **Roadmap:** the relay crate lands in 3.22.0 (§7.14.9). It is not published to APT, COPR, AUR, or Homebrew in that release. Those repositories wait for the full set above.
+- **Publishing (decided 2026-10-19, §8 Q14).** APT, Fedora COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing (3.25.0), replies (3.4.0), review (3.28.0), the node crates (through 3.27.0), and the Dart package (3.29.0). Until that set has shipped, packaging in this repository stays unpublished. Someone can still build a package by hand from the tree.
+- **Roadmap:** the relay crate lands in 3.23.0 (§7.14.9). It is not published to APT, COPR, AUR, or Homebrew in that release. Those repositories wait for the full set above.
 
 ---
 
@@ -1105,10 +1127,10 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
       - How long can an intent wait before it expires (proposed: 24 h, matching the outbox)?
       - Should a node↔account binding be verifiable by others, for example a node id in the Red Star bio? That would publicly link a node to a nick.
     - Scope: posts only, posts + media, or also feeds/research when opted in?
-    - ~~Networks: private and invite-only by default, and should public nodes exist?~~ **Decided 2026-10-19.** The default stays private and invite-only. Public nodes exist and are opt-in (`--serve --public`). What that means for relay scopes, the node record, and the stage order is in §7.4. The flag lands in 3.22.0. Kademlia advertisement lands in 3.23.0.
-    - ~~Should peer tombstones delete local copies, or only flag them?~~ **Working design 2026-10-19, changeable.** On a signed tombstone this node accepts, hide the post immediately, drop the body after a short grace period, and keep the signed stub so replication does not resurrect it. The user can purge the stub or keep the hidden copy (§7.5). The grace length is set when replication is built. This can still change.
+    - ~~Networks: private and invite-only by default, and should public nodes exist?~~ **Decided 2026-10-19.** The default stays private and invite-only. Public nodes exist and are opt-in (`--serve --public`). What that means for relay scopes, the node record, and the stage order is in §7.4. The flag lands in 3.23.0. Kademlia advertisement lands in 3.24.0.
+    - ~~Should peer tombstones delete local copies, or only flag them?~~ **Revised 2026-10-19.** This supersedes the earlier note that dropped the body after a grace period. A signed tombstone keeps the post data. Never let data go to waste. The post is shown as deleted with a tombstone icon (🪦, ASCII fallback `[RIP]`), and the content stays viewable. If the author publishes again, re-signs the same post id, or retracts the tombstone with a signed restore record, the post id is restored and the tombstone is cleared. The restore record is signed by the author's key, references the tombstone, and a newer timestamp wins (§7.5, `docs/PROTOCOL.md`). The icon is part of the interactions and feeds UI (§1b, §6.6).
     - Is an MSRV bump OK when libp2p 0.58 needs it?
-    - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.22.0 and later (§7.14.10).
+    - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.23.0 and later (§7.14.10).
 11. **Keys, identity and backup (§7.13). Resolved 2026-10-18:**
     - ~~Backup and restore~~ is designed (§7.13.7).
     - ~~Email as a salt~~: no. The seed is random and the email is never an input (§7.13.1).
@@ -1121,17 +1143,17 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     Resolved with 3.0.0:
     - ~~**Encryption scope:**~~ SQLCipher for the whole database. Column encryption was rejected because cached posts would stay readable.
     - ~~**Timing:**~~ encryption at rest and backup/restore shipped as 3.0.0. They do not wait for the node.
-    - **Local passphrase:** at init it is the same string as the account password. Rewrapping that local key does not rotate the master or the `acp-id`.
+    - ~~**Local passphrase:**~~ at init it is the same string as the account password. Rewrapping that local key does not rotate the master or the `acp-id`.
 
     Decided 2026-10-19:
-    - ~~**Default lifetimes:**~~ confirmed. An authorizer certificate lasts 30 days, a node certificate lasts 365 days, and clock skew is 5 minutes (§7.13.2, §7.13.4). Renewal, the 7-day grace period, and revocation are still to be built in their planned stages (3.22.0).
+    - ~~**Default lifetimes:**~~ confirmed. An authorizer certificate lasts 30 days, a node certificate lasts 365 days, and clock skew is 5 minutes (§7.13.2, §7.13.4). Renewal, the 7-day grace period, and revocation are still to be built in their planned stages (3.23.0).
     - ~~**History access on the first machine:**~~ accepted. `history_grant` is `allowed` and `max_nodes` is 16. A later enrollment still asks the approver (§7.13.3).
-    - ~~**Daemon unlock:**~~ yes. `--serve` and the service install may read the unlock secret from the OS keyring, behind `SecretStore`: Secret Service on Linux, Keychain on macOS, Credential Manager on Windows. Starting locked and waiting for an unlock stays available. This lands in 3.22.0 (§7.13.6, §7.14.5).
+    - ~~**Daemon unlock:**~~ yes. `--serve` and the service install may read the unlock secret from the OS keyring, behind `SecretStore`: Secret Service on Linux, Keychain on macOS, Credential Manager on Windows. Starting locked and waiting for an unlock stays available. This lands in 3.23.0, after password change / re-key (§7.13.6, §7.14.5).
+    - ~~**Account password:**~~ a password change does **not** change the master or the `acp-id`. It re-keys local data only (§7.13.13), as its own minor, **3.22.0**, before the daemon and the keyring.
 
     Still open:
-    - **Account password:** it is part of the master derivation, so changing it means rotating the master (new `acp-id`). Is that acceptable?
     - **Backups:** are the exclusions right (no `session.json`, no node secret key)? May peers hold encrypted backup blobs for each other?
-    - **Review:** the key derivation and the certificate formats should get an external review before 3.22.0 ships. 3.0.0 did not have that review.
+    - **Review:** the key derivation and the certificate formats should get an external review before 3.23.0 ships. 3.0.0 did not have that review.
 12. **Onboarding, operations, Dart SDK, drafts and review (§7.14). Resolved 2026-10-18:**
     - ~~Decentralization~~ is optional, and a checkbox that is on by default (§7.14.1).
     - ~~mDNS~~ is on by default, with a Nearby nodes list, no automatic connection and no identifying announcements (§7.14.2).
@@ -1152,7 +1174,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
-13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0, and the network node and trays are 3.22.0 and later. There is no 4.0.
+13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Password change / re-key is 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later.
-    **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.28.0, §7.14.11). Until then, packaging stays unpublished.
+    **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.29.0, §7.14.11). Until then, packaging stays unpublished.

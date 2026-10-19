@@ -111,6 +111,16 @@ Vector. Signing key seed `11` repeated, wrapping seed `22` repeated, label `home
 zebra cloud van any butter science
 ```
 
+## Tombstones and restore
+
+A tombstone does not delete the post. The node keeps the body. Never let data go to waste. The UI shows the post as deleted with a tombstone icon (the glyph 🪦, or `[RIP]` when the terminal cannot render it). The content stays viewable.
+
+A restore record is a canonical CBOR map signed by the author's key. The signature is over the canonical bytes of the map and is not a field of the map. Version is `v = 1`.
+
+Fields: `type = "restore"`, `v`, `post_id`, `tombstone` (the `record_hash` of the tombstone this retracts), `issued_at` (unix seconds).
+
+A newer timestamp wins. If `issued_at` is later than the tombstone it names, the tombstone is cleared and the post displays normally again. The retained body is what comes back. A post record for the same `post_id` signed by the author with a newer timestamp does the same thing: the tombstone is cleared and the post id is restored. An older restore record does not clear a newer tombstone.
+
 ## Node keystore
 
 `~/.acp/node/keystore` is not a certificate and it is not inside a `.acpbackup`. The file is `ACPKEY01`, then a 24-byte nonce, then XChaCha20-Poly1305 ciphertext. The additional data is `acp-node-keystore-v1`. The key is HKDF-SHA256 of the unlocked database key with info `acp-node-keystore-v1`. The plaintext is canonical CBOR with `v`, `sign` (32-byte seed), and `enc` (32-byte seed). A wrong key fails the authenticator. The file mode is `0600`.
