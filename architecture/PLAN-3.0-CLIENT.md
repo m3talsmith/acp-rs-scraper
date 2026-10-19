@@ -27,6 +27,8 @@ Update 2026-10-19 (product name and launch docs): during 3.x the user-facing nam
 
 Update 2026-10-19 (About and the launch post, parked): the About modal is exactly three sections: Credits, Why this is necessary, and ACP platform. ACP platform is the vendored American Communist Party Program (adopted October 12, 2024), with headings, scroll, and a link to <https://acp.us/program>. Each section has a tooltip and a Help topic. The comrades' launch post features the cutscene in video and ASCII beside the pitch and the demo. Neither is built while `CAPTURE_BLOCK` is in force. Attachments stay on that gate.
 
+Update 2026-10-19 (tooltip Help links, parked): every action tooltip includes a deep link to the matching Help topic. A description without that link does not meet §4.3. Tooltip UI is not started while `CAPTURE_BLOCK` is in force.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -272,7 +274,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
 | TUI menu categories | later minor, required before 3.x closes | Reorganize the menu bar (§4.2). Must ship before 3.x is finished. The version number is not assigned here, and numbered stages are not moved. |
-| Hover tooltips | later minor, required before 3.x closes | Every button, menu item, and card icon explains itself on hover, including its key when it has one (§4.3). One shared helper. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
+| Hover tooltips | later minor, required before 3.x closes | Every button, menu item, and card icon explains itself on hover, including its key when it has one, and a deep link to the matching Help topic (§4.3). A description without that link does not count. One shared helper. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here, and numbered stages are not moved. |
 | Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). Every flag and control is described. `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
 | About | later minor, required before 3.x closes | A menu entry beside Help opens a modal of exactly three sections: Credits, Why this is necessary, and ACP platform (§4.2). Each section has a tooltip and a Help topic. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here. |
 | Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
@@ -358,15 +360,17 @@ Every button and other actionable control in the terminal views, and every menu 
 
 Hover shows a brief explanation of what that control does. When the control has a key, the tooltip includes it, as in `Bookmark (b)`.
 
-One shared helper draws these tooltips. A new control uses that helper, and every control has that text.
+Every action tooltip also includes a deep link to the matching Help topic (§4.4). The link is part of the tooltip, not a separate control the author may skip. A tooltip that only describes the action does not meet this requirement. When the tooltip UI is built, each tooltip text is paired with that Help target. Choosing the link opens Help on that topic. The same rule covers the three About sections (§4.2): each section's tooltip links to that section's Help topic.
 
-This must land before 3.x is finished. It can ship with the menu reorganization (§4.2) or as its own later minor. This note does not implement it, does not assign that minor a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0. The mouse path today handles clicks and the wheel. Hover help is part of this requirement.
+One shared helper draws these tooltips. A new control uses that helper, and every control has that text and that link.
+
+This must land before 3.x is finished. It can ship with the menu reorganization (§4.2) or as its own later minor. This note does not implement it, does not assign that minor a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0. Tooltip UI waits until `CAPTURE_BLOCK` lifts. Attachments stay on that gate. The mouse path today handles clicks and the wheel. Hover help is part of this requirement.
 
 ### 4.4 Help topics (required before 3.x is finished)
 
 Help stays reachable with `?` and F1. These changes must land before 3.x is finished. They can ship with the menu reorganization (§4.2), with the hover tooltips (§4.3), or as their own later minor. This note does not implement them, does not assign a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0.
 
-1. **A help icon on the chrome.** A small help icon sits on the interface, and a tooltip may carry the same mark. Choosing it opens Help on the topic for that control.
+1. **A help icon on the chrome.** A small help icon sits on the interface. Every action tooltip includes a deep link to the matching Help topic (§4.3). Choosing the icon or the tooltip link opens Help on that topic. A tooltip that only describes the action does not meet this.
 2. **Topics you can move between.** Help is sections you step through: Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the others that the app needs. Keys stay inside the Keys topic. The command-line help stays available from a topic.
 3. **Search inside Help.** Typing filters the topics and the key bindings, so a word or a key finds its place.
 4. **Complete coverage.** Every user-facing flag, menu command, menu option, and UI control has a description in Help, and a tooltip (§4.3). About is included (§4.2). An audit on 2026-10-19: command-line flags already have clap doc comments, and `--help` is generated from them. The Help modal is still one flat scroll (the recovery guide, the key list, then that generated text). There is no hover tooltip. A menu row shows its label, and the open dropdown shows the flag string as a muted hint. Those hints are not descriptions.

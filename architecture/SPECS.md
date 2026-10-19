@@ -313,7 +313,7 @@ the local copy up to date. Discover finds people, nodes, and rooms. Those stay
 separate menus. The table above stays the map of the current bar until that
 minor. The layout is in [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2.
 
-Before 3.x is finished, every actionable control shows a short tooltip on hover, including menu-bar entries and the icons on a card or detail. When the control has a key, the tooltip includes it (`Bookmark (b)`). One shared helper draws them. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.3. There is no hover tooltip today.
+Before 3.x is finished, every actionable control shows a short tooltip on hover, including menu-bar entries and the icons on a card or detail. When the control has a key, the tooltip includes it (`Bookmark (b)`). Every action tooltip also deep-links to the matching Help topic. A description without that link does not count. One shared helper draws them. Tooltip UI waits until `CAPTURE_BLOCK` lifts. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.3. There is no hover tooltip today.
 
 Before 3.x is finished, Help is topics you can move between, with search inside Help. A help icon on the chrome opens the topic for that control. `?` and F1 stay the entry. Every user-facing flag, menu command, menu option, and control has a description in Help and a tooltip. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.4. Today Help is one scroll of keys and the generated command-line help. Menu rows show a label and a flag hint.
 
