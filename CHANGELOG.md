@@ -12,6 +12,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Job elapsed time.** The job-details window measured every refresh from the start to the current time, so a finished, failed, or cancelled job kept counting. Elapsed now stops at the recorded end (finish, failure, or cancel). It still ticks while the job is running. A stopped job with no recorded end shows `unknown`. The header running mark and the status bar do not show a duration. Starting the terminal UI again does not rebuild jobs from log files.
 
+### Documentation
+
+- **Plan decisions.** [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) records the answers from review: an authorizer certificate lasts 30 days, a node certificate lasts 365 days, and clock skew is 5 minutes; renewal, the 7-day grace period, and revocation stay in their planned stages. A future daemon may unlock from the OS keyring (Secret Service, Keychain, Credential Manager) behind `SecretStore`. Public nodes are opt-in and land with `--serve` in 3.22.0. Peer tombstones have a working design that can still change: hide immediately, drop the body after a short grace period, keep the signed stub. APT, COPR, AUR, and the Homebrew formula stay unpublished until decentralized publishing, replies, review, the crates, and the Dart package all exist. The first machine's history access is accepted (`allowed`, `max_nodes` 16). The 3.3.0 certificate constants are unchanged. Later plan numbers are unchanged.
+
 ## [3.3.0] - 2026-10-19
 
 ### Added

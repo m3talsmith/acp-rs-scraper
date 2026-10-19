@@ -13,6 +13,8 @@ Update 2026-10-19: **3.1.0 is the job-details window** (click a running job in t
 
 Update 2026-10-19 (crate split): **3.2.0** is `acp_rs_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.22.0 and later. There is no 4.0.
 
+Update 2026-10-19 (decisions, no new version): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the 3.22.0 serve and relay work. Peer tombstones have a working design that can still change. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists. Later phase numbers are unchanged.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -504,7 +506,11 @@ Michael's decision: build on **rust-libp2p**. Alternatives were not weighed.
   - `trusted`: as exchange, and we also honour their tombstones and edit observations.
   - `device`: one of **my own** certified nodes (its certificate chains to my pinned master key, §7.13.2). It's the only level whose write intents my publishing node will act on (§7.6).
 - **Default:** only allowlisted peers can connect (`allow-block-list` in allow mode). Unknown peers are disconnected after `identify`.
-  Whether public nodes (`--serve --public`) should exist is still open (§8 Q10).
+  **Public nodes exist (decided 2026-10-19, §8 Q10).** The default stays a private, invite-only network. `--serve --public` is opt-in.
+  - A public node lets strangers dial it and fetch public posts (posts that are visible on the site, and local posts the user has published). Account-private tables, drafts, bookmarks, the keystore, enrollment, and write intents stay closed. An unknown dialer is `pull-only`: it can fetch, and this node stores nothing from it, until the user raises that peer's trust.
+  - **Node record.** The signed node record gains `visibility` (`private` or `public`, default `private`). A public record carries the PeerId, the listen addresses, and `visibility`. It does not carry account-private topics or any secret. `p2p_peers` stores the same flag when the user keeps a foreign public node.
+  - **Relay scopes (§7.14.3).** The local scope is unchanged. The public relay scope is how other people reach a public node: `--public` also turns on that node's public relay scope, with the same conservative limits (a handful of reservations, short circuits, a daily byte cap). A node may use the public relay scope without publishing its database. A public content node does not relay account-private streams.
+  - **Stage.** The flag, the `visibility` field, and the public relay scope land in **3.22.0** with `--serve` and the relay crate. Advertising a public node through Kademlia lands in **3.23.0**. This does not add a version.
 - **Connection limits** (`connection-limits`): maximum established connections in and out, a per-peer maximum (2), and a pending-dial maximum.
   On top of that, request-response quotas per peer (requests per minute and bytes per day), plus a global storage cap
   for peer-provided data (default 2 GiB) and a separate media cap.
@@ -528,9 +534,9 @@ Michael's decision: build on **rust-libp2p**. Alternatives were not weighed.
   2. The current version is the one with the highest `last_edited_at`, then the earliest `posted_at`-consistent version,
      then the most observations from site-sourced envelopes, then the lowest hash.
   3. A version **we scraped from the site ourselves always wins** over peer data for the same `last_edited_at`.
-  4. **Tombstones:** a site-observed deletion (ours) is authoritative. A peer tombstone is applied only from `trusted`
-     peers. Otherwise it's shown as "reported deleted by peer X". Local archival copies remain unless the user
-     chooses otherwise (open question).
+  4. **Tombstones:** a site-observed deletion (ours) is authoritative. A peer tombstone is acted on only from a `trusted`
+     peer (§7.4). Otherwise it is shown as "reported deleted by peer X" and the local copy stays.
+     **Working design for an accepted peer tombstone (2026-10-19, changeable, §8 Q10).** On a signed tombstone, hide the post immediately. After a short grace period, drop the body and keep the signed stub, so a later sync cannot resurrect the post. The user can purge the stub or keep the hidden copy. The grace length is chosen when replication is built (3.22.0). This can still change before that stage.
 - **Set reconciliation:**
   - **Range-based set reconciliation (RBSR, Negentropy-style)** over items sorted by `(posted_at, record_hash)`.
   - Peers exchange fingerprints (an XOR/sum of hashes plus a count) for ranges and split them recursively until differences are found,
@@ -656,8 +662,8 @@ cookies or tokens. Peers only carry signed *intents*.
 | **3.1.0** | Job details in the terminal UI. Click the status bar or the header running mark. The window shows state, elapsed time and the log, and it does not show the password or the database key. |
 | **3.2.0** | `acp_rs_node_core`. Identity crypto, canonical CBOR, and the secret-store interface move out of the terminal crate. `docs/PROTOCOL.md` starts with the CBOR rules and test vectors. CLI flags, the encrypted database, and `.acpbackup` format version 1 do not change. |
 | **3.3.0** | Local node identity. An independent ed25519 and X25519 keypair, sealed in a keystore that backups skip, certified by the master on the first machine. `--node-init`, `--node-id`, and the header chip. Not in this release: `--serve`, mDNS, relays, enrollment over the network, peers, replication. |
-| **3.22.0** | `--serve`, enrollment over the network, renewal, revocation gossip (§7.13; the master and the local certificate format already shipped), pairing code and `--join`, mDNS on by default, relay crate and `acp-rs-relay`, peers and peer management, invites, allowlist, node roles (opt-in), cross-platform service install, post replication (sync + gossip) and provenance UI (§7.14) |
-| 3.23.0 | NAT traversal (AutoNAT, relay, DCUtR) and Kademlia |
+| **3.22.0** | `--serve`, enrollment over the network, renewal, revocation gossip (§7.13; the master and the local certificate format already shipped), pairing code and `--join`, mDNS on by default, relay crate and `acp-rs-relay`, peers and peer management, invites, allowlist, node roles (opt-in), cross-platform service install, post replication (sync + gossip) and provenance UI (§7.14). Also in this stage: public nodes (`--serve --public`, §7.4) and OS keyring unlock for the daemon behind `SecretStore` (§7.13.6, §7.14.5). Repository publishing waits (§7.14.11). |
+| 3.23.0 | NAT traversal (AutoNAT, relay, DCUtR) and Kademlia, including discovery of public nodes |
 | 3.24.0 | Write relay to the site: intents, certified devices, publisher, receipts (§7.6) |
 | 3.25.0 | Media blobs |
 | 3.26.0 | Opt-in feed and research sharing |
@@ -666,11 +672,11 @@ cookies or tokens. Peers only carry signed *intents*.
 
 ### 7.12 Privacy and security risks
 - A node reveals its IP to peers, and gossip reveals who has which posts.
-- Scraped content from a members-only forum is redistributed between nodes. The Party allows this (§8 Q1, resolved 2026-10-18), and the proposed default is private, invite-only networks (still open, §8 Q10).
+- Scraped content from a members-only forum is redistributed between nodes. The Party allows this (§8 Q1, resolved 2026-10-18). The default network is private and invite-only. Public nodes are an opt-in (§7.4, decided 2026-10-19).
 - Malicious peers could forge "observed" posts. Signatures only prove who relayed a record, not that the site said it.
   That's why the UI marks peer-only provenance and site confirmation wins.
 - There's a resource-exhaustion risk, handled by the limits and quotas.
-- **A stolen node key could publish as its user** through that user's publisher. Mitigations (§7.13): node certificates last 30 days and are renewed only by an authorizer,
+- **A stolen node key could publish as its user** through that user's publisher. Mitigations (§7.13): node certificates last 365 days and are renewed only by an authorizer,
   a revocation spreads by gossip and by a revocation-first handshake, intents expire, rate limits apply, the publisher logs which node sent what, and destructive actions can optionally be confirmed on the publisher too.
   A revoked node keeps whatever it already read, which is why a key epoch rotation follows a revocation.
 - A stolen authorizer can enroll rogue nodes. Its limits, the `NodeEnrolled` notices on every node and the master's batch re-certification (§7.13.5) bound the damage.
@@ -698,8 +704,8 @@ It replaces the single per-node identity key of the first draft of §7.2.
 | Key | Where it lives | Lifetime | Purpose |
 |---|---|---|---|
 | **Master** (ed25519 signing + X25519 wrapping, both derived from one master secret with HKDF labels) | Nowhere on disk. Recreated in memory from phrase + password (or 3 shares + password) during a ceremony, then zeroized. | Permanent until rotated | Root of trust. Signs authorizer certs, node certs (when no authorizer is used) and revocations. Can unwrap every data key. |
-| **Authorizer** (an ordinary node's key plus an authorizer cert) | On one trusted device, in its encrypted keystore | 365 days, renewed by the master | Adds, renews and revokes nodes day to day, and re-wraps data keys for new nodes. |
-| **Node** (ed25519 signing, which is also the libp2p identity, plus X25519 wrapping) | On that node only, in its encrypted keystore. Generated on the node, and the secret never leaves it. | Cert 30 days, auto-renewed | Signs records and intents, authenticates to peers, and unwraps data keys. |
+| **Authorizer** (an ordinary node's key plus an authorizer cert) | On one trusted device, in its encrypted keystore | 30 days, renewed by the master | Adds, renews and revokes nodes day to day, and re-wraps data keys for new nodes. |
+| **Node** (ed25519 signing, which is also the libp2p identity, plus X25519 wrapping) | On that node only, in its encrypted keystore. Generated on the node, and the secret never leaves it. | Cert 365 days, auto-renewed | Signs records and intents, authenticates to peers, and unwraps data keys. |
 | **Data key (DEK)** | Wrapped copies only (§7.13.6) | One per key epoch | Encrypts the local database. |
 
 - **User id (`acp-id`):** the blake3 hash of the master public key, shown in base32 with a checksum. Nodes *pin* it when they join an account.
@@ -719,10 +725,13 @@ It replaces the single per-node identity key of the first draft of §7.2.
 
 All certificates and revocations are canonical CBOR, signed with ed25519 and versioned.
 
-- **Authorizer cert:** `{type:"authorizer", account: master_pub, subject: authorizer node pubkey, serial, issued_at, expires_at (default +365 d),
+- **Authorizer cert:** `{type:"authorizer", account: master_pub, subject: authorizer node pubkey, serial, issued_at, expires_at (default +30 d),
   limits{max_nodes, max_node_ttl, history_grant: "allowed"|"forbidden", may_revoke: "own"}}`, signed by the master.
 - **Node cert:** `{type:"node", account, node_sign_pub, node_enc_pub, peer_id, label, serial, issuer (master or authorizer pubkey),
-  issued_at, expires_at (default +30 d, never later than the issuer's own expiry), caps[sync, publish, intent-sender]}`, signed by the issuer.
+  issued_at, expires_at (default +365 d), caps[sync, publish, intent-sender]}`, signed by the issuer.
+  The authorizer signs only while its own certificate is still valid. The node certificate is not shortened to that authorizer expiry, so a 30-day authorizer can issue a 365-day node certificate.
+- **Lifetimes (decided 2026-10-19, §8 Q11).** An authorizer certificate lasts 30 days. A node certificate lasts 365 days. Verifiers allow 5 minutes of clock skew. Renewal, the 7-day grace period, and revocation are still to be built, in the stages already planned for them (3.22.0). 3.3.0 compiled the earlier draft of these two lifetimes (a node certificate of 30 days and an authorizer certificate of 365 days). Those constants are unchanged until the certificate stages are built.
+- **First machine (accepted 2026-10-19).** `history_grant` is `allowed` and `max_nodes` is 16, because this machine already holds the database. `max_node_ttl` is the node lifetime, 365 days. A later enrollment still asks the approver to choose history access (none, since a date, or full), as in §7.13.3.
 - **Chain:** `node cert → authorizer cert → master pubkey`, or `node cert → master pubkey` when the master signed it directly.
   The chain travels with the node's records (§7.5 envelopes carry the chain or its hash, with the chain fetchable on demand).
 - **What a verifier checks:**
@@ -766,18 +775,19 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
 
 #### 7.13.4 Refreshing certificate expiry
 
-- **Node certs (30 days):**
+- **Node certs (365 days):**
   - A node starts renewing when a third of its lifetime is left, and retries with backoff.
   - It sends a `RenewRequest{serial, node_pub}` signed by its **current, still-valid** key over `/acp-rs/<net>/cert/1` to any reachable authorizer for the account.
-  - The authorizer checks that the node isn't revoked, the policy still allows it, and the new expiry fits its own limits (never past the authorizer's own expiry).
-    It issues a new cert with the **same keys**, a **new serial** and a new expiry. Nothing needs the user, and each renewal is logged.
+  - The authorizer checks that the node isn't revoked and that the policy still allows it. It can sign only while its own certificate is valid.
+    It issues a new cert with the **same keys**, a **new serial**, and a new 365-day expiry. Nothing needs the user, and each renewal is logged.
   - A **changed key is never renewed this way.** It goes through enrollment again.
   - A node whose cert expires before it reaches an authorizer enters a **grace period** (default 7 days): it keeps syncing read-only, new intents are refused, and a banner explains why.
     After that, peers disconnect it until it renews. A node that was offline for weeks just renews on its next contact.
-- **Authorizer cert (365 days):**
-  - It needs the master. The tool reminds you at 60, 30 and 7 days (banner, `--node-status`, and `--serve` logs).
-  - `--authorizer-renew` is a short ceremony: bring out the phrase (or 3 shares) and password, the master signs a new authorizer cert with a new serial, and the master is erased again.
-  - If it lapses, the authorizer can't add or renew nodes. Existing node certs stay valid until their own expiry (no more than 30 days), so there's a long warning window, and nothing is lost: renewing later restores everything.
+- **Authorizer cert (30 days):**
+  - It needs the master. `--authorizer-renew` is a short ceremony: bring out the phrase (or 3 shares) and password, the master signs a new authorizer cert with a new serial, and the master is erased again.
+  - The 60-, 30- and 7-day reminder list was drafted for a year-long authorizer certificate. When `--authorizer-renew` is built, the reminders are timed for a 30-day certificate (banner, `--node-status`, and `--serve` logs).
+  - If it lapses, the authorizer can't add or renew nodes. Existing node certs stay valid until their own expiry (365 days). Renewing the authorizer later restores enrollment. Nothing already issued is lost.
+  - Renewal, the 7-day grace period, and revocation are not built yet. They stay in 3.22.0.
 - **Clocks:** certificate times are checked with ±5 minutes of tolerance. A record counts as validly signed if the cert was valid when the record was first seen locally.
 - **The master has no expiry.** Rotation is a separate, rare procedure (`--master-rotate`): the old master signs a "moved to" record for the new one, new shares and a new phrase are made, and every node is re-certified.
 
@@ -791,7 +801,7 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
   - It's published on the account-private gossip topic `acp-rs/<net>/account/<acp-id>/revoke/v1`.
   - A **revocation-first handshake:** on every new connection, peers exchange the head (sequence number and hash) of the revocation list for the accounts they track, and the side that is behind
     fetches the missing revocations **before any records are synced**. A node that was offline learns of a revocation the first time it talks to anyone who knows it.
-  - **Safety net:** certificates are short-lived. If a revocation never reaches a peer, the exposure ends when the node cert expires (at most 30 days) and renewal is refused.
+  - **Safety net:** if a revocation never reaches a peer, the exposure ends when the node cert expires (at most 365 days) and renewal is refused.
 - **What happens to the revoked node:**
   - Every node that learns of it **disconnects and blocks the PeerId**, refuses its intents and renewals, and **stops wrapping data keys to it**.
   - If the revoked node is honest, it sees its own revocation, stops syncing, marks itself revoked and offers to wipe its data.
@@ -830,7 +840,8 @@ From then on the master is needed only for the cases in §7.13.4 and §7.13.5. T
     The master can therefore open every epoch on its own, and **data is never encrypted to a child key alone**.
   - A new node receives wraps for the epochs it's allowed (§7.13.3). A restore from shares uses the master's wrap (§7.13.7).
   - Each node also holds its own copy wrapped by the **local unlock passphrase** (Argon2id), so a stolen disk is useless without it.
-- **Unlock:** the passphrase is requested at TUI start. For `--serve` it is requested at start, or can be read from the OS keyring when the user opts in. It is never stored in plain text.
+- **Unlock:** the passphrase is requested at TUI start. It is never stored in plain text.
+  **Daemon unlock (decided 2026-10-19, §8 Q11).** A future daemon may read the unlock secret from the OS keyring when the user opts in, and it may also start locked and wait for an unlock. The keyring sits behind the `SecretStore` interface from 3.2.0: Secret Service on Linux, Keychain on macOS, and Credential Manager on Windows. It lands with `--serve` and the service install in 3.22.0. It is not built in 3.3.1.
 - **Table `key_epochs(epoch, created_at, reason, issuer, wraps BLOB)`** keeps this metadata. Secrets are held in zeroizing buffers and excluded from logs and core dumps.
 - **Between nodes and the site:** records travel as plaintext inside the Noise or QUIC-TLS link (§7.3), and site sync uses HTTPS. Private tables only sync between the user's own certified nodes.
 - **Migration:** `--encrypt-db` makes a backup (§7.13.7), converts the database, verifies row counts and hashes, then replaces it. The old file is removed only after a successful verification.
@@ -938,7 +949,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
   - Relays share their addresses with each other through Kademlia. Pairing codes carry several relay hints.
 - **Relaying is on by default, in two scopes** (both can be turned off):
   - **Local:** every node relays on its own network and for peers it can already reach directly. This works behind NAT.
-  - **Public:** a node that AutoNAT finds publicly reachable also relays for the wider network, with conservative limits (a handful of reservations, short circuits, a daily byte cap).
+  - **Public:** a node that AutoNAT finds publicly reachable also relays for the wider network, with conservative limits (a handful of reservations, short circuits, a daily byte cap). A public content node (`--serve --public`, §7.4) turns this scope on so strangers can dial it. The scope can also be on by itself, without publishing that node's database.
 - A default public relay run by the project is **not** assumed. The network relies on the nodes themselves, and users may also run their own `acp-rs-relay`.
 
 #### 7.14.4 Node roles (opt-in)
@@ -955,7 +966,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 
 - **Service install on every platform:** `acp-rs --service install|uninstall|start|stop|status` chooses a **systemd unit** on Linux, a **launchd** agent or daemon on macOS, and a **Windows Service** on Windows. `acp-rs-relay` has the same flag.
   - Services run as a normal user, never root or SYSTEM, with the data directory in that user's profile.
-  - A service can't type a passphrase, so installing asks whether to read it from the OS keyring (Keychain, Credential Manager, Secret Service) or to start locked and wait for an unlock. Both are supported.
+  - A service can't type a passphrase. **Decided 2026-10-19:** installing asks whether to read the unlock secret from the OS keyring or to start locked and wait for an unlock. Both are supported. The keyring is a `SecretStore`: Secret Service on Linux, Keychain on macOS, Credential Manager on Windows (§7.13.6). This lands in 3.22.0 with the service install.
 - **State lives in the encrypted database.** Peers, bootstrap list, relay addresses, node roles, sync state and certificates are rows, not files, so they are encrypted at rest and included in backups.
   - Outside the database there are only the small bootstrap file (the database location and the Argon2 parameters needed to unlock) and `preferences.toml` for hand-edited settings, which holds no state.
   - The old `peers.toml` becomes a one-time import into `p2p_peers`.
@@ -964,7 +975,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **Peer management:** a Peers tab with status (up, down, unknown), last seen, trust level, source (invite, mDNS, bootstrap, backup), bytes in and out and notes, with actions to change trust, block, forget and re-check.
   `--peer-list`, `--peer-check` and `--peer-prune` do the same from the command line, all backed by `p2p_peers`.
 - **Peers are transient.** After a restore, every peer starts as `unknown` and is checked automatically. Those that don't answer are marked `down`, retried with backoff and pruned after a period the user sets.
-- **Your own certified nodes are not peers.** After a restore they are marked "unreachable since the backup" and stay valid, since revoking is a security action. They show up in the Nodes list with a one-key revoke, and the user gets a reminder if one stays unreachable for about 60 days (beyond its certificate lifetime).
+- **Your own certified nodes are not peers.** After a restore they are marked "unreachable since the backup" and stay valid, since revoking is a security action. They show up in the Nodes list with a one-key revoke, and the user gets a reminder if one stays unreachable for about 60 days. That nag is not the certificate lifetime. A node certificate lasts 365 days (§7.13.2).
 
 #### 7.14.6 Changes to restore and to key handling (amends §7.13.6 and §7.13.7)
 
@@ -1051,16 +1062,17 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
   - **Debian and Ubuntu:** a `.deb`, built from a second source package in `debian/` (or a separate `debian-relay/`), with a systemd unit, a dedicated `acp-relay` system user, `/etc/acp-rs-relay/config.toml` as a conffile and a post-install step that enables but doesn't start the service.
   - **Arch:** a `PKGBUILD` in `packaging/arch/relay/` (systemd unit, `sysusers.d` and `tmpfiles.d` entries, `backup=()` for the config).
   - **Fedora:** a `.spec` in `packaging/fedora/relay/` (systemd macros, `sysusers` entry, `%config(noreplace)`), built as an RPM.
-  - **macOS:** a signed and notarized `.pkg` that installs the binary and a launchd daemon plist (and a Homebrew formula as an alternative), supporting Apple Silicon and Intel, with a universal binary.
+  - **macOS:** a signed and notarized `.pkg` that installs the binary and a launchd daemon plist, supporting Apple Silicon and Intel, with a universal binary. A Homebrew formula is part of the same publishing decision below, not an earlier channel.
   - **Windows 11 and later:** an `.msi` (WiX) that installs the binary, registers the **Windows Service**, adds the firewall rule for the relay port and writes the default config under `%ProgramData%`. A `winget` manifest points to the same installer.
 - **Same defaults on every platform:** the relay starts with conservative limits (§7.14.3), a config file, log counts only, and its own data directory (a small state file for its identity key, kept as in §7.13.6). It runs as a service user, never root or SYSTEM.
 - **Not in the package:** the app, the tray, any keys or certificates of a user. The relay has its own node key only and no account.
 - **Build and release:**
   - CI builds each package from the tagged release for `x86_64` and `aarch64` where the platform supports it, with reproducible build settings.
-  - Packages are published as release assets with checksums and a detached signature. Repository publishing (APT, a Fedora COPR, the AUR) is a follow-up.
+  - Packages are built as release assets with checksums and a detached signature when a release is cut. That is not the same as publishing them to a distribution repository.
   - Package smoke tests in CI: install in a clean container or VM, start the service, check that it listens, uninstall, and confirm that nothing is left behind.
   - The package version is the release version (§7.14.10), shown by `acp-rs-relay --version`.
-- **Roadmap:** the relay crate lands in 3.22.0 (§7.14.9), and its packages ship in the same release, since the relay is useful as soon as nodes pair across the internet.
+- **Publishing (decided 2026-10-19, §8 Q14).** APT, Fedora COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing (3.24.0), replies (3.4.0), review (3.27.0), the node crates (through 3.26.0), and the Dart package (3.28.0). Until that set has shipped, packaging in this repository stays unpublished. Someone can still build a package by hand from the tree.
+- **Roadmap:** the relay crate lands in 3.22.0 (§7.14.9). It is not published to APT, COPR, AUR, or Homebrew in that release. Those repositories wait for the full set above.
 
 ---
 
@@ -1093,8 +1105,8 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
       - How long can an intent wait before it expires (proposed: 24 h, matching the outbox)?
       - Should a node↔account binding be verifiable by others, for example a node id in the Red Star bio? That would publicly link a node to a nick.
     - Scope: posts only, posts + media, or also feeds/research when opted in?
-    - Networks (still open): private and invite-only by default (recommended), and should public read-only nodes exist at all?
-    - Should peer tombstones delete local copies, or only flag them?
+    - ~~Networks: private and invite-only by default, and should public nodes exist?~~ **Decided 2026-10-19.** The default stays private and invite-only. Public nodes exist and are opt-in (`--serve --public`). What that means for relay scopes, the node record, and the stage order is in §7.4. The flag lands in 3.22.0. Kademlia advertisement lands in 3.23.0.
+    - ~~Should peer tombstones delete local copies, or only flag them?~~ **Working design 2026-10-19, changeable.** On a signed tombstone this node accepts, hide the post immediately, drop the body after a short grace period, and keep the signed stub so replication does not resurrect it. The user can purge the stub or keep the hidden copy (§7.5). The grace length is set when replication is built. This can still change.
     - Is an MSRV bump OK when libp2p 0.58 needs it?
     - ~~Use 4.0.0 for decentralization, or keep it in 3.x?~~ **Resolved 2026-10-18.** It stays in 3.x, as 3.22.0 and later (§7.14.10).
 11. **Keys, identity and backup (§7.13). Resolved 2026-10-18:**
@@ -1111,12 +1123,14 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~**Timing:**~~ encryption at rest and backup/restore shipped as 3.0.0. They do not wait for the node.
     - **Local passphrase:** at init it is the same string as the account password. Rewrapping that local key does not rotate the master or the `acp-id`.
 
+    Decided 2026-10-19:
+    - ~~**Default lifetimes:**~~ confirmed. An authorizer certificate lasts 30 days, a node certificate lasts 365 days, and clock skew is 5 minutes (§7.13.2, §7.13.4). Renewal, the 7-day grace period, and revocation are still to be built in their planned stages (3.22.0).
+    - ~~**History access on the first machine:**~~ accepted. `history_grant` is `allowed` and `max_nodes` is 16. A later enrollment still asks the approver (§7.13.3).
+    - ~~**Daemon unlock:**~~ yes. `--serve` and the service install may read the unlock secret from the OS keyring, behind `SecretStore`: Secret Service on Linux, Keychain on macOS, Credential Manager on Windows. Starting locked and waiting for an unlock stays available. This lands in 3.22.0 (§7.13.6, §7.14.5).
+
     Still open:
-    - **Default lifetimes:** node cert 30 days, authorizer cert 365 days, grace period 7 days. Are these right?
     - **Account password:** it is part of the master derivation, so changing it means rotating the master (new `acp-id`). Is that acceptable?
-    - **History access** for a new node: default to full, or ask each time?
     - **Backups:** are the exclusions right (no `session.json`, no node secret key)? May peers hold encrypted backup blobs for each other?
-    - **Daemon unlock:** should `--serve` ask for the passphrase at start, or may it read it from the OS keyring?
     - **Review:** the key derivation and the certificate formats should get an external review before 3.22.0 ships. 3.0.0 did not have that review.
 12. **Onboarding, operations, Dart SDK, drafts and review (§7.14). Resolved 2026-10-18:**
     - ~~Decentralization~~ is optional, and a checkbox that is on by default (§7.14.1).
@@ -1141,4 +1155,4 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
 13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0, and the network node and trays are 3.22.0 and later. There is no 4.0.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later.
-    Still open: whether to publish to the APT, COPR and AUR repositories at 3.22.0 or later, and whether macOS also needs a Homebrew formula.
+    **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.28.0, §7.14.11). Until then, packaging stays unpublished.
