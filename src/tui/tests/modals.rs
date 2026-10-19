@@ -56,6 +56,9 @@ fn help_is_generated_from_clap() {
     let h = HelpModal::new();
     let all = h.lines.join("\n");
     assert!(all.contains("--nicks") && all.contains("--tui") && all.contains("Shift-S"));
+    assert!(all.contains("not the master key"));
+    assert!(all.contains("--show-phrase"));
+    assert!(all.contains("Any 3 of those 5"));
     let mut h = h;
     h.on_scroll(1);
     assert_eq!(h.scroll, 3);

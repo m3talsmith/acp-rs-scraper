@@ -1,5 +1,7 @@
-//! `--identity-init`, `--acp-id`, `--shares-print` and `--shares-verify`.
-//! The phrase and the shares are printed once, to the terminal, and are never logged.
+//! `--identity-init`, `--acp-id`, `--show-phrase`, `--shares-print` and `--shares-verify`.
+//! The phrase and the shares are printed to the terminal and are not logged.
+//! `--identity-init` also stores an encrypted copy of the phrase entropy so
+//! `--show-phrase` can show the words again after the password is entered.
 
 use anyhow::{Result, bail};
 use std::io::{BufRead, Write};
@@ -35,7 +37,7 @@ pub fn identity_init() -> Result<()> {
     let phrase = Zeroizing::new(master::phrase_from_entropy(&entropy)?);
     let master = master::derive_master(&phrase, password.as_str(), default_params())?;
     println!();
-    println!("Write these 24 words down. They are not stored, not logged, and not copied for you.");
+    println!("Write these 24 words on paper. A screenshot or a photo is not a safe copy.");
     println!("There is no password reset. The password is not part of the phrase.");
     println!();
     println!("    {}", phrase.as_str());
@@ -46,14 +48,35 @@ pub fn identity_init() -> Result<()> {
     if master::normalize_phrase(&typed) != master::normalize_phrase(&phrase) {
         bail!("the phrase did not match. Nothing was saved. Run --identity-init again.");
     }
-    store_pin(&home, &master)?;
+    let home_seal = home.clone();
+    let password_seal = Zeroizing::new(password.as_str().to_string());
+    let entropy_seal = entropy.clone();
+    super::progress::run_busy("Saving the recovery phrase", move || {
+        super::recovery::seal(
+            &home_seal,
+            password_seal.as_str(),
+            default_params(),
+            &entropy_seal,
+        )
+    })?;
+    if let Err(err) = store_pin(&home, &master) {
+        let _ = std::fs::remove_file(super::recovery::seal_path(&home));
+        return Err(err);
+    }
     let db = home.join(crate::config::DB_REL_PATH);
     if db.is_file() {
         super::atrest::add_master_recipient(&db, password.as_str(), &master)?;
     }
+    super::recovery::clear_next(&home)?;
     println!();
     println!("Pinned {}.", master.acp_id);
-    println!("The master secret was not written to disk.");
+    println!(
+        "An encrypted copy of these words is at ~/.acp/recovery.seal. --show-phrase shows them again after you enter the password."
+    );
+    println!(
+        "That file is not a paper copy. It does not help if the password is lost, and a new computer still needs the words or 3 shares."
+    );
+    println!("The words were not written to a log.");
     println!(
         "There is no password reset. A lost password together with lost shares cannot be recovered."
     );
@@ -131,7 +154,25 @@ pub fn shares_verify(file: Option<&Path>) -> Result<()> {
 /// Unlock or create the database for a command that is about to use it.
 /// A 2.x plaintext database is refused with the `--encrypt-db` instructions.
 /// Commands that do not touch the database do not call this.
+///
+/// On a terminal, a database that was just created also explains the recovery
+/// phrase. A pipe prints nothing, so a later terminal session can still show it.
 pub fn prepare_db() -> Result<()> {
+    prepare_db_quiet()?;
+    if std::io::IsTerminal::is_terminal(&std::io::stdin())
+        && std::io::IsTerminal::is_terminal(&std::io::stdout())
+    {
+        let home = home()?;
+        if super::recovery::next_pending(&home) {
+            explain_recovery(&home)?;
+        }
+    }
+    Ok(())
+}
+
+/// Open or create the database without printing the recovery steps.
+/// The terminal UI calls this, then shows those steps itself.
+pub fn prepare_db_quiet() -> Result<()> {
     let db = home()?.join(crate::config::DB_REL_PATH);
     if let Some(msg) = super::atrest::legacy_plaintext_notice(&db) {
         bail!("{msg}");
@@ -167,11 +208,17 @@ pub fn encrypt_db() -> Result<()> {
     super::progress::run_busy("Encrypting the database", move || {
         super::atrest::encrypt_db(&db, password.as_str(), &dest)
     })?;
+    super::recovery::mark_next(&home)?;
     println!("Encrypted {db_shown}. A backup was written to {dest_shown}.");
     println!("The plaintext file was removed after the encrypted copy matched.");
     println!(
         "2.x cannot read this database or that backup. A copy of the plaintext file saved before this command is what a 2.x binary can open."
     );
+    if std::io::IsTerminal::is_terminal(&std::io::stdin())
+        && std::io::IsTerminal::is_terminal(&std::io::stdout())
+    {
+        explain_recovery(&home)?;
+    }
     Ok(())
 }
 
@@ -191,13 +238,22 @@ pub fn change_password() -> Result<()> {
     let current = Zeroizing::new(rpassword::prompt_password("Current password: ")?);
     let next = prompt_new_password()?;
     let params = super::atrest::password_params(&db)?;
-    super::progress::run_busy("Changing the password", move || {
+    let phrase_follows = super::progress::run_busy("Changing the password", move || {
         super::atrest::rewrap_local(&db, current.as_str(), next.as_str(), params)
     })?;
     println!("The database password was changed.");
     println!(
         "The account id did not change. A backup written with the old password still needs that password."
     );
+    if super::recovery::seal_exists(&home) {
+        if phrase_follows {
+            println!("The recovery phrase now uses the new password. --show-phrase asks for it.");
+        } else {
+            println!(
+                "The recovery phrase is still sealed with the previous password. --show-phrase needs that password."
+            );
+        }
+    }
     Ok(())
 }
 
@@ -389,6 +445,130 @@ fn read_block(msg: &str) -> Result<String> {
 
 fn is_yes(s: &str) -> bool {
     matches!(s.trim().to_ascii_lowercase().as_str(), "y" | "yes")
+}
+
+fn is_no(s: &str) -> bool {
+    matches!(s.trim().to_ascii_lowercase().as_str(), "n" | "no")
+}
+
+/// Print the recovery steps and, when there is no account yet, offer to create the phrase.
+fn explain_recovery(home: &std::path::Path) -> Result<()> {
+    println!();
+    println!("{}", super::recovery::GUIDE.trim_end());
+    println!();
+    if Pin::load(home)?.is_some() {
+        super::recovery::clear_next(home)?;
+        if super::recovery::seal_exists(home) {
+            println!("Show the words again with --show-phrase. It asks for the password.");
+        } else {
+            println!(
+                "This account was created before the phrase was saved here. The password cannot rebuild the words."
+            );
+            println!("Use the paper copy, or 3 shares with --shares-print.");
+        }
+        return Ok(());
+    }
+    let answer = prompt("Create the recovery phrase now, so you can write it down? [y/N] ")?;
+    if is_yes(&answer) {
+        identity_init()?;
+    } else {
+        super::recovery::clear_next(home)?;
+        println!("Run --identity-init when you can write the words down.");
+        println!(
+            "After that, --show-phrase shows the words again. The same steps are in --help, and in the terminal UI under ? or F1."
+        );
+    }
+    Ok(())
+}
+
+/// Before the terminal UI covers the screen, offer to create the phrase.
+/// `Ok(true)` opens Help, which starts with the same steps.
+pub fn tui_recovery_offer(home: &std::path::Path) -> Result<bool> {
+    if !super::recovery::next_pending(home) {
+        return Ok(false);
+    }
+    if Pin::load(home)?.is_some() {
+        super::recovery::clear_next(home)?;
+        return Ok(true);
+    }
+    println!();
+    println!("The database is encrypted. The password is not the master key.");
+    println!(
+        "The next screen explains the 24-word recovery phrase, the 5 shares (any 3 rebuild it), and how to restore a backup."
+    );
+    let answer = prompt("Create the recovery phrase now, so you can write it down? [y/N] ")?;
+    if is_yes(&answer) {
+        identity_init()?;
+        prompt(
+            "Press Enter to open the terminal UI. Anything above this line will leave the screen. ",
+        )?;
+        Ok(false)
+    } else {
+        super::recovery::clear_next(home)?;
+        Ok(true)
+    }
+}
+
+/// Show the 24 words again. Always asks for the password, even when `ACP_PASSWORD` is set.
+pub fn show_phrase() -> Result<()> {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        bail!(
+            "--show-phrase needs a terminal, so the recovery phrase is not written to a log or a pipe."
+        );
+    }
+    let home = home()?;
+    let pin = Pin::load(&home)?.ok_or_else(|| {
+        anyhow::anyhow!("no acp-id is pinned yet. Run --identity-init on a terminal.")
+    })?;
+    if !super::recovery::seal_exists(&home) {
+        bail!(
+            "the recovery phrase was not saved on this computer, and the password cannot rebuild it. \
+             Use the paper copy, or run --shares-print with at least 3 shares and the password. \
+             A phrase created before this file existed was shown once and not stored."
+        );
+    }
+    eprintln!(
+        "The words will be printed on this screen and may stay in the terminal's scrollback."
+    );
+    eprintln!("A screenshot, a photo, or a shared screen is not a safe copy.");
+    eprintln!();
+    let password = Zeroizing::new(rpassword::prompt_password("Password: ")?);
+    let home_open = home.clone();
+    let phrase = super::progress::run_busy("Opening the recovery phrase", move || {
+        let entropy = super::recovery::open(&home_open, password.as_str())?;
+        let phrase = Zeroizing::new(master::phrase_from_entropy(&entropy)?);
+        let master = master::derive_master(phrase.as_str(), password.as_str(), pin.argon2)?;
+        master.require_id(&pin.acp_id)?;
+        Ok(phrase)
+    })?;
+    println!();
+    println!("{}", phrase.as_str());
+    println!();
+    let typed =
+        prompt("Type the 24 words from your paper to check them, or press Enter to skip: ")?;
+    if !typed.trim().is_empty()
+        && master::normalize_phrase(&typed) != master::normalize_phrase(phrase.as_str())
+    {
+        println!("Those words do not match. The phrase is still on screen. Nothing was changed.");
+        return Ok(());
+    }
+    if !typed.trim().is_empty() {
+        println!("Those words match the saved phrase.");
+    }
+    let answer = prompt("Clear the terminal now? [Y/n] ")?;
+    let shown = super::recovery::seal_path(&home).display().to_string();
+    if is_no(&answer) {
+        println!("The words are still on this screen. They remain encrypted at {shown}.");
+        return Ok(());
+    }
+    super::recovery::clear_terminal()?;
+    println!(
+        "The terminal was cleared. The words remain encrypted at {shown}. Run --show-phrase to see them again."
+    );
+    println!(
+        "Clearing the screen does not erase a screenshot, and some terminals keep the scrollback anyway."
+    );
+    Ok(())
 }
 
 pub(crate) fn mark_shares_pending(home: &Path) -> Result<()> {

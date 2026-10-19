@@ -16,10 +16,13 @@ pub struct HelpModal {
 /// Help text: key bindings, then `acp-rs-scraper --help`.
 pub fn help_text() -> Vec<String> {
     use clap::CommandFactory;
-    let mut v = vec!["Terminal UI keys".to_string(), String::new()];
+    let guide = crate::crypto::recovery::GUIDE.trim();
+    let mut v: Vec<String> = guide.lines().map(str::to_string).collect();
+    v.extend(["".into(), "Terminal UI keys".into(), String::new()]);
     for (k, d) in crate::config::TUI_KEYBINDINGS { v.push(format!("  {k:<22} {d}")); }
     v.extend(["".into(), "Menu commands map to these flags; Start Scanning runs the same scrape the CLI does.".into(), "".into()]);
     let help = crate::cli::Args::command().render_long_help().to_string();
+    let help = help.replacen(guide, "", 1);
     v.extend(help.lines().map(str::to_string));
     v
 }

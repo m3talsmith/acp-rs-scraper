@@ -72,6 +72,16 @@ fn identity_flags_parse_and_do_not_open_the_tui() {
     assert!(Args::try_parse_from(["x", "--change-password", "--backup"]).is_err());
     let m = Args::command().try_get_matches_from(["x", "--change-password"]).unwrap();
     assert!(!wants_tui(&m));
+    assert!(Args::try_parse_from(["x", "--show-phrase"]).unwrap().show_phrase);
+    assert!(Args::try_parse_from(["x", "--show-phrase", "--encrypt-db"]).is_err());
+    assert!(Args::try_parse_from(["x", "--show-phrase", "--identity-init"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--show-phrase"]).unwrap();
+    assert!(!wants_tui(&m));
+    let help = Args::command().render_long_help().to_string();
+    assert!(help.contains("not the master key"), "{help}");
+    assert!(help.contains("--show-phrase"));
+    assert!(help.contains("Any 3 of those 5"));
+    assert!(help.contains("--identity-init"));
 }
 
 #[test]

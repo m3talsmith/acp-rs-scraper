@@ -65,6 +65,14 @@ pub const SESSION_REL_PATH: &str = ".acp/session.json";
 /// Public: the phrase, the password and the master secret are never written here.
 pub const ACP_ID_REL_PATH: &str = ".acp/acp-id";
 
+/// Encrypted copy of the 24-word phrase entropy (mode `0600`). The words are not
+/// stored in the clear. Absent when `--identity-init` ran before this file existed.
+pub const RECOVERY_SEAL_REL_PATH: &str = ".acp/recovery.seal";
+
+/// Present after a database is created or migrated, until the recovery steps have
+/// been shown. Not a secret, and not part of a backup.
+pub const RECOVERY_NEXT_REL_PATH: &str = ".acp/recovery-next";
+
 /// Present until `--shares-print` or a successful `--shares-verify`. Not a secret.
 pub const SHARES_PENDING_REL_PATH: &str = ".acp/shares-pending";
 

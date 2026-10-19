@@ -59,7 +59,8 @@ pub async fn run(args: Args) -> Result<()> {
         bail!("the terminal UI needs a terminal; for headless use pass flags, e.g. --scrape, --nick NICK, --search TEXT, --export FILE (see --help)");
     }
     let home_dir = home()?;
-    crate::crypto::cmd::prepare_db()?;
+    crate::crypto::cmd::prepare_db_quiet()?;
+    let show_recovery_help = crate::crypto::cmd::tui_recovery_offer(&home_dir)?;
     let db = home_dir.join(DB_REL_PATH);
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
@@ -73,6 +74,9 @@ pub async fn run(args: Args) -> Result<()> {
     }
     if let Some(msg) = crate::crypto::backup::schedule_reminder(&home_dir) {
         app.push_status(msg);
+    }
+    if show_recovery_help {
+        app.modal = Some(modals::Modal::Help(modals::HelpModal::new()));
     }
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();

@@ -13,7 +13,8 @@
 //! backup, restoring) stretches the password once. The local key, the account
 //! key, and the backup key are HKDF labels of that stretch. A password change
 //! stretches the old password and the new password, once each, when the wraps
-//! share a salt.
+//! share a salt. A recovery-phrase seal has its own salt, so opening it is one
+//! more stretch. The new seal reuses the new password's stretch.
 //!
 //! A separate account data key, one per epoch, is what a lost node would rotate.
 //! It is wrapped to the local password and, when an `acp-id` is pinned, to the
@@ -302,32 +303,51 @@ pub fn add_master_recipient(db: &Path, password: &str, master: &Master) -> Resul
 
 /// Rewrap the local key and the account passphrase wrap with a new password.
 /// The account id does not change, and the master wrap is left as it is.
+///
+/// `Ok(true)` means there was no recovery phrase on disk, or it was resealed with
+/// the new password. `Ok(false)` means the phrase is sealed with a different
+/// password and was left unchanged.
 pub fn rewrap_local(
     db: &Path,
     old_password: &str,
     new_password: &str,
     params: Argon2Params,
-) -> Result<()> {
+) -> Result<bool> {
     super::password::check_password(new_password)?;
     set_stage("Checking the current password");
     let (local, old) = open_local(&bootstrap_path(db), old_password)?;
     let dek = load_passphrase_dek(db, &local, old_password, &old)?;
     let fresh = Stretch::fresh(new_password, params)?;
+    let home = parent_home(db)?;
+    let (phrase_follows, previous_seal) = match super::recovery::reseal(home, old_password, &fresh)?
+    {
+        super::recovery::Reseal::Absent => (true, None),
+        super::recovery::Reseal::Moved { previous } => (true, Some(previous)),
+        super::recovery::Reseal::Kept => (false, None),
+    };
     set_stage("Saving the new password");
     let boot = bootstrap_path(db);
     let previous = std::fs::read(&boot).with_context(|| format!("reading {}", boot.display()))?;
-    write_bootstrap(db, &fresh, &local)?;
+    if let Err(e) = write_bootstrap(db, &fresh, &local) {
+        if let Some(bytes) = previous_seal.as_deref() {
+            let _ = super::recovery::restore_bytes(home, bytes);
+        }
+        return Err(e);
+    }
     if let Some((epoch, dek)) = dek
         && let Err(e) = store_passphrase_wrap(db, &local, epoch, &fresh, dek.as_slice())
     {
         let _ = std::fs::write(&boot, previous);
+        if let Some(bytes) = previous_seal.as_deref() {
+            let _ = super::recovery::restore_bytes(home, bytes);
+        }
         return Err(e);
     }
     cache()
         .lock()
         .expect("key cache")
         .insert(cache_key(db), local);
-    Ok(())
+    Ok(phrase_follows)
 }
 
 fn create_new(db: &Path, password: &str, params: Argon2Params) -> Result<()> {
@@ -351,6 +371,9 @@ fn create_new(db: &Path, password: &str, params: Argon2Params) -> Result<()> {
     ensure_tables(&conn)?;
     set_stage("Saving the account key");
     seal_epoch(db, &stretch)?;
+    // The first encrypted database is the moment to explain the recovery phrase.
+    // Migrating a plaintext file and restoring a backup do not come through here.
+    super::recovery::mark_next(parent_home(db)?)?;
     Ok(())
 }
 
@@ -957,6 +980,7 @@ mod tests {
         assert!(msg.contains("2.x"), "{msg}");
         encrypt_in_place(&db, PASSWORD, Argon2Params::FAST).unwrap();
         assert!(legacy_plaintext_notice(&db).is_none());
+        assert!(!home.join(crate::config::RECOVERY_NEXT_REL_PATH).is_file());
         let _ = std::fs::remove_dir_all(&home);
     }
 
@@ -966,6 +990,7 @@ mod tests {
         let db = db_of(&home);
         create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
         assert!(bootstrap_path(&db).is_file());
+        assert!(home.join(crate::config::RECOVERY_NEXT_REL_PATH).is_file());
         assert!(!is_plaintext_db(&db));
         unlock(&db, PASSWORD).unwrap();
         let conn = rusqlite::Connection::open(&db).unwrap();
@@ -1179,6 +1204,48 @@ mod tests {
                 .any(|s| s.as_str() == "Saving the new password")
         );
         assert_eq!(account_dek(&db, next), before);
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_password_change_reseals_a_phrase_that_used_the_same_password() {
+        let home = scratch("rewrap-seal");
+        let db = db_of(&home);
+        create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        let entropy = [9u8; 32];
+        super::super::recovery::seal(&home, PASSWORD, Argon2Params::FAST, &entropy).unwrap();
+        let next = "correct horse battery staple and more";
+        super::super::password::start_argon_count();
+        assert!(rewrap_local(&db, PASSWORD, next, Argon2Params::FAST).unwrap());
+        // Old password (bootstrap), new password, old password again (the seal's own salt).
+        assert_eq!(super::super::password::argon_count(), 3);
+        assert_eq!(
+            super::super::recovery::open(&home, next)
+                .unwrap()
+                .as_slice(),
+            &entropy
+        );
+        assert!(super::super::recovery::open(&home, PASSWORD).is_err());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_phrase_sealed_with_another_password_is_left_alone() {
+        let home = scratch("rewrap-other");
+        let db = db_of(&home);
+        create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        let entropy = [8u8; 32];
+        let other = "a different passphrase for the phrase";
+        super::super::recovery::seal(&home, other, Argon2Params::FAST, &entropy).unwrap();
+        let next = "correct horse battery staple and more";
+        assert!(!rewrap_local(&db, PASSWORD, next, Argon2Params::FAST).unwrap());
+        assert_eq!(
+            super::super::recovery::open(&home, other)
+                .unwrap()
+                .as_slice(),
+            &entropy
+        );
+        assert!(super::super::recovery::open(&home, next).is_err());
         let _ = std::fs::remove_dir_all(&home);
     }
 

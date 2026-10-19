@@ -1,8 +1,9 @@
 //! `*.acpbackup` archives.
 //!
 //! A consistent SQLite snapshot, preferences, themes, research, attachments and
-//! the pinned `acp-id` are packed as tar, compressed with zstd, and sealed with
-//! XChaCha20-Poly1305. The key is HKDF-SHA256 of Argon2id(password, random salt).
+//! the pinned `acp-id`, and the encrypted recovery phrase are packed as tar,
+//! compressed with zstd, and sealed with XChaCha20-Poly1305. The key is
+//! HKDF-SHA256 of Argon2id(password, random salt).
 //! The header is a canonical CBOR array (definite lengths, no maps) and is the
 //! AEAD associated data.
 //!
@@ -30,8 +31,9 @@ use super::pin::Pin;
 use super::progress::set_stage;
 use crate::config::{
     ACP_ID_REL_PATH, ATTACH_REL_PATH, DB_REL_PATH, EXPORTS_REL_PATH, LOGS_REL_DIR,
-    NODE_SECRET_REL_PATH, PREFS_REL_PATH, RESEARCH_REL_DIR, SESSION_REL_PATH,
-    SHARES_PENDING_REL_PATH, SHARES_VERIFIED_REL_PATH, THEMES_REL_DIR,
+    NODE_SECRET_REL_PATH, PREFS_REL_PATH, RECOVERY_NEXT_REL_PATH, RECOVERY_SEAL_REL_PATH,
+    RESEARCH_REL_DIR, SESSION_REL_PATH, SHARES_PENDING_REL_PATH, SHARES_VERIFIED_REL_PATH,
+    THEMES_REL_DIR,
 };
 
 const MAGIC: &[u8] = b"ACPBACKUP";
@@ -512,6 +514,7 @@ fn pack(home: &Path) -> Result<Vec<u8>> {
         for rel in [
             PREFS_REL_PATH,
             ACP_ID_REL_PATH,
+            RECOVERY_SEAL_REL_PATH,
             SHARES_PENDING_REL_PATH,
             SHARES_VERIFIED_REL_PATH,
         ] {
@@ -642,6 +645,7 @@ fn never_restore(name: &str) -> bool {
         || name.ends_with(".bootstrap")
         || name.ends_with(".prev")
         || name.ends_with(".encrypting")
+        || name == RECOVERY_NEXT_REL_PATH
 }
 
 fn tar_name(rel: &Path) -> String {
@@ -747,6 +751,9 @@ mod tests {
         )
         .unwrap();
         std::fs::write(home.join(SESSION_REL_PATH), "SESSION-SENTINEL-do-not-copy").unwrap();
+        std::fs::create_dir_all(home.join(".acp")).unwrap();
+        std::fs::write(home.join(RECOVERY_SEAL_REL_PATH), b"sealed-phrase").unwrap();
+        std::fs::write(home.join(RECOVERY_NEXT_REL_PATH), b"do-not-pack\n").unwrap();
         let node = home.join(NODE_SECRET_REL_PATH);
         std::fs::create_dir_all(node.parent().unwrap()).unwrap();
         std::fs::write(&node, "NODE-SECRET-SENTINEL").unwrap();
@@ -798,6 +805,11 @@ mod tests {
         );
         assert!(!fresh.join(SESSION_REL_PATH).exists());
         assert!(!fresh.join(NODE_SECRET_REL_PATH).exists());
+        assert_eq!(
+            std::fs::read(fresh.join(RECOVERY_SEAL_REL_PATH)).unwrap(),
+            b"sealed-phrase"
+        );
+        assert!(!fresh.join(RECOVERY_NEXT_REL_PATH).exists());
         let _ = std::fs::remove_dir_all(&src);
         let _ = std::fs::remove_dir_all(&fresh);
     }
