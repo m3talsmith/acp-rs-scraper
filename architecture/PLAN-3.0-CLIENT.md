@@ -435,7 +435,7 @@ The server is the headless node. In this plan its binary is `acp-rs` and it list
 
 Each one is packaged on its own, so someone can seed a node or a relay without installing the terminal app. Each one also stays an option inside the app. The TUI embeds a node while it is open (§7.2). A node embeds the relay with `--serve --relay` (§7.14.3). The relay's own packages stay as written in §7.14.11, and the server gets that same kind of separate install. This note does not cut either release.
 
-What those future notes can already call functional: identity and encryption (3.0.0), job details (3.1.0), `acp_rs_node_core` (3.2.0), local node identity (3.3.0), and compose for New post and Reply with publish still gated (3.4.0). Local attachments are 3.5.0, and the upload is still unsent. Stubbed or not started: live upload, interactions, live updates, account writes, the outbox, feeds, spaces, the network node, About, tooltips, and topic Help.
+Alpha notes, once the gate clears, can already call this functional: identity and encryption (3.0.0), job details (3.1.0), `acp_rs_node_core` (3.2.0), local node identity (3.3.0), and compose for New post and Reply with publish still gated (3.4.0). Local attachments are 3.5.0, and the upload is still unsent. Stubbed or not started: live upload, interactions, live updates, account writes, the outbox, feeds, spaces, the network node, About, tooltips, and topic Help.
 
 #### Communications after the docs pass
 
