@@ -19,7 +19,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 The header of the terminal UI shows `v3.4.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed publish is not sent until a guided capture of a real reply; attachments wait for a later release. Turn writes off with `ui.writes = false` or `ACP_WRITES=off`.
+**3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed publish is not sent until a guided capture of a real reply; attachments wait for a later release. Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
+
+**3.3.2** signs an authorizer certificate for 30 days and a node certificate for 365 days. 3.3.0 and 3.3.1 had those two lifetimes reversed. A node from those versions keeps the short certificate until `~/.acp/node` is removed and `--node-init` is run again, which creates a new node key.
 
 **3.3.1** stops the elapsed clock in job details once a job finishes, fails, or is cancelled. While the job is running, that line still counts. If the end was not recorded, the line says `unknown`.
 
@@ -814,7 +816,7 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 
 ## Releases
 
-A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.3.1. 3.4.0 stays a draft until that version is merged; publish it by hand after the merge. Releases for 2.16.0 and earlier stay as they were published. Drafts that already exist for versions now on `main` are left for the maintainer to publish.
+A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.3.1. 3.3.2 and 3.4.0 stay drafts until those versions are merged; publish them by hand after the merge. Releases for 2.16.0 and earlier stay as they were published. Drafts that already exist for versions now on `main` are left for the maintainer to publish.
 
 `.githooks/post-commit` tags `vX.Y.Z` when the version in `Cargo.toml` changes. It does not create a GitHub Release, and no workflow publishes one. A release is created with `gh release create --draft`, notes from the matching [CHANGELOG.md](CHANGELOG.md) section, and no attached files. See [CONTRIBUTING.md](CONTRIBUTING.md).
 

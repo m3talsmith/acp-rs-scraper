@@ -1,8 +1,15 @@
 acp-rs-scraper (3.4.0) unstable; urgency=medium
 
   * New post and Reply. A confirmed publish is not sent until a guided capture. Attachments wait.
+  * Includes the 3.3.2 certificate lifetimes: authorizer 30 days, node 365 days.
 
  -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 22:00:00 +0000
+
+acp-rs-scraper (3.3.2) unstable; urgency=medium
+
+  * Authorizer certificates last 30 days and node certificates last 365 days. A node from 3.3.0 or 3.3.1 needs ~/.acp/node removed and --node-init run again.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 23:00:00 +0000
 
 acp-rs-scraper (3.3.1) unstable; urgency=medium
 

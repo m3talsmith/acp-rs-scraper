@@ -52,6 +52,10 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %changelog
 * Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.4.0-1
 - New post and Reply. Publish stays a local preview until a guided capture.
+- Includes the 3.3.2 certificate lifetimes (authorizer 30 days, node 365 days).
+
+* Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.3.2-1
+- Authorizer certificates last 30 days and node certificates last 365 days.
 
 * Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.3.1-1
 - Job details: elapsed time stops when the job finishes, fails, or is cancelled.

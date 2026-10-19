@@ -6,7 +6,7 @@ Hooks, code layout, and tests are in [docs/USAGE.md](docs/USAGE.md#contributing)
 
 A GitHub Release for a version that is not yet on `main` is a **draft**. Do not publish it. The maintainer publishes the draft by hand after that version is merged into `main`.
 
-`main` includes 3.3.1. A version that is not yet merged (3.4.0 until it lands) is a draft. Releases for 2.16.0 and earlier, once published, stay published. Drafts for versions that are already on `main` are left for the maintainer to publish. Do not convert those published releases to drafts, and do not publish a draft from a hook or from CI.
+`main` includes 3.3.1. Versions that are not yet merged (3.3.2 and 3.4.0 until they land) are drafts. Releases for 2.16.0 and earlier, once published, stay published. Drafts for versions that are already on `main` are left for the maintainer to publish. Do not convert those published releases to drafts, and do not publish a draft from a hook or from CI.
 
 `.githooks/post-commit` creates an annotated git tag `vX.Y.Z` when the version in the root `Cargo.toml` changes. It does not create a GitHub Release. There is no CI workflow that publishes a release on a tag.
 
