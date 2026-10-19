@@ -227,7 +227,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                     lines.push(Line::styled(format!("{:>18}: {}", "Email", l.email.value), t.muted()));
                     lines.push(field_line("Code or login link", &l.code, true, &t));
                     lines.push(Line::raw(""));
-                    lines.push(Line::styled("Paste the code (or the whole login link) from the email; Enter verifies.", t.muted()));
+                    lines.push(Line::styled("Enter verifies. F2 or Resend code sends another code on this login.  ? login", t.muted()));
                 }
                 LoginStep::Busy(s) => lines.push(Line::styled(format!("⟳ {s}"), t.accent())),
             }
@@ -235,8 +235,12 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             lines.push(Line::raw(""));
             lines.push(Line::styled("The session is saved in ~/.acp/session.json (mode 0600); browsing works offline without it.", t.muted()));
             f.render_widget(Paragraph::new(lines), Rect { height: inner.height.saturating_sub(2), ..inner });
-            let submit = if matches!(l.step, LoginStep::Code) { "Verify" } else { "Send code" };
-            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &[submit.into(), "Cancel".into()], None);
+            let labels: Vec<String> = if l.on_code_step() {
+                vec!["Verify".into(), "Resend code".into(), "Cancel".into()]
+            } else {
+                vec!["Send code".into(), "Cancel".into()]
+            };
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &labels, None);
         }
         Modal::Search(s) => {
             let r = modal_rect(area, 76, SEARCH_FIELDS.len() as u16 + 9);

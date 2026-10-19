@@ -231,6 +231,8 @@ pub enum Effect {
     LoginEmail(String),
     /// Submit the code to the running login.
     LoginCode(String),
+    /// Ask for another code on the running login.
+    LoginResend,
     /// Abandon the running login.
     LoginCancel,
     /// Forget the session.
@@ -417,6 +419,9 @@ pub struct App {
     pub page_rows: usize,
     /// Login email pre-fill.
     pub email: Option<String>,
+    /// Login modal hidden while Help is open (`?` / F1). Restored when Help closes.
+    /// The login attempt keeps running.
+    pub paused_login: Option<LoginModal>,
     /// `~/.acp/themes` (None: theme files are off, e.g. in tests and previews).
     pub themes_dir: Option<PathBuf>,
     /// The selected theme's name.
@@ -488,7 +493,7 @@ impl App {
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
-            page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
+            page_rows: 5, email: None, paused_login: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None,
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
@@ -1635,7 +1640,13 @@ impl App {
     pub fn open_login(&mut self, then: Option<(JobKind, Vec<String>)>) {
         let reason = then.as_ref().map(|(k, _)| format!("Log in to start the {}.", k.name()));
         self.pending_job = then;
+        self.paused_login = None;
         self.modal = Some(Modal::Login(LoginModal::new(self.email.clone(), reason)));
+    }
+    /// The open login modal, including one parked under Help.
+    fn with_login<R>(&mut self, f: impl FnOnce(&mut LoginModal) -> R) -> Option<R> {
+        if let Some(Modal::Login(m)) = &mut self.modal { return Some(f(m)); }
+        self.paused_login.as_mut().map(f)
     }
     /// The session check before a scan / sync came back.
     pub fn session_checked(&mut self, r: std::result::Result<bool, String>, kind: JobKind, argv: Vec<String>) {
@@ -1647,18 +1658,35 @@ impl App {
     }
     /// The site sent the login code.
     pub fn login_need_code(&mut self) {
-        if let Some(Modal::Login(m)) = &mut self.modal { m.need_code(); }
+        self.with_login(|m| m.need_code());
     }
-    /// The login finished.
+    /// Verification failed and the attempt is still open. Stay on the code step.
+    pub fn login_hold(&mut self, e: &str) {
+        let _ = self.with_login(|m| m.held(e));
+    }
+    /// The running attempt is gone. Back to the email step.
+    pub fn login_expired(&mut self) {
+        let _ = self.with_login(|m| m.failed("the login expired; send a new code"));
+    }
+    /// The login finished. A login parked under Help still counts.
     pub fn login_done(&mut self, r: std::result::Result<(), String>) {
-        let Some(Modal::Login(m)) = &mut self.modal else { return };
+        let present = matches!(self.modal, Some(Modal::Login(_))) || self.paused_login.is_some();
+        if !present { return; }
         match r {
             Ok(()) => {
+                let email = self.with_login(|m| m.email.value.trim().to_string());
                 self.session = SessionState::Valid;
-                self.email = Some(m.email.value.trim().to_string()).filter(|e| !e.is_empty()).or(self.email.take());
-                self.close_modal(ModalResult::ClosedSubmitted);
+                self.email = email.filter(|e| !e.is_empty()).or(self.email.take());
+                self.paused_login = None;
+                if matches!(self.modal, Some(Modal::Login(_))) {
+                    self.close_modal(ModalResult::ClosedSubmitted);
+                } else {
+                    self.modal = None;
+                    self.push_status("logged in");
+                    if let Some((k, argv)) = self.pending_job.take() { self.effects.push(Effect::RunJob(k, argv)); }
+                }
             }
-            Err(e) => m.failed(&e),
+            Err(e) => { let _ = self.with_login(|m| m.failed(&e)); }
         }
     }
     /// Logged out.
@@ -1771,9 +1799,17 @@ impl App {
                 self.pending_job = None;
                 self.pending_feed = None;
                 self.pending_sort = None;
+                self.paused_login = None;
                 if self.session == SessionState::Checking { self.session = SessionState::LoggedOut; }
                 let _ = m;
                 self.effects.push(Effect::LoginCancel);
+            }
+            (Modal::Login(m), ModalResult::Help(topic)) => {
+                self.paused_login = Some(m);
+                self.open_help(Some(topic));
+            }
+            (Modal::Help(_), _) => {
+                if let Some(login) = self.paused_login.take() { self.modal = Some(Modal::Login(login)); }
             }
             (Modal::Confirm(c), ModalResult::ClosedSubmitted) => match c.action {
                 ConfirmAction::Job(k, argv) => self.start_job(k, argv),

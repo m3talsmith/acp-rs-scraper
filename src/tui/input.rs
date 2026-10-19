@@ -18,7 +18,11 @@ pub fn on_event(app: &mut App, ev: Event) {
 fn after_modal(app: &mut App, r: Option<ModalResult>) {
     if let Some(Modal::Login(m)) = &mut app.modal
         && let Some(req) = m.request.take() {
-            app.effects.push(match req { LoginRequest::SendEmail(e) => Effect::LoginEmail(e), LoginRequest::SubmitCode(c) => Effect::LoginCode(c) });
+            app.effects.push(match req {
+                LoginRequest::SendEmail(e) => Effect::LoginEmail(e),
+                LoginRequest::SubmitCode(c) => Effect::LoginCode(c),
+                LoginRequest::Resend => Effect::LoginResend,
+            });
         }
     if let Some(pid) = app.take_job_cancel() { app.cancel_tracked(pid); }
     if let Some(r) = r { app.close_modal(r); }

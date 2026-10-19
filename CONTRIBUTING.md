@@ -2,6 +2,10 @@
 
 Hooks, code layout, and tests are in [docs/USAGE.md](docs/USAGE.md#contributing).
 
+## Rust
+
+The minimum supported Rust is **1.88**. The root `Cargo.toml` sets `rust-version = "1.88"` and `rust-toolchain.toml` pins channel `1.88.0`. Edition 2024 itself needs 1.85, but the `scraper` dependency uses let-chains, which are stable in 1.88. `rustc` 1.85 stops with `E0658`.
+
 ## Releases
 
 A GitHub Release for a version that is not yet on `main` is a **draft**. Do not publish it. The maintainer publishes the draft by hand after that version is merged into `main`.

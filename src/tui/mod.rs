@@ -32,10 +32,21 @@ use crate::prelude::*;
 use state::{App, Effect, JobView};
 use std::time::{Duration, Instant};
 
+/// What the login modal asks the running attempt to do. The channel stays open
+/// so a wrong code or a dropped socket does not throw the attempt away.
+enum LoginCmd {
+    /// Submit this code or login link.
+    Code(String),
+    /// Ask the site for another code on this same attempt.
+    Resend,
+}
+
 /// Messages from background tasks to the event loop.
 enum Msg {
     SessionChecked(std::result::Result<bool, String>, jobs::JobKind, Vec<String>),
     LoginNeedCode(u64),
+    /// The attempt is still alive. Stay on the code step and show this error.
+    LoginHold(u64, String),
     LoginDone(u64, std::result::Result<(), String>),
     AutoSyncChecked(std::result::Result<bool, String>, Vec<String>),
     ThemeDownloaded(String, bool, std::result::Result<crate::themes::download::Fetched, String>),
@@ -51,6 +62,53 @@ fn restore_terminal() {
 
 impl Drop for Terminal {
     fn drop(&mut self) { restore_terminal(); }
+}
+
+/// The LiveView login is not `Send`. Run it on a thread of its own.
+fn spawn_login(
+    http: reqwest::Client, jar: Arc<Jar>, email: String,
+    rx: tokio::sync::mpsc::UnboundedReceiver<LoginCmd>,
+    tx: tokio::sync::mpsc::UnboundedSender<Msg>, g: u64,
+) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
+        let Ok(rt) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
+            let _ = tx.send(Msg::LoginDone(g, Err("could not start the login runtime".into())));
+            return;
+        };
+        rt.block_on(login_attempt(http, jar, email, rx, tx, g));
+    })
+}
+
+/// Email, then wait. Heartbeats run during the wait. A close reconnects.
+/// `LoginHold` keeps the channel; only success, cancel, or a failed start ends it.
+async fn login_attempt(
+    http: reqwest::Client, jar: Arc<Jar>, email: String,
+    mut rx: tokio::sync::mpsc::UnboundedReceiver<LoginCmd>,
+    tx: tokio::sync::mpsc::UnboundedSender<Msg>, g: u64,
+) {
+    let mut session = match LoginSession::start(&http, &jar, Some(email)).await {
+        Ok(LoginStart::Already) => { let _ = tx.send(Msg::LoginDone(g, Ok(()))); return; }
+        Ok(LoginStart::NeedCode(s)) => *s,
+        Err(e) => { let _ = tx.send(Msg::LoginDone(g, Err(format!("{e:#}")))); return; }
+    };
+    let _ = tx.send(Msg::LoginNeedCode(g));
+    loop {
+        match session.pump_until(rx.recv()).await {
+            Ok(None) => return,
+            Ok(Some(LoginCmd::Code(c))) => match session.submit_code(&c).await {
+                Ok(()) => { let _ = tx.send(Msg::LoginDone(g, Ok(()))); return; }
+                Err(e) => { let _ = tx.send(Msg::LoginHold(g, format!("{e:#}"))); }
+            },
+            Ok(Some(LoginCmd::Resend)) => match session.resend().await {
+                Ok(()) => { let _ = tx.send(Msg::LoginNeedCode(g)); }
+                Err(e) => { let _ = tx.send(Msg::LoginHold(g, format!("{e:#}"))); }
+            },
+            Err(e) => {
+                let _ = tx.send(Msg::LoginHold(g, format!("{e:#}")));
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            }
+        }
+    }
 }
 
 /// Open the terminal UI. Needs a terminal on stdin and stdout.
@@ -163,7 +221,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     let mut job: Option<jobs::Job> = None;
     // Small writes (bookmarks) that run next to the main job.
     let mut side: Vec<jobs::Job> = Vec::new();
-    let mut code_tx: Option<tokio::sync::oneshot::Sender<String>> = None;
+    let mut login_tx: Option<tokio::sync::mpsc::UnboundedSender<LoginCmd>> = None;
     let mut login_task: Option<std::thread::JoinHandle<()>> = None;
     let mut detached = None;
     // Generation of the current login attempt; replies from abandoned ones are ignored.
@@ -202,10 +260,11 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
             Some(m) = msg_rx.recv() => match m {
                 Msg::SessionChecked(r, k, argv) => app.session_checked(r, k, argv),
                 Msg::LoginNeedCode(g) if g == login_gen => app.login_need_code(),
-                Msg::LoginDone(g, r) if g == login_gen => { code_tx = None; login_task = None; app.login_done(r); }
+                Msg::LoginHold(g, e) if g == login_gen => app.login_hold(&e),
+                Msg::LoginDone(g, r) if g == login_gen => { login_tx = None; login_task = None; app.login_done(r); }
                 Msg::AutoSyncChecked(r, argv) => app.auto_sync_checked(r, argv),
                 Msg::ThemeDownloaded(name, manual, r) => app.theme_downloaded(&name, manual, r),
-                Msg::LoginNeedCode(_) | Msg::LoginDone(..) => {}
+                Msg::LoginNeedCode(_) | Msg::LoginHold(..) | Msg::LoginDone(..) => {}
             },
             _ = tokio::time::sleep(wait) => {}
         }
@@ -299,30 +358,24 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     }
                 },
                 Effect::LoginEmail(email) => {
-                    // The LiveView login future is not Send: run it on its own
-                    // single-threaded runtime. Dropping `code_tx` ends it.
-                    let (ctx, crx) = tokio::sync::oneshot::channel::<String>();
-                    code_tx = Some(ctx);
+                    // The LiveView socket is not Send: one thread, one current-thread
+                    // runtime. The command channel stays open across a wrong code or a
+                    // dropped socket. Dropping `login_tx` cancels the attempt.
                     login_gen += 1;
                     let g = login_gen;
-                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
-                    login_task = Some(std::thread::spawn(move || {
-                        let tx2 = tx.clone();
-                        let r = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
-                            Ok(rt) => rt.block_on(login_flow(&http, &jar, Some(email), move || async move {
-                                let _ = tx2.send(Msg::LoginNeedCode(g));
-                                crx.await.map_err(|_| anyhow!("login cancelled"))
-                            })),
-                            Err(e) => Err(e.into()),
-                        };
-                        let _ = tx.send(Msg::LoginDone(g, r.map_err(|e| format!("{e:#}"))));
-                    }));
+                    let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel();
+                    login_tx = Some(cmd_tx);
+                    login_task = Some(spawn_login(http.clone(), jar.clone(), email, cmd_rx, msg_tx.clone(), g));
                 }
-                Effect::LoginCode(c) => match code_tx.take() {
-                    Some(tx) => { let _ = tx.send(c); }
-                    None => app.login_done(Err("the login expired; send a new code".into())),
+                Effect::LoginCode(c) => match &login_tx {
+                    Some(tx) => { let _ = tx.send(LoginCmd::Code(c)); }
+                    None => app.login_expired(),
                 },
-                Effect::LoginCancel => { code_tx = None; login_task = None; login_gen += 1; }
+                Effect::LoginResend => match &login_tx {
+                    Some(tx) => { let _ = tx.send(LoginCmd::Resend); }
+                    None => app.login_expired(),
+                },
+                Effect::LoginCancel => { login_tx = None; login_task = None; login_gen += 1; }
                 Effect::Logout => match logout(&jar) {
                     Ok(removed) => app.logged_out(removed),
                     Err(e) => app.error("Logout failed", &format!("{e:#}")),
@@ -338,7 +391,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     }
     stop.store(true, std::sync::atomic::Ordering::Relaxed);
     if let Some(im) = app.images.as_ref() { im.clear_screen_images(&mut std::io::stdout()); }
-    drop((code_tx, login_task));
+    drop((login_tx, login_task));
     drop(term);
     Ok(detached)
 }

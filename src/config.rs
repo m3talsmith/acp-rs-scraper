@@ -293,7 +293,8 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Ctrl-Space / Ctrl-P", "Command palette"),
     ("l", "Show / hide the log panel"),
     ("Ctrl-R", "Re-read nicks from the database"),
-    ("? / F1", "Help"),
+    ("F2", "Log in: Resend code. A dropped connection keeps this login"),
+    ("? / F1", "Help. On the login window, ? login"),
     ("q / Ctrl-C", "Quit (a running scan keeps going in the background)"),
     ("Mouse", "Click anything; Ctrl/Shift-click nicks to multi-select; wheel scrolls"),
 ];

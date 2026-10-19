@@ -53,6 +53,9 @@ pub type Ws = tokio_tungstenite::WebSocketStream<
     tokio_tungstenite::MaybeTlsStream<tokio::net::TcpStream>,
 >;
 
+/// How often the client sends a Phoenix heartbeat. The server closes a socket that stays quiet for about a minute.
+pub const LV_HEARTBEAT: std::time::Duration = std::time::Duration::from_secs(30);
+
 /// A joined LiveView: websocket, channel topic, message ref counter and the merged rendered tree.
 pub struct Lv {
     /// Websocket stream.
@@ -63,6 +66,8 @@ pub struct Lv {
     pub r: u64,
     /// Merged rendered tree.
     pub rendered: Value,
+    /// How often to send a Phoenix heartbeat while waiting on this socket.
+    pub heartbeat: std::time::Duration,
 }
 
 impl Lv {
@@ -77,7 +82,7 @@ impl Lv {
             h.insert("Cookie", c);
         }
         let (ws, _) = tokio_tungstenite::connect_async(req).await?;
-        let mut lv = Lv { ws, topic: format!("lv:{}", p.id), r: 0, rendered: json!({}) };
+        let mut lv = Lv { ws, topic: format!("lv:{}", p.id), r: 0, rendered: json!({}), heartbeat: LV_HEARTBEAT };
         let reply = lv
             .push("phx_join", json!({
                 "url": p.url,
@@ -94,28 +99,75 @@ impl Lv {
     }
 
     /// Push an event and wait for its reply, merging every diff seen into [`Lv::rendered`].
+    ///
+    /// Phoenix heartbeats go out on [`LV_HEARTBEAT`] while the reply is outstanding.
+    /// A heartbeat reply uses another ref and is ignored. A protocol ping is answered.
     pub async fn push(&mut self, event: &str, payload: Value) -> Result<Value> {
         self.r += 1;
-        let r = self.r.to_string();
-        let msg = json!(["1", r, self.topic, event, payload]);
+        let want = self.r.to_string();
+        let msg = json!(["1", want, self.topic, event, payload]);
         dbg_log("push", &msg.to_string());
-        self.ws.send(Message::text(msg.to_string())).await?;
-        while let Some(m) = self.ws.next().await {
-            if let Message::Text(t) = m? {
-                let v: Value = serde_json::from_str(&t)?;
-                dbg_log("recv", &t);
-                if v[3] == "diff" {
-                    lv_merge(&mut self.rendered, &strip_meta(&v[4]));
+        self.send_text(&msg).await?;
+        let mut beat = tokio::time::interval(self.heartbeat);
+        beat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+        beat.tick().await;
+        loop {
+            let frame = {
+                let ws = &mut self.ws;
+                tokio::select! {
+                    _ = beat.tick() => None,
+                    msg = ws.next() => Some(msg),
                 }
-                if v[1] == r.as_str() && v[3] == "phx_reply" {
-                    if let Some(d) = v[4].pointer("/response/diff") {
-                        lv_merge(&mut self.rendered, &strip_meta(d));
-                    }
-                    return Ok(v[4].clone());
+            };
+            match frame {
+                None => self.send_heartbeat().await?,
+                Some(msg) => {
+                    if let Some(reply) = self.absorb(msg, Some(&want)).await? { return Ok(reply); }
                 }
             }
         }
-        bail!("websocket closed")
+    }
+
+    /// Send one Phoenix heartbeat (`[null, ref, "phoenix", "heartbeat", {}]`).
+    pub async fn send_heartbeat(&mut self) -> Result<()> {
+        self.r += 1;
+        let msg = json!([Value::Null, self.r.to_string(), "phoenix", "heartbeat", {}]);
+        dbg_log("push", &msg.to_string());
+        self.send_text(&msg).await
+    }
+
+    async fn send_text(&mut self, msg: &Value) -> Result<()> {
+        self.ws.send(Message::text(msg.to_string())).await.map_err(|e| anyhow!("websocket closed: {e}"))
+    }
+
+    /// Apply one incoming frame. `want` is the ref of a `phx_reply` to return.
+    /// `Ok(None)` means the wait continues. A closed socket is `websocket closed`.
+    pub(crate) async fn absorb(&mut self, msg: Option<Result<Message, tokio_tungstenite::tungstenite::Error>>, want: Option<&str>) -> Result<Option<Value>> {
+        let msg = match msg {
+            None => bail!("websocket closed"),
+            Some(Err(e)) => bail!("websocket closed: {e}"),
+            Some(Ok(m)) => m,
+        };
+        match msg {
+            Message::Ping(p) => {
+                self.ws.send(Message::Pong(p)).await.map_err(|e| anyhow!("websocket closed: {e}"))?;
+                Ok(None)
+            }
+            Message::Close(_) => bail!("websocket closed"),
+            Message::Text(t) => {
+                let text = t.as_str();
+                let v: Value = serde_json::from_str(text)?;
+                dbg_log("recv", text);
+                if v[3] == "diff" { lv_merge(&mut self.rendered, &strip_meta(&v[4])); }
+                if let Some(want) = want
+                    && v[1] == want && v[3] == "phx_reply" {
+                        if let Some(d) = v[4].pointer("/response/diff") { lv_merge(&mut self.rendered, &strip_meta(d)); }
+                        return Ok(Some(v[4].clone()));
+                    }
+                Ok(None)
+            }
+            Message::Pong(_) | Message::Binary(_) | Message::Frame(_) => Ok(None),
+        }
     }
 
     /// Render the current LiveView tree (root plus every component) to HTML.

@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 3.5.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 3.5.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-rs-scraper
 
@@ -35,7 +35,7 @@ The header of the terminal UI shows `v3.5.0`. Details are in [CHANGELOG.md](CHAN
 
 ## Install
 
-Every install builds from source. You need Rust 1.88 or newer; the installer offers rustup if it's missing or too old.
+Every install builds from source. You need Rust 1.88 or newer (`rust-toolchain.toml` pins 1.88.0). rustc 1.85 cannot build this crate: edition 2024 is old enough, but a dependency uses let-chains and fails with `E0658`. The installer offers rustup if Rust is missing or too old.
 
 ```sh
 git clone https://github.com/m3talsmith/acp-rs-scraper.git

@@ -85,6 +85,15 @@ fn help_topics() -> Vec<String> {
         "  Search › Limit and the Shift-S Limit field keep N matches at the chosen end. Blank keeps",
         "  every match. The status line shows the window, for example:",
         "  search \"strike\": 100 of 236 posts · oldest.",
+        "",
+        "[[login]]",
+        "Log in",
+        "  The terminal UI and the command line use the same email code. The terminal UI keeps",
+        "  the connection alive while the email is read, and reconnects if it drops, so the same",
+        "  code can still be entered. A wrong code stays on that step.",
+        "  F2, or Resend code, asks for another code without starting over.",
+        "  ? or F1 on the login window opens this topic and leaves the attempt running.",
+        "  A finished login is saved in ~/.acp/session.json.",
     ].into_iter().map(str::to_string).collect()
 }
 
