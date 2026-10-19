@@ -25,7 +25,7 @@ Update 2026-10-19 (embedded assistant): a local assistant is not a 3.x requireme
 
 Update 2026-10-19 (product name and launch docs): during 3.x the user-facing name is **ACP Red Star**. A docs pass is required before the 3.0 client is presented as launched. Communications (pitch, demo, stickers, backgrounds, a cutscene, and a comrades' forum post) wait until that pass exists. Neither list blocks attachments. Details are in §4.5.
 
-Update 2026-10-19 (About and the launch post, parked): About's modal also carries the vendored American Communist Party Program (adopted October 12, 2024), with headings, scroll, and a link to <https://acp.us/program>. The comrades' launch post features the cutscene in video and ASCII beside the pitch and the demo. Neither is built while `CAPTURE_BLOCK` is in force. Attachments stay on that gate.
+Update 2026-10-19 (About and the launch post, parked): the About modal is exactly three sections: Credits, Why this is necessary, and ACP platform. ACP platform is the vendored American Communist Party Program (adopted October 12, 2024), with headings, scroll, and a link to <https://acp.us/program>. Each section has a tooltip and a Help topic. The comrades' launch post features the cutscene in video and ASCII beside the pitch and the demo. Neither is built while `CAPTURE_BLOCK` is in force. Attachments stay on that gate.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -274,7 +274,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | TUI menu categories | later minor, required before 3.x closes | Reorganize the menu bar (§4.2). Must ship before 3.x is finished. The version number is not assigned here, and numbered stages are not moved. |
 | Hover tooltips | later minor, required before 3.x closes | Every button, menu item, and card icon explains itself on hover, including its key when it has one (§4.3). One shared helper. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
 | Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). Every flag and control is described. `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
-| About | later minor, required before 3.x closes | A menu entry beside Help opens a modal: credits, why the client is necessary, and the vendored American Communist Party Program (§4.2). Tooltip, Help text, and a Help topic. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here. |
+| About | later minor, required before 3.x closes | A menu entry beside Help opens a modal of exactly three sections: Credits, Why this is necessary, and ACP platform (§4.2). Each section has a tooltip and a Help topic. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here. |
 | Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
 | Launch communications | end of 3.0, after launch docs | Pitch, demo, two sticker sets, ethos backgrounds, a cutscene in video and ASCII, and a comrades' forum post for v3 (§4.5). The post body is not in the repo until Michael asks. Not built in this note. |
 
@@ -339,7 +339,13 @@ Left to right, with Start Scanning pinned on the right:
 7. **Sync** — keep the local copy up to date. Today that is site sync and auto-sync. Peer replication of the local database joins this menu later.
 8. **Discover** — find people, nodes, and rooms. A stub until the network-node stage (P9). Then peers, public nodes, relays, and the spaces / live badge.
 9. **Account** — Session (login and logout) today. Profile, site settings, and password change join this menu in their own stages.
-10. **Debug** — verbose, logging, and help. **About** is a required entry beside Help. Account is an acceptable home if Michael prefers it. The entry itself is required, and it is not left unplaced the way Quit is. About opens a modal. The modal says who worked on the project and why this client is necessary. It also shows the full American Communist Party Program, adopted October 12, 2024, as readable text: headings and a scroll, not a paraphrase and not the app's opinion. A copy is vendored in the repository. The modal links to the official page, <https://acp.us/program>. The PDF is <https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf>. It gets a tooltip, a Help description, and a Help topic the help icon can open (§4.3, §4.4). Getting Started and the launch-docs checklist include it (§4.5). This note does not build the modal. About waits until `CAPTURE_BLOCK` lifts.
+10. **Debug** — verbose, logging, and help. **About** is a required entry beside Help. Account is an acceptable home if Michael prefers it. The entry itself is required, and it is not left unplaced the way Quit is. About opens a modal. The modal is locked to exactly three sections, and no others:
+
+    1. **Credits** — who worked on the project.
+    2. **Why this is necessary** — the rationale for the app.
+    3. **ACP platform** — the full official American Communist Party Program, adopted October 12, 2024. A copy is vendored in the repository and shown with headings and a scroll. It is not paraphrased and it is not the app's opinion. The section links to <https://acp.us/program>. The PDF is <https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf>.
+
+    Each section has its own tooltip and its own Help topic (§4.3, §4.4). About stays in Getting Started and on the launch-docs checklist (§4.5). The version line in §7.14.10 is not a fourth section of this modal. This note does not build the modal. About waits until `CAPTURE_BLOCK` lifts.
 11. **Start Scanning** — pinned on the right. The scrape options (nicks, latest or trending, mentions, and the rest of today's Scrape menu) stay on this control.
 
 Bookmarks is not an item under Library. Sync and Discover stay two menus. Sync is how this machine's copy stays current. Discover is how you find someone or somewhere else.
