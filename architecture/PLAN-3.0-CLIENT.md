@@ -346,7 +346,7 @@ This must land before 3.x is finished. It can ship with the menu reorganization 
 Help stays reachable with `?` and F1. Three changes must land before 3.x is finished. They can ship with the menu reorganization (§4.2), with the hover tooltips (§4.3), or as their own later minor. This note does not implement them, does not assign a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0.
 
 1. **A help icon on the chrome.** A small help icon sits on the interface, and a tooltip may carry the same mark. Choosing it opens Help on the topic for that control.
-2. **Topics you can move between.** Help is no longer one flat list of keys. It is sections you step through: Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the others that the app needs. Keys stay inside the Keys topic, and the command-line help stays available from a topic rather than as the whole screen.
+2. **Topics you can move between.** Help is sections you step through: Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the others that the app needs. Keys stay inside the Keys topic. The command-line help stays available from a topic.
 3. **Search inside Help.** Typing filters the topics and the key bindings, so a word or a key finds its place.
 
 Today Help is one scroll: the recovery guide, then the key list, then the generated command-line help.
