@@ -8,6 +8,8 @@
 
 Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that browses everything you have scraped; with flags it logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
 
+**v3 launch write-up (historical draft):** [docs/history/redstar-v3-launch-post.md](docs/history/redstar-v3-launch-post.md)
+
 ## Breaking changes in 3.0.0
 
 3.0.0 encrypts the local database and requires a password of at least 8 characters that passes a strength check. A 2.x install does not.
