@@ -2,7 +2,7 @@
 
 use super::*;
 use master::{derive_master, normalize_phrase, phrase_from_entropy, recover_seed};
-use password::{Argon2Params, check_password, default_params};
+use password::{Argon2Params, MIN_PASSWORD_CHARS, check_password, default_params};
 
 const ABANDON: &str = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art";
 const LEGAL: &str = "legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth useful legal winner thank year wave sausage worth title";
@@ -27,8 +27,21 @@ fn phrase_whitespace_and_case_do_not_change_the_seed() {
 
 #[test]
 fn short_or_weak_passwords_are_refused() {
-    assert!(check_password("short").is_err());
-    assert!(check_password("passwordpassword").is_err());
+    assert_eq!(MIN_PASSWORD_CHARS, 8);
+    let seven = check_password("1234567").unwrap_err().to_string();
+    assert!(seven.contains("at least 8 characters"), "{seven}");
+    // Eight characters clears the length check. This zxcvbn build scores every
+    // 8-character password at most 2 (10^8 + 1 guesses), so the strength check
+    // still refuses it. Nine characters of the same shape passes both.
+    let eight = check_password("k3$mQ9vL").unwrap_err().to_string();
+    assert!(
+        !eight.contains("at least 8"),
+        "an 8-character password must not be rejected for length: {eight}"
+    );
+    assert!(eight.contains("too easy"), "{eight}");
+    let weak = check_password("passwordpassword").unwrap_err().to_string();
+    assert!(weak.contains("too easy"), "{weak}");
+    assert!(check_password("k3$mQ9vLx").is_ok());
     assert!(check_password("correct horse battery staple").is_ok());
 }
 

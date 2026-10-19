@@ -10,7 +10,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### BREAKING CHANGES
 
-- **A password is required to create or open the local database.** 2.x opened `~/.acp/ai/data/rs.database` with no password. 3.0.0 creates that file encrypted and asks for the password at startup, or reads `ACP_PASSWORD` when there is no terminal. The password is at least 12 characters and has to pass a strength check. There is no password reset.
+- **A password is required to create or open the local database.** 2.x opened `~/.acp/ai/data/rs.database` with no password. 3.0.0 creates that file encrypted and asks for the password at startup, or reads `ACP_PASSWORD` when there is no terminal. The password is at least 8 characters and has to pass a strength check. There is no password reset.
 - **An existing 2.x database is not opened.** Startup stops and tells you to run `acp-rs-scraper --encrypt-db`. That command writes a `*.acpbackup` first, encrypts the database, checks row counts and a content hash, and deletes the plaintext file only after the encrypted copy matches.
 - **Rollback.** Until `--encrypt-db` succeeds, a 2.x binary still reads the plaintext file. If the migration fails, that file is left in place. After it succeeds, 2.x cannot read the database, `rs.database.bootstrap`, or a `*.acpbackup`. Copy `rs.database` somewhere outside `~/.acp` before migrating if you may need to go back; that copy is what you put back to return to 2.x. 3.0.0 restores one of its own backups with `--restore`.
 - **New files.** `rs.database.bootstrap` (next to the database) holds the wrapped local key. `~/.acp/acp-id` appears only after `--identity-init`. `session.json` is unchanged and is still not inside a backup.

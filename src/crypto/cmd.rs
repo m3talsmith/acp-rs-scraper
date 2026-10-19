@@ -8,7 +8,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
 use super::master::{self, Master};
-use super::password::{check_password, default_params};
+use super::password::{MIN_PASSWORD_CHARS, check_password, default_params};
 use super::pin::Pin;
 use super::slip39;
 use crate::cli::prompt;
@@ -95,9 +95,9 @@ fn store_pin(home: &std::path::Path, master: &Master) -> Result<()> {
 }
 
 fn prompt_new_password() -> Result<Zeroizing<String>> {
-    let first = Zeroizing::new(rpassword::prompt_password(
-        "Password (at least 12 characters): ",
-    )?);
+    let first = Zeroizing::new(rpassword::prompt_password(format!(
+        "Password (at least {MIN_PASSWORD_CHARS} characters): "
+    ))?);
     check_password(first.as_str())?;
     let second = Zeroizing::new(rpassword::prompt_password("Repeat password: ")?);
     if first.as_str() != second.as_str() {

@@ -698,7 +698,7 @@ It replaces the single per-node identity key of the first draft of §7.2.
   - `master_secret = HKDF(seed ‖ Argon2id(password, salt = blake3("acp-master" ‖ seed)))`, so the salt comes from the random seed, never from the email.
   - The signing and wrapping keys are derived from `master_secret` with distinct HKDF labels.
 - **The password is mandatory.** There is no passwordless mode, and no password hint or reset.
-  - Minimum length 12 plus a strength check (zxcvbn-style).
+  - Minimum length 8 plus a strength check (zxcvbn-style).
   - Argon2id parameters are stored in the file headers, and the default is tuned to about 1 s on the user's machine with a floor of 64 MiB.
   - The phrase alone, or shares alone, can never reproduce the master.
 - **A wrong password still derives *a* master** (as with any seed-plus-passphrase scheme), so the tool always shows the `acp-id` and refuses to continue unless it

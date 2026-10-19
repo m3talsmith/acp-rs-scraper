@@ -10,7 +10,7 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 ## Breaking changes in 3.0.0
 
-3.0.0 encrypts the local database and requires a password. A 2.x install does not.
+3.0.0 encrypts the local database and requires a password of at least 8 characters that passes a strength check. A 2.x install does not.
 
 - **What breaks.** Startup will not open `~/.acp/ai/data/rs.database` from 2.x. A new database asks for a password before the terminal UI or a headless command uses it. 2.x cannot read a 3.0.0 database, `rs.database.bootstrap`, or a `*.acpbackup`.
 - **Migrate.** Copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp` if you may want 2.x again. Then run `acp-rs-scraper --encrypt-db`. It writes a `*.acpbackup` first, encrypts the file, and removes the plaintext copy only after the encrypted copy matches. The password you set is required on later runs (or set `ACP_PASSWORD` when there is no terminal).

@@ -46,10 +46,15 @@ pub fn default_params() -> Argon2Params {
     Argon2Params::PRODUCTION
 }
 
-/// Reject a password that is shorter than 12 characters or that zxcvbn scores below 3.
+/// Minimum password length, in Unicode scalar values. The strength check is separate.
+pub const MIN_PASSWORD_CHARS: usize = 8;
+
+/// Reject a password that is shorter than [`MIN_PASSWORD_CHARS`] or that zxcvbn scores below 3.
 pub fn check_password(password: &str) -> Result<()> {
-    if password.chars().count() < 12 {
-        bail!("the password must be at least 12 characters, and there is no password reset");
+    if password.chars().count() < MIN_PASSWORD_CHARS {
+        bail!(
+            "the password must be at least {MIN_PASSWORD_CHARS} characters, and there is no password reset"
+        );
     }
     let guess = zxcvbn::zxcvbn(password, &[]);
     if guess.score() < zxcvbn::Score::Three {
