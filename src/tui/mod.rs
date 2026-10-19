@@ -58,7 +58,10 @@ pub async fn run(args: Args) -> Result<()> {
     if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
         bail!("the terminal UI needs a terminal; for headless use pass flags, e.g. --scrape, --nick NICK, --search TEXT, --export FILE (see --help)");
     }
-    let db = home()?.join(DB_REL_PATH);
+    let home_dir = home()?;
+    crate::crypto::cmd::prepare_db_quiet()?;
+    let show_recovery_help = crate::crypto::cmd::tui_recovery_offer(&home_dir)?;
+    let db = home_dir.join(DB_REL_PATH);
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
         session_path().map(|p| p.exists()).unwrap_or(false));
@@ -66,6 +69,15 @@ pub async fn run(args: Args) -> Result<()> {
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
     (app.empty_anim, app.empty_anim_accent) = empty_anim::from_prefs(prefs.ui.as_ref());
+    if let Some(msg) = crate::crypto::cmd::shares_reminder(&home_dir) {
+        app.push_status(msg);
+    }
+    if let Some(msg) = crate::crypto::backup::schedule_reminder(&home_dir) {
+        app.push_status(msg);
+    }
+    if show_recovery_help {
+        app.modal = Some(modals::Modal::Help(modals::HelpModal::new()));
+    }
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
     set_log_sink(Some(log_tx));
@@ -157,6 +169,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         app.tick(now);
         app.sync_tick(now);
         if let Some(im) = app.images.as_mut() { im.poll(); }
+        if std::mem::take(&mut app.needs_redraw) { term.0.clear()?; }
         term.0.draw(|f| widgets::draw(f, app, now))?;
         if osc8 { emit_osc8(&app.osc_links, &app.theme); }
         if let Some(im) = app.images.as_mut()

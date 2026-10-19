@@ -1,3 +1,9 @@
+acp-rs-scraper (3.0.0) unstable; urgency=medium
+
+  * Breaking: the local database is encrypted and needs a password. A 2.x plaintext database is not opened; migrate with --encrypt-db (writes a backup first).
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 23:45:00 +0000
+
 acp-rs-scraper (2.24.1) unstable; urgency=medium
 
   * Bookmark sync sends the hook bookmark {id, state} instead of toggle-bookmark.

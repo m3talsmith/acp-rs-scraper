@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.24.1
+Version:        3.0.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 3.0.0-1
+- Breaking: encrypted database, mandatory password, --encrypt-db migrates a 2.x file after a backup
+
 * Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.24.1-1
 - Bookmark sync uses the bookmark hook with an explicit state
 

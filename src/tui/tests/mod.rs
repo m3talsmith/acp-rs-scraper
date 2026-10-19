@@ -21,6 +21,7 @@ mod views;
 mod history;
 mod nick_filter;
 mod reads;
+mod session;
 mod theming;
 mod editor;
 

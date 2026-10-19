@@ -17,7 +17,8 @@ pub fn prompt(msg: &str) -> Result<String> {
     version,
     about = "Scrape Red Star (acp.us/rs) posts into SQLite and export them",
     long_about = "Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.",
-    after_help = "Examples:
+    after_help = concat!(include_str!("crypto/recovery_guide.txt"), "
+Examples:
   acp-rs-scraper                      # terminal UI
   acp-rs-scraper --tui --nicks @hazaldin -v
   acp-rs-scraper --theme default      # terminal UI with this theme
@@ -80,12 +81,29 @@ acp-rs-scraper --sort-thread THREAD --thread-sort top
 acp-rs-scraper --reposts POST
   \
 acp-rs-scraper --edits THREAD/POST
-",
+  \
+acp-rs-scraper --identity-init
+  \
+acp-rs-scraper --show-phrase
+  \
+acp-rs-scraper --acp-id
+  \
+acp-rs-scraper --shares-print
+  \
+acp-rs-scraper --shares-verify --shares-file shares.txt
+  \
+acp-rs-scraper --backup --output backup.acpbackup
+  \
+acp-rs-scraper --restore backup.acpbackup
+  \
+acp-rs-scraper --backup-schedule weekly --keep 4 --dest ~/backups
+"),
 )]
 #[command(group(clap::ArgGroup::new("compress_format").multiple(false)))]
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with_all([
     "nick", "nicks", "scrape", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
@@ -314,6 +332,121 @@ pub struct Args {
     /// Error log file (default ~/.acp/logs/error.log); implies --enable-logging.
     #[arg(long, value_name = "PATH", help_heading = "Debug")]
     pub error_log: Option<PathBuf>,
+
+    /// Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id.
+    /// The phrase is shown on this terminal. An encrypted copy is kept so --show-phrase can show it again. Needs a terminal.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "acp_id", "shares_print", "shares_verify",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
+    ])]
+    pub identity_init: bool,
+    /// Print the pinned acp-id.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "shares_print", "shares_verify",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
+    ])]
+    pub acp_id: bool,
+    /// Print five SLIP-39 recovery sheets (3 of 5) for the pinned account. Needs a terminal.
+    /// Reissuing shares of the same seed does not invalidate older shares.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_verify",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
+    ])]
+    pub shares_print: bool,
+    /// Check three to five recovery shares against the pinned acp-id. Writes nothing secret.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
+    ])]
+    pub shares_verify: bool,
+    /// Sheet or paste to read instead of typing shares. Used with --shares-print or --shares-verify.
+    #[arg(long, value_name = "FILE", help_heading = "Identity", requires = "share_action")]
+    pub shares_file: Option<PathBuf>,
+
+    /// Write an encrypted *.acpbackup. --output FILE chooses the path; otherwise the schedule directory or the exports folder.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "restore", "backup_schedule", "change_password", "show_phrase",
+    ])]
+    pub backup: bool,
+    /// Restore an *.acpbackup into this home. A new machine also asks for the phrase or 3 shares.
+    #[arg(long, value_name = "FILE", help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "backup_schedule", "change_password", "show_phrase",
+    ])]
+    pub restore: Option<PathBuf>,
+    /// Remember a daily or weekly backup. The headless service that runs it is a later release.
+    #[arg(long, value_name = "WHEN", value_parser = ["daily", "weekly"], requires_all = ["backup_keep", "backup_dest"], help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "restore", "change_password", "show_phrase",
+    ])]
+    pub backup_schedule: Option<String>,
+    /// How many *.acpbackup files to keep. Used with --backup-schedule.
+    #[arg(long = "keep", value_name = "N", requires = "backup_schedule", help_heading = "Identity")]
+    pub backup_keep: Option<u32>,
+    /// Directory for scheduled backups. Used with --backup-schedule.
+    #[arg(long = "dest", value_name = "DIR", requires = "backup_schedule", help_heading = "Identity")]
+    pub backup_dest: Option<PathBuf>,
+    /// Encrypt an existing plaintext database. Writes a backup first, then checks counts and text.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "restore", "backup_schedule", "change_password", "show_phrase",
+    ])]
+    pub encrypt_db: bool,
+    /// Change the password on an encrypted database. Rewraps the local key and the
+    /// account key. The account id stays the same. Needs a terminal.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "show_phrase",
+    ])]
+    pub change_password: bool,
+    /// Show the 24-word recovery phrase again. Asks for the password on a terminal.
+    /// Warns that the words will be on screen and can clear the terminal afterward.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
+    ])]
+    pub show_phrase: bool,
 }
 
 /// Targets for the hidden `--generate` packaging flag.

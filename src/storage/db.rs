@@ -1,6 +1,7 @@
 //! SQLite queries: saving posts, profiles, mentions, attachments; listing and searching.
 
 use crate::prelude::*;
+use rusqlite::OpenFlags;
 
 /// Stored `post_id`s that have a body (or attachments); blank rows and rows
 /// whose body is known to be truncated are left out so the next scrape
@@ -8,7 +9,7 @@ use crate::prelude::*;
 pub fn db_known_ids(db: &std::path::Path) -> Result<HashSet<String>> {
     let mut out = HashSet::new();
     if !db.exists() { return Ok(out); }
-    let c = Connection::open(db)?;
+    let c = open_db(db)?;
     let ok: bool = c.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'", [],
         |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
@@ -34,7 +35,7 @@ pub fn db_known_ids(db: &std::path::Path) -> Result<HashSet<String>> {
 pub fn db_reply_counts(db: &std::path::Path) -> Result<HashMap<String, usize>> {
     let mut out = HashMap::new();
     if !db.exists() { return Ok(out); }
-    let c = Connection::open(db)?;
+    let c = open_db(db)?;
     let ok: bool = c.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'", [],
         |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
@@ -68,7 +69,7 @@ pub struct NickInfo {
 /// Every nick with posts or a profile, with counts and dates (for `--list-nicks`).
 pub fn list_nicks_db(db: &std::path::Path) -> Result<Vec<NickInfo>> {
     if !db.exists() { return Ok(Vec::new()); }
-    list_nicks_conn(&Connection::open(db)?)
+    list_nicks_conn(&open_db(db)?)
 }
 
 /// [`list_nicks_db`] on an open connection (only reads; works read-only).
@@ -248,7 +249,7 @@ pub fn save_mentions(db: &std::path::Path, hits: &[MentionHit]) -> Result<()> {
 /// Load profiles and mentions, optionally only for `nicks`.
 pub fn load_profiles_mentions(db: &std::path::Path, nicks: &[String]) -> Result<(Vec<Profile>, Vec<MentionHit>)> {
     if !db.exists() { return Ok((Vec::new(), Vec::new())); }
-    let c = Connection::open(db)?;
+    let c = open_db(db)?;
     let mut profiles = Vec::new();
     let has_p: bool = c.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='profiles'", [], |r| r.get::<_, i64>(0))
@@ -318,7 +319,7 @@ pub fn save_attachments(db: &Path, atts: &[Attachment]) -> Result<()> {
 /// optionally restricted to `nick`, plus context: each match's parent and
 /// its direct children. Attachments come from the attachments table.
 pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Vec<Post>, Vec<Attachment>, usize)> {
-    let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
+    let c = open_db(db).with_context(|| format!("open {}", db.display()))?;
     ensure_posts_schema(&c)?;
     let like = query.map(|q| format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")));
     let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state,body_json,score";
@@ -378,7 +379,7 @@ fn attachments_for(c: &Connection, out: &[Post]) -> Result<Vec<Attachment>> {
 /// Exactly these posts (in the order given, duplicates once) with their
 /// attachments, and the ids that are not in the database.
 pub fn posts_by_ids(db: &Path, ids: &[String]) -> Result<(Vec<Post>, Vec<Attachment>, Vec<String>)> {
-    let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
+    let c = open_db(db).with_context(|| format!("open {}", db.display()))?;
     ensure_posts_schema(&c)?;
     let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state,body_json,score";
     let mut by_id = c.prepare(&format!("SELECT {cols} FROM posts WHERE post_id = ?1"))?;
@@ -498,9 +499,19 @@ pub fn load_site_feed(c: &Connection, key: &str) -> Result<Option<SiteFeed>> {
 /// Open (creating) the database at `db`, creating its directory first so the
 /// very first write on a fresh `$HOME` works whichever table is written first.
 pub fn open_db(db: &Path) -> Result<Connection> {
-    if let Some(dir) = db.parent() { std::fs::create_dir_all(dir)?; }
-    let c = Connection::open(db)?;
-    // The TUI can write bookmarks while a scan runs: wait for the lock instead of failing.
+    open_db_flags(db, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_URI | OpenFlags::SQLITE_OPEN_NO_MUTEX)
+}
+
+/// Open `db` with `flags`. An encrypted database gets its key before any other statement.
+pub fn open_db_flags(db: &Path, flags: OpenFlags) -> Result<Connection> {
+    if let Some(dir) = db.parent() {
+        if flags.contains(OpenFlags::SQLITE_OPEN_CREATE) {
+            std::fs::create_dir_all(dir)?;
+        }
+    }
+    let c = Connection::open_with_flags(db, flags).with_context(|| format!("open {}", db.display()))?;
+    // SQLCipher wants the key before any other statement, including busy_timeout.
+    crate::crypto::atrest::apply_if_needed(&c, db)?;
     c.busy_timeout(std::time::Duration::from_secs(10))?;
     Ok(c)
 }

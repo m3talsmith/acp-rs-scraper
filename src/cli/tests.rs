@@ -1,7 +1,7 @@
 //! Unit tests for argument parsing, nick lists, names and generators.
 
 use super::*;
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 
 #[test]
 fn nicks_parse() {
@@ -35,6 +35,53 @@ fn default_names() {
 fn list_nicks_flag() {
     assert!(Args::try_parse_from(["x", "--list-nicks"]).is_ok());
     assert!(Args::try_parse_from(["x", "--full"]).is_ok());
+}
+
+#[test]
+fn identity_flags_parse_and_do_not_open_the_tui() {
+    let a = Args::try_parse_from(["x", "--identity-init"]).unwrap();
+    assert!(a.identity_init);
+    assert!(Args::try_parse_from(["x", "--acp-id"]).unwrap().acp_id);
+    assert!(Args::try_parse_from(["x", "--identity-init", "--scrape"]).is_err());
+    assert!(Args::try_parse_from(["x", "--identity-init", "--acp-id"]).is_err());
+    assert!(Args::try_parse_from(["x", "--shares-print"]).unwrap().shares_print);
+    assert!(Args::try_parse_from(["x", "--shares-verify"]).unwrap().shares_verify);
+    assert!(Args::try_parse_from(["x", "--shares-print", "--shares-verify"]).is_err());
+    assert!(Args::try_parse_from(["x", "--shares-file", "s.txt"]).is_err());
+    assert!(Args::try_parse_from(["x", "--shares-verify", "--shares-file", "s.txt"]).is_ok());
+    assert!(Args::try_parse_from(["x", "--shares-print", "--scrape"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--acp-id"]).unwrap();
+    assert!(!wants_tui(&m));
+    let m = Args::command().try_get_matches_from(["x", "--shares-verify"]).unwrap();
+    assert!(!wants_tui(&m));
+    let a = Args::try_parse_from(["x", "--backup"]).unwrap();
+    assert!(a.backup);
+    assert!(Args::try_parse_from(["x", "--backup", "--output", "a.acpbackup"]).unwrap().output.unwrap().ends_with("a.acpbackup"));
+    assert!(Args::try_parse_from(["x", "--restore", "a.acpbackup"]).is_ok());
+    assert!(Args::try_parse_from(["x", "--backup", "--restore", "a.acpbackup"]).is_err());
+    assert!(Args::try_parse_from(["x", "--backup-schedule", "weekly"]).is_err());
+    let a = Args::try_parse_from(["x", "--backup-schedule", "daily", "--keep", "3", "--dest", "/tmp/b"]).unwrap();
+    assert_eq!(a.backup_schedule.as_deref(), Some("daily"));
+    assert_eq!(a.backup_keep, Some(3));
+    let m = Args::command().try_get_matches_from(["x", "--backup"]).unwrap();
+    assert!(!wants_tui(&m));
+    assert!(Args::try_parse_from(["x", "--encrypt-db"]).unwrap().encrypt_db);
+    assert!(Args::try_parse_from(["x", "--encrypt-db", "--scrape"]).is_err());
+    assert!(Args::try_parse_from(["x", "--change-password"]).unwrap().change_password);
+    assert!(Args::try_parse_from(["x", "--change-password", "--encrypt-db"]).is_err());
+    assert!(Args::try_parse_from(["x", "--change-password", "--backup"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--change-password"]).unwrap();
+    assert!(!wants_tui(&m));
+    assert!(Args::try_parse_from(["x", "--show-phrase"]).unwrap().show_phrase);
+    assert!(Args::try_parse_from(["x", "--show-phrase", "--encrypt-db"]).is_err());
+    assert!(Args::try_parse_from(["x", "--show-phrase", "--identity-init"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--show-phrase"]).unwrap();
+    assert!(!wants_tui(&m));
+    let help = Args::command().render_long_help().to_string();
+    assert!(help.contains("not the master key"), "{help}");
+    assert!(help.contains("--show-phrase"));
+    assert!(help.contains("Any 3 of those 5"));
+    assert!(help.contains("--identity-init"));
 }
 
 #[test]

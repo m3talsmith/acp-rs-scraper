@@ -22,6 +22,8 @@
 //! - [`themes`]: theme files in `~/.acp/themes` (format, loading, first-run download, migration).
 //! - [`tui`]: the terminal UI (the default with no flags): browse nicks and posts,
 //!   drive scrape/search/export/import/maintenance from a menu bar.
+//! - [`crypto`]: master secret, recovery phrase and shares, `acp-id`, encryption
+//!   at rest, and encrypted backups.
 //! - [`app`]: wires the above into the command-line program.
 
 #![warn(missing_docs)]
@@ -33,6 +35,7 @@ pub mod auth;
 pub mod bookmarks;
 pub mod cli;
 pub mod config;
+pub mod crypto;
 pub mod export;
 pub mod http;
 pub mod import;

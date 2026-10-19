@@ -150,9 +150,8 @@ impl SqliteStore {
     pub fn new(path: PathBuf) -> Self { SqliteStore { path } }
     fn conn(&self) -> Result<Option<Connection>> {
         if !self.path.exists() { return Ok(None); }
-        let c = Connection::open_with_flags(&self.path,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)
-            .with_context(|| format!("open {} read-only", self.path.display()))?;
+        let c = crate::storage::db::open_db_flags(&self.path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
         if !crate::maintenance::table_exists(&c, "posts")? { return Ok(None); }
         Ok(Some(c))
     }

@@ -1,0 +1,37 @@
+The password that opens the database is not the master key. There is no password reset. If the password is lost, the database cannot be opened, even when you still have the recovery phrase.
+
+The master key is a 24-word recovery phrase (BIP-39). This program mixes that phrase with the password using Argon2id. A new computer needs both before it can open an encrypted backup, which is a .acpbackup file. The password is not written into the phrase.
+
+Split the phrase into 5 shares. Any 3 of those 5 shares rebuild the phrase. One share or two shares do nothing. The password is not written into the shares. Keep the shares in different places, and do not keep them with the password.
+
+Write the 24 words on paper, and write each share on its own paper. Do not email them, do not put them in a screenshot, and do not put them in the same note as the password. This computer can keep an encrypted copy at ~/.acp/recovery.seal so the words can be shown again here. That file still needs the password. It does not open a backup on a new computer, and it does not replace the paper copy.
+
+Create the phrase when you can write it down:
+
+    acp-rs-scraper --identity-init
+
+The words are shown once, and you type them again to confirm you saved them. The command then offers the 5 shares. To print the shares later:
+
+    acp-rs-scraper --shares-print
+
+That asks for the 24 words, or for at least 3 shares you already have, and for the password.
+
+Show the words again on this computer:
+
+    acp-rs-scraper --show-phrase
+
+It asks for the password. It does not read the password from the environment. It warns you that the words will be on the screen and may stay in scrollback, and it can clear the terminal afterward. A phrase created before this copy was saved cannot be rebuilt from the password. Use the paper copy, or 3 shares with --shares-print.
+
+Check a written copy of the shares:
+
+    acp-rs-scraper --shares-verify
+
+Paste 3 to 5 shares. It checks them against the pinned account and writes nothing secret. --show-phrase can also ask you to type the 24 words from paper and tell you whether they match.
+
+Restore a backup on this computer, or on a new one:
+
+    acp-rs-scraper --restore FILE.acpbackup
+
+This computer needs the password. A new computer asks for the 24 words, or for 3 shares, and for the password.
+
+The same steps are on the Help screen in the terminal UI (? or F1).

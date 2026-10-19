@@ -283,6 +283,50 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 
 The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip the code until the site expires it; `--logout` (or Session › Log out) deletes it. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
 
+## Upgrading from 2.x
+
+3.0.0 is a breaking change. The local database is encrypted, and opening it requires a password. 2.x had neither.
+
+**What breaks**
+
+- Starting 3.0.0 against `~/.acp/ai/data/rs.database` from 2.x stops immediately. The message names the file and tells you to run `--encrypt-db`. It does not try to read the plaintext file as if it were SQLCipher.
+- A new database, and every later start of the program, asks for a password on a terminal, or reads `ACP_PASSWORD` when there is no terminal. After that, the same run keeps the unlocked key in memory: Scrape, Research, Explore, Executive Board, Sync, and the other jobs use it and do not ask again. The key is wiped when the process exits. The password is at least 8 characters and has to pass a strength check. There is no password reset.
+- Files 2.x does not know: `~/.acp/ai/data/rs.database.bootstrap` (the wrapped database key), `~/.acp/recovery.seal` (the encrypted recovery phrase, after `--identity-init`), and `~/.acp/acp-id`. `session.json` is still the login session and is still outside the backup.
+
+**Migrate**
+
+1. If you may want to go back to 2.x, copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp`.
+2. Run `acp-rs-scraper --encrypt-db`.
+3. The command writes a `*.acpbackup` under the exports directory first, then encrypts the database. It deletes the plaintext file only after the row counts and a content hash match. You choose the password during this command. After Enter, the terminal shows a spinner, the stage it is on, and how long it has been running. Keypresses are ignored until it finishes.
+
+Stretching the password is the slow part on a small database. The settings are Argon2id with 64 MiB of memory, 3 iterations, and 1 lane, and one migration does that once (the backup, the database key, and the account key are labels of that single stretch). On a 4-core test machine that stretch took about 0.1 seconds in a release build and about 1.7 seconds in an unoptimized `cargo run` build; three separate stretches, which is what an earlier build did, took about 0.3 seconds and about 5 seconds. Copying the database was about 0.1 seconds at 20 MB and about 0.5 seconds at 100 MB in a release build (a few milliseconds per megabyte, including SQLCipher's per-page HMAC). A database of a few thousand posts is usually tens of megabytes, so a release build finishes in well under a second after the password is accepted, most of it the single key stretch. A debug build spends most of that wait on the stretch and shows "Deriving key" while it does.
+
+When `--encrypt-db` finishes on a terminal, it prints what to do next. The password you just chose is not the master key. The master key is a 24-word recovery phrase. The command offers to create that phrase immediately. You type the words a second time to confirm you wrote them down, and you can print the 5 shares in the same step. If you skip it, run `acp-rs-scraper --identity-init` later. After the phrase exists, `acp-rs-scraper --show-phrase` shows the words again. It asks for the password, warns that they will be on the screen and may stay in scrollback, and offers to clear the terminal. The same explanation is in `--help` and in the terminal UI (press `?` or F1). A new database created from the terminal UI opens that Help screen after encryption.
+
+`--change-password` (on a terminal) asks for the current password and a new one, then rewraps the database. The account id does not change. When a recovery phrase is saved on this computer, it moves to the new password too. `--backup` and `--restore` use the same progress screen. `ACP_PASSWORD` with no terminal skips the screen and does the work inline. A non-interactive `--encrypt-db` does not dump the recovery steps into the output; the next run on a terminal shows them.
+
+**Roll back**
+
+- Until `--encrypt-db` finishes successfully, a 2.x binary still reads the plaintext database. A failed migration leaves that file in place.
+- After a successful migration, 2.x cannot open the database or the `*.acpbackup`. To return to 2.x, install a 2.x build, put your saved plaintext copy back at `~/.acp/ai/data/rs.database`, and delete `rs.database.bootstrap` if it is still there.
+- To stay on 3.0.0 and recover the database, use `--restore` on the `*.acpbackup` that `--encrypt-db` wrote. That needs the same password.
+
+## Identity
+
+The password that opens the database is not the master key, and there is no password reset. The master key is a 24-word BIP-39 recovery phrase. Argon2id mixes that phrase with the password. A new computer needs both before it can open a `.acpbackup`. Losing the password locks the database even if the phrase is still on paper.
+
+`--identity-init` (on a terminal) creates the phrase. It shows the 24 words, asks you to type them again to confirm the paper copy, and stores an encrypted copy at `~/.acp/recovery.seal` (mode `0600`). The words are not logged. That file lets this computer show them again. It does not open a backup on a new computer, and the password alone cannot rebuild the words. A phrase created before this file existed was shown once and cannot be recovered from the password.
+
+The command then offers five SLIP-39 shares (any 3 of 5). One or two shares do nothing. The password is not part of a share. The sheets can be postponed; the phrase cannot. Write the words and each share on paper, in different places, and not in the same note as the password. `--shares-print` prints the shares later, from the phrase or from three existing shares plus the password. `--shares-verify` checks three to five shares and writes nothing secret. Reissuing shares of the same seed does not invalidate older ones.
+
+`--show-phrase` shows the 24 words again. It always asks for the password on a terminal (it does not read `ACP_PASSWORD`). It warns that the words will be on the screen and may stay in scrollback, asks you to type a paper copy to check it, and offers to clear the terminal afterward. Clearing the screen does not erase a screenshot.
+
+`--backup` writes an encrypted `*.acpbackup` (use `--output` for the path). The archive includes the encrypted phrase file when one exists, so a restore on this computer keeps `--show-phrase` working. `--restore FILE` puts the archive back. A new machine whose backup names an `acp-id` also asks for the phrase or three shares. A wrong password or a damaged file is refused and nothing is written. `session.json` and the node secret are not in the archive, so a restored machine signs in again and is not a copy of the old node. `--backup-schedule daily|weekly --keep N --dest DIR` remembers a schedule; this build reminds you when it is due.
+
+`--encrypt-db` encrypts an existing plaintext database after writing a backup, and removes the plaintext file only after the encrypted copy matches. On a terminal it then prints these steps and can create the phrase immediately. The terminal UI does the same after it creates a database: it offers to create the phrase, and if you skip that it opens Help, which starts with the same text. `--help` includes it too. `--change-password` changes the database password and reseals the phrase with the new password when the phrase used the same one. The slow steps show a spinner, the stage, and the elapsed time. A database this program creates is encrypted. The password is asked on a terminal, or taken from `ACP_PASSWORD` for a non-interactive run. That variable is visible to the same user and is not logged.
+
+`--acp-id` prints the pinned id from `~/.acp/acp-id`, which holds the id, the Argon2 parameters and the two public keys. It does not print the phrase. A wrong password still derives an id; it is shown and refused when it does not match the pin. There is no password reset. A lost password together with lost shares cannot be recovered.
+
 ## Where data lives
 
 | What | Path |
@@ -290,7 +334,10 @@ The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip 
 | Preferences | `~/.acp/preferences.toml` |
 | Saved login session (mode `0600`) | `~/.acp/session.json` |
 | Logs of jobs started from the TUI (mode `0600`) | `~/.acp/logs/tui-<kind>-<time>.log` |
-| Database | `~/.acp/ai/data/rs.database` |
+| Database (encrypted in 3.0.0) | `~/.acp/ai/data/rs.database` |
+| Wrapped database key (mode `0600`) | `~/.acp/ai/data/rs.database.bootstrap` |
+| Pinned `acp-id`, after `--identity-init` | `~/.acp/acp-id` |
+| Encrypted recovery phrase (mode `0600`), after `--identity-init` | `~/.acp/recovery.seal` |
 | Attachments (persistent copies) | `~/.acp/ai/data/attachments/<hash>.<ext>` |
 | Default export / archive location | `~/.acp/ai/data/exports/` |
 | Research files (copies) and web page snapshots | `~/.acp/research/<project>/files/`, `…/web/` |

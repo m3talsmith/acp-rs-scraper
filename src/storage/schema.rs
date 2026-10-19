@@ -155,3 +155,40 @@ pub const RESEARCH_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS research_projects 
             UNIQUE (project_id, kind, ref)
         );
         CREATE INDEX IF NOT EXISTS research_items_project_idx ON research_items(project_id);";
+
+/// Wrapped account data keys, one row per epoch. The raw key is not stored.
+/// `issuer` is `local` until an authorizer exists.
+pub const KEY_EPOCHS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS key_epochs (
+            epoch INTEGER PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            issuer TEXT NOT NULL,
+            wraps BLOB NOT NULL
+        );";
+
+/// Certificate rows. Nothing writes these until enrollment exists.
+pub const IDENTITY_CERTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS identity_certs (
+            serial TEXT PRIMARY KEY,
+            subject TEXT NOT NULL,
+            body BLOB NOT NULL
+        );";
+
+/// Revocation rows. Nothing writes these until revocation exists.
+pub const REVOCATIONS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS revocations (
+            seq INTEGER PRIMARY KEY,
+            body BLOB NOT NULL
+        );";
+
+/// Quarantined records. Nothing writes these until revocation exists.
+pub const QUARANTINE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS quarantine (
+            id INTEGER PRIMARY KEY,
+            observed_at TEXT NOT NULL,
+            body BLOB NOT NULL
+        );";
+
+/// Backup bookkeeping inside the database. The archive files themselves live outside it.
+pub const BACKUPS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS backups (
+            id INTEGER PRIMARY KEY,
+            path TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );";

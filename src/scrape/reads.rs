@@ -404,7 +404,7 @@ pub async fn backfill_tags(http: &reqwest::Client, jar: &Jar, db: &Path, nicks: 
         info!("backfill-tags: no database yet");
         return Ok(BackfillStats::default());
     }
-    let c = Connection::open(db)?;
+    let c = crate::storage::db::open_db(db)?;
     ensure_posts_schema(&c)?;
     let want: HashSet<String> = nicks.iter().map(|n| n.trim_start_matches('@').to_lowercase()).collect();
     let mut stats = BackfillStats::default();

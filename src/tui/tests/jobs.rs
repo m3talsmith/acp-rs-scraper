@@ -50,6 +50,30 @@ fn job_runs_in_its_own_process_group_and_cancel_kills_it() {
     assert!(j.poll().1.is_some());
 }
 
+#[cfg(unix)]
+#[test]
+fn an_unlocked_key_is_passed_on_stdin_and_not_in_the_command() {
+    let p = log("key");
+    let key = [0xabu8; 32];
+    let argv: Vec<String> = ["x", "-c", "printf 'flag=%s\\n' \"${ACP_INHERIT_DB_KEY-unset}\" >&2; wc -c >&2"].map(String::from).to_vec();
+    let mut j = spawn_child(std::path::Path::new("/bin/sh"), JobKind::Read, &argv, p.clone(), Some(&key)).unwrap();
+    let (lines, st) = wait(&mut j);
+    assert!(st.success(), "{lines:?}");
+    assert!(lines.iter().any(|l| l.contains("flag=1")), "{lines:?}");
+    assert!(lines.iter().any(|l| l.split_whitespace().any(|w| w == "32")), "{lines:?}");
+    assert!(!j.cmd.as_bytes().windows(32).any(|w| w == key), "argv must not carry the key: {}", j.cmd);
+    let logged = std::fs::read(&p).unwrap();
+    assert!(!logged.windows(32).any(|w| w == key), "the key must not be written to the log");
+
+    let p = log("nokey");
+    let argv: Vec<String> = ["x", "-c", "printf 'flag=%s\\n' \"${ACP_INHERIT_DB_KEY-unset}\" >&2; wc -c >&2"].map(String::from).to_vec();
+    let mut j = spawn_child(std::path::Path::new("/bin/sh"), JobKind::Read, &argv, p, None).unwrap();
+    let (lines, st) = wait(&mut j);
+    assert!(st.success(), "{lines:?}");
+    assert!(lines.iter().any(|l| l.contains("flag=unset")), "{lines:?}");
+    assert!(lines.iter().any(|l| l.split_whitespace().any(|w| w == "0")), "{lines:?}");
+}
+
 #[test]
 fn job_kind_names() {
     assert_eq!([JobKind::Scan, JobKind::Export, JobKind::Import, JobKind::Maintain].map(JobKind::name), ["scan", "export", "import", "maintain"]);

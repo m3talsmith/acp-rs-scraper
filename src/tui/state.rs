@@ -15,6 +15,17 @@ use ratatui::layout::Rect;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+/// Whether a status line is an error or a warning, whatever the capitalization.
+///
+/// The child's runtime prints `Error: ...`. The status bar used to look only
+/// for a lowercase prefix, so that line was drawn as ordinary text.
+pub(crate) fn status_line_is_problem(line: &str) -> bool {
+    let line = line.trim_start();
+    let bytes = line.as_bytes();
+    bytes.len() >= 5 && bytes[..5].eq_ignore_ascii_case(b"error")
+        || bytes.len() >= 7 && bytes[..7].eq_ignore_ascii_case(b"warning")
+}
+
 /// Focusable panes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Focus {
@@ -339,6 +350,11 @@ pub struct App {
     pub status: VecDeque<String>,
     /// Log panel expanded.
     pub show_log: bool,
+    /// The next frame should clear the terminal before drawing.
+    ///
+    /// Set when the menu changes or an error line arrives, so a status message
+    /// cannot be left painted over the post list.
+    pub needs_redraw: bool,
     /// Login state.
     pub session: SessionState,
     /// Running job.
@@ -414,7 +430,7 @@ impl App {
             store, nicks: Vec::new(), all_nicks: Vec::new(), nick_filter: Default::default(), filter_editing: false, nick_cursor: 0, nick_offset: 0, selected: Vec::new(),
             base: BodyView::default(), search: None, focus: Focus::Nicks,
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
-            modal: None, status: VecDeque::new(), show_log: false,
+            modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
@@ -434,9 +450,11 @@ impl App {
     }
 
     /// Add a status line (kept to [`TUI_STATUS_KEEP`]).
+    /// An error or warning asks for a full redraw so the line stays in the status bar.
     pub fn push_status(&mut self, s: impl Into<String>) {
         let s = s.into();
         for l in s.lines() {
+            if status_line_is_problem(l) { self.needs_redraw = true; }
             self.status.push_back(l.to_string());
             while self.status.len() > TUI_STATUS_KEEP { self.status.pop_front(); }
         }
@@ -1371,10 +1389,11 @@ impl App {
         } else if auto {
             self.push_status(format!("error: auto sync failed (exit {}); see {}", code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into()), j.log.display()));
         } else {
+            // The log line is already in the status bar. A modal would paint it
+            // a second time, over the post list.
             let code = code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into());
-            let mut text = format!("The {} stopped (exit {code}). Last lines of {}:\n", j.kind.name(), j.log.display());
-            for l in tail { text.push_str(&format!("{l}\n")); }
-            self.error(&format!("{} failed", j.kind.name()), text.trim_end());
+            let detail = tail.iter().rev().find(|l| !l.trim().is_empty()).map(|l| l.trim()).unwrap_or("no output");
+            self.push_status(format!("error: {} failed (exit {code}): {detail}", j.kind.name()));
         }
     }
     /// The job was cancelled.
@@ -1392,11 +1411,13 @@ impl App {
     pub fn close_menu(&mut self) {
         self.menu.open = None;
         self.menu.editing = false;
+        self.needs_redraw = true;
         if self.focus == Focus::Menu { self.focus = if self.view().posts.is_empty() { Focus::Nicks } else { Focus::Body }; }
     }
     /// Highlight / open the n-th menu item (option-less items run at once).
     pub fn open_menu(&mut self, i: usize) {
         let Some(c) = self.menu.menu.items.get(i) else { return };
+        self.needs_redraw = true;
         self.focus = Focus::Menu;
         self.menu.item = i;
         self.menu.editing = false;

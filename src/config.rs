@@ -61,6 +61,28 @@ pub const PREFS_REL_PATH: &str = ".acp/preferences.toml";
 /// Saved login session cookies (JSON, mode `0600`), relative to `$HOME`. Removed by `--logout`.
 pub const SESSION_REL_PATH: &str = ".acp/session.json";
 
+/// Pinned account id and the Argon2 parameters used to derive the master secret.
+/// Public: the phrase, the password and the master secret are never written here.
+pub const ACP_ID_REL_PATH: &str = ".acp/acp-id";
+
+/// Encrypted copy of the 24-word phrase entropy (mode `0600`). The words are not
+/// stored in the clear. Absent when `--identity-init` ran before this file existed.
+pub const RECOVERY_SEAL_REL_PATH: &str = ".acp/recovery.seal";
+
+/// Present after a database is created or migrated, until the recovery steps have
+/// been shown. Not a secret, and not part of a backup.
+pub const RECOVERY_NEXT_REL_PATH: &str = ".acp/recovery-next";
+
+/// Present until `--shares-print` or a successful `--shares-verify`. Not a secret.
+pub const SHARES_PENDING_REL_PATH: &str = ".acp/shares-pending";
+
+/// Unix time of the last successful `--shares-verify` or `--shares-print`. Not a secret.
+pub const SHARES_VERIFIED_REL_PATH: &str = ".acp/shares-verified";
+
+/// Future node secret (§7.2, §7.13.2). Not created in this release. Backups skip it
+/// so a restore cannot clone a node identity.
+pub const NODE_SECRET_REL_PATH: &str = ".acp/node/identity.key";
+
 /// Log directory (for `--enable-logging` / `--debug`), relative to `$HOME`.
 pub const LOGS_REL_DIR: &str = ".acp/logs";
 
