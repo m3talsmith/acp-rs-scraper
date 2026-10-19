@@ -6,6 +6,7 @@
 //! stay on the omitted list until a guided capture confirms them. Confirming
 //! a publish does not open a connection.
 
+use super::attach::{self, PlannedAttachment};
 use super::prosemirror::{self, PmError};
 use crate::liveview::form_query;
 use crate::logging::redact_secrets;
@@ -169,8 +170,8 @@ pub struct Draft {
     pub quote: Option<String>,
     /// Post the quote or the reply points at, when it is not `in_reply_to`.
     pub quote_post: Option<String>,
-    /// Attachment paths. Any number other than 0 refuses the draft.
-    pub attachments: usize,
+    /// Local files. Classified in [`prepare`]. Not uploaded.
+    pub attachments: Vec<std::path::PathBuf>,
     /// Rendered page, when a probe already has it. Dry-run usually has none.
     pub html: Option<String>,
     /// `--accept-site-update`.
@@ -204,6 +205,8 @@ pub struct WritePlan {
     pub preview_text: String,
     /// Title line in the preview.
     pub title: String,
+    /// Local files the dry-run lists. Their bytes are not in [`Self::fields`].
+    pub attachments: Vec<PlannedAttachment>,
 }
 
 /// `Some` when another post or reply must wait.
@@ -226,9 +229,7 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
     if !d.writes_on {
         return Err(err("writes are off. Set ui.writes = true in preferences.toml, or unset ACP_WRITES. ACP_WRITES=off wins. Nothing was sent."));
     }
-    if d.attachments > 0 {
-        return Err(err("attachments are not in 3.4.0. The LiveView upload channel has not been captured, so they land in 3.5.0. Nothing was sent."));
-    }
+    let attachments = attach::plan_attachments(&d.attachments).map_err(err)?;
     let kind = if d.thread.is_some() { Kind::Reply } else { Kind::Post };
     let thread = d.thread.as_deref().map(str::trim).filter(|s| !s.is_empty());
     if kind == Kind::Reply && thread.is_none() {
@@ -268,7 +269,7 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
     }
     let mut omitted = vec![
         "_target is not in a captured form, so it is not invented".into(),
-        "the upload channel (allow_upload / lvu) has not been captured; attachments are 3.5.0".into(),
+        "the upload channel (allow_upload / lvu) has not been captured, so media_attachments and file_attachments are not encoded and no file bytes are sent".into(),
         "mention-query and tag-query replies have not been captured; completion is local and mention id is empty".into(),
         "the save reply and the read-back of the new post have not been captured".into(),
         "the LiveView topic and message ref are assigned on join; these frames use placeholders and no join is opened".into(),
@@ -306,6 +307,7 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
         body,
         preview_text: crate::scrape::tidy_text(&preview),
         title,
+        attachments,
     })
 }
 
@@ -346,6 +348,15 @@ pub fn dry_run_text(plan: &WritePlan) -> String {
     s.push_str("\n\n");
     s.push_str(plan.preview_text.trim_end());
     s.push_str("\n\n");
+    if plan.attachments.is_empty() {
+        s.push_str("attachments: none\n");
+    } else {
+        s.push_str("attachments (local only, not uploaded):\n");
+        for file in &plan.attachments {
+            s.push_str(&format!("- {} {} ({} bytes) {}\n", file.kind.label(), file.name, file.bytes, file.path.display()));
+        }
+    }
+    s.push('\n');
     s.push_str(&redact_secrets(&frames));
     s.push_str("\n\nomitted until a guided capture confirms them:\n");
     for line in &plan.omitted {
@@ -381,7 +392,7 @@ fn check_test_host(url: &str) {
 fn check_test_host(_url: &str) {}
 
 /// Shown when a confirmed publish is refused.
-pub const CAPTURE_BLOCK: &str = "nothing was published. The P0 guided capture has not confirmed the submit payload, so validate and save are not sent. Run with --dry-run to print the documented frames. --capture-reply does not send either.";
+pub const CAPTURE_BLOCK: &str = "nothing was published. The P0 guided capture has not confirmed the submit payload or the upload channel, so validate, save, and file bytes are not sent. Run with --dry-run to print the documented frames and the local attachment list. --capture-reply does not send either.";
 
 /// `--capture-reply` stops here. It does not copy `session.json` or open a page.
 pub fn capture_stub_message(thread: &str) -> String {

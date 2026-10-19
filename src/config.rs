@@ -273,6 +273,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("p", "Post menu: view reposts or the edit history of the open or highlighted post"),
     ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("n", "New post. Cancel is the default; Publish does not send until a guided capture"),
+    ("Compose · Attach", "Type a path and Enter. Backspace on an empty line removes the last file. Nothing is uploaded"),
     ("r", "On an open post: reply (a comment pre-fills the reference). Otherwise add to a research project"),
     ("Q", "On an open post: reply with that post quoted"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),

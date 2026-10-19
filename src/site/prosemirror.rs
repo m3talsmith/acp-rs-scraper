@@ -287,7 +287,7 @@ impl Builder {
             Tag::Strong => self.bold += 1,
             Tag::Strikethrough => return Err(err("strikethrough cannot be sent; the editor schema has no strikethrough")),
             Tag::Link { dest_url, .. } => self.links.push(dest_url.to_string()),
-            Tag::Image { .. } => return Err(err("an image in the body cannot be sent; file attachments are 3.5.0")),
+            Tag::Image { .. } => return Err(err("an image in the markdown cannot be sent; attach the file on the attachment line. The upload channel is still not sent")),
             Tag::Table(_) | Tag::TableHead | Tag::TableRow | Tag::TableCell => {
                 return Err(err("tables cannot be sent"));
             }

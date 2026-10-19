@@ -805,15 +805,17 @@ CREATE TABLE research_items (
 
 3.4.0 composes a new post or a reply. Writes are on unless `ui.writes = false` in `~/.acp/preferences.toml` or `ACP_WRITES=off`. The environment wins.
 
-In the terminal UI, `n` opens New post. On an open post, `r` replies (a comment pre-fills the reference) and `Q` quotes that post. The button under the cursor starts on Cancel. Publish checks the body locally and then stops: the guided capture of a real reply has not confirmed the payload, so nothing is sent. `--dry-run` prints the same frames and opens no connection.
+In the terminal UI, `n` opens New post. On an open post, `r` replies (a comment pre-fills the reference) and `Q` quotes that post. The button under the cursor starts on Cancel. Publish checks the body locally and then stops: the guided capture of a real reply has not confirmed the payload, so nothing is sent. `--dry-run` prints the same frames and opens no connection. A confirmed attempt starts the 30 second gap even when that send is refused. `--dry-run` does not start the gap.
+
+3.5.0 adds local attachments on that same compose box. The attach line takes a path; Enter adds the file, and Backspace on an empty line removes the last one. `--attachment PATH` repeats for `--new-post` and `--reply`. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment (`file_attachments` in the plan; the others are `media_attachments`). `--dry-run` prints that list and does not upload. The upload channel (`allow_upload`, `lvu`) has not been captured, so those inputs are not encoded and no file bytes are sent. A confirmed publish still does not send `validate` or `save`.
 
 ```bash
-acp-rs-scraper --new-post "Title" --body "hello **world**" --dry-run
-acp-rs-scraper --reply THREAD --in-reply-to COMMENT --body "agreed" --dry-run
+acp-rs-scraper --new-post "Title" --body "hello **world**" --attachment photo.jpg --dry-run
+acp-rs-scraper --reply THREAD --in-reply-to COMMENT --body "agreed" --attachment notes.pdf --dry-run
 acp-rs-scraper --reply THREAD --quote "selected lines" --quote-post POST --body "yes" --yes
 ```
 
-`--yes` confirms. Without it, a terminal asks `Publish? [y/N]`. A second confirmed attempt within 30 seconds waits. Attachments are refused until 3.5.0. Vote, subscribe, delete, edit, and repost are later releases. The hidden `--capture-reply` flag does not copy the session and does not send; it is described in `architecture/PLAN-3.0-CLIENT.md`.
+`--yes` confirms. Without it, a terminal asks `Publish? [y/N]`. A second confirmed attempt within 30 seconds waits. Vote, subscribe, delete, edit, and repost are later releases. The hidden `--capture-reply` flag does not copy the session and does not send; it is described in `architecture/PLAN-3.0-CLIENT.md`.
 
 ## Contributing
 
@@ -821,7 +823,7 @@ The repo ships `.githooks/pre-commit`, a credential scanner, and `build.rs` sets
 
 ### Releases
 
-A GitHub Release for a version that is not yet on `main` is a draft. The maintainer publishes that draft after the merge. Versions already on `main` (2.16.0 and earlier) are left as published. `.githooks/post-commit` creates the annotated git tag `vX.Y.Z` when `Cargo.toml` changes and does not create a GitHub Release. There is no CI job that publishes a release. When a release is created it uses `gh release create --draft`, the matching `CHANGELOG.md` section, and no attached files. See [CONTRIBUTING.md](../CONTRIBUTING.md).
+A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.4.0. 3.5.0 stays a draft until it is merged. The maintainer publishes that draft after the merge. Versions already on `main` (2.16.0 and earlier) are left as published. `.githooks/post-commit` creates the annotated git tag `vX.Y.Z` when `Cargo.toml` changes and does not create a GitHub Release. There is no CI job that publishes a release. When a release is created it uses `gh release create --draft`, the matching `CHANGELOG.md` section, and no attached files. See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 The hook blocks commits that contain:
 - **Secret files:** `preferences.toml`, `*.database`, `*.db`, `.env`, keys, cookies and similar.
@@ -833,7 +835,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post and Reply), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post, Reply, and local attachments), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;

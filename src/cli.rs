@@ -185,7 +185,7 @@ pub struct Args {
     /// Allow writes after the site's script URL changes from the one stored in `site_state`.
     #[arg(long, help_heading = "Writing")]
     pub accept_site_update: bool,
-    /// Attachment path. Refused: the upload channel has not been captured (3.5.0).
+    /// Local file for `--new-post` or `--reply`. Repeat for more than one. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. `--dry-run` lists them and does not upload. A confirmed publish still does not send.
     #[arg(long, value_name = "PATH", help_heading = "Writing")]
     pub attachment: Vec<PathBuf>,
     /// Guided capture of one reply. Documented in architecture/PLAN-3.0-CLIENT.md. Does not publish.

@@ -1,3 +1,9 @@
+acp-rs-scraper (3.5.0) unstable; urgency=medium
+
+  * Attach local media and pdf files on New post and Reply. Dry-run lists them. A confirmed publish still does not upload.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 23:40:00 +0000
+
 acp-rs-scraper (3.4.0) unstable; urgency=medium
 
   * New post and Reply. A confirmed publish is not sent until a guided capture. Attachments wait.

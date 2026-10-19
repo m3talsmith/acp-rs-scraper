@@ -17,6 +17,8 @@ pub enum ComposeFocus {
     Body,
     /// The completion list.
     Complete,
+    /// A local file path. Enter adds it. Nothing is uploaded.
+    Attach,
     /// Default. Enter closes and sends nothing.
     Cancel,
     /// Enter asks the caller to publish. The send stays gated.
@@ -62,6 +64,10 @@ pub struct ComposeModal {
     pub nicks: Vec<NickHint>,
     /// Local tags, without `#`.
     pub tags: Vec<String>,
+    /// Path being typed on the attach line.
+    pub attach_path: String,
+    /// Files already accepted. Not uploaded.
+    pub attachments: Vec<std::path::PathBuf>,
 }
 
 impl ComposeModal {
@@ -91,6 +97,8 @@ impl ComposeModal {
             error: None,
             nicks,
             tags,
+            attach_path: String::new(),
+            attachments: Vec::new(),
         }
     }
 
@@ -107,7 +115,7 @@ impl ComposeModal {
             in_reply_to,
             quote: self.quote.clone(),
             quote_post: self.quote_post.clone(),
-            attachments: 0,
+            attachments: self.attachments.clone(),
             html: None,
             accept_bundle: false,
             stored_bundle: None,
@@ -130,6 +138,7 @@ impl ComposeModal {
             v.push(ComposeFocus::Title);
         }
         v.push(ComposeFocus::Body);
+        v.push(ComposeFocus::Attach);
         if self.pending.is_some() {
             v.push(ComposeFocus::Complete);
         }
@@ -148,6 +157,7 @@ impl ComposeModal {
         match self.focus {
             ComposeFocus::Title => Some(&mut self.title),
             ComposeFocus::Body => Some(&mut self.body),
+            ComposeFocus::Attach => Some(&mut self.attach_path),
             ComposeFocus::Complete => self.pending.as_mut(),
             ComposeFocus::Cancel | ComposeFocus::Publish => None,
         }
@@ -162,6 +172,25 @@ impl ComposeModal {
         self.pending = None;
         self.complete_at = 0;
         self.focus = ComposeFocus::Body;
+    }
+
+    fn add_attachment(&mut self) {
+        let path = std::path::PathBuf::from(self.attach_path.trim());
+        if path.as_os_str().is_empty() {
+            self.error = Some("type a file path, then Enter".into());
+            return;
+        }
+        if self.attachments.iter().any(|p| p == &path) {
+            self.error = Some(format!("{} is already attached", path.display()));
+            return;
+        }
+        if let Err(message) = crate::site::plan_attachment(&path) {
+            self.error = Some(message);
+            return;
+        }
+        self.attachments.push(path);
+        self.attach_path.clear();
+        self.error = None;
     }
 
     fn try_publish(&mut self) -> Option<ModalResult> {
@@ -231,12 +260,18 @@ impl ModalState for ComposeModal {
                     self.focus = ComposeFocus::Body;
                     None
                 }
+                ComposeFocus::Attach => {
+                    self.add_attachment();
+                    None
+                }
             },
             KeyCode::Backspace => {
                 if self.focus == ComposeFocus::Complete {
                     self.focus = ComposeFocus::Body;
                 }
-                if let Some(field) = self.field_mut() {
+                if self.focus == ComposeFocus::Attach && self.attach_path.is_empty() {
+                    self.attachments.pop();
+                } else if let Some(field) = self.field_mut() {
                     field.pop();
                 }
                 if self.focus == ComposeFocus::Body && self.pending.as_ref().is_some_and(|q| q.len() <= 1) {
@@ -249,7 +284,9 @@ impl ModalState for ComposeModal {
                 None
             }
             KeyCode::Char(c) => {
-                if self.focus != ComposeFocus::Cancel && self.focus != ComposeFocus::Publish {
+                if self.focus == ComposeFocus::Attach {
+                    self.attach_path.push(c);
+                } else if self.focus != ComposeFocus::Cancel && self.focus != ComposeFocus::Publish {
                     if self.focus == ComposeFocus::Complete {
                         self.focus = ComposeFocus::Body;
                     }
@@ -283,6 +320,10 @@ impl ModalState for ComposeModal {
             ModalHit::Button(1) => self.try_publish(),
             ModalHit::Field(0) if matches!(self.kind, ComposeKind::NewPost) => {
                 self.focus = ComposeFocus::Title;
+                None
+            }
+            ModalHit::Field(2) => {
+                self.focus = ComposeFocus::Attach;
                 None
             }
             ModalHit::Field(_) => {

@@ -115,7 +115,7 @@ fn draw_job(f: &mut Frame, app: &mut App, area: Rect, m: &JobModal, t: &Theme) {
 
 /// Draw the open modal.
 fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &Theme) {
-    let r = modal_rect(area, 72, 14);
+    let r = modal_rect(area, 72, 16);
     let inner = frame(f, t, r, &m.title());
     if inner.height < 4 || inner.width < 8 { return; }
     let row = |y: u16| Rect { y, height: 1, ..inner };
@@ -131,6 +131,16 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Body: {body}"), inner.width as usize), st)), row(y));
     app.hits.push((row(y), Hit::Modal(ModalHit::Field(1))));
     y += 1;
+    let st = if m.focus == ComposeFocus::Attach { t.accent_bold() } else { t.plain() };
+    let shown = if m.attach_path.is_empty() { "path, then Enter".into() } else { m.attach_path.clone() };
+    f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Attach: {shown}"), inner.width as usize), st)), row(y));
+    app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
+    y += 1;
+    for path in m.attachments.iter().take(2) {
+        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {name}"), inner.width as usize), t.muted())), row(y));
+        y += 1;
+    }
     if let Some(q) = &m.quote {
         f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Quote: {q}"), inner.width as usize), t.muted())), row(y));
         y += 1;
@@ -142,7 +152,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
         app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
         y += 1;
     }
-    let note = m.error.clone().unwrap_or_else(|| "Publish is prepared locally. Nothing is sent until a guided capture.".into());
+    let note = m.error.clone().unwrap_or_else(|| "Attach lists local files. Publish does not upload them.".into());
     f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
     let focus = match m.focus {
         ComposeFocus::Cancel => Some(0),
