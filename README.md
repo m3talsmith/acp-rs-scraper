@@ -1,6 +1,6 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 3.3.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 3.3.2** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
@@ -17,7 +17,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-rs-scraper --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.3.1`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.3.2`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+
+**3.3.2** signs an authorizer certificate for 30 days and a node certificate for 365 days. 3.3.0 and 3.3.1 had those two lifetimes reversed. A node from those versions keeps the short certificate until `~/.acp/node` is removed and `--node-init` is run again, which creates a new node key.
 
 **3.3.1** stops the elapsed clock in job details once a job finishes, fails, or is cancelled. While the job is running, that line still counts. If the end was not recorded, the line says `unknown`.
 
@@ -321,7 +323,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v3.3.1  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v3.3.2  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -812,7 +814,7 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 
 ## Releases
 
-A GitHub Release for a version that is not on `main` is a draft. `main` is at 2.16.0, so 2.17.0 through 3.3.1 are drafts. Publish a draft by hand after that version is merged into `main`. Releases for 2.16.0 and earlier stay as they were published.
+A GitHub Release for a version that is not on `main` is a draft. `main` is at 2.16.0, so 2.17.0 through 3.3.2 are drafts. Publish a draft by hand after that version is merged into `main`. Releases for 2.16.0 and earlier stay as they were published.
 
 `.githooks/post-commit` tags `vX.Y.Z` when the version in `Cargo.toml` changes. It does not create a GitHub Release, and no workflow publishes one. A release is created with `gh release create --draft`, notes from the matching [CHANGELOG.md](CHANGELOG.md) section, and no attached files. See [CONTRIBUTING.md](CONTRIBUTING.md).
 

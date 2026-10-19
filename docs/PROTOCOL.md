@@ -97,7 +97,7 @@ A node certificate has `type = "node"`, `account`, `node_sign_pub`, `node_enc_pu
 
 The first machine uses serial 1 for the authorizer and serial 2 for the node. The master signs both. The node certificate's issuer is the master public key, so the chain is node → master. The authorizer certificate is what lets this machine certify a later node.
 
-Decided in the plan (2026-10-19): an authorizer certificate lasts 30 days, a node certificate lasts 365 days, and a verifier allows 5 minutes of clock skew. Renewal, the 7-day grace period, and revocation are not built yet. The constants compiled in 3.3.0 are still the earlier draft (a node certificate of 30 days and an authorizer certificate of 365 days). On the first machine `history_grant` is `allowed` and `max_nodes` is 16. Those two limits are accepted.
+Decided in the plan (2026-10-19) and compiled in 3.3.2: an authorizer certificate lasts 30 days, a node certificate lasts 365 days, and a verifier allows 5 minutes of clock skew. Renewal, the 7-day grace period, and revocation are not built yet. 3.3.0 and 3.3.1 had the two lifetimes reversed. A node from those versions keeps that certificate until `~/.acp/node` is removed and `--node-init` is run again, which creates a new node key. On the first machine `history_grant` is `allowed` and `max_nodes` is 16. Those two limits are accepted.
 
 A verifier checks the signature, that the chain ends at the pinned master, that `now` is inside the validity window plus the skew, and, when a capability is required, that it is in `caps`. A node certificate that names a different account is rejected.
 
