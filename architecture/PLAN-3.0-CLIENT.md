@@ -17,6 +17,8 @@ Update 2026-10-19 (write core): **3.4.0** ships compose for New post and Reply, 
 
 Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the serve and relay work. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists.
 
+Update 2026-10-19 (search history): recent searches are rows in the SQLCipher database that already holds posts and nicks. A row stores the query and the filters only, not a snapshot of the results. Picking a history item re-runs that search live. Clear history deletes the rows. Details are in §7.14.5.
+
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
@@ -90,7 +92,7 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 3 | Top posts (site-wide) | `/rs/top`, with `configure-feed` and fields `t` (5 periods) + `replies` | C | ◐ (profile top only) | View-mode menu: Top › period |
 | 4 | Executive Board feed | `/rs/eb` (+ `replies` filter) | C | ✗ | Nick-bar row "EB" |
 | 5 | Explore | `/rs/explore` and `/rs/explore/latest` | C | ✗ | Explore screen |
-| 6 | Site search | `/rs/explore?q=…` (form `phx-submit="search"`, field `q`) returns a `forum/Feed` | C | ✗ (local search only) | Search modal gets a "Site / Local" toggle |
+| 6 | Site search | `/rs/explore?q=…` (form `phx-submit="search"`, field `q`) returns a `forum/Feed` | C | ✗ (local search only) | Search modal gets a "Site / Local" toggle. History stores the query and the filters only (not a snapshot of results) in the encrypted database, and picking one re-runs the search live (§7.14.5) |
 | 7 | Tag feeds | `/rs/tag/{tag}` returns a `forum/Feed` (same pagination) | C | ✗ | Click a `#tag` to open its feed |
 | 8 | Thread view + focus | `/rs/post/{thread}` and `/rs/post/{thread}/{post}` (patch) | C | ✅ | Existing |
 | 9 | Thread sort | hook `sort {sort:"oldest"\|"top"}` | C | ✗ | `s` in thread view |
@@ -995,6 +997,10 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **State lives in the encrypted database.** Peers, bootstrap list, relay addresses, node roles, sync state and certificates are rows, not files, so they are encrypted at rest and included in backups.
   - Outside the database there are only the small bootstrap file (the database location and the Argon2 parameters needed to unlock) and `preferences.toml` for hand-edited settings, which holds no state.
   - The old `peers.toml` becomes a one-time import into `p2p_peers`.
+- **Search history (decided 2026-10-19).** Recent searches are rows in the same SQLCipher database as posts and nicks (`~/.acp/ai/data/rs.database`). They travel with that database in a backup. `preferences.toml` stays hand-edited settings and does not hold this list, and there is no separate history file.
+  - A row stores the query and the filters only: keyword, nicks, post id, the from and to dates, posts or replies or both, and whether the search was local or on the site. It does not store a snapshot of the results.
+  - Picking a history item re-runs that search live, against the database as it is now, or against the site when the row says site.
+  - Clear history deletes these rows and leaves posts, nicks, and preferences in place.
 - **Fleet view:** one Nodes list showing last seen, version, certificate expiry, sync lag and disk use, with rename, role change and revoke from any authorizer. `--doctor` checks the local setup.
 - **Version compatibility:** nodes speak the current and the previous protocol version, announce their version, and warn when one lags.
 - **Peer management:** a Peers tab with status (up, down, unknown), last seen, trust level, source (invite, mDNS, bootstrap, backup), bytes in and out and notes, with actions to change trust, block, forget and re-check.
@@ -1165,6 +1171,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~Node roles~~ are opt-in. Every node starts equal (§7.14.4).
     - ~~Service install~~ covers Linux (systemd), macOS (launchd) and Windows (Windows Service) (§7.14.5).
     - ~~State~~ lives in the encrypted database, with only a bootstrap file and `preferences.toml` outside it (§7.14.5).
+    - ~~**Search history (2026-10-19):**~~ rows in that same database. Each row is the query and the filters only, not a snapshot of the results. Picking one re-runs the search live. Clear history deletes the rows (§7.14.5).
     - ~~Peers~~ are transient and checked automatically after a restore, with a Peers tab and `--peer-*` commands. Own nodes are never revoked automatically (§7.14.5).
     - ~~The certificate~~ is returned to the new node by the approver inside the enrollment bundle (§7.14.2).
     - ~~Dart SDK~~ is a thin package over FFI to the embedded Rust crates, with a separate `acp_rs_node_ffi` crate (§7.14.7).
