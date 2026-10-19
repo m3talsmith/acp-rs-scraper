@@ -227,6 +227,15 @@ pub struct Opt {
     pub required: bool,
     /// Input type.
     pub widget: Widget,
+    /// Help topic this option deep-links to (`?` while it is highlighted). Empty: the general Help.
+    pub help: &'static str,
+}
+
+impl Opt {
+    /// The dropdown's hint line: the flag text, and `? {topic}` when this option has its own Help topic.
+    pub fn hint_line(&self) -> String {
+        if self.help.is_empty() { self.flag.to_string() } else { format!("{}  ? {}", self.flag, self.help) }
+    }
 }
 
 /// One menu bar item.
@@ -245,7 +254,10 @@ pub struct MenuCommand {
 }
 
 fn opt(key: &'static str, label: &'static str, flag: &'static str, required: bool, widget: Widget) -> Opt {
-    Opt { key, label, flag, required, widget }
+    opt_topic(key, label, flag, "", required, widget)
+}
+fn opt_topic(key: &'static str, label: &'static str, flag: &'static str, help: &'static str, required: bool, widget: Widget) -> Opt {
+    Opt { key, label, flag, required, widget, help }
 }
 fn check(v: bool) -> Widget { Widget::Check(v) }
 fn text(v: &str) -> Widget { Widget::Text(TextField::new(v)) }
@@ -296,6 +308,8 @@ impl Menu {
             MenuCommand { id: Search, label: "Search", hint: 'e', action: None, opts: vec![
                 opt("query", "Query", "--search", true, text("")),
                 opt("nick", "Nick filter", "--nicks", false, text("")),
+                opt_topic("order", "Order", "Newest or oldest for these results. Same window as --order", "search-order", false, choice(ORDER_CHOICES)),
+                opt_topic("limit", "Limit", "Keep this many matches at the chosen end. Blank keeps all. Same as --limit", "search-limit", false, text("")),
                 opt("run", "Search", "", false, button(Action::RunSearch)),
                 opt("advanced", "Advanced…", "Shift-S", false, button(Action::OpenSearchModal)),
                 opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
@@ -370,6 +384,9 @@ impl Menu {
                 opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
                 opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
                 opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
+                opt_topic("list_order", "Order", "Newest or oldest for this list. o toggles. Nested orders roots; replies stay in thread order.", "order", false, choice(ORDER_CHOICES)),
+                opt_topic("nick_order", "Nick order", "Newest or oldest nick by latest post. o toggles while Nicks is focused.", "nick-order", false, choice(ORDER_CHOICES)),
+                opt_topic("nick_limit", "Nick limit", "Keep this many nicks at the chosen end. Blank keeps all. The / filter runs first.", "nick-limit", false, text("")),
                 opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
                 opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
                 opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
@@ -679,12 +696,16 @@ impl Menu {
         if let Some(v) = p.bookmarks { self.set_check(Y, "bookmarks", v); }
     }
 
-    /// Search menu fields as a filter.
+    /// Search menu fields as a filter. Order and limit use the same window as `--order` and `--limit`.
     pub fn search_filter(&self) -> std::result::Result<SearchFilter, String> {
         let nick = self.text(CommandId::Search, "nick");
+        let limit_text = self.text(CommandId::Search, "limit");
+        let limit = if limit_text.is_empty() { None } else { Some(parse_post_limit(&limit_text)?) };
         Ok(SearchFilter {
             keyword: self.text(CommandId::Search, "query"),
             nicks: if nick.is_empty() { Vec::new() } else { parse_nicks(&nick)?.0 },
+            order: crate::tui::order::order_from_choice(self.choice(CommandId::Search, "order")),
+            limit,
             ..SearchFilter::default()
         })
     }

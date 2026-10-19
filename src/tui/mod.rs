@@ -21,6 +21,7 @@ pub mod jobs;
 pub mod layout;
 pub mod markdown;
 pub mod modals;
+pub mod order;
 pub mod sample;
 pub mod state;
 pub mod theme;
@@ -108,6 +109,7 @@ fn setup_themes(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
         }
     }
     app.themes_dir = Some(dir.clone());
+    app.apply_list_prefs(prefs.ui.as_ref().and_then(|u| u.list_order.as_ref()));
     app.theme_mode = crate::themes::Mode::parse(prefs.ui.as_ref().and_then(|u| u.theme_mode.as_deref()));
     app.dark_bg = crate::themes::colorfgbg_dark(std::env::var("COLORFGBG").ok().as_deref());
     let name = args.theme.clone().or(migrated).or_else(|| prefs.ui.as_ref().and_then(|u| u.theme.clone())).unwrap_or_else(|| DEFAULT_THEME.into());

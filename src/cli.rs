@@ -238,7 +238,7 @@ pub struct Args {
     /// Which profile feed a nick scrape reads. newest (default) is /rs/@nick plus Posts and replies (?replies=1). top is the profile Top feed (/rs/@nick/top?t=all) only. Other Top periods were not captured for profiles. This is not --latest / --trending, which still choose the mentions crawl.
     #[arg(long, value_name = "FEED", default_value = "newest", value_parser = parse_profile_feed, help_heading = "Scraping")]
     pub profile_feed: ProfileFeed,
-    /// Which end of that profile feed --limit keeps. newest (default) keeps the start of the site's list. oldest keeps the end, so a limited scrape reads the whole feed first. On newest that is the oldest posts. On top that is the end of the Top ranking. The site has no oldest-first profile URL.
+    /// Which end of that profile feed --limit keeps. newest (default) keeps the start of the site's list. oldest keeps the end, so a limited scrape reads the whole feed first. On newest that is the oldest posts. On top that is the end of the Top ranking. The site has no oldest-first profile URL. The terminal UI uses this same window for each list and for a search.
     #[arg(long, value_name = "ORDER", default_value = "newest", value_parser = parse_scrape_order, help_heading = "Scraping")]
     pub order: ScrapeOrder,
     /// Max site-feed posts to scan when hunting mentions (default 500).

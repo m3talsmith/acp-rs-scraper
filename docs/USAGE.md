@@ -75,21 +75,23 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   and is drawn when its slot is fully visible ("scroll to show it" otherwise). AVIF/HEIC are
   converted once to PNG under `~/.acp/cache/thumbs/` with `avifdec`, `magick` or `ffmpeg`
   (whichever is installed first); images are shrunk to at most 1024 px.
-- **Search** (Search menu, or `Shift-S` for keyword + nicks + post id + date range + posts/replies)
-  replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears.
+- **Search** (Search menu, or `Shift-S` for keyword + nicks + post id + date range + posts/replies + order + limit)
+  replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears. Order is newest or oldest.
+  Limit keeps that many matches at the chosen end (blank keeps every match), the same window as
+  `--order` and `--limit`. The status line shows it, for example `search "strike": 100 of 236 posts · oldest`.
 - **Menu → flags:**
 
   | Menu | Flags it builds |
   |---|---|
   | Scrape (Start Scanning, `F6`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--profile-feed` `--order` `--limit` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format` |
-  | Search | in-app search (same matching as `--search`, plus the filters above) |
+  | Search | in-app search (same matching as `--search`, plus the filters above, Order, and Limit) |
   | Export | `--export PATH` + `--nicks` (selection) or `--search`/`--nicks` (current view) or nothing (everything) or `--post-ids` (Basket, and the Export basket button), `--format`, `--name`, `--compress --tar-gz` |
   | Import | `--import PATH` `--compress --tar-gz` |
   | List | re-reads the nick bar (`--list-nicks` data) |
   | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
-  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; ◂ Previous post / Next post ▸ (TUI only) |
+  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; ◂ Previous post / Next post ▸ (TUI only) |
   | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked |
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
@@ -100,6 +102,17 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
 - **Previous / next:** `◂ prev` / `next ▸` on the nav bar (`,` `.` or `Alt-←` `Alt-→`) walk back
   and forth through the posts opened in the detail stack, with an `n/m` position; opening a new
   post or link drops the forward part.
+- **Order** (`o`, the nav bar's `[Order: newest ▸]` / `[Order: oldest ▸]`, or View › Order): newest or
+  oldest for the list on screen. Each list remembers its own choice in `~/.acp/preferences.toml`
+  under `[ui.list_order]`. Nick timelines, bookmarks, search results, research items, and the
+  export basket sort by posted time (a research file or page uses the time it was added). Site
+  lists (Top, EB, Explore, a tag, reposts) keep the site's order; oldest reverses that list, so
+  Top stays a ranking. Nested view orders the roots, and a reply whose thread root is not in the
+  list; replies stay under their root, oldest first. Flat layouts order every card. Edit history
+  stays in version order. `s` inside an open thread still cycles that thread's replies and is
+  separate from Order. While Nicks is focused, `o` toggles the nick list by each nick's latest
+  post (View › Nick order). View › Nick limit keeps N nicks at that end after the `/` filter;
+  blank keeps every nick. Highlight a menu option and press `?` for its Help topic.
 - **View modes** (`v`/`V`, the nav bar's `[View: …]`, or the View menu): Nested (default), Stack
   (full posts in one column, flat details), Stack + pane (list above, content pane below that
   follows `↑`/`↓`), Carousel ∞ (wraps) and Carousel (stops at the ends) with `←`/`→`, and Grid

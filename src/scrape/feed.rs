@@ -230,7 +230,12 @@ pub fn window_feed_items(
 }
 
 /// Keep the head (`newest`) or the tail (`oldest`) of a newest-first list.
-fn take_window(mut items: Vec<Value>, limit: Option<usize>, order: ScrapeOrder) -> Vec<Value> {
+///
+/// `items` is already in the list's natural order: newest posts first, or the
+/// site's own order for a ranking. `newest` keeps the start. `oldest` keeps
+/// the end and reverses it, so the oldest item (or the end of a ranking) is
+/// first. `limit` is how many to keep; `None` keeps the whole list.
+pub fn apply_order_limit<T>(mut items: Vec<T>, limit: Option<usize>, order: ScrapeOrder) -> Vec<T> {
     if let Some(n) = limit {
         match order {
             ScrapeOrder::Newest => items.truncate(n),
@@ -243,6 +248,11 @@ fn take_window(mut items: Vec<Value>, limit: Option<usize>, order: ScrapeOrder) 
         items.reverse();
     }
     items
+}
+
+/// Keep the head (`newest`) or the tail (`oldest`) of a newest-first feed page.
+fn take_window(items: Vec<Value>, limit: Option<usize>, order: ScrapeOrder) -> Vec<Value> {
+    apply_order_limit(items, limit, order)
 }
 
 /// Newest `n` authored items: the head of the replies feed, filled from the Posts head.

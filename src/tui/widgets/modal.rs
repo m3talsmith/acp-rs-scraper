@@ -239,21 +239,28 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &[submit.into(), "Cancel".into()], None);
         }
         Modal::Search(s) => {
-            let r = modal_rect(area, 72, SEARCH_FIELDS.len() as u16 + 8);
+            let r = modal_rect(area, 76, SEARCH_FIELDS.len() as u16 + 9);
             let inner = frame(f, &t, r, "Search · Tab moves · Enter searches");
             let nf = SEARCH_FIELDS.len();
-            let kind_i = nf - 2;
             for (i, label) in SEARCH_FIELDS.iter().enumerate() {
                 let rr = Rect { y: inner.y + 1 + i as u16, height: 1, ..inner };
-                let line = if i < kind_i { field_line(label, &s.fields[i], s.focus == i, &t) } else if i == kind_i {
+                let line = if let Some(fi) = SearchModal::text_index(i) {
+                    field_line(label, &s.fields[fi], s.focus == i, &t)
+                } else if i == SEARCH_KIND {
                     let k = match s.kind { crate::tui::data::KindFilter::Any => "Posts and replies", crate::tui::data::KindFilter::Posts => "Posts only", crate::tui::data::KindFilter::Replies => "Replies only" };
                     Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {k} ›"))])
+                } else if i == SEARCH_ORDER {
+                    Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {} ›", s.order))])
                 } else {
                     let w = if s.site { "Site" } else { "Local" };
                     Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {w} ›"))])
                 };
                 f.render_widget(Paragraph::new(line), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Field(i))));
+            }
+            let tip = match s.focus { SEARCH_ORDER => Some(SEARCH_ORDER_TIP), SEARCH_LIMIT => Some(SEARCH_LIMIT_TIP), _ => None };
+            if let Some(tip) = tip {
+                f.render_widget(Paragraph::new(Span::styled(tip, t.muted())), Rect { y: inner.y + nf as u16 + 1, height: 1, ..inner });
             }
             if let Some(e) = &s.error {
                 f.render_widget(Paragraph::new(Span::styled(e.clone(), t.accent())), Rect { y: inner.y + nf as u16 + 2, height: 1, ..inner });
