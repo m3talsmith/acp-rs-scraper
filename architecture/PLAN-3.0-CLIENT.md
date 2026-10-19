@@ -17,7 +17,7 @@ Update 2026-10-19 (write core): **3.4.0** ships compose for New post and Reply, 
 
 Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the serve and relay work. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists.
 
-Update 2026-10-19 (search history): recent searches are rows in the SQLCipher database that already holds posts and nicks. A row stores the query and the filters only, not a snapshot of the results. Picking a history item re-runs that search live. Clear history deletes the rows. Details are in §7.14.5.
+Update 2026-10-19 (search history): recent searches are rows in the SQLCipher database that already holds posts and nicks. A row stores the query and the filters only, not a snapshot of the results. Picking a history item re-runs that search live. Clear history deletes the rows. It belongs in the Search menu and is its own minor once Search work is touched; that minor is not numbered here, and numbered stages are not moved. How many entries to keep is still open. Details are in §7.14.5.
 
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
@@ -92,7 +92,7 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 3 | Top posts (site-wide) | `/rs/top`, with `configure-feed` and fields `t` (5 periods) + `replies` | C | ◐ (profile top only) | View-mode menu: Top › period |
 | 4 | Executive Board feed | `/rs/eb` (+ `replies` filter) | C | ✗ | Nick-bar row "EB" |
 | 5 | Explore | `/rs/explore` and `/rs/explore/latest` | C | ✗ | Explore screen |
-| 6 | Site search | `/rs/explore?q=…` (form `phx-submit="search"`, field `q`) returns a `forum/Feed` | C | ✗ (local search only) | Search modal gets a "Site / Local" toggle. History stores the query and the filters only (not a snapshot of results) in the encrypted database, and picking one re-runs the search live (§7.14.5) |
+| 6 | Site search | `/rs/explore?q=…` (form `phx-submit="search"`, field `q`) returns a `forum/Feed` | C | ✗ (local search only) | Search modal gets a "Site / Local" toggle. History is part of the Search menu: the query and the filters only (not a snapshot of results) in the encrypted database, and picking one re-runs the search live. Its own minor when Search work is touched (§7.14.5) |
 | 7 | Tag feeds | `/rs/tag/{tag}` returns a `forum/Feed` (same pagination) | C | ✗ | Click a `#tag` to open its feed |
 | 8 | Thread view + focus | `/rs/post/{thread}` and `/rs/post/{thread}/{post}` (patch) | C | ✅ | Existing |
 | 9 | Thread sort | hook `sort {sort:"oldest"\|"top"}` | C | ✗ | `s` in thread view |
@@ -265,6 +265,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | 3.22.0: Password change / re-key | **3.22.0** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. |
 | P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
+| Search history | later minor, when Search work is touched | Reopen a past query from the Search menu (§7.14.5). The row is the query and the filters only, a pick re-runs the search live, the rows live in the encrypted database, and Clear history deletes them. How many entries to keep is still open. The version number is not assigned here, and numbered stages are not moved. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -997,10 +998,12 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **State lives in the encrypted database.** Peers, bootstrap list, relay addresses, node roles, sync state and certificates are rows, not files, so they are encrypted at rest and included in backups.
   - Outside the database there are only the small bootstrap file (the database location and the Argon2 parameters needed to unlock) and `preferences.toml` for hand-edited settings, which holds no state.
   - The old `peers.toml` becomes a one-time import into `p2p_peers`.
-- **Search history (decided 2026-10-19).** Recent searches are rows in the same SQLCipher database as posts and nicks (`~/.acp/ai/data/rs.database`). They travel with that database in a backup. `preferences.toml` stays hand-edited settings and does not hold this list, and there is no separate history file.
+- **Search history (decided 2026-10-19).** Each local search and each site search is saved so a past query can be opened again. This is part of the Search menu, not a menu of its own. It is its own minor once Search work is touched. This note does not assign that minor a number and does not move numbered stages.
+  - Recent searches are rows in the same SQLCipher database as posts and nicks (`~/.acp/ai/data/rs.database`). They travel with that database in a backup. `preferences.toml` stays hand-edited settings and does not hold this list, and there is no separate history file.
   - A row stores the query and the filters only: keyword, nicks, post id, the from and to dates, posts or replies or both, and whether the search was local or on the site. It does not store a snapshot of the results.
   - Picking a history item re-runs that search live, against the database as it is now, or against the site when the row says site.
   - Clear history deletes these rows and leaves posts, nicks, and preferences in place.
+  - Still open: how many entries to keep.
 - **Fleet view:** one Nodes list showing last seen, version, certificate expiry, sync lag and disk use, with rename, role change and revoke from any authorizer. `--doctor` checks the local setup.
 - **Version compatibility:** nodes speak the current and the previous protocol version, announce their version, and warn when one lags.
 - **Peer management:** a Peers tab with status (up, down, unknown), last seen, trust level, source (invite, mDNS, bootstrap, backup), bytes in and out and notes, with actions to change trust, block, forget and re-check.
@@ -1181,6 +1184,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~On publish~~ all versions become public, reviewers' comments stay private but are retained, and the site's existing edit history is captured too.
 
     Still open:
+    - How many search-history entries to keep (§7.14.5). The row contents, the encrypted database, Clear history, and a live re-run are decided.
     - Should ciphertext of a draft with a review link replicate to third-party peers (proposed, since it leaks only existence, size and timing), or only travel between the author and reviewers directly?
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
