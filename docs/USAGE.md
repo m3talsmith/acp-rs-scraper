@@ -94,6 +94,8 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
+  The table is the bar that ships today. Before 3.x is finished it is reorganized, left to right, into View, Search, Compose, Library, Research, Sync, Discover, Account, and Debug, with Start Scanning still pinned on the right. Sync keeps the local copy up to date (site sync, auto-sync, bookmark sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is required, and it is not in 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
+
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
   process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
   quitting asks whether to keep it running in the background (default) or cancel it.

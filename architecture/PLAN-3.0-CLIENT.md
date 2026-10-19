@@ -19,6 +19,8 @@ Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a no
 
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
+Update 2026-10-19 (TUI menu, required before 3.x is finished): the menu bar is reorganized into the categories in §4.2. This is a hard requirement for 3.x, and it is its own minor. It is not polish after 3.x. This note does not assign that minor a number and does not move stages that already have one. 3.5.0 attachments does not include it. Start Scanning stays pinned on the right. **Sync** keeps the local copy up to date. **Discover** finds people, nodes, and rooms. Those two menus stay separate.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -263,6 +265,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | 3.22.0: Password change / re-key | **3.22.0** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. |
 | P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
+| TUI menu categories | later minor, required before 3.x closes | Reorganize the menu bar (§4.2). Must ship before 3.x is finished. The version number is not assigned here, and numbered stages are not moved. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -303,6 +306,27 @@ single, supervised session that ends with exactly one real reply, written by Mic
 Uploads, votes, deletes and edits are **not** part of this capture. Each one gets the same guided capture on its first real use (§2.1).
 
 **3.4.0 status.** `--capture-reply THREAD` is compiled in and hidden from `--help`. It does not create a throwaway HOME, does not copy `session.json`, and does not send `validate` or `save`. Those steps stay stubbed until a reviewed fixture exists. `--dry-run` prints the documented form fields with the LiveView form encoding this client already uses, and it lists every piece that was not invented.
+
+### 4.2 TUI menu categories (required before 3.x is finished)
+
+The terminal menu bar is reorganized into categories. This must ship before 3.x is finished. It is a later minor of its own, and it is not post-3.x polish. The current bar stays until that minor. This note does not implement the menus, does not assign the minor a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0.
+
+Left to right, with Start Scanning pinned on the right:
+
+1. **View** — Nested, Stack, Carousel, and Grid; Site Top; Explore; EB (Executive Board); previous and next post.
+2. **Search** — local search and site search.
+3. **Compose** — New post, Reply, and Quote. Drafts and the outbox join this menu when that stage ships.
+4. **Library** — Export, Import, Basket, List, Bookmarks, and Maintain. Bookmark sync is under Sync, not here.
+5. **Research** — projects, add, and export, as the Research menu works today.
+6. **Sync** — keep the local copy up to date. Today that is site sync, auto-sync, and bookmark sync. Peer replication of the local database joins this menu later.
+7. **Discover** — find people, nodes, and rooms. A stub until the network-node stage (P9). Then peers, public nodes, relays, and the spaces / live badge.
+8. **Account** — Session (login and logout) today. Profile, site settings, and password change join this menu in their own stages.
+9. **Debug** — verbose, logging, and help.
+10. **Start Scanning** — pinned on the right. The scrape options (nicks, latest or trending, mentions, and the rest of today's Scrape menu) stay on this control.
+
+Sync and Discover stay two menus. Sync is how this machine's copy stays current. Discover is how you find someone or somewhere else.
+
+Quit is a menu item today and this list does not name it. It stays on the bar until Michael says where it goes.
 
 ---
 

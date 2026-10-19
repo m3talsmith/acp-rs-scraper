@@ -303,6 +303,13 @@ commands. Options under a command are the flags that combine with it.
 options are valid (at least one nick, or a confirmation to scrape from the
 currently selected nick in the left bar).
 
+Before 3.x is finished this bar is reorganized into View, Search, Compose,
+Library, Research, Sync, Discover, Account, and Debug, with Start Scanning
+still pinned right. Sync keeps the local copy up to date. Discover finds
+people, nodes, and rooms. Those stay separate menus. The table above stays
+the map of the current bar until that minor. The layout is in
+[PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2.
+
 **Suggested change:** selecting a nick in the left bar pre-fills Scrape's
 Nicks field and filters the Body. Multi-select nicks (Shift/Space) are a must have
 for 2.0.
