@@ -227,6 +227,15 @@ pub struct Opt {
     pub required: bool,
     /// Input type.
     pub widget: Widget,
+    /// Help topic this option deep-links to (`?` while it is highlighted). Empty: the general Help.
+    pub help: &'static str,
+}
+
+impl Opt {
+    /// The dropdown's hint line: the flag text, and `? {topic}` when this option has its own Help topic.
+    pub fn hint_line(&self) -> String {
+        if self.help.is_empty() { self.flag.to_string() } else { format!("{}  ? {}", self.flag, self.help) }
+    }
 }
 
 /// One menu bar item.
@@ -245,15 +254,22 @@ pub struct MenuCommand {
 }
 
 fn opt(key: &'static str, label: &'static str, flag: &'static str, required: bool, widget: Widget) -> Opt {
-    Opt { key, label, flag, required, widget }
+    opt_topic(key, label, flag, "", required, widget)
+}
+fn opt_topic(key: &'static str, label: &'static str, flag: &'static str, help: &'static str, required: bool, widget: Widget) -> Opt {
+    Opt { key, label, flag, required, widget, help }
 }
 fn check(v: bool) -> Widget { Widget::Check(v) }
 fn text(v: &str) -> Widget { Widget::Text(TextField::new(v)) }
 fn choice(choices: &'static [&'static str]) -> Widget { Widget::Choice { choices, idx: 0 } }
 fn button(a: Action) -> Widget { Widget::Button(a) }
 
-/// Scrape feed choices.
+/// Scrape feed choices for the mentions crawl (`--latest` / `--trending`).
 pub const MODE_CHOICES: &[&str] = &["Latest", "Trending"];
+/// Profile feed a nick scrape reads (`--profile-feed`).
+pub const PROFILE_FEED_CHOICES: &[&str] = &["Newest", "Top"];
+/// Which end of that feed `--limit` keeps (`--order`).
+pub const ORDER_CHOICES: &[&str] = &["Newest", "Oldest"];
 /// Export format choices.
 pub const FORMAT_CHOICES: &[&str] = &["json", "html", "json,html"];
 /// Export scope choices.
@@ -278,6 +294,9 @@ impl Menu {
                 opt("nicks", "Nicks", "--nicks (blank: selected nicks)", true, text("")),
                 opt("mentions", "Mentions", "--no-mentions when off", false, check(true)),
                 opt("said_by", "Said by", "--said-by", false, check(false)),
+                opt("profile_feed", "Profile feed", "--profile-feed (default: newest)", false, choice(PROFILE_FEED_CHOICES)),
+                opt("order", "Order", "--order (default: newest)", false, choice(ORDER_CHOICES)),
+                opt("limit", "Post limit", "--limit (blank: whole profile)", false, text("")),
                 opt("crawl_limit", "Crawl limit", "--crawl-limit", false, text(&DEFAULT_CRAWL_LIMIT.to_string())),
                 opt("attachments", "Attachments", "--no-attachments when off", false, check(true)),
                 opt("full", "Full", "--full", false, check(false)),
@@ -289,6 +308,8 @@ impl Menu {
             MenuCommand { id: Search, label: "Search", hint: 'e', action: None, opts: vec![
                 opt("query", "Query", "--search", true, text("")),
                 opt("nick", "Nick filter", "--nicks", false, text("")),
+                opt_topic("order", "Order", "Newest or oldest for these results. Same window as --order", "search-order", false, choice(ORDER_CHOICES)),
+                opt_topic("limit", "Limit", "Keep this many matches at the chosen end. Blank keeps all. Same as --limit", "search-limit", false, text("")),
                 opt("run", "Search", "", false, button(Action::RunSearch)),
                 opt("advanced", "Advanced…", "Shift-S", false, button(Action::OpenSearchModal)),
                 opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
@@ -363,6 +384,9 @@ impl Menu {
                 opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
                 opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
                 opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
+                opt_topic("list_order", "Order", "Newest or oldest for this list. o toggles. Nested orders roots; replies stay in thread order.", "order", false, choice(ORDER_CHOICES)),
+                opt_topic("nick_order", "Nick order", "Newest or oldest nick by latest post. o toggles while Nicks is focused.", "nick-order", false, choice(ORDER_CHOICES)),
+                opt_topic("nick_limit", "Nick limit", "Keep this many nicks at the chosen end. Blank keeps all. The / filter runs first.", "nick-limit", false, text("")),
                 opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
                 opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
                 opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
@@ -438,6 +462,14 @@ impl Menu {
         if self.choice(S, "mode") == "Trending" { v.push("--trending".into()); } else { v.push("--latest".into()); }
         if !self.check(S, "mentions") { v.push("--no-mentions".into()); }
         if self.check(S, "said_by") { v.push("--said-by".into()); }
+        if self.choice(S, "profile_feed") == "Top" { v.extend(["--profile-feed".into(), "top".into()]); }
+        if self.choice(S, "order") == "Oldest" { v.extend(["--order".into(), "oldest".into()]); }
+        let lim = self.text(S, "limit");
+        if !lim.is_empty() {
+            let n: usize = lim.parse().map_err(|_| format!("Post limit must be a number, not {lim:?}"))?;
+            if n == 0 { return Err("Post limit must be at least 1".into()); }
+            v.extend(["--limit".into(), n.to_string()]);
+        }
         let cl = self.text(S, "crawl_limit");
         if !cl.is_empty() {
             let n: usize = cl.parse().map_err(|_| format!("Crawl limit must be a number, not {cl:?}"))?;
@@ -664,12 +696,16 @@ impl Menu {
         if let Some(v) = p.bookmarks { self.set_check(Y, "bookmarks", v); }
     }
 
-    /// Search menu fields as a filter.
+    /// Search menu fields as a filter. Order and limit use the same window as `--order` and `--limit`.
     pub fn search_filter(&self) -> std::result::Result<SearchFilter, String> {
         let nick = self.text(CommandId::Search, "nick");
+        let limit_text = self.text(CommandId::Search, "limit");
+        let limit = if limit_text.is_empty() { None } else { Some(parse_post_limit(&limit_text)?) };
         Ok(SearchFilter {
             keyword: self.text(CommandId::Search, "query"),
             nicks: if nick.is_empty() { Vec::new() } else { parse_nicks(&nick)?.0 },
+            order: crate::tui::order::order_from_choice(self.choice(CommandId::Search, "order")),
+            limit,
             ..SearchFilter::default()
         })
     }

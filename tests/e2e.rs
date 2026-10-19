@@ -74,7 +74,12 @@ impl E2e {
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
             .spawn().unwrap();
         let mut stdin = child.stdin.take().unwrap();
-        stdin.write_all(format!("{}\n", self.code).as_bytes()).await.unwrap();
+        // A clap error exits before this code is read. That closes the pipe.
+        if let Err(e) = stdin.write_all(format!("{}\n", self.code).as_bytes()).await
+            && e.kind() != std::io::ErrorKind::BrokenPipe
+        {
+            panic!("writing the e2e code to the child: {e}");
+        }
         drop(stdin);
         let out = child.wait_with_output().await.unwrap();
         self.last = Run { code: out.status.code().unwrap_or(-1),

@@ -13,6 +13,8 @@ pub struct NickEntry {
     pub display_name: Option<String>,
     /// Stored posts and replies by this nick.
     pub post_count: i64,
+    /// Newest `posted_at` for this nick, when one is stored.
+    pub latest: Option<String>,
 }
 
 /// Nick-bar filter: case-insensitive match of `q` against the nick and display name.
@@ -60,6 +62,10 @@ pub struct SearchFilter {
     pub to: String,
     /// Posts / replies / both.
     pub kind: KindFilter,
+    /// Which end of the match list to keep. Default newest.
+    pub order: ScrapeOrder,
+    /// How many matches to keep at that end. `None` keeps every match.
+    pub limit: Option<usize>,
 }
 
 impl SearchFilter {
@@ -67,6 +73,7 @@ impl SearchFilter {
     pub fn is_empty(&self) -> bool {
         self.keyword.trim().is_empty() && self.nicks.is_empty() && self.post_id.trim().is_empty()
             && self.from.trim().is_empty() && self.to.trim().is_empty() && self.kind == KindFilter::Any
+            && self.order == ScrapeOrder::Newest && self.limit.is_none()
     }
     /// Whether `p` passes the filter.
     pub fn matches(&self, p: &Post) -> bool {
@@ -178,7 +185,7 @@ impl Store for SqliteStore {
     fn nicks(&self) -> Result<Vec<NickEntry>> {
         let Some(c) = self.conn()? else { return Ok(Vec::new()) };
         let mut v: Vec<NickEntry> = list_nicks_conn(&c)?.into_iter()
-            .map(|i| NickEntry { nick: i.nick, display_name: i.display_name, post_count: i.post_count }).collect();
+            .map(|i| NickEntry { nick: i.nick, display_name: i.display_name, post_count: i.post_count, latest: i.latest }).collect();
         v.sort_by(|a, b| b.post_count.cmp(&a.post_count).then_with(|| a.nick.to_lowercase().cmp(&b.nick.to_lowercase())));
         Ok(v)
     }
@@ -276,8 +283,11 @@ impl Store for MemStore {
         let mut m: Vec<NickEntry> = Vec::new();
         for p in &self.posts {
             match m.iter_mut().find(|e| e.nick.eq_ignore_ascii_case(&p.nick)) {
-                Some(e) => e.post_count += 1,
-                None => m.push(NickEntry { nick: p.nick.clone(), display_name: None, post_count: 1 }),
+                Some(e) => {
+                    e.post_count += 1;
+                    if e.latest.as_deref().is_none_or(|l| p.posted_at.as_str() > l) { e.latest = Some(p.posted_at.clone()); }
+                }
+                None => m.push(NickEntry { nick: p.nick.clone(), display_name: None, post_count: 1, latest: Some(p.posted_at.clone()) }),
             }
         }
         m.sort_by(|a, b| b.post_count.cmp(&a.post_count).then_with(|| a.nick.cmp(&b.nick)));

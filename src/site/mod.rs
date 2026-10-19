@@ -1,14 +1,19 @@
-//! Write core (3.4.0): New post and Reply.
+//! Write core (3.4.0) and attachments (3.5.0): New post and Reply.
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the documented
 //! form frames live here. Publishing does not open a connection. The P0
-//! guided capture has not confirmed the submit payload, so validate and save
-//! stay behind [`write::CAPTURE_BLOCK`]. Attachments wait for 3.5.0. Vote,
-//! subscribe, delete, edit, and repost are later minors and are not built.
+//! guided capture has not confirmed the submit payload or the upload channel,
+//! so validate, save, and `allow_upload` / `lvu` stay behind
+//! [`write::CAPTURE_BLOCK`]. Vote, subscribe, delete, edit, and repost are
+//! later minors and are not built.
 
+mod attach;
 mod prosemirror;
 mod write;
 
+pub use attach::{
+    AttachmentKind, PathCompletion, PlannedAttachment, complete_path, expand_with_home, plan_attachment, plan_attachments,
+};
 pub use prosemirror::{BODY_CHAR_LIMIT, assemble, markdown_to_doc, plain_blocks, post_ref};
 pub use write::{
     CAPTURE_BLOCK, Completion, Draft, Kind, NickHint, Probe, WriteError, WritePlan, bundle_changed, capture_stub_message,
@@ -55,7 +60,7 @@ pub fn run_cli(args: &Args) -> Result<()> {
         in_reply_to: args.in_reply_to.clone(),
         quote: args.quote.clone(),
         quote_post: args.quote_post.clone(),
-        attachments: args.attachment.len(),
+        attachments: args.attachment.clone(),
         html: None,
         accept_bundle: args.accept_site_update,
         stored_bundle: None,
@@ -97,7 +102,7 @@ mod tests {
             in_reply_to: None,
             quote: None,
             quote_post: None,
-            attachments: 0,
+            attachments: Vec::new(),
             html: None,
             accept_bundle: false,
             stored_bundle: None,
@@ -221,9 +226,6 @@ mod tests {
         d.writes_on = false;
         assert!(prepare(&d).unwrap_err().message.contains("writes are off"));
         d.writes_on = true;
-        d.attachments = 1;
-        assert!(prepare(&d).unwrap_err().message.contains("3.5.0"));
-        d.attachments = 0;
         d.html = Some(FORM.into());
         d.stored_bundle = Some("/assets/app-old.js".into());
         let err = decide(&d, true, false).unwrap_err();
@@ -321,6 +323,61 @@ mod tests {
         let a = Args::try_parse_from(["x", "--new-post", "Title", "--dry-run"]).unwrap();
         assert!(cli_requested(&a));
         assert!(Args::try_parse_from(["x", "--new-post", "Title", "--remove-nick", "ada"]).is_err());
+    }
+
+    #[test]
+    fn attachments_are_listed_in_dry_run_and_not_encoded() {
+        let dir = std::env::temp_dir().join(format!("acp-attach-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let jpg = dir.join("photo.jpg");
+        let pdf = dir.join("notes.pdf");
+        let bad = dir.join("notes.txt");
+        std::fs::write(&jpg, b"jpeg-bytes").unwrap();
+        std::fs::write(&pdf, b"pdf").unwrap();
+        std::fs::write(&bad, b"nope").unwrap();
+        let mut d = draft();
+        d.attachments = vec![jpg.clone(), pdf.clone()];
+        let plan = prepare(&d).unwrap();
+        assert_eq!(plan.attachments.len(), 2);
+        assert_eq!(plan.attachments[0].kind, AttachmentKind::Media);
+        assert_eq!(plan.attachments[0].kind.input_name(), "media_attachments");
+        assert_eq!(plan.attachments[1].kind, AttachmentKind::File);
+        assert_eq!(plan.attachments[1].bytes, 3);
+        let frames = serde_json::to_string(&liveview_frames(&plan)).unwrap();
+        assert!(!frames.contains("photo.jpg"), "{frames}");
+        assert!(!frames.contains("allow_upload"), "{frames}");
+        assert!(!frames.contains("jpeg-bytes"), "{frames}");
+        assert!(plan.fields.iter().all(|(k, _)| !k.contains("attachment")), "{:?}", plan.fields);
+        let text = decide(&d, false, true).unwrap();
+        assert!(text.contains("attachments (local only, not uploaded)"), "{text}");
+        assert!(text.contains("media photo.jpg"), "{text}");
+        assert!(text.contains("file notes.pdf"), "{text}");
+        assert!(text.contains("allow_upload"), "{text}");
+        assert!(text.contains("not uploaded"), "{text}");
+        assert!(!text.contains("nothing was published"), "{text}");
+        let err = decide(&d, true, false).unwrap_err();
+        assert!(err.message.contains("nothing was published"), "{}", err.message);
+        assert!(err.message.contains("photo.jpg"), "{}", err.message);
+        assert!(err.message.contains("allow_upload"), "{}", err.message);
+        d.attachments = vec![bad];
+        assert!(prepare(&d).unwrap_err().message.contains("not an allowed attachment"));
+        d.attachments = vec![dir.join("missing.png")];
+        assert!(prepare(&d).unwrap_err().message.contains("not found"));
+        d.attachments = vec![dir.clone()];
+        assert!(prepare(&d).unwrap_err().message.contains("not a file"));
+        for ext in ["avif", "gif", "jpg", "jpeg", "png", "tif", "tiff", "webp", "mkv", "mov", "mp4", "webm"] {
+            let path = dir.join(format!("sample.{ext}"));
+            std::fs::write(&path, b"x").unwrap();
+            assert_eq!(plan_attachment(&path).unwrap().kind, AttachmentKind::Media, "{ext}");
+        }
+        let upper = dir.join("PHOTO.JPG");
+        std::fs::write(&upper, b"j").unwrap();
+        assert_eq!(plan_attachment(&upper).unwrap().kind, AttachmentKind::Media);
+        use clap::Parser;
+        let parsed = Args::try_parse_from(["x", "--new-post", "Title", "--attachment", jpg.to_str().unwrap(), "--dry-run"]).unwrap();
+        assert!(cli_requested(&parsed));
+        assert_eq!(parsed.attachment.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

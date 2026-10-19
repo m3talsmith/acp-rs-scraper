@@ -38,6 +38,60 @@ pub struct UiPrefs {
     pub theme_download: Option<bool>,
     /// Writes (3.4.0). Omitted means on. `ACP_WRITES=off` wins over this field.
     pub writes: Option<bool>,
+    /// Per-list order and the nick-list limit (`[ui.list_order]`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub list_order: Option<ListOrderPrefs>,
+}
+
+/// `[ui.list_order]` in `~/.acp/preferences.toml`.
+///
+/// Each value is `newest` or `oldest`. Omitted means newest. `nick_limit` is how
+/// many nicks the nick bar keeps; omitted means all of them.
+#[derive(Serialize, Deserialize, Default, Clone, Debug, PartialEq)]
+pub struct ListOrderPrefs {
+    /// Nick timeline.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeline: Option<String>,
+    /// Bookmarks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bookmarks: Option<String>,
+    /// Search results.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search: Option<String>,
+    /// Research items.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub research: Option<String>,
+    /// Site lists (Top, EB, Explore).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site: Option<String>,
+    /// Export basket.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub basket: Option<String>,
+    /// Nick bar, by each nick's latest post.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nicks: Option<String>,
+    /// How many nicks to keep after the nick filter. Blank in the UI means all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub nick_limit: Option<u64>,
+}
+
+/// Write `[ui.list_order]`, keeping every other key in `path` (also unknown ones).
+pub fn save_list_order_at(path: &Path, prefs: &ListOrderPrefs) -> Result<()> {
+    let mut t: toml::Table = match std::fs::read_to_string(path) {
+        Ok(s) => toml::from_str(&s).with_context(|| format!("{} is not valid TOML; not changing it", path.display()))?,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => toml::Table::new(),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    };
+    let ui = t.entry("ui").or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    let Some(ui) = ui.as_table_mut() else { bail!("[ui] in {} is not a table; not changing it", path.display()) };
+    ui.insert("list_order".into(), toml::Value::try_from(prefs).context("encoding list order")?);
+    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+    crate::themes::atomic_write(path, toml::to_string(&t)?.as_bytes()).with_context(|| format!("writing {}", path.display()))
+}
+
+/// Write `[ui.list_order]` in `~/.acp/preferences.toml`, keeping every other key.
+pub fn save_list_order(prefs: &ListOrderPrefs) -> Result<()> {
+    save_list_order_at(&home()?.join(PREFS_REL_PATH), prefs)
 }
 
 /// Set `[ui] theme` in `~/.acp/preferences.toml`, keeping every other key (also unknown

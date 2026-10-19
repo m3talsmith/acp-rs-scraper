@@ -13,6 +13,37 @@ fn nicks_parse() {
 }
 
 #[test]
+fn post_limit_is_a_positive_nick_scrape_flag() {
+    let a = Args::try_parse_from(["x", "--nick", "alice", "--limit", "100"]).unwrap();
+    assert_eq!(a.limit, Some(100));
+    assert_eq!(a.crawl_limit, crate::config::DEFAULT_CRAWL_LIMIT);
+    assert!(Args::try_parse_from(["x", "--nick", "alice", "--limit", "0"]).is_err());
+    assert!(Args::try_parse_from(["x", "--nick", "alice", "--limit", "no"]).is_err());
+    assert!(Args::try_parse_from(["x", "--import", "f", "--limit", "10"]).is_err());
+    let a = Args::try_parse_from(["x", "--nick", "alice"]).unwrap();
+    assert_eq!(a.limit, None);
+    assert_eq!(a.profile_feed, ProfileFeed::Newest);
+    assert_eq!(a.order, ScrapeOrder::Newest);
+}
+
+#[test]
+fn profile_feed_and_order_are_nick_scrape_flags() {
+    let a = Args::try_parse_from(["x", "--nick", "alice", "--profile-feed", "top", "--order", "oldest", "--limit", "100"]).unwrap();
+    assert_eq!(a.profile_feed, ProfileFeed::Top);
+    assert_eq!(a.order, ScrapeOrder::Oldest);
+    assert_eq!(a.limit, Some(100));
+    assert_eq!(a.feed_mode(), FeedMode::Latest);
+    let a = Args::try_parse_from(["x", "--nick", "alice", "--profile-feed", "Newest", "--order", "OLDEST"]).unwrap();
+    assert_eq!((a.profile_feed, a.order), (ProfileFeed::Newest, ScrapeOrder::Oldest));
+    assert!(Args::try_parse_from(["x", "--nick", "alice", "--profile-feed", "trending"]).is_err());
+    assert!(Args::try_parse_from(["x", "--nick", "alice", "--order", "top"]).is_err());
+    assert!(Args::try_parse_from(["x", "--import", "f", "--profile-feed", "top"]).is_err());
+    assert!(Args::try_parse_from(["x", "--import", "f", "--order", "oldest"]).is_err());
+    assert!(!parse_with_mode(["x", "--profile-feed", "top"]).unwrap().1);
+    assert!(!parse_with_mode(["x", "--order", "oldest"]).unwrap().1);
+}
+
+#[test]
 fn nicks_cli() {
     let a = Args::try_parse_from(["x", "--nicks", "@hazaldin, @m3talsmith,@hazaldin"]).unwrap();
     assert_eq!(a.nick_list().unwrap(), ["hazaldin", "m3talsmith"]);

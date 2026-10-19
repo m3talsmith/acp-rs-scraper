@@ -18,7 +18,11 @@ pub fn on_event(app: &mut App, ev: Event) {
 fn after_modal(app: &mut App, r: Option<ModalResult>) {
     if let Some(Modal::Login(m)) = &mut app.modal
         && let Some(req) = m.request.take() {
-            app.effects.push(match req { LoginRequest::SendEmail(e) => Effect::LoginEmail(e), LoginRequest::SubmitCode(c) => Effect::LoginCode(c) });
+            app.effects.push(match req {
+                LoginRequest::SendEmail(e) => Effect::LoginEmail(e),
+                LoginRequest::SubmitCode(c) => Effect::LoginCode(c),
+                LoginRequest::Resend => Effect::LoginResend,
+            });
         }
     if let Some(pid) = app.take_job_cancel() { app.cancel_tracked(pid); }
     if let Some(r) = r { app.close_modal(r); }
@@ -60,7 +64,7 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         KeyCode::Char('/') if app.focus != Focus::Menu => { app.focus_nick_filter(); return; }
         KeyCode::Char('S') => { app.act(Action::OpenSearchModal); return; }
         KeyCode::Char('B') => { app.act(Action::ShowBookmarks); return; }
-        KeyCode::Char('?') | KeyCode::F(1) => { app.act(Action::Help); return; }
+        KeyCode::Char('?') | KeyCode::F(1) => { let topic = app.menu_help_topic(); app.open_help(topic); return; }
         KeyCode::F(5) if k.modifiers.contains(KeyModifiers::SHIFT) => { app.act(Action::ThemeEditor); return; }
         KeyCode::F(17) => { app.act(Action::ThemeEditor); return; }
         KeyCode::F(5) => { app.act(Action::ThemePicker); return; }
@@ -103,6 +107,7 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('n') => app.open_new_post(),
         KeyCode::Char('r') => app.act(Action::AddToResearch),
         KeyCode::Char('v') => app.act(Action::CycleView),
+        KeyCode::Char('o') => { if app.focus == Focus::Nicks { app.toggle_nick_order(); } else { app.toggle_list_order(); } }
         KeyCode::Char(',') => app.act(Action::StackPrev),
         KeyCode::Char('.') => app.act(Action::StackNext),
         KeyCode::Char('V') => { let m = app.view_mode.cycle(-1); app.set_view_mode(m); }
@@ -210,7 +215,10 @@ fn menu_key(app: &mut App, k: KeyEvent) {
                 KeyCode::Left | KeyCode::Right => {
                     let d = if k.code == KeyCode::Left { -1 } else { 1 };
                     let o = &mut app.menu.menu.items[item].opts[app.menu.opt];
-                    if let Widget::Choice { choices, idx } = &mut o.widget { *idx = cycle(*idx, choices.len(), d); }
+                    if let Widget::Choice { choices, idx } = &mut o.widget {
+                        *idx = cycle(*idx, choices.len(), d);
+                        app.apply_open_choice();
+                    }
                     else { app.menu.item = cycle(item, n, d); let i = app.menu.item; app.menu.open = None; app.open_menu(i); }
                 }
                 KeyCode::Char(' ') => {
@@ -239,7 +247,7 @@ fn filter_key(app: &mut App, k: KeyEvent) {
 fn menu_edit_key(app: &mut App, k: KeyEvent) {
     let Some(item) = app.menu.open else { app.menu.editing = false; return };
     match k.code {
-        KeyCode::Enter | KeyCode::Esc | KeyCode::Tab => app.menu.editing = false,
+        KeyCode::Enter | KeyCode::Esc | KeyCode::Tab => { app.menu.editing = false; app.finish_menu_text(); }
         _ => {
             if let Widget::Text(t) = &mut app.menu.menu.items[item].opts[app.menu.opt].widget { t.on_key(k); }
         }
@@ -292,6 +300,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::NickFilter) => app.focus_nick_filter(),
         Some(Hit::NickFilterClear) => app.clear_nick_filter(),
         Some(Hit::ViewMode) => app.act(Action::CycleView),
+        Some(Hit::ListOrder) => { app.focus = Focus::Body; app.toggle_list_order(); }
         Some(Hit::StackPrev) => { app.focus = Focus::Body; app.act(Action::StackPrev); }
         Some(Hit::StackNext) => { app.focus = Focus::Body; app.act(Action::StackNext); }
         Some(Hit::CloseDetail) => app.close_details(),

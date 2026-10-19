@@ -115,7 +115,7 @@ fn draw_job(f: &mut Frame, app: &mut App, area: Rect, m: &JobModal, t: &Theme) {
 
 /// Draw the open modal.
 fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &Theme) {
-    let r = modal_rect(area, 72, 14);
+    let r = modal_rect(area, 72, 16);
     let inner = frame(f, t, r, &m.title());
     if inner.height < 4 || inner.width < 8 { return; }
     let row = |y: u16| Rect { y, height: 1, ..inner };
@@ -131,18 +131,38 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Body: {body}"), inner.width as usize), st)), row(y));
     app.hits.push((row(y), Hit::Modal(ModalHit::Field(1))));
     y += 1;
+    let st = if m.focus == ComposeFocus::Attach { t.accent_bold() } else { t.plain() };
+    let shown = if m.attach_path.is_empty() { "path · Tab completes · Enter adds".into() } else { m.attach_path.clone() };
+    f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Attach: {shown}"), inner.width as usize), st)), row(y));
+    app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
+    y += 1;
+    for path in m.attachments.iter().take(2) {
+        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {name}"), inner.width as usize), t.muted())), row(y));
+        y += 1;
+    }
     if let Some(q) = &m.quote {
         f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Quote: {q}"), inner.width as usize), t.muted())), row(y));
         y += 1;
     }
-    let matches = m.pending.as_ref().map(|q| crate::site::completions(q, &m.nicks, &m.tags)).unwrap_or_default();
-    for (i, row_c) in matches.iter().take(4).enumerate() {
-        let st = if m.focus == ComposeFocus::Complete && i == m.complete_at { t.selected() } else { t.plain() };
-        f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {}", row_c.label), inner.width as usize), st)), row(y));
-        app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
-        y += 1;
+    if m.focus == ComposeFocus::Attach && !m.path_matches.is_empty() {
+        let start = m.path_at.saturating_sub(3);
+        for (i, text) in m.path_matches.iter().enumerate().skip(start).take(4) {
+            let st = if i == m.path_at { t.selected() } else { t.plain() };
+            f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {text}"), inner.width as usize), st)), row(y));
+            app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
+            y += 1;
+        }
+    } else {
+        let matches = m.pending.as_ref().map(|q| crate::site::completions(q, &m.nicks, &m.tags)).unwrap_or_default();
+        for (i, row_c) in matches.iter().take(4).enumerate() {
+            let st = if m.focus == ComposeFocus::Complete && i == m.complete_at { t.selected() } else { t.plain() };
+            f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {}", row_c.label), inner.width as usize), st)), row(y));
+            app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
+            y += 1;
+        }
     }
-    let note = m.error.clone().unwrap_or_else(|| "Publish is prepared locally. Nothing is sent until a guided capture.".into());
+    let note = m.error.clone().unwrap_or_else(|| "Attach lists local files. Publish does not upload them.".into());
     f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
     let focus = match m.focus {
         ComposeFocus::Cancel => Some(0),
@@ -207,7 +227,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                     lines.push(Line::styled(format!("{:>18}: {}", "Email", l.email.value), t.muted()));
                     lines.push(field_line("Code or login link", &l.code, true, &t));
                     lines.push(Line::raw(""));
-                    lines.push(Line::styled("Paste the code (or the whole login link) from the email; Enter verifies.", t.muted()));
+                    lines.push(Line::styled("Enter verifies. F2 or Resend code sends another code on this login.  ? login", t.muted()));
                 }
                 LoginStep::Busy(s) => lines.push(Line::styled(format!("⟳ {s}"), t.accent())),
             }
@@ -215,25 +235,36 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             lines.push(Line::raw(""));
             lines.push(Line::styled("The session is saved in ~/.acp/session.json (mode 0600); browsing works offline without it.", t.muted()));
             f.render_widget(Paragraph::new(lines), Rect { height: inner.height.saturating_sub(2), ..inner });
-            let submit = if matches!(l.step, LoginStep::Code) { "Verify" } else { "Send code" };
-            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &[submit.into(), "Cancel".into()], None);
+            let labels: Vec<String> = if l.on_code_step() {
+                vec!["Verify".into(), "Resend code".into(), "Cancel".into()]
+            } else {
+                vec!["Send code".into(), "Cancel".into()]
+            };
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &labels, None);
         }
         Modal::Search(s) => {
-            let r = modal_rect(area, 72, SEARCH_FIELDS.len() as u16 + 8);
+            let r = modal_rect(area, 76, SEARCH_FIELDS.len() as u16 + 9);
             let inner = frame(f, &t, r, "Search · Tab moves · Enter searches");
             let nf = SEARCH_FIELDS.len();
-            let kind_i = nf - 2;
             for (i, label) in SEARCH_FIELDS.iter().enumerate() {
                 let rr = Rect { y: inner.y + 1 + i as u16, height: 1, ..inner };
-                let line = if i < kind_i { field_line(label, &s.fields[i], s.focus == i, &t) } else if i == kind_i {
+                let line = if let Some(fi) = SearchModal::text_index(i) {
+                    field_line(label, &s.fields[fi], s.focus == i, &t)
+                } else if i == SEARCH_KIND {
                     let k = match s.kind { crate::tui::data::KindFilter::Any => "Posts and replies", crate::tui::data::KindFilter::Posts => "Posts only", crate::tui::data::KindFilter::Replies => "Replies only" };
                     Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {k} ›"))])
+                } else if i == SEARCH_ORDER {
+                    Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {} ›", s.order))])
                 } else {
                     let w = if s.site { "Site" } else { "Local" };
                     Line::from(vec![Span::styled(format!("{label:>18}: "), if s.focus == i { t.accent_bold() } else { t.plain() }), Span::raw(format!("‹ {w} ›"))])
                 };
                 f.render_widget(Paragraph::new(line), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Field(i))));
+            }
+            let tip = match s.focus { SEARCH_ORDER => Some(SEARCH_ORDER_TIP), SEARCH_LIMIT => Some(SEARCH_LIMIT_TIP), _ => None };
+            if let Some(tip) = tip {
+                f.render_widget(Paragraph::new(Span::styled(tip, t.muted())), Rect { y: inner.y + nf as u16 + 1, height: 1, ..inner });
             }
             if let Some(e) = &s.error {
                 f.render_widget(Paragraph::new(Span::styled(e.clone(), t.accent())), Rect { y: inner.y + nf as u16 + 2, height: 1, ..inner });

@@ -50,11 +50,27 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     if !v.stack.is_empty() {
         spans.push(Span::styled(format!("  · detail {}/{}", v.stack.len(), crate::config::MAX_DETAIL_DEPTH), t.muted()));
     }
+    let shown = v.posts.len();
+    let total = v.source.len();
+    if !v.source.is_empty() && total != shown {
+        spans.push(Span::styled(format!(" of {total}"), t.muted()));
+    }
+    let left: u16 = spans.iter().map(|s| unicode_width::UnicodeWidthStr::width(s.content.as_ref()) as u16).sum();
     f.render_widget(Paragraph::new(Line::from(spans)), nav);
-    // View switch, right-aligned.
+    // Order and view switches, right-aligned. Order sits just left of View when it fits.
+    let edits = v.kind == crate::tui::order::ListKind::Edits;
+    let order_label = if edits { "version".to_string() } else { app.orders.get(v.kind).to_string() };
+    let ol = format!(" [Order: {order_label} ▸] ");
     let vl = format!(" [View: {} ▸] ", app.view_mode.label());
+    let ow = unicode_width::UnicodeWidthStr::width(ol.as_str()) as u16;
     let vw = (unicode_width::UnicodeWidthStr::width(vl.as_str()) as u16).min(nav.width);
     let vr = Rect { x: nav.x + nav.width - vw, width: vw, ..nav };
+    let orx = nav.x + nav.width.saturating_sub(vw).saturating_sub(ow);
+    if ow > 0 && orx >= nav.x.saturating_add(left) && orx + ow <= vr.x {
+        let orr = Rect { x: orx, width: ow, ..nav };
+        f.render_widget(Paragraph::new(Span::styled(ol, t.accent())), orr);
+        if !edits { app.hits.push((orr, Hit::ListOrder)); }
+    }
     f.render_widget(Paragraph::new(Span::styled(vl, t.accent_bold())), vr);
     app.hits.push((vr, Hit::ViewMode));
 

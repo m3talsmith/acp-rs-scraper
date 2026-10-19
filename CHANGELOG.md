@@ -12,6 +12,29 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - **Tombstones, revised.** A signed tombstone keeps the post. The plan no longer drops the body after a grace period. The UI shows a tombstone icon (🪦, or `[RIP]`), the content stays viewable, and a signed restore record or a newer signature of the same post id clears the tombstone. The restore record is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 - **Password change / re-key is 3.22.0.** It does not change the master or the `acp-id`. It re-wraps the SQLCipher key, the keystore, the sealed phrase, and the backup-wrapping key in one transaction, with rollback, and it requires the old password. It sits before the daemon and the OS keyring. Stages that were 3.22.0 through 3.28.0 are now 3.23.0 through 3.29.0. The write core stays 3.4.0.
 
+## [3.5.0] - 2026-10-19
+
+### Added
+
+- **`--limit N` on a nick scrape.** `acp-rs-scraper --nick alice --limit 100` keeps the newest 100 posts from that profile (Posts, and Posts and replies). Omit it to scrape the whole profile. Replies in those threads are still fetched unless `--said-by`. `--crawl-limit` still only bounds the mentions scan. Start Scanning has the same field, Post limit, blank for the whole profile.
+- **Order and limit in the terminal UI.** Every post list has an order, newest or oldest: nick timelines, bookmarks, site lists (Top, EB, Explore, a tag, reposts), search results, research items, and the export basket. `o` toggles it, the nav bar shows `[Order: newest ▸]`, and View › Order sets it. Each list remembers its choice under `[ui.list_order]` in `~/.acp/preferences.toml`. Nested view orders roots and keeps replies under the root, oldest first. Flat layouts order every card. Site lists keep the site's order (oldest reverses it; Top stays a ranking). Edit history stays in version order. Search and the nick filter also take a limit: N items at the chosen end, blank for the whole list, the same window as `--order` and `--limit`. The status line shows the window (`search "strike": 100 of 236 posts · oldest`). `?` on one of these menu options opens its own Help topic.
+- **`--profile-feed` and `--order` on a nick scrape.** `--profile-feed newest` (the default) is the Latest profile. `--profile-feed top` is `/rs/@nick/top?t=all` only; other Top periods were not captured for profiles, and Posts and replies is not read on that feed. `--order newest` (the default) keeps the start of that list. `--order oldest` keeps the end, so `--limit` is the oldest N on the Latest profile, or the end of the Top ranking. `--latest` / `--trending` still only choose the mentions crawl. Start Scanning has Profile feed and Order. The Sync menu does not.
+- **Attachments on New post and Reply.** The compose box has an attach line: type a path and Enter. Tab on a non-empty line completes the next real path segment (`~` becomes `~/`, and `~/…` stays in that form). Several matches are listed; Tab, Up, and Down move through them, and Enter writes the highlighted one without attaching yet. An empty line, or a Tab that changes nothing, moves focus. Backspace on an empty line removes the last file. `--attachment PATH` repeats on `--new-post` and `--reply`; the shell completes that flag. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. `--dry-run` lists each file (kind, name, size, and path) and does not upload it. `~/…` is stored as the expanded path.
+
+### Fixed
+
+- **Terminal UI login.** Entering the emailed code no longer fails with "websocket closed" and then drops the attempt. The login keeps the LiveView socket alive with Phoenix heartbeats while the code is read, reconnects and retries verification if that socket closes, and stays on the code step when the code is wrong. Resend code (F2) asks for another code on the same login. A finished login is written to `~/.acp/session.json`, the same file the command line writes. The command line also heartbeats while it waits at the prompt.
+
+### Not sent
+
+- **The upload channel is not captured.** `allow_upload` and `lvu` are not built, so `media_attachments` and `file_attachments` are not encoded and no file bytes are sent. A confirmed publish still stops where 3.4.0 stopped: `validate` and `save` are not sent. Vote, subscribe, delete, edit, and repost are not in this release.
+
+### Confirmed
+
+- **The three attachment decisions.** `.jpeg` is accepted as jpg and `.tif` as tiff. There is no count cap and no size cap. This release keeps 3.5.0. Interactions stay unstarted, and 3.10.0 and later, including the locked 3.22.0 re-key, are not shifted.
+- **Server and relay packaging is parked on the alpha gate.** The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each get a separate install, with its own binary, release artifact, and install path, and each stays available inside the app. No server or relay release is cut until writes and replies with attachments are functional and the decentralized network work is functional.
+- **Not an alpha.** Alpha packaging waits until writes and replies with attachments are sent and the decentralized network work is completed. This version does not add an alpha tag or release assets.
+
 ## [3.4.0] - 2026-10-19
 
 ### Added

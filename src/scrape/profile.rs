@@ -15,17 +15,17 @@ use crate::prelude::*;
 /// the Posts feed; see [`merge_feed_items`].
 pub async fn fetch_replies_feed(
     http: &reqwest::Client, jar: &Jar, nick: &str, profile_html: &str,
-    known: Option<&HashSet<String>>,
+    known: Option<&HashSet<String>>, limit: Option<usize>, allow_incremental: bool,
 ) -> Result<Vec<Value>> {
     let url = profile_replies_url(nick);
-    match fetch_feed(http, jar, &url, None, known, true).await {
+    match fetch_feed(http, jar, &url, limit, known, allow_incremental).await {
         Ok(feed) => {
             verbose!("profile: posts and replies via {url}: {} items", feed.items.len());
             Ok(feed.items)
         }
         Err(e) => {
             verbose!("profile: {url} failed ({e:#}); falling back to {PROFILE_FILTER_EVENT}");
-            replies_via_form(jar, nick, profile_html, known).await
+            replies_via_form(jar, nick, profile_html, known, limit, allow_incremental).await
         }
     }
 }
@@ -34,6 +34,7 @@ pub async fn fetch_replies_feed(
 /// profile LiveView, read the re-rendered Feed props, then page as usual.
 async fn replies_via_form(
     jar: &Jar, nick: &str, profile_html: &str, known: Option<&HashSet<String>>,
+    limit: Option<usize>, allow_incremental: bool,
 ) -> Result<Vec<Value>> {
     let page = parse_lv(&profile_url(nick), profile_html)?;
     let mut lv = Lv::connect(&page, jar).await?;
@@ -45,11 +46,12 @@ async fn replies_via_form(
     let mut items: Vec<Value> = feed["posts"].as_array().cloned().unwrap_or_default();
     let at_end = feed["at_end"].as_bool().unwrap_or(true);
     let cursor = feed["next_cursor"].as_str().map(str::to_string);
-    if known.is_some_and(|k| page_all_known(&items, k)) {
+    if allow_incremental && known.is_some_and(|k| page_all_known(&items, k)) {
         info!("feed: initial page all known — stopping (use --full to re-crawl)");
-    } else if !at_end && cursor.is_some() {
-        page_rest(&mut lv, &mut items, cursor, None, known, true).await?;
+    } else if !at_end && cursor.is_some() && limit.is_none_or(|l| items.len() < l) {
+        page_rest(&mut lv, &mut items, cursor, limit, known, allow_incremental).await?;
     }
+    if let Some(l) = limit { items.truncate(l); }
     Ok(items)
 }
 

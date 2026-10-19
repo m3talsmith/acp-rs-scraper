@@ -34,6 +34,8 @@ pub enum ModalResult {
     ClosedCancelled,
     /// `CLOSED_SUBMITTED`: apply it.
     ClosedSubmitted,
+    /// Close this modal and open Help scrolled to a topic.
+    Help(&'static str),
 }
 
 /// A clickable element inside a modal.
