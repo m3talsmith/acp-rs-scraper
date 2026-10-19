@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        3.3.1
+Version:        3.4.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,13 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.4.0-1
+- New post and Reply. Publish stays a local preview until a guided capture.
+- Includes the 3.3.2 certificate lifetimes (authorizer 30 days, node 365 days).
+
+* Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.3.2-1
+- Authorizer certificates last 30 days and node certificates last 365 days.
+
 * Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.3.1-1
 - Job details: elapsed time stops when the job finishes, fails, or is cancelled.
 

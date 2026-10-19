@@ -2,9 +2,9 @@
 //!
 //! The node key is generated on the machine. It is not derived from the master.
 //! The master signs an authorizer certificate and the first node certificate,
-//! then the caller drops the master. Proposed lifetimes (still open in the
-//! plan): a node certificate lasts 30 days, an authorizer certificate lasts
-//! 365 days, and clocks may disagree by 5 minutes.
+//! then the caller drops the master. An authorizer certificate lasts 30 days,
+//! a node certificate lasts 365 days, and clocks may disagree by 5 minutes
+//! (decided 2026-10-19).
 
 use anyhow::{Result, bail};
 use ed25519_dalek::{Signer, SigningKey, Verifier, VerifyingKey};
@@ -14,11 +14,11 @@ use zeroize::Zeroizing;
 use super::cbor::{Cbor, from_slice, to_vec};
 use super::master::Master;
 
-/// Proposed node-certificate lifetime. The plan still treats this as open.
-pub const NODE_TTL_SECS: u64 = 30 * 24 * 60 * 60;
-/// Proposed authorizer-certificate lifetime. The plan still treats this as open.
-pub const AUTHORIZER_TTL_SECS: u64 = 365 * 24 * 60 * 60;
-/// How far a certificate time may be from this machine's clock.
+/// Node-certificate lifetime. Decided 2026-10-19: 365 days.
+pub const NODE_TTL_SECS: u64 = 365 * 24 * 60 * 60;
+/// Authorizer-certificate lifetime. Decided 2026-10-19: 30 days.
+pub const AUTHORIZER_TTL_SECS: u64 = 30 * 24 * 60 * 60;
+/// How far a certificate time may be from this machine's clock. Decided 2026-10-19: 5 minutes.
 pub const CLOCK_SKEW_SECS: u64 = 5 * 60;
 /// How many nodes the first authorizer may certify. A local default.
 pub const DEFAULT_MAX_NODES: u64 = 16;
@@ -515,6 +515,22 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("must not be the master"), "{err}");
+    }
+
+    #[test]
+    fn certificate_lifetimes_are_the_decided_ones() {
+        assert_eq!(AUTHORIZER_TTL_SECS, 30 * 24 * 60 * 60);
+        assert_eq!(NODE_TTL_SECS, 365 * 24 * 60 * 60);
+        assert_eq!(CLOCK_SKEW_SECS, 5 * 60);
+        assert!(AUTHORIZER_TTL_SECS < NODE_TTL_SECS);
+        let master = sample_master();
+        let node = NodeSecret::from_seeds([7; 32], [8; 32]);
+        let now = 1_700_000_000u64;
+        let (authorizer, cert) = certify_first_node(&master, &node, "home", now).unwrap();
+        assert_eq!(authorizer.uint("expires_at").unwrap(), now + AUTHORIZER_TTL_SECS);
+        assert_eq!(cert.uint("expires_at").unwrap(), now + NODE_TTL_SECS);
+        assert_eq!(authorizer.uint("issued_at").unwrap(), now);
+        assert_eq!(cert.uint("issued_at").unwrap(), now);
     }
 
     #[test]

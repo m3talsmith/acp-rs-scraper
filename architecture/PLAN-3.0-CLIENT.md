@@ -13,6 +13,8 @@ Update 2026-10-19: **3.1.0 is the job-details window** (click a running job in t
 
 Update 2026-10-19 (crate split): **3.2.0** is `acp_rs_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.23.0 and later. There is no 4.0.
 
+Update 2026-10-19 (write core): **3.4.0** ships compose for New post and Reply, the Markdown to ProseMirror writer, and the safety layer (writes on by default, Cancel first, `--dry-run`, the 30 second gap, bundle-hash refusal). Publish does not open a connection. The P0 capture has not confirmed the submit payload, so validate/save, `_target`, uploads, mention-query replies, and read-back stay stubbed. Attachments wait for 3.5.0. Later write features stay in their own minors.
+
 Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the serve and relay work. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists.
 
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
@@ -299,6 +301,8 @@ single, supervised session that ends with exactly one real reply, written by Mic
 7. **Fixtures.** The redacted frames become `tests/fixtures/site/reply_*.json` and `notifications.html`. Both of us review them before commit.
 
 Uploads, votes, deletes and edits are **not** part of this capture. Each one gets the same guided capture on its first real use (§2.1).
+
+**3.4.0 status.** `--capture-reply THREAD` is compiled in and hidden from `--help`. It does not create a throwaway HOME, does not copy `session.json`, and does not send `validate` or `save`. Those steps stay stubbed until a reviewed fixture exists. `--dry-run` prints the documented form fields with the LiveView form encoding this client already uses, and it lists every piece that was not invented.
 
 ---
 
@@ -736,7 +740,7 @@ All certificates and revocations are canonical CBOR, signed with ed25519 and ver
 - **Node cert:** `{type:"node", account, node_sign_pub, node_enc_pub, peer_id, label, serial, issuer (master or authorizer pubkey),
   issued_at, expires_at (default +365 d), caps[sync, publish, intent-sender]}`, signed by the issuer.
   The authorizer signs only while its own certificate is still valid. The node certificate is not shortened to that authorizer expiry, so a 30-day authorizer can issue a 365-day node certificate.
-- **Lifetimes (decided 2026-10-19, §8 Q11).** An authorizer certificate lasts 30 days. A node certificate lasts 365 days. Verifiers allow 5 minutes of clock skew. Renewal, the 7-day grace period, and revocation are still to be built, in the stages already planned for them (3.23.0). 3.3.0 compiled the earlier draft of these two lifetimes (a node certificate of 30 days and an authorizer certificate of 365 days). Those constants are unchanged until the certificate stages are built.
+- **Lifetimes (decided 2026-10-19, §8 Q11).** An authorizer certificate lasts 30 days. A node certificate lasts 365 days. Verifiers allow 5 minutes of clock skew. Renewal, the 7-day grace period, and revocation are still to be built, in the stages already planned for them (3.23.0). 3.3.2 compiles these lifetimes. 3.3.0 and 3.3.1 had them reversed. A node from those versions keeps the short certificate until `~/.acp/node` is removed and `--node-init` is run again, which creates a new node key.
 - **First machine (accepted 2026-10-19).** `history_grant` is `allowed` and `max_nodes` is 16, because this machine already holds the database. `max_node_ttl` is the node lifetime, 365 days. A later enrollment still asks the approver to choose history access (none, since a date, or full), as in §7.13.3.
 - **Chain:** `node cert → authorizer cert → master pubkey`, or `node cert → master pubkey` when the master signed it directly.
   The chain travels with the node's records (§7.5 envelopes carry the chain or its hash, with the chain fetchable on demand).

@@ -7,6 +7,7 @@ Run `acp-rs-scraper` with no flags (or `--tui`) for the [terminal UI](#terminal-
 - [First run and login](#first-run-and-login)
 - [Where data lives](#where-data-lives)
 - [Flags](#flags)
+- [Writing](#writing)
 - [Workflows](#workflows)
 - [Database schema](#database-schema)
 - [Export format (version 2)](#export-format-version-2)
@@ -329,7 +330,7 @@ The command then offers five SLIP-39 shares (any 3 of 5). One or two shares do n
 
 `--acp-id` prints the pinned id from `~/.acp/acp-id`, which holds the id, the Argon2 parameters and the two public keys. It does not print the phrase. A wrong password still derives an id; it is shown and refused when it does not match the pin. There is no password reset. A lost password together with lost shares cannot be recovered.
 
-`--node-init` creates this computer's node after `--identity-init`. The node key is generated here and is not derived from the master. The command unlocks the database, rebuilds the master from `~/.acp/recovery.seal` and the password (or asks you to paste the phrase when that file is missing), signs the certificates, and drops the master. It prints the node name, the account id, the peer id, a fingerprint, and six verification words. It does not print the phrase or the node secret. `--node-label NAME` sets the name; otherwise the name is this computer's hostname, letters and digits only. Running it again does not replace an existing keystore. `--node-id` prints that public record and says whether the certificate still checks. The header of the terminal UI shows `◉` and the name. The secret is `~/.acp/node/keystore` (mode `0600`). A plain `identity.key` is not created. A backup does not include the keystore, so restoring onto another computer does not copy this node.
+`--node-init` creates this computer's node after `--identity-init`. The node key is generated here and is not derived from the master. The command unlocks the database, rebuilds the master from `~/.acp/recovery.seal` and the password (or asks you to paste the phrase when that file is missing), signs the certificates, and drops the master. It prints the node name, the account id, the peer id, a fingerprint, and six verification words. It does not print the phrase or the node secret. `--node-label NAME` sets the name; otherwise the name is this computer's hostname, letters and digits only. An authorizer certificate lasts 30 days and a node certificate lasts 365 days. Running `--node-init` again does not replace an existing keystore, and there is no separate re-certify command. A node created on 3.3.0 or 3.3.1 has those two lifetimes reversed. Remove `~/.acp/node` and run `--node-init` again to sign a new node key with the corrected lifetimes. The peer id changes. The account id does not. `--node-id` prints that public record and says whether the certificate still checks. The header of the terminal UI shows `◉` and the name. The secret is `~/.acp/node/keystore` (mode `0600`). A plain `identity.key` is not created. A backup does not include the keystore, so restoring onto another computer does not copy this node.
 
 ## Where data lives
 
@@ -800,6 +801,20 @@ CREATE TABLE research_items (
   thin; Ctrl-Shift-S arrives as Ctrl-S in most terminals; cancelling a job kills it outright.
 - **Truncated bodies:** feeds shorten long posts and comments (`body_truncated: true`, cut `body` plus `body_text_summary`). Checked on the live site: the thread page (`/rs/post/{thread}`) carries every item's full body with `body_truncated: false`, so the scraper reads it (once per thread) instead of pushing the "show more" action over LiveView.
 
+## Writing
+
+3.4.0 composes a new post or a reply. Writes are on unless `ui.writes = false` in `~/.acp/preferences.toml` or `ACP_WRITES=off`. The environment wins.
+
+In the terminal UI, `n` opens New post. On an open post, `r` replies (a comment pre-fills the reference) and `Q` quotes that post. The button under the cursor starts on Cancel. Publish checks the body locally and then stops: the guided capture of a real reply has not confirmed the payload, so nothing is sent. `--dry-run` prints the same frames and opens no connection.
+
+```bash
+acp-rs-scraper --new-post "Title" --body "hello **world**" --dry-run
+acp-rs-scraper --reply THREAD --in-reply-to COMMENT --body "agreed" --dry-run
+acp-rs-scraper --reply THREAD --quote "selected lines" --quote-post POST --body "yes" --yes
+```
+
+`--yes` confirms. Without it, a terminal asks `Publish? [y/N]`. A second confirmed attempt within 30 seconds waits. Attachments are refused until 3.5.0. Vote, subscribe, delete, edit, and repost are later releases. The hidden `--capture-reply` flag does not copy the session and does not send; it is described in `architecture/PLAN-3.0-CLIENT.md`.
+
 ## Contributing
 
 The repo ships `.githooks/pre-commit`, a credential scanner, and `build.rs` sets `git config core.hooksPath .githooks` on the first `cargo build`.
@@ -818,7 +833,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post and Reply), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;

@@ -186,6 +186,23 @@ fn feed_mode_flags() {
 }
 
 #[test]
+fn write_flags_are_headless_and_exclusive() {
+    let a = Args::try_parse_from(["x", "--new-post", "Title", "--body", "hello", "--dry-run"]).unwrap();
+    assert_eq!(a.new_post.as_deref(), Some("Title"));
+    assert!(a.dry_run && !a.yes);
+    assert!(!parse_with_mode(["x", "--new-post", "Title"]).unwrap().1);
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--reply", "T1"]).is_err());
+    assert!(Args::try_parse_from(["x", "--reply", "T1", "--tag", "strike"]).is_err());
+    assert!(Args::try_parse_from(["x", "--in-reply-to", "C1"]).is_err());
+    let a = Args::try_parse_from(["x", "--reply", "T1", "--in-reply-to", "C1", "--quote", "lines", "--yes"]).unwrap();
+    assert_eq!((a.reply.as_deref(), a.in_reply_to.as_deref(), a.quote.as_deref()), (Some("T1"), Some("C1"), Some("lines")));
+    assert!(a.yes);
+    let help = Args::command().render_long_help().to_string();
+    assert!(help.contains("--new-post") && help.contains("--dry-run"));
+    assert!(!help.contains("--capture-reply"), "the capture flag stays in the architecture notes");
+}
+
+#[test]
 fn multiple_formats() {
     use crate::export::Format::{Html, Json};
     assert_eq!(Args::try_parse_from(["x"]).unwrap().formats(), [Json]);

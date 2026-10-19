@@ -114,6 +114,45 @@ fn draw_job(f: &mut Frame, app: &mut App, area: Rect, m: &JobModal, t: &Theme) {
 }
 
 /// Draw the open modal.
+fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &Theme) {
+    let r = modal_rect(area, 72, 14);
+    let inner = frame(f, t, r, &m.title());
+    if inner.height < 4 || inner.width < 8 { return; }
+    let row = |y: u16| Rect { y, height: 1, ..inner };
+    let mut y = inner.y;
+    if matches!(m.kind, ComposeKind::NewPost) {
+        let st = if m.focus == ComposeFocus::Title { t.accent_bold() } else { t.plain() };
+        f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Title: {}", m.title), inner.width as usize), st)), row(y));
+        app.hits.push((row(y), Hit::Modal(ModalHit::Field(0))));
+        y += 1;
+    }
+    let st = if m.focus == ComposeFocus::Body { t.accent_bold() } else { t.plain() };
+    let body = m.body.replace('\n', "↵");
+    f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Body: {body}"), inner.width as usize), st)), row(y));
+    app.hits.push((row(y), Hit::Modal(ModalHit::Field(1))));
+    y += 1;
+    if let Some(q) = &m.quote {
+        f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Quote: {q}"), inner.width as usize), t.muted())), row(y));
+        y += 1;
+    }
+    let matches = m.pending.as_ref().map(|q| crate::site::completions(q, &m.nicks, &m.tags)).unwrap_or_default();
+    for (i, row_c) in matches.iter().take(4).enumerate() {
+        let st = if m.focus == ComposeFocus::Complete && i == m.complete_at { t.selected() } else { t.plain() };
+        f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {}", row_c.label), inner.width as usize), st)), row(y));
+        app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
+        y += 1;
+    }
+    let note = m.error.clone().unwrap_or_else(|| "Publish is prepared locally. Nothing is sent until a guided capture.".into());
+    f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
+    let focus = match m.focus {
+        ComposeFocus::Cancel => Some(0),
+        ComposeFocus::Publish => Some(1),
+        _ => None,
+    };
+    buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Cancel".into(), "Publish".into()], focus);
+}
+
+/// Draw the open modal over `area`, or nothing when none is open.
 pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
     let theme = app.theme;
     dim(f, &theme, area);
@@ -292,6 +331,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             }
         }
         Modal::Job(m) => draw_job(f, app, area, m, &t),
+        Modal::Compose(m) => draw_compose(f, app, area, m, &t),
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");
