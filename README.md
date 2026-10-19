@@ -1,12 +1,31 @@
 ![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
 
-**Current version: 2.16.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 3.3.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
 
 # acp-rs-scraper
 
 > **Full usage guide:** [docs/USAGE.md](docs/USAGE.md) · Install/uninstall: [docs/INSTALL.md](docs/INSTALL.md) · API docs: [docs/index.html](docs/index.html)
 
 Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that browses everything you have scraped; with flags it logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
+
+## Breaking changes in 3.0.0
+
+3.0.0 encrypts the local database and requires a password of at least 8 characters that passes a strength check. A 2.x install does not.
+
+- **What breaks.** Startup will not open `~/.acp/ai/data/rs.database` from 2.x. A new database asks for a password before the terminal UI or a headless command uses it. 2.x cannot read a 3.0.0 database, `rs.database.bootstrap`, or a `*.acpbackup`.
+- **Migrate.** Copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp` if you may want 2.x again. Then run `acp-rs-scraper --encrypt-db`. It writes a `*.acpbackup` first, encrypts the file, and removes the plaintext copy only after the encrypted copy matches. The password you set is required the next time the program starts (or set `ACP_PASSWORD` when there is no terminal). A session that has already unlocked the database does not ask again.
+- **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-rs-scraper --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
+- **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
+
+The header of the terminal UI shows `v3.3.1`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+
+**3.3.1** stops the elapsed clock in job details once a job finishes, fails, or is cancelled. While the job is running, that line still counts. If the end was not recorded, the line says `unknown`.
+
+**3.3.0** gives this computer a node identity. `acp-rs-scraper --node-init` (after `--identity-init`) creates a key on this machine, has the account master sign it, and prints the peer id and a fingerprint. The header shows `◉` and the node name. `--node-id` prints the same public record. The secret stays in `~/.acp/node/keystore` and is left out of backups.
+
+**3.2.0** moves the account identity, canonical CBOR, and the secret-store interface into the library `acp_rs_node_core`, so a later relay or other app can use them without the terminal UI. Flags, the encrypted database, and a `.acpbackup` file are unchanged. The encoding rules and test vectors are in [docs/PROTOCOL.md](docs/PROTOCOL.md).
+
+**3.1.0** adds a job-details window. Click the status bar or the `⟳` mark in the header, or press Tab until Status is focused and then Enter. It shows the job, what started it, whether it is running, finished, failed or cancelled, when it started, how long it has run, the current stage, and the recent log. Esc closes it. A running job can be cancelled from that window. The password and the database key are not shown. Encrypting the database, backup and restore still use the progress screen that runs before the terminal UI.
 
 ## Install
 
@@ -41,6 +60,46 @@ Mode:
 
       --trending
           Site feed: Trending tab (/rs). Opt-in; incremental early-stop disabled (not chronological)
+
+Reading:
+      --top [PERIOD]
+          Site-wide Top feed (/rs/top). PERIOD is day, week, month, year or all (default: week). Stored locally; View › Site Top opens it
+
+      --top-replies
+          With --top: include replies (the feed's replies filter)
+
+      --eb
+          Executive Board feed (/rs/eb). Stored locally; the EB row of the nick bar opens it
+
+      --eb-replies
+          With --eb: include replies (the feed's replies filter)
+
+      --explore
+          Explore feed (/rs/explore). Stored locally; the Explore row of the nick bar opens it
+
+      --explore-latest
+          Explore's Latest tab (/rs/explore/latest)
+
+      --site-search <TEXT>
+          Search the site (/rs/explore?q=). The Search modal's Where: Site does this too
+
+      --tag <TAG>
+          Tag feed (/rs/tag/TAG). A #tag in a post opens the same view. Stored locally
+
+      --backfill-tags
+          Fill post_tags from stored bodies, then re-read threads whose ProseMirror JSON is still empty. --nick / --nicks limit the rows. Does not change stored text
+
+      --sort-thread <ID>
+          Re-read a thread after the sort hook (oldest or top) and store scores. s in a thread does this
+
+      --thread-sort <ORDER>
+          With --sort-thread: oldest or top. Newest is the site default and sends no hook
+
+      --reposts <ID>
+          Reposts of a post (/rs/post/ID/reposts). The post menu (p) › View reposts does this
+
+      --edits <THREAD/POST>
+          Edit history (/rs/post/THREAD/POST/edits), shown as a diff. A stored post id works too. The post menu (p) › View edits does this
 
 Interface:
       --tui
@@ -262,7 +321,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v2.16.0 |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v3.3.1  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -286,8 +345,13 @@ headless scrape is now `--scrape`.
 - **Post details.** Click a post (or `Enter`): the detail slides in and the list slides up to a
   thin strip. A detail shows what the HTML export shows: Post/Reply badge, `@nick · posted_at ·
   post_id`, "Replying to … · thread …", the title and body, attachments, linked posts (ids in the
-  body) and replies. Bodies are rendered as **Markdown** (headings, bold/italic, `code`, lists,
-  quotes, links; line breaks and paragraphs kept), with a column of padding inside every border.
+  body) and replies. Bodies are rendered as **full Markdown** (CommonMark plus the GitHub
+  extensions): headings, bold/italic/strikethrough, `code`, boxed code blocks, nested quotes,
+  bullet/numbered/task lists, box-drawn tables, rules, links (OSC 8 hyperlinks where the terminal
+  supports them, with the URL shown after the text), images as links, footnotes, line breaks and
+  entities. Lines the site stores with a typed `•` count as list items. Every part has a theme
+  element (`h1`…`h6`, `quote`, `code_block`, `list_marker`, `task`, `table`, `table_header`,
+  `rule`, `footnote`). There's a column of padding inside every border.
   **Attachments are links**: click one (or `←`/`→` then `Enter`) to open the stored file with your
   desktop's default app (`xdg-open`; set `ACP_OPENER` to use another command). Terminals that
   support OSC 8 also get them as `file://` hyperlinks (`ACP_NO_OSC8=1` turns that off).
@@ -345,6 +409,23 @@ headless scrape is now `--scrape`.
     stops at the ends.
   - **Grid**: cards in columns that fit the window; arrows move, `Enter`/click opens the post in a
     modal with a **Close** button (`Esc` also closes).
+  - **Site Top**: View › Top period (`day`, `week`, `month`, `year`, `all`) and Top includes replies,
+    then Site Top. Opens the saved `/rs/top` view in the site's order and refreshes it (`--top`).
+  - **Executive Board**: the **EB** row under Bookmarks (or View › Executive Board). View › EB
+    includes replies selects the replies filter (`--eb`).
+  - **Explore**: the **Explore** row (or View › Explore). View › Explore latest selects
+    `/rs/explore/latest` (`--explore`, `--explore-latest`).
+- **Site search.** Shift-S (the search modal) has **Where**: Local (the database, as before) or
+  Site (`--site-search`). Site searches with the keyword only.
+- **Tags.** A `#tag` in a post (outside code) and the Tags row on the detail open `/rs/tag/{tag}`
+  (`--tag`). `--backfill-tags` fills `post_tags` and `body_json` from threads that don't have the
+  JSON body yet.
+- **Thread sort.** `s` in an open thread cycles replies newest → oldest → top
+  (`--sort-thread`, `--thread-sort`). Top uses the stored `score`.
+- **Reposts.** `p` opens a post menu on the highlighted or open post. View reposts
+  opens `/rs/post/{id}/reposts` (`--reposts`).
+- **Edit history.** The same menu's View edits opens `/rs/post/{thread}/{id}/edits`
+  (`--edits`) as a line diff of each stored version. Versions live in `post_versions`.
 - **Bookmarks.** Every card and detail has a star: `☆` click (or `b`) to bookmark it, `★` click
   again to remove it. It shows at once and is stored by a small background job, so it works
   offline and while a scan runs. The **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows
@@ -432,7 +513,8 @@ downloads `default.toml` from the repo in the background
 theme meanwhile. Until then, and if the download fails (offline), the TUI uses your terminal's
 own colours and a notice says how to fix it. `--list-themes` and `--theme` do the same first-run
 download before they answer. `default` is the classic look: ACP red `#dc2626` on your terminal's
-own colours.
+own colours. `F5` (or the `‹name› ▾` switch in the header) opens the theme picker, which
+previews each theme live as you move through it.
 
 - `acp-rs-scraper --theme-init [NAME|all]` (or *Theme: init* in the command palette, for the
   default) downloads a theme by hand; an existing file is kept. If the download fails, the notice
@@ -449,16 +531,28 @@ own colours.
 Themes in the repo's `themes/` (each has a dark and a light variant, text contrast at least 3:1);
 get them with `--theme-init NAME` or `--theme-init all`:
 
-| Theme | Look |
-|---|---|
-| `default` | ACP red on your terminal's own colours (the classic look) |
-| `soviet` | Classic Soviet red and gold: a gold hammer-and-sickle on banner red |
-| `constructivist` | Constructivist posters after Rodchenko and Lissitzky: red, black and cream |
-| `cuba` | Cuban revolutionary: olive green fatigues, red and black |
-| `red-star` | Red Star: deep crimson with ACP red as the accent |
-| `chinese-poster` | Chinese propaganda poster: vermilion and golden yellow |
-| `plattenbau` | East German Plattenbau: concrete greys with a red accent |
+Screenshots (dark variants, a 160×45 true-colour terminal):
 
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/themes/default.png" alt="default theme"><br><b><code>default</code></b>: ACP red on your terminal's own colours (the classic look)</td>
+<td width="50%"><img src="docs/screenshots/themes/red-star.png" alt="red-star theme"><br><b><code>red-star</code></b>: deep crimson with ACP red as the accent</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/themes/soviet.png" alt="soviet theme"><br><b><code>soviet</code></b>: classic Soviet red and gold, a gold hammer-and-sickle on banner red</td>
+<td><img src="docs/screenshots/themes/constructivist.png" alt="constructivist theme"><br><b><code>constructivist</code></b>: Constructivist posters after Rodchenko and Lissitzky: red, black and cream</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/themes/cuba.png" alt="cuba theme"><br><b><code>cuba</code></b>: Cuban revolutionary: olive green fatigues, red and black</td>
+<td><img src="docs/screenshots/themes/chinese-poster.png" alt="chinese-poster theme"><br><b><code>chinese-poster</code></b>: Chinese propaganda poster: vermilion and golden yellow</td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/themes/plattenbau.png" alt="plattenbau theme"><br><b><code>plattenbau</code></b>: East German Plattenbau: concrete greys with a red accent</td>
+<td><img src="docs/screenshots/themes/red-star-picker.png" alt="the F5 theme picker"><br>The <code>F5</code> picker (here with <code>red-star</code>)</td>
+</tr>
+</table>
+
+Write your own:
 
 ```toml
 version = 1
@@ -492,19 +586,7 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   `system` (the default) uses `COLORFGBG` when set, else asks the terminal (`OSC 11`), else
   dark. `--theme NAME` uses a theme for one run without saving it;
   `--list-themes` prints them all.
-- **Editor** (`Shift-F5`). Left: the palette and every element, with colour swatches, `*` for
-  changed values and `⚠2.1:1` when text contrast is below 3:1. Right: a live preview drawn by the
-  real UI with sample posts, plus a *Sample dialog* frame (dialog, labels, field, tags, link,
-  deleted post, code, dimmed text, button, selection). `Tab` flips dark/light, `Enter` edits (hex or a colour grid: 16 /
-  216 cube / 24 greys / `@refs`), `Del` clears an override, `a` adds a palette colour, `[`/`]` go
-  to the previous / next theme, `→`/`←` show or hide an element's keys. The selected colour or
-  element is **highlighted in the preview** (the cells it paints in reverse video; the preview
-  title says when it isn't on screen); `h` toggles that. `r` reverts the selected row only. `Ctrl-S` saves, `Ctrl-R` reverts
-  everything, `Ctrl-N` new, `Ctrl-D` duplicate, `Ctrl-X` deletes (asks first; not the theme in
-  use). `Esc` with unsaved changes asks Save / Discard / Cancel. Saving asks before overwriting a
-  file that changed on disk meanwhile (or loads it instead) and before replacing a broken file.
-  Without a true-colour terminal (`$COLORTERM`) the preview notes that `#rrggbb` colours show as
-  the nearest of 256.
+- **Editor** (`Shift-F5`): see [Theme editor](#theme-editor) below.
 - **Safety.** A missing or broken theme file never stops the TUI: it falls back to the terminal's
   colours and a notice names the file and how to fix it. Broken files are never overwritten
   automatically. Unknown keys are skipped with one warning notice per file, files over 64 KiB or from a newer format are
@@ -514,6 +596,32 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   selected; the TUI says so once. The old keys are left in place but no longer read.
 - **Export.** *Theme: export* writes the current theme to
   `~/.acp/ai/data/exports/themes/<name>-<time>.toml`.
+
+### Theme editor
+
+`Shift-F5` (or *Edit themes…* at the end of the `F5` picker) opens the editor on the current theme.
+
+![The theme editor with red-star, @accent highlighted in the preview](docs/screenshots/themes/red-star-editor.png)
+
+- **Left:** the palette and every element, with colour swatches, `*` for values changed since the
+  last save and `⚠2.1:1` when an element's text contrast is below 3:1. `→`/`←` show or hide an
+  element's keys (`fg`, `bg`, `border`, `bold`, …).
+- **Right:** a live preview drawn by the real UI with sample posts, plus a *Sample dialog* frame
+  for the parts the post view doesn't show (dialog, labels, field, Post/Reply tags, link, deleted
+  post, code, dimmed text, button, selection). The selected colour or element is **highlighted**:
+  every cell it paints is shown in reverse video, and the preview title says when it isn't on
+  screen. `h` turns the highlight off and on.
+- **Editing:** `Enter` edits a value: type a hex colour, or pick from the grid's tabs (the 16 ANSI
+  colours, the 216-colour cube, the 24 greys and the palette `@refs`). `Del` clears an override,
+  `a` adds a palette colour, `Tab` flips dark/light, `[`/`]` go to the previous / next theme.
+- **Reverting:** `r` reverts only the selected palette colour, element or key to the saved file;
+  `Ctrl-R` reverts everything.
+- **Saving:** `Ctrl-S`. It asks first when the file changed on disk since the editor read it
+  (overwrite it, load it and drop your changes, or cancel) and before replacing a broken file.
+  `Ctrl-N` new, `Ctrl-D` duplicate, `Ctrl-X` delete (asks; not the theme in use). `Esc` with
+  unsaved changes asks Save / Discard / Cancel.
+- Without a true-colour terminal (`$COLORTERM` isn't `truecolor`/`24bit`) the preview notes that
+  `#rrggbb` colours show as the nearest of 256.
 
 ## Bookmarks
 
@@ -532,8 +640,9 @@ ones the site lacks are bookmarked there, local removals are removed there, and 
 disappeared from the site (removed in the browser) is dropped locally. Local changes made since the
 last sync win.
 
-The site's bookmark page (`/rs/bookmarks`) and its `toggle-bookmark` event are confirmed against
-the live site (2.5.0); `ACP_BOOKMARKS_PATH=/rs/…` still overrides the page if it ever moves.
+The site's bookmark page (`/rs/bookmarks`) was confirmed against the live site (2.5.0).
+Sync pushes the hook `bookmark {id, state}` (`"1"` adds, `"0"` removes) — the event the
+current page sends. `ACP_BOOKMARKS_PATH=/rs/…` still overrides the page if it ever moves.
 
 ## Research
 
@@ -700,6 +809,12 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
   `~/.acp/logs/error.log`. Files always get the full verbose record even when stderr is `-q`;
   debug frames are written only with `--debug`. The directory is created as needed; files are appended.
 - **`--log <PATH>` / `--error-log <PATH>`:** override either file; giving one turns logging on.
+
+## Releases
+
+A GitHub Release for a version that is not on `main` is a draft. `main` is at 2.16.0, so 2.17.0 through 3.3.1 are drafts. Publish a draft by hand after that version is merged into `main`. Releases for 2.16.0 and earlier stay as they were published.
+
+`.githooks/post-commit` tags `vX.Y.Z` when the version in `Cargo.toml` changes. It does not create a GitHub Release, and no workflow publishes one. A release is created with `gh release create --draft`, notes from the matching [CHANGELOG.md](CHANGELOG.md) section, and no attached files. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

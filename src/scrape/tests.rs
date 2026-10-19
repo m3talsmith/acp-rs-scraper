@@ -25,6 +25,79 @@ fn fallback_fields_and_wrapped_posts() {
 }
 
 #[test]
+fn body_json_keeps_an_object_and_drops_plain_text() {
+    let doc = json!({"type":"doc","content":[{"type":"text","text":"hi"}]});
+    let got = body_json_of(&json!({"body": doc}));
+    assert!(got.starts_with('{') && got.contains("\"type\":\"doc\""));
+    assert_eq!(body_json_of(&json!({"body": "just text"})), "");
+    assert_eq!(body_json_of(&json!({"body": "<p>x</p>"})), "");
+    let p = to_post(&json!({"id": "p", "body": {"type": "doc", "content": []}, "author": {"username": "a"}}), "", "a");
+    assert!(p.body_json.contains("\"type\":\"doc\""));
+}
+
+#[test]
+fn tags_come_from_mentions_and_words_not_headings_or_anchors() {
+    let body = json!({"type":"doc","content":[
+        {"type":"mention","attrs":{"mentionSuggestionChar":"#","label":"#Strike"}},
+        {"type":"mention","attrs":{"mentionSuggestionChar":"@","label":"@ada"}},
+        {"type":"text","text":"also #strike and #Other"}
+    ]}).to_string();
+    let tags = extract_tags(&body, "## Heading\nsee #post-abc and #Other and #strike");
+    assert_eq!(tags, ["Strike", "Other"]);
+    assert!(extract_tags("", "no hash here").is_empty());
+    assert!(extract_tags("", "#post-123").is_empty());
+}
+
+#[test]
+fn hashtag_links_skip_code_fences_inline_code_and_anchors() {
+    let src = "Join #strike now\n`keep #nope`\n```\n#hidden\n```\n## Title\n#post-abc #Ok";
+    let linked = link_hashtags(src);
+    assert!(linked.contains("[#strike](acp-tag:strike)"));
+    assert!(linked.contains("[#Ok](acp-tag:Ok)"));
+    assert!(linked.contains("`keep #nope`"));
+    assert!(linked.contains("#hidden"));
+    assert!(linked.contains("## Title"));
+    assert!(linked.contains("#post-abc"));
+    assert!(!linked.contains("acp-tag:nope"));
+    assert!(!linked.contains("acp-tag:hidden"));
+    assert!(!linked.contains("acp-tag:post-abc"));
+    assert!(!linked.contains("acp-tag:Title"));
+}
+
+#[test]
+fn score_is_read_from_the_post_or_its_wrapper() {
+    assert_eq!(score_of(&json!({"score": 4})), Some(4));
+    assert_eq!(score_of(&json!({"score": "12"})), Some(12));
+    assert_eq!(score_of(&json!({"id": "p"})), None);
+    let p = to_post(&json!({"id": "p", "score": 3, "author": {"username": "a"}}), "", "a");
+    assert_eq!(p.score, Some(3));
+}
+
+#[test]
+fn reply_sort_is_newest_then_oldest_then_top() {
+    let mut posts = vec![
+        Post { post_id: "b".into(), posted_at: "2".into(), score: None, ..blank_post() },
+        Post { post_id: "a".into(), posted_at: "1".into(), score: Some(9), ..blank_post() },
+        Post { post_id: "c".into(), posted_at: "3".into(), score: Some(4), ..blank_post() },
+    ];
+    sort_replies(&mut posts, ThreadSort::Newest);
+    assert_eq!(posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["c", "b", "a"]);
+    sort_replies(&mut posts, ThreadSort::Oldest);
+    assert_eq!(posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["a", "b", "c"]);
+    sort_replies(&mut posts, ThreadSort::Top);
+    assert_eq!(posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["a", "c", "b"]);
+    assert_eq!(ThreadSort::Newest.cycle().label(), "oldest");
+    assert_eq!(ThreadSort::Oldest.hook(), Some("oldest"));
+    assert!(ThreadSort::Newest.hook().is_none());
+}
+
+fn blank_post() -> Post {
+    Post { post_id: String::new(), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: String::new(),
+        title: String::new(), content: String::new(), posted_at: String::new(), media: Vec::new(), truncated: false,
+        body_json: String::new(), score: None }
+}
+
+#[test]
 fn empty_body_stays_empty() {
     assert_eq!(body_text(&json!({"id": "r1", "body": null})), "");
 }

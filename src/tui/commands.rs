@@ -133,6 +133,12 @@ pub enum Action {
     ThemeExport,
     /// Download the default theme from the repo (kept if it exists).
     ThemeInit,
+    /// Open the site-wide Top feed (View › Site Top).
+    OpenTop,
+    /// Open the Executive Board feed (the EB row, or View › EB).
+    OpenEb,
+    /// Open Explore (the Explore row, or View › Explore).
+    OpenExplore,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
 }
@@ -252,6 +258,8 @@ pub const MODE_CHOICES: &[&str] = &["Latest", "Trending"];
 pub const FORMAT_CHOICES: &[&str] = &["json", "html", "json,html"];
 /// Export scope choices.
 pub const SCOPE_CHOICES: &[&str] = &["Selected nicks", "Current view", "Everything", "Basket"];
+/// Site Top periods (`/rs/top?t=`). Week is first: the default.
+pub const TOP_PERIODS: &[&str] = &["week", "day", "month", "year", "all"];
 
 /// The whole menu bar, with every option's current value.
 #[derive(Clone, Debug, PartialEq)]
@@ -355,6 +363,13 @@ impl Menu {
                 opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
                 opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
                 opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
+                opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
+                opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
+                opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
+                opt("eb_replies", "EB includes replies", "--eb-replies", false, check(false)),
+                opt("eb", "Executive Board", "--eb", false, button(Action::OpenEb)),
+                opt("explore_latest", "Explore latest", "--explore-latest", false, check(false)),
+                opt("explore", "Explore", "--explore", false, button(Action::OpenExplore)),
                 opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
                 opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
             ]},
@@ -523,6 +538,78 @@ impl Menu {
     pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
         if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Explore (Latest when that checkbox is on).
+    pub fn explore_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let flag = if self.check(CommandId::View, "explore_latest") { "--explore-latest" } else { "--explore" };
+        let mut v = vec![ARGV0.to_string(), flag.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--reposts`.
+    pub fn reposts_argv(&self, id: &str) -> std::result::Result<Vec<String>, String> {
+        let id = id.trim();
+        if id.is_empty() { return Err("reposts need a post id".into()); }
+        let mut v = vec![ARGV0.to_string(), "--reposts".into(), id.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--edits THREAD/POST`. A root post uses its own id as the thread.
+    pub fn edits_argv(&self, thread_id: &str, post_id: &str) -> std::result::Result<Vec<String>, String> {
+        let post = post_id.trim();
+        if post.is_empty() { return Err("edits need a post id".into()); }
+        let thread = { let t = thread_id.trim(); if t.is_empty() { post } else { t } };
+        let mut v = vec![ARGV0.to_string(), "--edits".into(), format!("{thread}/{post}")];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--sort-thread` (`oldest` or `top`).
+    pub fn sort_thread_argv(&self, thread_id: &str, order: &str) -> std::result::Result<Vec<String>, String> {
+        let id = thread_id.trim();
+        if id.is_empty() { return Err("a thread needs an id".into()); }
+        if !matches!(order, "oldest" | "top") { return Err("thread sort must be oldest or top".into()); }
+        let mut v = vec![ARGV0.to_string(), "--sort-thread".into(), id.into(), "--thread-sort".into(), order.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for a tag feed (`--tag`).
+    pub fn tag_argv(&self, tag: &str) -> std::result::Result<Vec<String>, String> {
+        let t = tag.trim().trim_start_matches('#').trim();
+        if t.is_empty() { return Err("a tag needs a name".into()); }
+        let mut v = vec![ARGV0.to_string(), "--tag".into(), t.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for a site search (Search modal › Where: Site).
+    pub fn site_search_argv(&self, query: &str) -> std::result::Result<Vec<String>, String> {
+        let q = query.trim();
+        if q.is_empty() { return Err("site search needs a keyword".into()); }
+        let mut v = vec![ARGV0.to_string(), "--site-search".into(), q.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for the Executive Board feed.
+    pub fn eb_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--eb".into()];
+        if self.check(CommandId::View, "eb_replies") { v.push("--eb-replies".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for View › Site Top.
+    pub fn top_argv(&self) -> std::result::Result<Vec<String>, String> {
+        use CommandId::View as V;
+        let mut v = vec![ARGV0.to_string(), "--top".into(), self.choice(V, "top_period").into()];
+        if self.check(V, "top_replies") { v.push("--top-replies".into()); }
         v.extend(self.debug_args());
         validate(v)
     }

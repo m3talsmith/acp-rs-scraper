@@ -20,6 +20,7 @@ fn after_modal(app: &mut App, r: Option<ModalResult>) {
         && let Some(req) = m.request.take() {
             app.effects.push(match req { LoginRequest::SendEmail(e) => Effect::LoginEmail(e), LoginRequest::SubmitCode(c) => Effect::LoginCode(c) });
         }
+    if let Some(pid) = app.take_job_cancel() { app.cancel_tracked(pid); }
     if let Some(r) = r { app.close_modal(r); }
     else if matches!(app.modal, Some(Modal::ThemePicker(_))) { app.preview_picker(); }
 }
@@ -33,6 +34,7 @@ fn editor_key(app: &mut App, k: KeyEvent) {
 pub fn on_key(app: &mut App, k: KeyEvent) {
     let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
     if ctrl && k.code == KeyCode::Char('c') && app.modal.is_none() && app.theme_editor.is_none() { app.act(Action::Quit); return; }
+    if matches!(app.modal, Some(Modal::Job(_))) { app.refresh_job_modal(); }
     if let Some(m) = &mut app.modal {
         let r = m.state().on_key(k);
         after_modal(app, r);
@@ -72,13 +74,21 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         Focus::Menu => menu_key(app, k),
         Focus::Nicks => nicks_key(app, k),
         Focus::Body => body_key(app, k),
+        Focus::Status => status_key(app, k),
     }
 }
 
 fn next_focus(f: Focus, d: i32) -> Focus {
-    let all = [Focus::Nicks, Focus::Body, Focus::Menu];
+    let all = [Focus::Nicks, Focus::Body, Focus::Menu, Focus::Status];
     let i = all.iter().position(|x| *x == f).unwrap_or(0);
-    all[cycle(i, 3, d)]
+    all[cycle(i, all.len(), d)]
+}
+
+fn status_key(app: &mut App, k: KeyEvent) {
+    match k.code {
+        KeyCode::Enter => app.open_jobs(),
+        _ => { common_key(app, k); }
+    }
 }
 
 fn common_key(app: &mut App, k: KeyEvent) -> bool {
@@ -88,6 +98,7 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('m') => app.focus = Focus::Menu,
         KeyCode::Char('<') => { app.search_back(); }
         KeyCode::Char('b') => app.act(Action::ToggleBookmark),
+        KeyCode::Char('p') => app.open_post_menu(),
         KeyCode::Char('x') => app.act(Action::ToggleBasket),
         KeyCode::Char('r') => app.act(Action::AddToResearch),
         KeyCode::Char('v') => app.act(Action::CycleView),
@@ -139,6 +150,7 @@ fn body_key(app: &mut App, k: KeyEvent) {
             KeyCode::Left | KeyCode::Char('[') => app.move_link(-1),
             KeyCode::Right | KeyCode::Char(']') => app.move_link(1),
             KeyCode::Enter => { if let Some(i) = app.top().map(|f| f.link_cursor) { app.open_link(i); } }
+            KeyCode::Char('s') => app.cycle_thread_sort(),
             KeyCode::Esc | KeyCode::Backspace => { app.pop_detail(); }
             _ => { common_key(app, k); }
         }
@@ -170,7 +182,7 @@ fn body_key(app: &mut App, k: KeyEvent) {
 
 impl App {
     /// Close the dropdown but keep focus where it is.
-    pub fn close_menu_dropdown(&mut self) { self.menu.open = None; self.menu.editing = false; }
+    pub fn close_menu_dropdown(&mut self) { self.menu.open = None; self.menu.editing = false; self.needs_redraw = true; }
 }
 
 fn menu_key(app: &mut App, k: KeyEvent) {
@@ -241,6 +253,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     let hit = hit_at(app, m.column, m.row);
     let wheel = match m.kind { MouseEventKind::ScrollDown => 1, MouseEventKind::ScrollUp => -1, _ => 0 };
     if app.modal.is_some() {
+        if matches!(app.modal, Some(Modal::Job(_))) { app.refresh_job_modal(); }
         if wheel != 0 { if let Some(md) = &mut app.modal { md.state().on_scroll(wheel); } return; }
         if let (MouseEventKind::Down(MouseButton::Left), Some(Hit::Modal(h))) = (m.kind, hit) {
             let r = app.modal.as_mut().and_then(|md| md.state().on_click(h));
@@ -255,7 +268,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     }
     if wheel != 0 {
         match hit {
-            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
+            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::Eb | Hit::Explore | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
             Some(Hit::DetailPane | Hit::Link(_) | Hit::StarTop | Hit::BasketTop | Hit::ResearchTop) => app.scroll_detail(wheel * 3),
             Some(Hit::Post(_) | Hit::Star(_) | Hit::Basket(_) | Hit::Research(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
             _ => {}
@@ -271,6 +284,8 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::Nick(i)) => { app.focus = Focus::Nicks; if multi { app.toggle_nick(i) } else { app.select_only(i) } }
         Some(Hit::Post(i)) => app.open_post(i),
         Some(Hit::Bookmarks) => app.open_bookmarks(),
+        Some(Hit::Eb) => app.open_eb(),
+        Some(Hit::Explore) => app.open_explore(),
         Some(Hit::NickFilter) => app.focus_nick_filter(),
         Some(Hit::NickFilterClear) => app.clear_nick_filter(),
         Some(Hit::ViewMode) => app.act(Action::CycleView),
@@ -294,6 +309,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::Frame(d)) => { app.focus = Focus::Body; app.pop_to(d); }
         Some(Hit::NickPane) => app.focus = Focus::Nicks,
         Some(Hit::ListPane | Hit::DetailPane) => app.focus = Focus::Body,
+        Some(Hit::Status | Hit::Job) => { app.focus = Focus::Status; app.open_jobs(); }
         _ => {}
     }
 }

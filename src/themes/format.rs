@@ -84,6 +84,20 @@ elements! {
     Detail = "detail", true, "A post detail";
     DetailFocused = "detail_focused", true, "The focused post detail";
     Dialog = "dialog", true, "Dialogs, dropdowns, nested details";
+    H1 = "h1", false, "Markdown heading 1 (a ━ rule in its colour under it)";
+    H2 = "h2", false, "Markdown heading 2 (a ─ rule in its colour, else the accent)";
+    H3 = "h3", false, "Markdown heading 3";
+    H4 = "h4", false, "Markdown heading 4";
+    H5 = "h5", false, "Markdown heading 5";
+    H6 = "h6", false, "Markdown heading 6";
+    Quote = "quote", true, "Markdown block quote text (border: its ┃ bar)";
+    CodeBlock = "code_block", true, "Markdown code block text (border: its box)";
+    ListMarker = "list_marker", false, "Markdown list bullets and numbers";
+    Task = "task", false, "Markdown task boxes ☐ ☑";
+    Table = "table", true, "Markdown table (border: its grid)";
+    TableHeader = "table_header", false, "Markdown table header cells";
+    Rule = "rule", false, "Markdown horizontal rule";
+    Footnote = "footnote", false, "Markdown footnote marks and notes";
 }
 
 impl Element {

@@ -173,6 +173,10 @@ async fn run_list_themes(args: &Args) -> Result<()> {
 
 /// Run the program for the current process arguments.
 pub async fn run() -> Result<()> {
+    // The cache lives for the process. Dropping this wipes every key, including
+    // on the early returns below. A job child installs its copy before this runs.
+    let _wipe = crate::crypto::atrest::KeyWipe;
+    crate::crypto::atrest::accept_inherited_key()?;
     let (args, tui) = match parse_with_mode(std::env::args_os()) {
         Ok(v) => v,
         Err(e) => e.exit(),
@@ -196,6 +200,20 @@ pub async fn run() -> Result<()> {
             .map_err(|e| anyhow!("cannot open log files {} / {}: {e}", ok.display(), bad.display()))?;
         verbose!("logging to {} and {}", ok.display(), bad.display());
     }
+    if args.identity_init { return crate::crypto::cmd::identity_init(); }
+    if args.acp_id { return crate::crypto::cmd::print_acp_id(); }
+    if args.node_init { return crate::crypto::cmd::node_init(args.node_label.as_deref()); }
+    if args.node_id { return crate::crypto::cmd::print_node_id(); }
+    if args.shares_print { return crate::crypto::cmd::shares_print(args.shares_file.as_deref()); }
+    if args.shares_verify { return crate::crypto::cmd::shares_verify(args.shares_file.as_deref()); }
+    if args.show_phrase { return crate::crypto::cmd::show_phrase(); }
+    if let Some(cadence) = args.backup_schedule.as_deref() {
+        return crate::crypto::cmd::backup_schedule(cadence, args.backup_keep.unwrap_or(1), args.backup_dest.as_deref().unwrap());
+    }
+    if args.backup { return crate::crypto::cmd::backup_now(args.output.as_deref()); }
+    if let Some(path) = args.restore.as_deref() { return crate::crypto::cmd::restore_now(path); }
+    if args.encrypt_db { return crate::crypto::cmd::encrypt_db(); }
+    if args.change_password { return crate::crypto::cmd::change_password(); }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_themes { return run_list_themes(&args).await; }
@@ -203,12 +221,12 @@ pub async fn run() -> Result<()> {
     if tui {
         return crate::tui::run(args).await;
     }
-    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
-    let clean = |n: String| n.replace(['/', '\\'], "_");
     if let Some(list) = &args.remove_nick {
+        crate::crypto::cmd::prepare_db()?;
         return run_remove_nick(&args, &list.0);
     }
     if args.clear_all {
+        crate::crypto::cmd::prepare_db()?;
         return run_clear_all(&args);
     }
     if args.logout {
@@ -219,6 +237,9 @@ pub async fn run() -> Result<()> {
         else { info!("Not logged in: no saved session at {}.", session_path()?.display()); }
         return Ok(());
     }
+    crate::crypto::cmd::prepare_db()?;
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
+    let clean = |n: String| n.replace(['/', '\\'], "_");
     if args.research_list || args.research_create.is_some() || args.research_add.is_some() || args.research_show.is_some() || args.research_export.is_some() {
         return run_research(&args).await;
     }
@@ -295,6 +316,55 @@ pub async fn run() -> Result<()> {
     if let Err(e) = load_session(&jar) { err!("warning: ignoring saved session: {e:#}"); }
     let http = client(jar.clone())?;
     login(&http, &jar).await?;
+    if let Some(period) = args.top {
+        let n = read_top(&http, &jar, period, args.top_replies).await?;
+        info!("== top {}: {n} posts", period.as_str());
+        return Ok(());
+    }
+    if args.eb {
+        let n = read_eb(&http, &jar, args.eb_replies).await?;
+        info!("== eb: {n} posts");
+        return Ok(());
+    }
+    if args.explore || args.explore_latest {
+        let n = read_explore(&http, &jar, args.explore_latest).await?;
+        info!("== explore: {n} posts");
+        return Ok(());
+    }
+    if let Some(q) = &args.site_search {
+        let n = read_site_search(&http, &jar, q).await?;
+        info!("== site search {q:?}: {n} posts");
+        return Ok(());
+    }
+    if let Some(tag) = &args.tag {
+        let n = read_tag(&http, &jar, tag).await?;
+        info!("== tag {}: {n} posts", tag_title(tag));
+        return Ok(());
+    }
+    if let Some(id) = &args.reposts {
+        let n = read_reposts(&http, &jar, id).await?;
+        info!("== reposts {id}: {n} posts");
+        return Ok(());
+    }
+    if let Some(spec) = &args.edits {
+        let (thread, post) = resolve_edits_spec(spec)?;
+        let n = read_edits(&http, &jar, &thread, &post).await?;
+        info!("== edits {thread}/{post}: {n} versions");
+        return Ok(());
+    }
+    if let Some(id) = &args.sort_thread {
+        let order = args.thread_sort.as_deref().unwrap_or("oldest");
+        let n = read_sorted_thread(&http, &jar, id, order).await?;
+        info!("== sort thread {id} {order}: {n} posts");
+        return Ok(());
+    }
+    if args.backfill_tags {
+        let nicks = args.nick_list()?;
+        let st = backfill_tags(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;
+        info!("== backfill-tags: {} scanned, {} tagged, {} json filled, {} still missing ({} threads)",
+            st.scanned, st.tagged, st.json_filled, st.missing, st.threads);
+        return Ok(());
+    }
     let mut nicks = args.nick_list()?;
     if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
         let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;

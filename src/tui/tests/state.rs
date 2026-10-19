@@ -250,10 +250,31 @@ fn clear_all_is_strict() {
 fn job_finished_failure_shows_tail_and_refreshes() {
     let mut a = app();
     a.job_started(JobView { kind: JobKind::Import, pid: 9, log: "/tmp/i.log".into() }, "x");
-    a.job_finished(false, Some(1), &["error: bad archive".into()]);
-    let Some(Modal::Message(m)) = &a.modal else { panic!() };
-    assert!(m.lines.iter().any(|l| l.contains("bad archive")));
+    a.needs_redraw = false;
+    a.job_finished(false, Some(1), &[" ".into(), "error: bad archive".into()]);
+    assert!(a.modal.is_none(), "a failed job stays in the status bar");
+    let line = a.status.back().unwrap();
+    assert!(line.starts_with("error: import failed (exit 1):"), "{line}");
+    assert!(line.contains("bad archive"), "{line}");
+    assert!(a.needs_redraw);
     assert!(a.job.is_none());
+}
+
+#[test]
+fn switching_menus_marks_a_full_redraw() {
+    let mut a = app();
+    assert!(crate::tui::state::status_line_is_problem("Error: this database needs a password"));
+    assert!(crate::tui::state::status_line_is_problem("warning: kept"));
+    assert!(!crate::tui::state::status_line_is_problem("started scan"));
+    assert!(!a.needs_redraw);
+    a.open_menu(0);
+    assert!(a.needs_redraw);
+    a.needs_redraw = false;
+    a.close_menu();
+    assert!(a.needs_redraw);
+    a.needs_redraw = false;
+    a.close_menu_dropdown();
+    assert!(a.needs_redraw);
 }
 
 #[test]

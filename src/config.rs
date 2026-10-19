@@ -61,6 +61,34 @@ pub const PREFS_REL_PATH: &str = ".acp/preferences.toml";
 /// Saved login session cookies (JSON, mode `0600`), relative to `$HOME`. Removed by `--logout`.
 pub const SESSION_REL_PATH: &str = ".acp/session.json";
 
+/// Pinned account id and the Argon2 parameters used to derive the master secret.
+/// Public: the phrase, the password and the master secret are never written here.
+pub const ACP_ID_REL_PATH: &str = ".acp/acp-id";
+
+/// Encrypted copy of the 24-word phrase entropy (mode `0600`). The words are not
+/// stored in the clear. Absent when `--identity-init` ran before this file existed.
+pub const RECOVERY_SEAL_REL_PATH: &str = ".acp/recovery.seal";
+
+/// Present after a database is created or migrated, until the recovery steps have
+/// been shown. Not a secret, and not part of a backup.
+pub const RECOVERY_NEXT_REL_PATH: &str = ".acp/recovery-next";
+
+/// Present until `--shares-print` or a successful `--shares-verify`. Not a secret.
+pub const SHARES_PENDING_REL_PATH: &str = ".acp/shares-pending";
+
+/// Unix time of the last successful `--shares-verify` or `--shares-print`. Not a secret.
+pub const SHARES_VERIFIED_REL_PATH: &str = ".acp/shares-verified";
+
+/// Plain node secret from an earlier draft. This build does not create it.
+/// Backups skip it so a restore cannot clone a node identity.
+pub const NODE_SECRET_REL_PATH: &str = ".acp/node/identity.key";
+
+/// Sealed node keystore (`0600`). The database key opens it. Backups skip it.
+pub const NODE_KEYSTORE_REL_PATH: &str = ".acp/node/keystore";
+
+/// Public node record: label, peer id, fingerprint, and certificates. No secrets.
+pub const NODE_PUBLIC_REL_PATH: &str = ".acp/node/node.public";
+
 /// Log directory (for `--enable-logging` / `--debug`), relative to `$HOME`.
 pub const LOGS_REL_DIR: &str = ".acp/logs";
 
@@ -99,6 +127,9 @@ pub const FEED_PROPS_SEL: &str = "div#forum\\/Feed[data-props]";
 /// CSS selector of the Svelte Thread mount (`data-props` = `{root, replies}`).
 pub const THREAD_PROPS_SEL: &str = "div#forum\\/Thread[data-props]";
 
+/// CSS selector for the edit-history component's JSON props (`forum/Edits`).
+pub const EDITS_PROPS_SEL: &str = "div#forum\\/Edits[data-props]";
+
 /// Found in Feed-*.js: `live.pushEvent("page-next", {cursor}, reply => ...)`,
 /// reply = {posts, next_cursor, at_end}. No phx-target (sent to the root LiveView).
 pub const FEED_NEXT_EVENT: &str = "page-next";
@@ -106,6 +137,8 @@ pub const FEED_NEXT_EVENT: &str = "page-next";
 /// GUESSED: thread replies use the generic InfiniteScroll hook
 /// (`pushEventTo(this.el, "next-page", {})`), target cid read from the page.
 pub const THREAD_NEXT_EVENT: &str = "next-page";
+/// Thread sort hook (`sort {sort:"oldest"|"top"}`). Newest is the page default and sends nothing.
+pub const THREAD_SORT_EVENT: &str = "sort";
 
 /// Safety cap on pages fetched from any one feed or thread.
 pub const MAX_PAGES: u32 = 10_000;
@@ -126,6 +159,8 @@ pub fn home() -> Result<PathBuf> {
 
 /// Profile Filter form submit event (`<form phx-submit="configure-feed">`).
 pub const PROFILE_FILTER_EVENT: &str = "configure-feed";
+/// Explore search form (`<form phx-submit="search">`, field `q`).
+pub const SEARCH_EVENT: &str = "search";
 /// Filter form radio: `0` = Posts (default), `1` = Posts and replies.
 pub const PROFILE_REPLIES_FIELD: &str = "replies";
 
@@ -223,9 +258,10 @@ pub const EMPTY_ANIM_MIN: (u16, u16) = (24, 8);
 pub const TUI_JOB_LOG_PREFIX: &str = "tui-";
 /// Key bindings shown in the Help modal (and the README).
 pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
-    ("Tab / Shift-Tab", "Focus Nicks → Body → Menu"),
+    ("Tab / Shift-Tab", "Focus Nicks → Body → Menu → Status"),
     ("↑ ↓  j k", "Move in the focused list; scroll a detail"),
-    ("Enter", "Open: nick (only it), post detail, linked post, menu item"),
+    ("Enter", "Open: nick (only it), post detail, linked post, menu item; on Status, job details"),
+    ("Status · Enter / click", "Job details (status bar or the header ⟳). Esc closes. c cancels a running job. j/k scroll the log"),
     ("Space", "Nicks: add/remove from the selection; menu: toggle checkbox"),
     ("Shift-↑ / Shift-↓", "Nicks: extend the selection"),
     ("Ctrl-A", "Nicks: select every (shown) nick"),
@@ -234,6 +270,8 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
+    ("p", "Post menu: view reposts or the edit history of the open or highlighted post"),
+    ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("r", "Add to a research project: the open or highlighted post, what it links, its files and web links, or the whole view (or click ◈)"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),
     (", .  /  Alt-← Alt-→", "Previous / next post of the detail stack (◂ prev / next ▸ on the nav bar)"),
@@ -262,5 +300,7 @@ pub fn bookmarks_url() -> String {
     let p = std::env::var("ACP_BOOKMARKS_PATH").ok().filter(|v| v.starts_with('/')).unwrap_or_else(|| "/rs/bookmarks".into());
     format!("{}{p}", base_url())
 }
-/// CONFIRMED (live sync, 2.5.0): LiveView click event that toggles a post's bookmark (`{"id": post_id}`).
-pub const BOOKMARK_EVENT: &str = "toggle-bookmark";
+/// LiveView hook that sets a post's bookmark (`{"id", "state": "1"|"0"}`).
+/// The site's current page sends this. 2.5.0 used the click `toggle-bookmark`;
+/// that name still worked then and may disappear (2.24.1).
+pub const BOOKMARK_EVENT: &str = "bookmark";

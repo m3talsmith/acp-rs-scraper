@@ -11,7 +11,7 @@ pub mod text;
 
 use crate::prelude::*;
 use crate::tui::layout::areas;
-use crate::tui::state::{App, Hit, SessionState};
+use crate::tui::state::{status_line_is_problem, App, Focus, Hit, SessionState};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::text::{Line, Span};
@@ -20,6 +20,7 @@ use std::time::Instant;
 
 /// Draw the whole screen.
 pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
+    app.refresh_job_modal_at(now);
     app.hits.clear();
     app.osc_links.clear();
     if let Some(im) = app.images.as_mut() { im.frame.clear(); }
@@ -78,14 +79,19 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
         f.render_widget(Paragraph::new(Span::styled("ACP", t.bar().bold(true))), Rect { x, ..mid });
         x += 5;
     }
-    let left = format!("{}  v{}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"));
+    let left = if app.node_chip.is_empty() {
+        format!("{}  v{}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"))
+    } else {
+        format!("{}  v{}  {}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"), app.node_chip)
+    };
     let session = match app.session {
         SessionState::LoggedOut => "○ logged out",
         SessionState::Saved => "◐ session saved",
         SessionState::Valid => "● logged in",
         SessionState::Checking => "… checking session",
     };
-    let job = app.job.as_ref().map(|j| format!("⟳ {} running (pid {})  ", j.kind.name(), j.pid)).unwrap_or_default();
+    let job_body = app.header_running().unwrap_or_default();
+    let job = if job_body.is_empty() { String::new() } else { format!("{job_body}  ") };
     // The theme switch: ‹name› ▾; a click opens the picker.
     // `‹default: missing› ▾` / `‹mine: broken› ▾` when the file can't be used.
     let fault = app.theme_fault.or(app.theme_error.is_some().then_some("broken"));
@@ -100,6 +106,11 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let pad = (rest.width as usize).saturating_sub(used);
     let sw_x = rest.x + (left.chars().count() + pad + job.chars().count()) as u16;
     if (used as u16) < rest.width {
+        if !job_body.is_empty() {
+            let job_x = rest.x + (left.chars().count() + pad) as u16;
+            let w = job_body.chars().count() as u16;
+            if w > 0 { app.hits.push((Rect { x: job_x, y: rest.y, width: w, height: 1 }, Hit::Job)); }
+        }
         app.hits.push((Rect { x: sw_x, y: rest.y, width: switch.chars().count() as u16, height: 1 }, Hit::ThemeSwitch));
     }
     f.render_widget(Paragraph::new(Line::from(vec![
@@ -108,16 +119,19 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     ])), rest);
 }
 
-fn status(f: &mut Frame, app: &App, r: Rect) {
+fn status(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
+    let focused = app.focus == Focus::Status;
     let n = r.height as usize;
+    let quiet = if focused { t.muted().underline(true) } else { t.muted() };
     let lines: Vec<Line> = if app.status.is_empty() {
-        vec![Line::styled("? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit", t.muted())]
+        vec![Line::styled("? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit", quiet)]
     } else {
         app.status.iter().rev().take(n).rev().map(|l| {
-            let st = if l.starts_with("error") || l.starts_with("warning") { t.accent() } else { t.muted() };
+            let st = if status_line_is_problem(l) { t.accent() } else { quiet.clone() };
             Line::styled(l.clone(), st)
         }).collect()
     };
     f.render_widget(Paragraph::new(lines), r);
+    app.hits.push((r, Hit::Status));
 }

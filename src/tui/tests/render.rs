@@ -37,6 +37,15 @@ fn base_layout_renders_title_menu_nicks_and_empty_state() {
 }
 
 #[test]
+fn header_shows_the_node_name_when_one_is_configured() {
+    let mut a = app();
+    a.node_chip = "◉ laptop".to_string();
+    let s = render(&mut a, 140, 30);
+    assert!(s.contains("◉ laptop"), "{s}");
+    assert!(s.contains(env!("CARGO_PKG_VERSION")), "{s}");
+}
+
+#[test]
 fn empty_database_has_friendly_state() {
     let mut a = App::new(Box::new(crate::tui::data::MemStore::default()), &no_args(), crate::tui::theme::Theme::acp(), false);
     let s = render(&mut a, 100, 24);
@@ -111,7 +120,9 @@ fn modals_render_over_dimmed_layout() {
     let mut a = app();
     key(&mut a, KeyCode::Char('?'));
     let s = render(&mut a, 100, 30);
-    assert!(s.contains("Help") && s.contains("Terminal UI keys"));
+    assert!(s.contains("Help") && s.contains("not the master key"));
+    let Some(Modal::Help(help)) = &a.modal else { panic!("help modal"); };
+    assert!(help.lines.iter().any(|l| l.contains("Terminal UI keys")));
     key(&mut a, KeyCode::Esc);
     assert!(a.modal.is_none());
     on_key(&mut a, KeyEvent::new(KeyCode::Char('S'), KeyModifiers::SHIFT));

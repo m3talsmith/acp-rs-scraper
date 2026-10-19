@@ -58,14 +58,29 @@ pub async fn run(args: Args) -> Result<()> {
     if !std::io::stdin().is_terminal() || !std::io::stdout().is_terminal() {
         bail!("the terminal UI needs a terminal; for headless use pass flags, e.g. --scrape, --nick NICK, --search TEXT, --export FILE (see --help)");
     }
-    let db = home()?.join(DB_REL_PATH);
+    let home_dir = home()?;
+    crate::crypto::cmd::prepare_db_quiet()?;
+    let show_recovery_help = crate::crypto::cmd::tui_recovery_offer(&home_dir)?;
+    let db = home_dir.join(DB_REL_PATH);
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
         session_path().map(|p| p.exists()).unwrap_or(false));
+    if let Ok(Some(node)) = crate::crypto::node_store::PublicNode::load(&home_dir) {
+        app.node_chip = node.chip();
+    }
     setup_themes(&mut app, &args, &prefs)?;
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
     (app.empty_anim, app.empty_anim_accent) = empty_anim::from_prefs(prefs.ui.as_ref());
+    if let Some(msg) = crate::crypto::cmd::shares_reminder(&home_dir) {
+        app.push_status(msg);
+    }
+    if let Some(msg) = crate::crypto::backup::schedule_reminder(&home_dir) {
+        app.push_status(msg);
+    }
+    if show_recovery_help {
+        app.modal = Some(modals::Modal::Help(modals::HelpModal::new()));
+    }
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
     set_log_sink(Some(log_tx));
@@ -157,17 +172,21 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         app.tick(now);
         app.sync_tick(now);
         if let Some(im) = app.images.as_mut() { im.poll(); }
+        if std::mem::take(&mut app.needs_redraw) { term.0.clear()?; }
         term.0.draw(|f| widgets::draw(f, app, now))?;
-        if osc8 { emit_osc8(&app.osc_links); }
+        if osc8 { emit_osc8(&app.osc_links, &app.theme); }
         if let Some(im) = app.images.as_mut()
             && im.flush(&mut std::io::stdout()) == images::Flush::Repaint {
                 // Sixel / iTerm2 pictures are burnt into the cells: repaint everything, then place them again.
                 term.0.clear()?;
                 term.0.draw(|f| widgets::draw(f, app, now))?;
-                if osc8 { emit_osc8(&app.osc_links); }
+                if osc8 { emit_osc8(&app.osc_links, &app.theme); }
                 if let Some(im) = app.images.as_mut() { im.flush(&mut std::io::stdout()); }
             }
         let mut wait = Duration::from_millis(if app.anim.is_some() { TUI_FRAME_MS } else { TUI_TICK_MS });
+        if app.has_running_job() || matches!(app.modal, Some(modals::Modal::Job(_))) {
+            wait = wait.min(Duration::from_millis(80));
+        }
         // The empty-Body animation: wake exactly when its next frame is due (one draw per frame).
         if app.empty_anim_frame.is_some() && let Some(fr) = &app.empty_anim {
             wait = wait.min(fr.until_next(Instant::now().saturating_duration_since(app.empty_anim_start)));
@@ -191,7 +210,11 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         while let Ok(l) = log_rx.try_recv() { app.push_status(l); }
         if let Some(j) = &mut job {
             let (lines, status) = j.poll();
-            for l in lines { app.push_status(l); }
+            let pid = j.pid();
+            for l in lines {
+                app.note_job_line(pid, &l);
+                app.push_status(modals::job::redact_line(&l));
+            }
             if let Some(st) = status {
                 let tail = jobs::tail(&j.log, 12);
                 app.job_finished(st.success(), st.code(), &tail);
@@ -200,10 +223,12 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         }
         let mut k = 0;
         while k < side.len() {
-            let (_, status) = side[k].poll();
+            let (lines, status) = side[k].poll();
+            let pid = side[k].pid();
+            for l in &lines { app.note_job_line(pid, l); }
             if let Some(st) = status {
                 let j = side.remove(k);
-                app.side_job_finished(st.success(), &jobs::tail(&j.log, 3), side.len());
+                app.side_job_finished(pid, st.success(), st.code(), &jobs::tail(&j.log, 3), side.len());
                 if st.success() { let _ = std::fs::remove_file(&j.log); }
             } else { k += 1; }
         }
@@ -252,13 +277,24 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     });
                 }
                 Effect::RunSideJob(kind, argv) => match jobs::Job::spawn(kind, &argv) {
-                    Ok(j) => side.push(j),
+                    Ok(j) => {
+                        app.track_side(kind, j.pid(), j.log.clone(), &j.cmd);
+                        side.push(j);
+                    }
                     Err(e) => app.error("Cannot start", &format!("{e:#}")),
                 },
                 Effect::OpenFile(p) => if let Err(e) = open_file(&p) { app.error("Cannot open", &format!("{e:#}")); },
                 Effect::CancelJob => if let Some(mut j) = job.take() {
                     if let Err(e) = j.cancel() { app.push_status(format!("error: cancel: {e:#}")); }
                     app.job_cancelled();
+                },
+                Effect::CancelSide(pid) => {
+                    if let Some(i) = side.iter().position(|j| j.pid() == pid) {
+                        let mut j = side.remove(i);
+                        if let Err(e) = j.cancel() { app.push_status(format!("error: cancel: {e:#}")); }
+                        app.mark_job_cancelled(pid);
+                        app.push_status(format!("{} cancelled (pid {pid})", j.kind.name()));
+                    }
                 },
                 Effect::LoginEmail(email) => {
                     // The LiveView login future is not Send: run it on its own
@@ -326,12 +362,20 @@ pub fn osc8(text: &str, url: &str) -> String {
     format!("\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\", clean(url), clean(text))
 }
 
-fn emit_osc8(links: &[(u16, u16, String, String)]) {
-    use crossterm::{cursor::MoveTo, queue, style::{Attribute, Print, SetAttribute}};
+/// Re-print link text as OSC 8 hyperlinks over the drawn frame, in the theme's link colour
+/// on its background so the cells look the same.
+fn emit_osc8(links: &[(u16, u16, String, String)], t: &theme::Theme) {
+    use crossterm::{cursor::MoveTo, queue, style::{Attribute, Color as CColor, Print, SetAttribute, SetBackgroundColor, SetForegroundColor}};
     if links.is_empty() { return; }
     let mut out = std::io::stdout();
+    let conv = |c: ratatui::style::Color| crate::themes::rgb(c).map(CColor::from);
+    let fg = ratatui::style::Style::from(&t.link()).fg.and_then(conv);
+    let bg = conv(t.bg);
     for (x, y, text, url) in links {
-        let _ = queue!(out, MoveTo(*x, *y), SetAttribute(Attribute::Underlined), Print(osc8(text, url)), SetAttribute(Attribute::Reset));
+        let _ = queue!(out, MoveTo(*x, *y), SetAttribute(Attribute::Underlined));
+        if let Some(c) = fg { let _ = queue!(out, SetForegroundColor(c)); }
+        if let Some(c) = bg { let _ = queue!(out, SetBackgroundColor(c)); }
+        let _ = queue!(out, Print(osc8(text, url)), SetAttribute(Attribute::Reset));
     }
     let _ = out.flush();
 }

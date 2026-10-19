@@ -17,7 +17,9 @@ pub const POSTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS posts (
             title TEXT NOT NULL,
             content TEXT NOT NULL,
             posted_at TEXT NOT NULL,
-            body_state TEXT NOT NULL DEFAULT 'unknown'
+            body_state TEXT NOT NULL DEFAULT 'unknown',
+            body_json TEXT NOT NULL DEFAULT '',
+            score INTEGER
         );
         CREATE UNIQUE INDEX IF NOT EXISTS posts_post_id_uq ON posts(post_id);";
 
@@ -31,6 +33,22 @@ pub const POSTS_ADD_IN_REPLY_TO: &str = "ALTER TABLE posts ADD COLUMN in_reply_t
 /// was available) and `unknown` (stored before 1.26.0, could be either;
 /// `--refetch-truncated` checks these against their thread page).
 pub const POSTS_ADD_BODY_STATE: &str = "ALTER TABLE posts ADD COLUMN body_state TEXT NOT NULL DEFAULT 'unknown';";
+
+/// Run when `posts` lacks `body_json` (databases before 2.21.0). The ProseMirror
+/// body, compact JSON; `""` until a thread page or a feed item supplies it.
+pub const POSTS_ADD_BODY_JSON: &str = "ALTER TABLE posts ADD COLUMN body_json TEXT NOT NULL DEFAULT '';";
+
+/// Run when `posts` lacks `score` (databases before 2.22.0). NULL until a thread page sends one.
+pub const POSTS_ADD_SCORE: &str = "ALTER TABLE posts ADD COLUMN score INTEGER;";
+
+/// Tags on a post (`#strike`). Filled from mention nodes and from `#word` in the
+/// body. Created on first use. `tag` is stored without the `#`.
+pub const POST_TAGS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_tags (
+            post_id TEXT NOT NULL,
+            tag TEXT NOT NULL,
+            PRIMARY KEY (post_id, tag)
+        );
+        CREATE INDEX IF NOT EXISTS post_tags_tag_idx ON post_tags(tag);";
 
 /// Indexes on the relationship columns (safe to re-run).
 pub const POSTS_MIGRATIONS: &str = "CREATE INDEX IF NOT EXISTS posts_parent_idx ON posts(parent_post_id);
@@ -90,6 +108,31 @@ pub const BOOKMARKS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS bookmarks (
             deleted INTEGER NOT NULL DEFAULT 0
         );";
 
+/// One row of a post's edit history (2.24.0). `source` is `site` for versions
+/// read from `/rs/post/{thread}/{id}/edits`. `peer`, `local` and `draft` are
+/// reserved for later local-first drafts (§7.14.8) so that table is not rebuilt.
+/// `version_hash` is a stable hash of `body_json` and `edited_at`.
+pub const POST_VERSIONS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_versions (
+            post_id TEXT NOT NULL,
+            version_hash TEXT NOT NULL,
+            body_json TEXT NOT NULL,
+            edited_at TEXT NOT NULL,
+            observed_at TEXT NOT NULL,
+            source TEXT NOT NULL CHECK (source IN ('site', 'peer', 'local', 'draft')),
+            PRIMARY KEY (post_id, version_hash)
+        );
+        CREATE INDEX IF NOT EXISTS post_versions_post_idx ON post_versions(post_id, edited_at);";
+
+/// A named site read (Top, and later the other read-parity feeds), in the
+/// order the site returned. `post_ids` is a JSON array of post ids. The posts
+/// themselves live in `posts`, so the view still opens offline. Created on first use.
+pub const SITE_FEEDS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_feeds (
+            key TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            fetched_at TEXT NOT NULL,
+            post_ids TEXT NOT NULL
+        );";
+
 /// Research projects and their items (see `research`). Items are unique per
 /// project, kind and ref; deleting a project deletes its items.
 pub const RESEARCH_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS research_projects (
@@ -112,3 +155,40 @@ pub const RESEARCH_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS research_projects 
             UNIQUE (project_id, kind, ref)
         );
         CREATE INDEX IF NOT EXISTS research_items_project_idx ON research_items(project_id);";
+
+/// Wrapped account data keys, one row per epoch. The raw key is not stored.
+/// `issuer` is `local` until an authorizer exists.
+pub const KEY_EPOCHS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS key_epochs (
+            epoch INTEGER PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            issuer TEXT NOT NULL,
+            wraps BLOB NOT NULL
+        );";
+
+/// Certificate rows. Nothing writes these until enrollment exists.
+pub const IDENTITY_CERTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS identity_certs (
+            serial TEXT PRIMARY KEY,
+            subject TEXT NOT NULL,
+            body BLOB NOT NULL
+        );";
+
+/// Revocation rows. Nothing writes these until revocation exists.
+pub const REVOCATIONS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS revocations (
+            seq INTEGER PRIMARY KEY,
+            body BLOB NOT NULL
+        );";
+
+/// Quarantined records. Nothing writes these until revocation exists.
+pub const QUARANTINE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS quarantine (
+            id INTEGER PRIMARY KEY,
+            observed_at TEXT NOT NULL,
+            body BLOB NOT NULL
+        );";
+
+/// Backup bookkeeping inside the database. The archive files themselves live outside it.
+pub const BACKUPS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS backups (
+            id INTEGER PRIMARY KEY,
+            path TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );";

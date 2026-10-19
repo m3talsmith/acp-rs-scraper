@@ -39,7 +39,7 @@ pub struct Pending {
 /// (case-insensitive). Ordered by thread so each thread is fetched once.
 pub fn pending_bodies(db: &Path, nicks: &[String]) -> Result<Vec<Pending>> {
     if !db.exists() { return Ok(Vec::new()); }
-    let c = Connection::open(db)?;
+    let c = crate::storage::db::open_db(db)?;
     ensure_posts_schema(&c)?;
     let want: HashSet<String> = nicks.iter().map(|n| n.trim_start_matches('@').to_lowercase()).collect();
     let mut st = c.prepare(
@@ -75,7 +75,7 @@ pub async fn refetch_truncated(http: &reqwest::Client, jar: &Jar, db: &Path, nic
         }
     }
     info!("refetch: {} rows to check in {} threads", stats.candidates, by_thread.len());
-    let c = Connection::open(db)?;
+    let c = crate::storage::db::open_db(db)?;
     for (i, (tid, rows)) in by_thread.iter().enumerate() {
         if i > 0 { polite_pause().await; }
         stats.threads += 1;

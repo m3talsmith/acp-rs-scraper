@@ -158,13 +158,13 @@
 <a href=#158 id=158 data-nosnippet>158</a>        app.sync_tick(now);
 <a href=#159 id=159 data-nosnippet>159</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(im) = app.images.as_mut() { im.poll(); }
 <a href=#160 id=160 data-nosnippet>160</a>        term.<span class="number">0</span>.draw(|f| widgets::draw(f, app, now))<span class="question-mark">?</span>;
-<a href=#161 id=161 data-nosnippet>161</a>        <span class="kw">if </span>osc8 { emit_osc8(<span class="kw-2">&amp;</span>app.osc_links); }
+<a href=#161 id=161 data-nosnippet>161</a>        <span class="kw">if </span>osc8 { emit_osc8(<span class="kw-2">&amp;</span>app.osc_links, <span class="kw-2">&amp;</span>app.theme); }
 <a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(im) = app.images.as_mut()
 <a href=#163 id=163 data-nosnippet>163</a>            &amp;&amp; im.flush(<span class="kw-2">&amp;mut </span>std::io::stdout()) == images::Flush::Repaint {
 <a href=#164 id=164 data-nosnippet>164</a>                <span class="comment">// Sixel / iTerm2 pictures are burnt into the cells: repaint everything, then place them again.
 <a href=#165 id=165 data-nosnippet>165</a>                </span>term.<span class="number">0</span>.clear()<span class="question-mark">?</span>;
 <a href=#166 id=166 data-nosnippet>166</a>                term.<span class="number">0</span>.draw(|f| widgets::draw(f, app, now))<span class="question-mark">?</span>;
-<a href=#167 id=167 data-nosnippet>167</a>                <span class="kw">if </span>osc8 { emit_osc8(<span class="kw-2">&amp;</span>app.osc_links); }
+<a href=#167 id=167 data-nosnippet>167</a>                <span class="kw">if </span>osc8 { emit_osc8(<span class="kw-2">&amp;</span>app.osc_links, <span class="kw-2">&amp;</span>app.theme); }
 <a href=#168 id=168 data-nosnippet>168</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(im) = app.images.as_mut() { im.flush(<span class="kw-2">&amp;mut </span>std::io::stdout()); }
 <a href=#169 id=169 data-nosnippet>169</a>            }
 <a href=#170 id=170 data-nosnippet>170</a>        <span class="kw">let </span><span class="kw-2">mut </span>wait = Duration::from_millis(<span class="kw">if </span>app.anim.is_some() { TUI_FRAME_MS } <span class="kw">else </span>{ TUI_TICK_MS });
@@ -326,29 +326,37 @@
 <a href=#326 id=326 data-nosnippet>326</a>    <span class="macro">format!</span>(<span class="string">"\x1b]8;;{}\x1b\\{}\x1b]8;;\x1b\\"</span>, clean(url), clean(text))
 <a href=#327 id=327 data-nosnippet>327</a>}
 <a href=#328 id=328 data-nosnippet>328</a>
-<a href=#329 id=329 data-nosnippet>329</a><span class="kw">fn </span>emit_osc8(links: <span class="kw-2">&amp;</span>[(u16, u16, String, String)]) {
-<a href=#330 id=330 data-nosnippet>330</a>    <span class="kw">use </span>crossterm::{cursor::MoveTo, queue, style::{Attribute, Print, SetAttribute}};
-<a href=#331 id=331 data-nosnippet>331</a>    <span class="kw">if </span>links.is_empty() { <span class="kw">return</span>; }
-<a href=#332 id=332 data-nosnippet>332</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = std::io::stdout();
-<a href=#333 id=333 data-nosnippet>333</a>    <span class="kw">for </span>(x, y, text, url) <span class="kw">in </span>links {
-<a href=#334 id=334 data-nosnippet>334</a>        <span class="kw">let _ </span>= <span class="macro">queue!</span>(out, MoveTo(<span class="kw-2">*</span>x, <span class="kw-2">*</span>y), SetAttribute(Attribute::Underlined), Print(osc8(text, url)), SetAttribute(Attribute::Reset));
-<a href=#335 id=335 data-nosnippet>335</a>    }
-<a href=#336 id=336 data-nosnippet>336</a>    <span class="kw">let _ </span>= out.flush();
-<a href=#337 id=337 data-nosnippet>337</a>}
-<a href=#338 id=338 data-nosnippet>338</a>
-<a href=#339 id=339 data-nosnippet>339</a><span class="doccomment">/// Open `p` with the desktop's default application, detached (`xdg-open`; `open` on macOS;
-<a href=#340 id=340 data-nosnippet>340</a>/// `ACP_OPENER` overrides).
-<a href=#341 id=341 data-nosnippet>341</a></span><span class="kw">pub fn </span>open_file(p: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
-<a href=#342 id=342 data-nosnippet>342</a>    <span class="kw">let </span>opener = std::env::var(<span class="string">"ACP_OPENER"</span>).ok().filter(|s| !s.is_empty())
-<a href=#343 id=343 data-nosnippet>343</a>        .unwrap_or_else(|| <span class="kw">if </span><span class="macro">cfg!</span>(target_os = <span class="string">"macos"</span>) { <span class="string">"open"</span>.into() } <span class="kw">else </span>{ <span class="string">"xdg-open"</span>.into() });
-<a href=#344 id=344 data-nosnippet>344</a>    <span class="kw">let </span><span class="kw-2">mut </span>c = std::process::Command::new(<span class="kw-2">&amp;</span>opener);
-<a href=#345 id=345 data-nosnippet>345</a>    c.arg(p).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
-<a href=#346 id=346 data-nosnippet>346</a>    <span class="attr">#[cfg(unix)]
-<a href=#347 id=347 data-nosnippet>347</a>    </span>{ <span class="kw">use </span>std::os::unix::process::CommandExt; c.process_group(<span class="number">0</span>); }
-<a href=#348 id=348 data-nosnippet>348</a>    c.spawn().with_context(|| <span class="macro">format!</span>(<span class="string">"starting {opener} {}"</span>, p.display()))<span class="question-mark">?</span>;
-<a href=#349 id=349 data-nosnippet>349</a>    <span class="prelude-val">Ok</span>(())
-<a href=#350 id=350 data-nosnippet>350</a>}
-<a href=#351 id=351 data-nosnippet>351</a>
-<a href=#352 id=352 data-nosnippet>352</a><span class="attr">#[cfg(test)]
-<a href=#353 id=353 data-nosnippet>353</a></span><span class="kw">mod </span>tests;
+<a href=#329 id=329 data-nosnippet>329</a><span class="doccomment">/// Re-print link text as OSC 8 hyperlinks over the drawn frame, in the theme's link colour
+<a href=#330 id=330 data-nosnippet>330</a>/// on its background so the cells look the same.
+<a href=#331 id=331 data-nosnippet>331</a></span><span class="kw">fn </span>emit_osc8(links: <span class="kw-2">&amp;</span>[(u16, u16, String, String)], t: <span class="kw-2">&amp;</span>theme::Theme) {
+<a href=#332 id=332 data-nosnippet>332</a>    <span class="kw">use </span>crossterm::{cursor::MoveTo, queue, style::{Attribute, Color <span class="kw">as </span>CColor, Print, SetAttribute, SetBackgroundColor, SetForegroundColor}};
+<a href=#333 id=333 data-nosnippet>333</a>    <span class="kw">if </span>links.is_empty() { <span class="kw">return</span>; }
+<a href=#334 id=334 data-nosnippet>334</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = std::io::stdout();
+<a href=#335 id=335 data-nosnippet>335</a>    <span class="kw">let </span>conv = |c: ratatui::style::Color| <span class="kw">crate</span>::themes::rgb(c).map(CColor::from);
+<a href=#336 id=336 data-nosnippet>336</a>    <span class="kw">let </span>fg = ratatui::style::Style::from(<span class="kw-2">&amp;</span>t.link()).fg.and_then(conv);
+<a href=#337 id=337 data-nosnippet>337</a>    <span class="kw">let </span>bg = conv(t.bg);
+<a href=#338 id=338 data-nosnippet>338</a>    <span class="kw">for </span>(x, y, text, url) <span class="kw">in </span>links {
+<a href=#339 id=339 data-nosnippet>339</a>        <span class="kw">let _ </span>= <span class="macro">queue!</span>(out, MoveTo(<span class="kw-2">*</span>x, <span class="kw-2">*</span>y), SetAttribute(Attribute::Underlined));
+<a href=#340 id=340 data-nosnippet>340</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = fg { <span class="kw">let _ </span>= <span class="macro">queue!</span>(out, SetForegroundColor(c)); }
+<a href=#341 id=341 data-nosnippet>341</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = bg { <span class="kw">let _ </span>= <span class="macro">queue!</span>(out, SetBackgroundColor(c)); }
+<a href=#342 id=342 data-nosnippet>342</a>        <span class="kw">let _ </span>= <span class="macro">queue!</span>(out, Print(osc8(text, url)), SetAttribute(Attribute::Reset));
+<a href=#343 id=343 data-nosnippet>343</a>    }
+<a href=#344 id=344 data-nosnippet>344</a>    <span class="kw">let _ </span>= out.flush();
+<a href=#345 id=345 data-nosnippet>345</a>}
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a><span class="doccomment">/// Open `p` with the desktop's default application, detached (`xdg-open`; `open` on macOS;
+<a href=#348 id=348 data-nosnippet>348</a>/// `ACP_OPENER` overrides).
+<a href=#349 id=349 data-nosnippet>349</a></span><span class="kw">pub fn </span>open_file(p: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href=#350 id=350 data-nosnippet>350</a>    <span class="kw">let </span>opener = std::env::var(<span class="string">"ACP_OPENER"</span>).ok().filter(|s| !s.is_empty())
+<a href=#351 id=351 data-nosnippet>351</a>        .unwrap_or_else(|| <span class="kw">if </span><span class="macro">cfg!</span>(target_os = <span class="string">"macos"</span>) { <span class="string">"open"</span>.into() } <span class="kw">else </span>{ <span class="string">"xdg-open"</span>.into() });
+<a href=#352 id=352 data-nosnippet>352</a>    <span class="kw">let </span><span class="kw-2">mut </span>c = std::process::Command::new(<span class="kw-2">&amp;</span>opener);
+<a href=#353 id=353 data-nosnippet>353</a>    c.arg(p).stdin(std::process::Stdio::null()).stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null());
+<a href=#354 id=354 data-nosnippet>354</a>    <span class="attr">#[cfg(unix)]
+<a href=#355 id=355 data-nosnippet>355</a>    </span>{ <span class="kw">use </span>std::os::unix::process::CommandExt; c.process_group(<span class="number">0</span>); }
+<a href=#356 id=356 data-nosnippet>356</a>    c.spawn().with_context(|| <span class="macro">format!</span>(<span class="string">"starting {opener} {}"</span>, p.display()))<span class="question-mark">?</span>;
+<a href=#357 id=357 data-nosnippet>357</a>    <span class="prelude-val">Ok</span>(())
+<a href=#358 id=358 data-nosnippet>358</a>}
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a><span class="attr">#[cfg(test)]
+<a href=#361 id=361 data-nosnippet>361</a></span><span class="kw">mod </span>tests;
 </code></pre></div></section></main></body></html>

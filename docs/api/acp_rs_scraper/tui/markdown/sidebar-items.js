@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["plain","render","wrap_parts"],"struct":["Block"]};
+window.SIDEBAR_ITEMS = {"enum":["Blk","Frame","Inl","Sink"],"fn":["bullet_char","entities","inl_width","is_list_line","normalize","pad","plain","render","render_doc","trim_url"],"static":["HREF","TAG","URL"],"struct":["Builder","Fmt","Item","Layout","MdLink","RLine","Rendered","TableData"]};

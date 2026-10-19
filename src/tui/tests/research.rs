@@ -241,10 +241,10 @@ fn cards_and_details_have_a_research_button() {
 fn side_job_end_refreshes_an_open_project() {
     let mut a = with_projects();
     a.open_research("Strikes");
-    a.side_job_finished(true, &["2026-10-17 INFO research \"Strikes\": 1 added, 0 already there".into()], 0);
+    a.side_job_finished(1, true, Some(0), &["2026-10-17 INFO research \"Strikes\": 1 added, 0 already there".into()], 0);
     assert!(a.status.back().unwrap().contains("◈ research \"Strikes\": 1 added"));
     assert_eq!(a.view().research.as_deref(), Some("Strikes"));
-    a.side_job_finished(false, &["boom".into()], 0);
+    a.side_job_finished(2, false, Some(1), &["boom".into()], 0);
     assert!(a.status.back().unwrap().contains("change not saved: boom"));
 }
 

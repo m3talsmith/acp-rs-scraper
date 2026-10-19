@@ -15,6 +15,17 @@ use ratatui::layout::Rect;
 use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 
+/// Whether a status line is an error or a warning, whatever the capitalization.
+///
+/// The child's runtime prints `Error: ...`. The status bar used to look only
+/// for a lowercase prefix, so that line was drawn as ordinary text.
+pub(crate) fn status_line_is_problem(line: &str) -> bool {
+    let line = line.trim_start();
+    let bytes = line.as_bytes();
+    bytes.len() >= 5 && bytes[..5].eq_ignore_ascii_case(b"error")
+        || bytes.len() >= 7 && bytes[..7].eq_ignore_ascii_case(b"warning")
+}
+
 /// Focusable panes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Focus {
@@ -24,6 +35,8 @@ pub enum Focus {
     Body,
     /// Menu bar.
     Menu,
+    /// Status bar (Enter opens job details).
+    Status,
 }
 
 /// What a link in a detail points at.
@@ -39,6 +52,8 @@ pub enum LinkKind {
     Reply,
     /// A stored attachment file (`id` is its local path); opens with the desktop's opener.
     Attachment,
+    /// A `#tag` (`id` is the name without `#`). Opens that tag's feed.
+    Tag,
 }
 
 /// One cross-link inside a detail.
@@ -63,6 +78,8 @@ pub struct DetailFrame {
     pub links: Vec<Link>,
     /// Selected link.
     pub link_cursor: usize,
+    /// Reply order. `s` cycles newest → oldest → top.
+    pub sort: ThreadSort,
     /// First visible line.
     pub scroll: u16,
     /// Scroll so the selected link is visible on the next render.
@@ -90,6 +107,8 @@ pub struct BodyView {
     pub bookmarks: bool,
     /// The research project this view shows.
     pub research: Option<String>,
+    /// The site read this view shows (`top:week`, …), when it is one.
+    pub site_key: Option<String>,
     /// Frames closed with prev / Esc, nearest last: `next` reopens them.
     pub forward: Vec<DetailFrame>,
 }
@@ -198,6 +217,8 @@ pub enum Effect {
     RunSideJob(JobKind, Vec<String>),
     /// Kill the running job.
     CancelJob,
+    /// Kill one side job (research, bookmarks) by pid.
+    CancelSide(u32),
     /// Open a file with the desktop's default app (`xdg-open`).
     OpenFile(PathBuf),
     /// Start logging in with this email.
@@ -260,6 +281,10 @@ pub enum Hit {
     Backdrop,
     /// The "★ Bookmarks" row of the nick bar.
     Bookmarks,
+    /// The "EB" row of the nick bar.
+    Eb,
+    /// The "Explore" row of the nick bar.
+    Explore,
     /// The nick filter field.
     NickFilter,
     /// The nick filter's `x` (clear).
@@ -280,6 +305,10 @@ pub enum Hit {
     ThemeSwitch,
     /// n-th row of the theme editor's list.
     EditorRow(usize),
+    /// The header's `⟳ … running` mark.
+    Job,
+    /// The status bar.
+    Status,
 }
 
 /// Menu bar state.
@@ -329,10 +358,17 @@ pub struct App {
     pub status: VecDeque<String>,
     /// Log panel expanded.
     pub show_log: bool,
+    /// The next frame should clear the terminal before drawing.
+    ///
+    /// Set when the menu changes or an error line arrives, so a status message
+    /// cannot be left painted over the post list.
+    pub needs_redraw: bool,
     /// Login state.
     pub session: SessionState,
     /// Running job.
     pub job: Option<JobView>,
+    /// Jobs the details window can show (every running one, plus a short history).
+    pub tracked: Vec<crate::tui::modals::job::TrackedJob>,
     /// Job (scan / sync) waiting for a login.
     pub pending_job: Option<(JobKind, Vec<String>)>,
     /// Bookmarked post ids (local changes show at once; a side job stores them).
@@ -391,6 +427,12 @@ pub struct App {
     pub theme_editor: Option<Box<crate::tui::editor::ThemeEditor>>,
     /// The theme being downloaded in the background, if any.
     pub theme_downloading: Option<String>,
+    /// Site-feed key to open when the running read job ends.
+    pub pending_feed: Option<String>,
+    /// Thread whose reply order a running sort job should restore.
+    pub pending_sort: Option<(String, ThreadSort)>,
+    /// Header chip for this machine's node (`◉ label`). Empty when no node exists.
+    pub node_chip: String,
 }
 
 impl App {
@@ -400,11 +442,12 @@ impl App {
             store, nicks: Vec::new(), all_nicks: Vec::new(), nick_filter: Default::default(), filter_editing: false, nick_cursor: 0, nick_offset: 0, selected: Vec::new(),
             base: BodyView::default(), search: None, focus: Focus::Nicks,
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
-            modal: None, status: VecDeque::new(), show_log: false,
+            modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
+            job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
+            pending_feed: None, pending_sort: None, node_chip: String::new(),
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -419,9 +462,11 @@ impl App {
     }
 
     /// Add a status line (kept to [`TUI_STATUS_KEEP`]).
+    /// An error or warning asks for a full redraw so the line stays in the status bar.
     pub fn push_status(&mut self, s: impl Into<String>) {
         let s = s.into();
         for l in s.lines() {
+            if status_line_is_problem(l) { self.needs_redraw = true; }
             self.status.push_back(l.to_string());
             while self.status.len() > TUI_STATUS_KEEP { self.status.pop_front(); }
         }
@@ -539,6 +584,177 @@ impl App {
         self.search = Some(BodyView { title: "★ Bookmarks".into(), posts, bookmarks: true, ..BodyView::default() });
         self.focus = Focus::Body;
         self.anim = None;
+    }
+    /// Show a saved site read, in the site's order. Returns whether it was stored.
+    pub fn show_site_feed(&mut self, key: &str) -> bool {
+        match self.store.site_feed(key) {
+            Ok(Some(f)) => {
+                let posts: Vec<Post> = f.post_ids.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
+                let missing = f.post_ids.len() - posts.len();
+                if missing > 0 { self.push_status(format!("{missing} posts from {} are not in the database", f.title)); }
+                self.search = Some(BodyView { title: f.title, posts, site_key: Some(key.into()), ..BodyView::default() });
+                self.focus = Focus::Body;
+                self.anim = None;
+                true
+            }
+            Ok(None) => false,
+            Err(e) => { self.push_status(format!("error: reading {key}: {e:#}")); false }
+        }
+    }
+    /// Show the saved view at once (offline), then refresh it from the site.
+    pub fn open_site_read(&mut self, key: &str, argv: Vec<String>) {
+        let had = self.show_site_feed(key);
+        if self.job.is_some() {
+            self.push_status(if had { format!("showing saved {key}; a job is already running") }
+                else { "another job is still running; wait for it or cancel it (F6)".into() });
+            return;
+        }
+        self.pending_feed = Some(key.into());
+        self.push_status(if had { format!("showing saved {key}; refreshing from the site…") }
+            else { format!("fetching {key} from the site…") });
+        self.start_online_job(JobKind::Read, argv);
+    }
+    /// View › Site Top: the period and replies checkbox in the View menu.
+    pub fn open_top(&mut self) {
+        let replies = self.menu.menu.check(crate::tui::commands::CommandId::View, "top_replies");
+        let period = TopPeriod::parse(self.menu.menu.choice(crate::tui::commands::CommandId::View, "top_period"))
+            .unwrap_or(TopPeriod::Week);
+        match self.menu.menu.top_argv() {
+            Ok(argv) => self.open_site_read(&top_key(period, replies), argv),
+            Err(e) => self.error("Site Top", &e),
+        }
+    }
+    /// The EB row / View › Executive Board.
+    pub fn open_eb(&mut self) {
+        let replies = self.menu.menu.check(crate::tui::commands::CommandId::View, "eb_replies");
+        match self.menu.menu.eb_argv() {
+            Ok(argv) => self.open_site_read(&eb_key(replies), argv),
+            Err(e) => self.error("Executive Board", &e),
+        }
+    }
+    /// The Explore row / View › Explore. Latest follows the View checkbox.
+    pub fn open_explore(&mut self) {
+        let latest = self.menu.menu.check(crate::tui::commands::CommandId::View, "explore_latest");
+        match self.menu.menu.explore_argv() {
+            Ok(argv) => self.open_site_read(&explore_key(latest), argv),
+            Err(e) => self.error("Explore", &e),
+        }
+    }
+    /// `p`: the post menu for the open detail, else the highlighted card.
+    pub fn open_post_menu(&mut self) {
+        let Some(id) = self.current_post_id() else { self.push_status("no post: open or highlight one first"); return; };
+        let thread = self.top().map(|f| f.post.clone())
+            .or_else(|| self.view().posts.iter().find(|p| p.post_id == id).cloned());
+        let thread_id = thread.map(|p| if p.parent_post_id.is_empty() { p.post_id } else { p.parent_post_id }).unwrap_or_else(|| id.clone());
+        self.modal = Some(Modal::Post(PostMenu::new(&id, &thread_id)));
+    }
+    /// Post menu › View reposts.
+    pub fn open_reposts(&mut self, id: &str) {
+        match self.menu.menu.reposts_argv(id) {
+            Ok(argv) => self.open_site_read(&reposts_key(id), argv),
+            Err(e) => self.error("Reposts", &e),
+        }
+    }
+    /// Show stored edit versions of `post_id` as diffs, oldest first. Returns whether any were stored.
+    pub fn show_edits(&mut self, post_id: &str, thread_id: &str) -> bool {
+        match self.store.post_versions(post_id) {
+            Ok(vs) if !vs.is_empty() => {
+                let posts = edits_as_posts(&vs, thread_id);
+                self.search = Some(BodyView {
+                    title: format!("Edits · {post_id}"), posts,
+                    site_key: Some(edits_key(thread_id, post_id)), ..BodyView::default()
+                });
+                self.focus = Focus::Body;
+                self.anim = None;
+                true
+            }
+            Ok(_) => false,
+            Err(e) => { self.push_status(format!("error: reading edits of {post_id}: {e:#}")); false }
+        }
+    }
+    /// Post menu › View edits: the saved diffs at once, then a refresh from the site.
+    pub fn open_edits(&mut self, post_id: &str, thread_id: &str) {
+        let key = edits_key(thread_id, post_id);
+        let had = self.show_edits(post_id, thread_id);
+        let argv = match self.menu.menu.edits_argv(thread_id, post_id) {
+            Ok(v) => v,
+            Err(e) => { self.error("Edits", &e); return; }
+        };
+        if self.job.is_some() {
+            self.push_status(if had { format!("showing saved {key}; a job is already running") }
+                else { "another job is still running; wait for it or cancel it (F6)".into() });
+            return;
+        }
+        self.pending_feed = Some(key.clone());
+        self.push_status(if had { format!("showing saved {key}; refreshing from the site…") }
+            else { format!("fetching {key} from the site…") });
+        self.start_online_job(JobKind::Read, argv);
+    }
+    /// `s` in a thread: cycle reply order and, for oldest/top, refresh scores from the site.
+    pub fn cycle_thread_sort(&mut self) {
+        if self.top().is_none() { self.push_status("open a thread to sort its replies"); return; }
+        let next = self.top().map(|f| f.sort.cycle()).unwrap_or_default();
+        if let Some(f) = self.top_mut() { f.sort = next; }
+        self.apply_reply_sort();
+        self.push_status(format!("replies · {}", next.label()));
+        let Some(order) = next.hook() else { return };
+        let post = self.top().map(|f| f.post.clone());
+        let Some(post) = post else { return };
+        let thread = if post.parent_post_id.is_empty() { post.post_id.clone() } else { post.parent_post_id.clone() };
+        if self.job.is_some() {
+            self.push_status("reply order changed locally; a job is already running");
+            return;
+        }
+        match self.menu.menu.sort_thread_argv(&thread, order) {
+            Ok(argv) => {
+                self.pending_sort = Some((post.post_id.clone(), next));
+                self.start_online_job(JobKind::Read, argv);
+            }
+            Err(e) => self.error("Thread sort", &e),
+        }
+    }
+    /// Put the open detail's reply links in its current order, using stored scores.
+    pub fn apply_reply_sort(&mut self) {
+        let Some(sort) = self.top().map(|f| f.sort) else { return };
+        let id = self.top().unwrap().post.post_id.clone();
+        let mut replies = self.store.replies(&id).unwrap_or_default();
+        sort_replies(&mut replies, sort);
+        let Some(f) = self.top_mut() else { return };
+        let mut links: Vec<Link> = f.links.iter().filter(|l| l.kind != LinkKind::Reply).cloned().collect();
+        for r in replies {
+            links.push(Link { kind: LinkKind::Reply, id: r.post_id.clone(), target: Some(r) });
+        }
+        if f.link_cursor >= links.len() { f.link_cursor = 0; }
+        f.links = links;
+    }
+    /// After a sort job: reopen `id` if the list refresh closed it, then reapply `sort`.
+    fn restore_thread_sort(&mut self, id: &str, sort: ThreadSort) {
+        if self.top().is_none() {
+            if let Some(i) = self.view().posts.iter().position(|p| p.post_id == id) { self.open_post(i); }
+        }
+        if self.top().is_some_and(|f| f.post.post_id == id) {
+            if let Some(f) = self.top_mut() { f.sort = sort; }
+            self.apply_reply_sort();
+        }
+    }
+    /// A `#tag` in a post: the saved tag feed, then a refresh from `/rs/tag/{tag}`.
+    pub fn open_tag(&mut self, tag: &str) {
+        match self.menu.menu.tag_argv(tag) {
+            Ok(argv) => self.open_site_read(&tag_key(tag), argv),
+            Err(e) => self.error("Tag", &e),
+        }
+    }
+    /// Search modal › Where: Site. Other fields stay local and are named in the status line.
+    pub fn open_site_search(&mut self, s: &crate::tui::modals::SearchModal) {
+        let q = s.fields[0].value.trim();
+        let local = s.fields.iter().skip(1).any(|f| !f.value.trim().is_empty()) || s.kind != crate::tui::data::KindFilter::Any;
+        if local {
+            self.push_status("nicks, dates, post id and kind stay local; searching the site for the keyword");
+        }
+        match self.menu.menu.site_search_argv(q) {
+            Ok(argv) => self.open_site_read(&search_key(q), argv),
+            Err(e) => self.error("Site search", &e),
+        }
     }
     /// The post `b` / the menu toggles: the top detail, else the highlighted card.
     pub fn current_post_id(&self) -> Option<String> {
@@ -703,9 +919,11 @@ impl App {
     }
 
     /// A side job ended; `pending` = side jobs still running.
-    pub fn side_job_finished(&mut self, ok: bool, tail: &[String], pending: usize) {
-        if !ok { self.push_status(format!("error: change not saved: {}", tail.last().map(String::as_str).unwrap_or("?"))); }
-        else if let Some(l) = tail.iter().rev().find_map(|l| l.find("research \"").map(|i| &l[i..])) { self.push_status(format!("◈ {l}")); }
+    pub fn side_job_finished(&mut self, pid: u32, ok: bool, code: Option<i32>, tail: &[String], pending: usize) {
+        self.settle_job(pid, ok, code, tail);
+        let shown = tail.iter().rev().find(|l| !l.trim().is_empty()).map(|l| crate::tui::modals::job::redact_line(l)).unwrap_or_else(|| "?".into());
+        if !ok { self.push_status(format!("error: change not saved: {shown}")); }
+        else if let Some(l) = tail.iter().rev().find_map(|l| l.find("research \"").map(|i| l[i..].to_string())) { self.push_status(format!("◈ {}", crate::tui::modals::job::redact_line(&l))); }
         // Re-read only once every write landed, so quick toggles don't flicker back.
         if pending == 0 {
             self.reload_marks();
@@ -841,15 +1059,20 @@ impl App {
         add(LinkKind::ReplyTo, &direct, &mut links);
         add(LinkKind::Thread, &post.parent_post_id, &mut links);
         for id in crate::tui::data::linked_ids(&post.content) { add(LinkKind::Mentioned, &id, &mut links); }
-        for r in s.replies(&post.post_id).unwrap_or_default() {
+        let mut reply_posts = s.replies(&post.post_id).unwrap_or_default();
+        sort_replies(&mut reply_posts, ThreadSort::Newest);
+        for r in reply_posts {
             if seen.insert(r.post_id.clone()) { links.push(Link { kind: LinkKind::Reply, id: r.post_id.clone(), target: Some(r) }); }
         }
         let attachments = s.attachments(&post.post_id).unwrap_or_default();
         for a in &attachments {
             links.push(Link { kind: LinkKind::Attachment, id: a.local_path.display().to_string(), target: None });
         }
+        for tag in extract_tags(&post.body_json, &post.content) {
+            links.push(Link { kind: LinkKind::Tag, id: tag, target: None });
+        }
         DetailFrame { attachments, post, links,
-            link_cursor: 0, scroll: 0, follow_link: false, notice: None }
+            link_cursor: 0, scroll: 0, follow_link: false, notice: None, sort: ThreadSort::Newest }
     }
     /// Open the n-th post of the view as the root detail (replacing any open stack).
     pub fn open_post(&mut self, i: usize) {
@@ -871,6 +1094,11 @@ impl App {
         let depth = self.view().stack.len();
         let Some(link) = self.top().and_then(|f| f.links.get(i)).cloned() else { return };
         if let Some(f) = self.top_mut() { f.link_cursor = i; }
+        if link.kind == LinkKind::Tag {
+            let tag = link.id.clone();
+            self.open_tag(&tag);
+            return;
+        }
         if link.kind == LinkKind::Attachment {
             let p = PathBuf::from(&link.id);
             if p.exists() { self.push_status(format!("opening {}", p.display())); self.effects.push(Effect::OpenFile(p)); }
@@ -1016,6 +1244,9 @@ impl App {
             Action::CycleView => { self.close_menu(); let m = self.view_mode.cycle(1); self.set_view_mode(m); }
             Action::SetView(m) => { self.close_menu(); self.set_view_mode(m); }
             Action::ShowBookmarks => { self.close_menu(); self.open_bookmarks(); }
+            Action::OpenTop => self.open_top(),
+            Action::OpenEb => self.open_eb(),
+            Action::OpenExplore => self.open_explore(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }
@@ -1117,7 +1348,7 @@ impl App {
         match r {
             Ok(true) => { self.session = SessionState::Valid; self.effects.push(Effect::RunJob(kind, argv)); }
             Ok(false) => { self.session = SessionState::LoggedOut; self.open_login(Some((kind, argv))); }
-            Err(e) => { self.session = SessionState::Saved; self.error("Cannot reach acp.us", &e); }
+            Err(e) => { self.session = SessionState::Saved; self.pending_feed = None; self.pending_sort = None; self.error("Cannot reach acp.us", &e); }
         }
     }
     /// The site sent the login code.
@@ -1145,30 +1376,51 @@ impl App {
     /// A job started.
     pub fn job_started(&mut self, j: JobView, cmd: &str) {
         self.push_status(format!("started {} (pid {}): {cmd}", j.kind.name(), j.pid));
+        self.remember_job(j.kind, j.pid, j.log.clone(), cmd, false);
         self.job = Some(j);
     }
     /// The job ended (`ok` = exit 0); `tail` = its last log lines.
     pub fn job_finished(&mut self, ok: bool, code: Option<i32>, tail: &[String]) {
         let Some(j) = self.job.take() else { return };
+        self.settle_job(j.pid, ok, code, tail);
         let auto = std::mem::take(&mut self.auto_running);
+        let feed = self.pending_feed.take();
+        let sort = self.pending_sort.take();
         self.refresh_nicks();
         self.load_base_keep();
         self.reload_marks();
+        if let Some(key) = feed.as_deref() {
+            let had = if let Some((thread, post)) = parse_edits_key(key) {
+                self.show_edits(post, thread)
+            } else {
+                self.show_site_feed(key)
+            };
+            if !ok && had { self.push_status(format!("showing the saved {key}; the refresh failed")); }
+        }
+        if let Some((id, sort)) = sort {
+            self.restore_thread_sort(&id, sort);
+        }
         if ok {
             self.push_status(format!("{} finished", j.kind.name()));
         } else if auto {
             self.push_status(format!("error: auto sync failed (exit {}); see {}", code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into()), j.log.display()));
         } else {
+            // The log line is already in the status bar. A modal would paint it
+            // a second time, over the post list.
             let code = code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into());
-            let mut text = format!("The {} stopped (exit {code}). Last lines of {}:\n", j.kind.name(), j.log.display());
-            for l in tail { text.push_str(&format!("{l}\n")); }
-            self.error(&format!("{} failed", j.kind.name()), text.trim_end());
+            let detail = tail.iter().rev().find(|l| !l.trim().is_empty()).map(|l| crate::tui::modals::job::redact_line(l.trim())).unwrap_or_else(|| "no output".into());
+            self.push_status(format!("error: {} failed (exit {code}): {detail}", j.kind.name()));
         }
     }
     /// The job was cancelled.
     pub fn job_cancelled(&mut self) {
         self.auto_running = false;
-        if let Some(j) = self.job.take() { self.push_status(format!("{} cancelled (pid {})", j.kind.name(), j.pid)); }
+        self.pending_feed = None;
+        self.pending_sort = None;
+        if let Some(j) = self.job.take() {
+            self.mark_job_cancelled(j.pid);
+            self.push_status(format!("{} cancelled (pid {})", j.kind.name(), j.pid));
+        }
         self.refresh_nicks();
         self.load_base_keep();
     }
@@ -1178,11 +1430,13 @@ impl App {
     pub fn close_menu(&mut self) {
         self.menu.open = None;
         self.menu.editing = false;
+        self.needs_redraw = true;
         if self.focus == Focus::Menu { self.focus = if self.view().posts.is_empty() { Focus::Nicks } else { Focus::Body }; }
     }
     /// Highlight / open the n-th menu item (option-less items run at once).
     pub fn open_menu(&mut self, i: usize) {
         let Some(c) = self.menu.menu.items.get(i) else { return };
+        self.needs_redraw = true;
         self.focus = Focus::Menu;
         self.menu.item = i;
         self.menu.editing = false;
@@ -1212,6 +1466,8 @@ impl App {
             }
             (Modal::Login(m), ModalResult::ClosedCancelled) => {
                 self.pending_job = None;
+                self.pending_feed = None;
+                self.pending_sort = None;
                 if self.session == SessionState::Checking { self.session = SessionState::LoggedOut; }
                 let _ = m;
                 self.effects.push(Effect::LoginCancel);
@@ -1220,8 +1476,13 @@ impl App {
                 ConfirmAction::Job(k, argv) => self.start_job(k, argv),
                 ConfirmAction::Quit => self.effects.push(Effect::Quit { cancel_job: c.chosen == 1 }),
             },
+            (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
+                PostAction::Reposts => self.open_reposts(&m.post_id),
+                PostAction::Edits => self.open_edits(&m.post_id, &m.thread_id),
+            },
             (Modal::Search(s), ModalResult::ClosedSubmitted) => {
                 if s.cleared { self.clear_search(); }
+                else if s.site { self.open_site_search(&s); }
                 else if let Ok(f) = s.filter() { self.run_search(f); }
             }
             (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),
@@ -1295,5 +1556,5 @@ pub fn research_post(it: &ResearchItem) -> Post {
     let nick = match it.kind { ItemKind::WebUrl => "web", ItemKind::LocalFile => "file", _ => "missing post" };
     let content = if it.kind.is_post() { format!("{} is not in the database any more.\n\n{body}", it.r#ref) } else { body };
     Post { post_id: format!("research:{}", it.id), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(),
-        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false }
+        title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false, body_json: String::new(), score: None }
 }

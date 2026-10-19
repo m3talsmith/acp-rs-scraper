@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-rs-scraper
-Version:        2.16.0
+Version:        3.3.1
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -50,6 +50,48 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
 
 %changelog
+* Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.3.1-1
+- Job details: elapsed time stops when the job finishes, fails, or is cancelled.
+
+* Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.3.0-1
+- Node identity: a local key, certificates, --node-init, and --node-id.
+
+* Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.2.0-1
+- Shared core crate for identity, canonical CBOR, and sealed secrets.
+
+* Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.1.0-1
+- Job details: click the status bar or the header running mark
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 3.0.0-1
+- Breaking: encrypted database, mandatory password, --encrypt-db migrates a 2.x file after a backup
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.24.1-1
+- Bookmark sync uses the bookmark hook with an explicit state
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.24.0-1
+- Edit history as a diff, stored in post_versions
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.23.0-1
+- Reposts list (/rs/post/ID/reposts)
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.22.0-1
+- Thread sort (oldest/top) and a score column
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.21.0-1
+- Tag feeds, body_json and post_tags
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.20.0-1
+- Explore feed and site search
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.19.0-1
+- Executive Board feed (/rs/eb) with a replies filter
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.18.0-1
+- Site-wide Top feed (/rs/top) with a period and a replies filter
+
+* Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.17.0-1
+- Full Markdown in post bodies with new theme elements; list bullets fixed
+
 * Sun Oct 18 2026 m3talsmith <m3talsmith@gmail.com> - 2.16.0-1
 - Theme editor sample dialog, per-row revert, save prompts, truecolor note; header missing/broken marker; grouped theme warnings.
 

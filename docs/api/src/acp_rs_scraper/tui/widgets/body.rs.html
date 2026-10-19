@@ -333,7 +333,7 @@
 <a href=#333 id=333 data-nosnippet>333</a>    <span class="kw">let </span>w = fr.width.saturating_sub(<span class="number">1</span>) <span class="kw">as </span>usize;
 <a href=#334 id=334 data-nosnippet>334</a>    <span class="kw">let </span>h = fr.height <span class="kw">as </span>usize;
 <a href=#335 id=335 data-nosnippet>335</a>    <span class="kw">let </span>img_rows = <span class="kw">if </span>app.images.is_some() { <span class="kw">crate</span>::tui::images::IMAGE_ROWS.min(fr.height.saturating_sub(<span class="number">2</span>)) } <span class="kw">else </span>{ <span class="number">0 </span>};
-<a href=#336 id=336 data-nosnippet>336</a>    <span class="kw">let </span>(lines, links, slots) = detail_layout(<span class="kw-2">&amp;</span>app.view().stack[d], w, <span class="kw-2">&amp;</span>t, img_rows);
+<a href=#336 id=336 data-nosnippet>336</a>    <span class="kw">let </span>(lines, links, slots, md_links) = detail_layout(<span class="kw-2">&amp;</span>app.view().stack[d], w, <span class="kw-2">&amp;</span>t, img_rows);
 <a href=#337 id=337 data-nosnippet>337</a>    <span class="kw">let </span>fm = <span class="kw-2">&amp;mut </span>app.view_mut().stack[d];
 <a href=#338 id=338 data-nosnippet>338</a>    <span class="kw">if </span>top &amp;&amp; fm.follow_link
 <a href=#339 id=339 data-nosnippet>339</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>((li, <span class="kw">_</span>)) = links.iter().find(|(<span class="kw">_</span>, k)| <span class="kw-2">*</span>k == fm.link_cursor) {
@@ -366,22 +366,32 @@
 <a href=#366 id=366 data-nosnippet>366</a>            }
 <a href=#367 id=367 data-nosnippet>367</a>        }
 <a href=#368 id=368 data-nosnippet>368</a>    }
-<a href=#369 id=369 data-nosnippet>369</a>    <span class="kw">if </span>fr.width &gt; <span class="number">6 </span>{
-<a href=#370 id=370 data-nosnippet>370</a>        <span class="kw">let </span>marked = app.is_marked(<span class="kw-2">&amp;</span>app.view().stack[d].post.post_id);
-<a href=#371 id=371 data-nosnippet>371</a>        <span class="kw">let </span>sr = Rect { x: fr.x + fr.width - <span class="number">4</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
-<a href=#372 id=372 data-nosnippet>372</a>        f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
-<a href=#373 id=373 data-nosnippet>373</a>        app.hits.push((sr, Hit::StarTop));
-<a href=#374 id=374 data-nosnippet>374</a>    }
-<a href=#375 id=375 data-nosnippet>375</a>    <span class="kw">if </span>fr.width &gt; <span class="number">10 </span>{
-<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw">let </span>inb = app.in_basket(<span class="kw-2">&amp;</span>app.view().stack[d].post.post_id);
-<a href=#377 id=377 data-nosnippet>377</a>        <span class="kw">let </span>br = Rect { x: fr.x + fr.width - <span class="number">7</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
-<a href=#378 id=378 data-nosnippet>378</a>        f.render_widget(Paragraph::new(Span::styled(basket_icon(inb), t.accent_bold())), br);
-<a href=#379 id=379 data-nosnippet>379</a>        app.hits.push((br, Hit::BasketTop));
-<a href=#380 id=380 data-nosnippet>380</a>    }
-<a href=#381 id=381 data-nosnippet>381</a>    <span class="kw">if </span>fr.width &gt; <span class="number">14 </span>&amp;&amp; !app.view().stack[d].post.post_id.starts_with(<span class="string">"research:"</span>) {
-<a href=#382 id=382 data-nosnippet>382</a>        <span class="kw">let </span>rr = Rect { x: fr.x + fr.width - <span class="number">10</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
-<a href=#383 id=383 data-nosnippet>383</a>        f.render_widget(Paragraph::new(Span::styled(RESEARCH_ICON, t.accent_bold())), rr);
-<a href=#384 id=384 data-nosnippet>384</a>        app.hits.push((rr, Hit::ResearchTop));
-<a href=#385 id=385 data-nosnippet>385</a>    }
-<a href=#386 id=386 data-nosnippet>386</a>}
+<a href=#369 id=369 data-nosnippet>369</a>    <span class="comment">// Web links in the body become OSC 8 hyperlinks too.
+<a href=#370 id=370 data-nosnippet>370</a>    </span><span class="kw">for </span>l <span class="kw">in </span><span class="kw-2">&amp;</span>md_links {
+<a href=#371 id=371 data-nosnippet>371</a>        <span class="kw">let </span>y = l.line <span class="kw">as </span>i64 - scroll <span class="kw">as </span>i64;
+<a href=#372 id=372 data-nosnippet>372</a>        <span class="kw">let </span>web = l.url.starts_with(<span class="string">"https://"</span>) || l.url.starts_with(<span class="string">"http://"</span>) || l.url.starts_with(<span class="string">"mailto:"</span>);
+<a href=#373 id=373 data-nosnippet>373</a>        <span class="kw">if </span>!web || y &lt; <span class="number">0 </span>|| y <span class="kw">as </span>usize &gt;= h { <span class="kw">continue</span>; }
+<a href=#374 id=374 data-nosnippet>374</a>        <span class="kw">let </span>x = fr.x + l.col <span class="kw">as </span>u16;
+<a href=#375 id=375 data-nosnippet>375</a>        <span class="kw">if </span>x &gt;= fr.x + fr.width { <span class="kw">continue</span>; }
+<a href=#376 id=376 data-nosnippet>376</a>        <span class="kw">let </span>shown = ellipsize(<span class="kw-2">&amp;</span>l.text, (fr.x + fr.width - x) <span class="kw">as </span>usize);
+<a href=#377 id=377 data-nosnippet>377</a>        app.osc_links.push((x, fr.y + y <span class="kw">as </span>u16, shown, l.url.clone()));
+<a href=#378 id=378 data-nosnippet>378</a>    }
+<a href=#379 id=379 data-nosnippet>379</a>    <span class="kw">if </span>fr.width &gt; <span class="number">6 </span>{
+<a href=#380 id=380 data-nosnippet>380</a>        <span class="kw">let </span>marked = app.is_marked(<span class="kw-2">&amp;</span>app.view().stack[d].post.post_id);
+<a href=#381 id=381 data-nosnippet>381</a>        <span class="kw">let </span>sr = Rect { x: fr.x + fr.width - <span class="number">4</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
+<a href=#382 id=382 data-nosnippet>382</a>        f.render_widget(Paragraph::new(Span::styled(star(marked), t.accent_bold())), sr);
+<a href=#383 id=383 data-nosnippet>383</a>        app.hits.push((sr, Hit::StarTop));
+<a href=#384 id=384 data-nosnippet>384</a>    }
+<a href=#385 id=385 data-nosnippet>385</a>    <span class="kw">if </span>fr.width &gt; <span class="number">10 </span>{
+<a href=#386 id=386 data-nosnippet>386</a>        <span class="kw">let </span>inb = app.in_basket(<span class="kw-2">&amp;</span>app.view().stack[d].post.post_id);
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">let </span>br = Rect { x: fr.x + fr.width - <span class="number">7</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
+<a href=#388 id=388 data-nosnippet>388</a>        f.render_widget(Paragraph::new(Span::styled(basket_icon(inb), t.accent_bold())), br);
+<a href=#389 id=389 data-nosnippet>389</a>        app.hits.push((br, Hit::BasketTop));
+<a href=#390 id=390 data-nosnippet>390</a>    }
+<a href=#391 id=391 data-nosnippet>391</a>    <span class="kw">if </span>fr.width &gt; <span class="number">14 </span>&amp;&amp; !app.view().stack[d].post.post_id.starts_with(<span class="string">"research:"</span>) {
+<a href=#392 id=392 data-nosnippet>392</a>        <span class="kw">let </span>rr = Rect { x: fr.x + fr.width - <span class="number">10</span>, y: fr.y, width: <span class="number">3</span>, height: <span class="number">1 </span>};
+<a href=#393 id=393 data-nosnippet>393</a>        f.render_widget(Paragraph::new(Span::styled(RESEARCH_ICON, t.accent_bold())), rr);
+<a href=#394 id=394 data-nosnippet>394</a>        app.hits.push((rr, Hit::ResearchTop));
+<a href=#395 id=395 data-nosnippet>395</a>    }
+<a href=#396 id=396 data-nosnippet>396</a>}
 </code></pre></div></section></main></body></html>

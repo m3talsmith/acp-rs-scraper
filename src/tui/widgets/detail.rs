@@ -39,22 +39,27 @@ pub fn header_lines(f: &DetailFrame, width: usize, t: &Theme) -> Vec<Line<'stati
 
 fn link_label(kind: LinkKind) -> &'static str {
     match kind { LinkKind::ReplyTo => "↳ Replying to", LinkKind::Thread => "⌂ Thread", LinkKind::Mentioned => "→ Linked post",
-        LinkKind::Reply => "↩ Reply", LinkKind::Attachment => "▣ Open" }
+        LinkKind::Reply => "↩ Reply", LinkKind::Attachment => "▣ Open", LinkKind::Tag => "#" }
 }
 
 /// Full detail lines for `width` columns, and (line index, link index) for each link row.
 pub fn detail_lines(f: &DetailFrame, width: usize, t: &Theme) -> (Vec<Line<'static>>, Vec<(usize, usize)>) {
-    let (lines, links, _) = detail_layout(f, width, t, 0);
+    let (lines, links, _, _) = detail_layout(f, width, t, 0);
     (lines, links)
 }
 
 /// Rows reserved for inline pictures: (first line index, image file).
 pub type ImageSlots = Vec<(usize, std::path::PathBuf)>;
 
+/// What [`detail_layout`] returns: the lines, the attachment link rows, the image slots and
+/// the body's Markdown links (line indexes into the lines).
+pub type DetailLayout = (Vec<Line<'static>>, Vec<(usize, usize)>, ImageSlots, Vec<crate::tui::markdown::MdLink>);
+
 /// [`detail_lines`] plus `img_rows` blank rows under the text for each stored
 /// picture (0 = no pictures), and where those rows start.
+/// Also returns the body's Markdown links with their line indices in the result (for OSC 8).
 pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
-    -> (Vec<Line<'static>>, Vec<(usize, usize)>, ImageSlots) {
+    -> DetailLayout {
     let mut slots = Vec::new();
     let mut lines = vec![meta_line(&f.post, t)];
     let mut links = Vec::new();
@@ -72,6 +77,15 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
                 Span::raw("  "),
                 Span::styled(name, if exists { t.accent().underline(true) } else { t.muted().strikethrough(true) }),
                 Span::styled(if exists { "" } else { "  (file missing)" }, t.muted()),
+            ]));
+            return;
+        }
+        if l.kind == LinkKind::Tag {
+            let st = if sel { t.selected() } else { t.accent() };
+            links.push((lines.len(), i));
+            lines.push(Line::from(vec![
+                Span::styled(format!("#{}", l.id), st.underline(true)),
+                Span::styled("  tag feed", t.muted()),
             ]));
             return;
         }
@@ -96,7 +110,10 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
         for l in wrap(f.post.title.trim(), width) { lines.push(Line::styled(l, t.bold())); }
         lines.push(Line::raw(""));
     }
-    lines.extend(crate::tui::markdown::render(f.post.content.trim_end(), width, t));
+    let md = crate::tui::markdown::render_doc(&link_hashtags(f.post.content.trim_end()), width, t);
+    let at = lines.len();
+    let md_links: Vec<_> = md.links.into_iter().map(|mut l| { l.line += at; l }).collect();
+    lines.extend(md.lines);
     if img_rows > 0 {
         for a in &f.attachments {
             if !crate::tui::images::is_image(&a.mime_type, &a.local_path) || !a.local_path.exists() { continue; }
@@ -119,15 +136,26 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
         lines.push(Line::styled("Linked posts", t.bold()));
         for i in others { link_line(i, &mut lines, &mut links); }
     }
+    let tags: Vec<usize> = (0..f.links.len()).filter(|i| f.links[*i].kind == LinkKind::Tag).collect();
+    if !tags.is_empty() {
+        lines.push(Line::raw(""));
+        lines.push(Line::styled(format!("Tags ({})", tags.len()), t.bold()));
+        for i in tags { link_line(i, &mut lines, &mut links); }
+    }
     let replies: Vec<usize> = (0..f.links.len()).filter(|i| matches!(f.links[*i].kind, LinkKind::Reply)).collect();
     if !replies.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled(format!("Replies ({})", replies.len()), t.bold()));
+        let heading = match f.sort {
+            ThreadSort::Newest => format!("Replies ({})", replies.len()),
+            ThreadSort::Oldest => format!("Replies ({}) · oldest", replies.len()),
+            ThreadSort::Top => format!("Replies ({}) · top", replies.len()),
+        };
+        lines.push(Line::styled(heading, t.bold()));
         for i in replies { link_line(i, &mut lines, &mut links); }
     }
     if !f.links.is_empty() {
         lines.push(Line::raw(""));
-        lines.push(Line::styled("←/→ choose a link · Enter opens it · Esc closes", t.muted()));
+        lines.push(Line::styled("←/→ choose a link · Enter opens it · s sorts replies · Esc closes", t.muted()));
     }
-    (lines, links, slots)
+    (lines, links, slots, md_links)
 }

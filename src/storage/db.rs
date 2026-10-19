@@ -1,6 +1,7 @@
 //! SQLite queries: saving posts, profiles, mentions, attachments; listing and searching.
 
 use crate::prelude::*;
+use rusqlite::OpenFlags;
 
 /// Stored `post_id`s that have a body (or attachments); blank rows and rows
 /// whose body is known to be truncated are left out so the next scrape
@@ -8,7 +9,7 @@ use crate::prelude::*;
 pub fn db_known_ids(db: &std::path::Path) -> Result<HashSet<String>> {
     let mut out = HashSet::new();
     if !db.exists() { return Ok(out); }
-    let c = Connection::open(db)?;
+    let c = open_db(db)?;
     let ok: bool = c.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'", [],
         |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
@@ -34,7 +35,7 @@ pub fn db_known_ids(db: &std::path::Path) -> Result<HashSet<String>> {
 pub fn db_reply_counts(db: &std::path::Path) -> Result<HashMap<String, usize>> {
     let mut out = HashMap::new();
     if !db.exists() { return Ok(out); }
-    let c = Connection::open(db)?;
+    let c = open_db(db)?;
     let ok: bool = c.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='posts'", [],
         |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
@@ -68,7 +69,7 @@ pub struct NickInfo {
 /// Every nick with posts or a profile, with counts and dates (for `--list-nicks`).
 pub fn list_nicks_db(db: &std::path::Path) -> Result<Vec<NickInfo>> {
     if !db.exists() { return Ok(Vec::new()); }
-    list_nicks_conn(&Connection::open(db)?)
+    list_nicks_conn(&open_db(db)?)
 }
 
 /// [`list_nicks_db`] on an open connection (only reads; works read-only).
@@ -131,30 +132,49 @@ pub fn print_nicks_table(infos: &[NickInfo]) {
 pub fn save(posts: &[Post]) -> Result<usize> {
     let path = home()?.join(DB_REL_PATH);
     let mut db = open_db(&path)?;
-    ensure_posts_schema(&db)?;
+    let n = save_posts(&mut db, posts)?;
+    info!("DB: {}", path.display());
+    Ok(n)
+}
+
+/// Insert `posts` into an open database. Same rules as [`save`]: a blank
+/// `body_json` does not erase one already stored, and tags are replaced only
+/// when this write carries a JSON body or at least one tag.
+pub fn save_posts(db: &mut Connection, posts: &[Post]) -> Result<usize> {
+    ensure_posts_schema(db)?;
     let tx = db.transaction()?;
     let mut n = 0;
     {
         let mut st = tx.prepare(
-            "INSERT INTO posts (post_id,parent_post_id,in_reply_to_id,nick,title,content,posted_at,body_state)
-             VALUES (?1,?2,?3,?4,?5,?6,?7,?8)
+            "INSERT INTO posts (post_id,parent_post_id,in_reply_to_id,nick,title,content,posted_at,body_state,body_json,score)
+             VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)
              ON CONFLICT(post_id) DO UPDATE SET
                title = CASE WHEN (posts.content = '' AND posts.title = '') OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND excluded.title <> '') THEN excluded.title ELSE posts.title END,
                content = CASE WHEN (posts.content = '' AND posts.title = '') OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND excluded.content <> '') THEN excluded.content ELSE posts.content END,
                body_state = CASE WHEN excluded.body_state = 'full' AND (excluded.content <> '' OR posts.content = '') THEN 'full' ELSE posts.body_state END,
+               body_json = CASE WHEN excluded.body_json <> '' THEN excluded.body_json ELSE posts.body_json END,
+               score = COALESCE(excluded.score, posts.score),
                in_reply_to_id = CASE WHEN excluded.in_reply_to_id <> '' AND excluded.in_reply_to_id <> excluded.parent_post_id
                                 THEN excluded.in_reply_to_id ELSE posts.in_reply_to_id END
              WHERE (posts.content = '' AND posts.title = '' AND (excluded.content <> '' OR excluded.title <> ''))
                 OR (posts.body_state <> 'full' AND excluded.body_state = 'full' AND (excluded.content <> '' OR posts.content = ''))
+                OR (excluded.body_json <> '' AND excluded.body_json <> posts.body_json)
+                OR (excluded.score IS NOT NULL AND excluded.score IS NOT posts.score)
                 OR (excluded.in_reply_to_id <> '' AND excluded.in_reply_to_id <> excluded.parent_post_id
                     AND excluded.in_reply_to_id <> posts.in_reply_to_id)")?;
+        let mut clear_tags = tx.prepare("DELETE FROM post_tags WHERE post_id = ?1")?;
+        let mut ins_tag = tx.prepare("INSERT OR IGNORE INTO post_tags (post_id, tag) VALUES (?1, ?2)")?;
         for p in posts {
             let state = if p.truncated { "truncated" } else { "full" };
-            n += st.execute(params![p.post_id, p.parent_post_id, p.in_reply_to_id, p.nick, p.title, p.content, p.posted_at, state])?;
+            n += st.execute(params![p.post_id, p.parent_post_id, p.in_reply_to_id, p.nick, p.title, p.content, p.posted_at, state, p.body_json, p.score])?;
+            let tags = extract_tags(&p.body_json, &p.content);
+            if !p.body_json.is_empty() || !tags.is_empty() {
+                clear_tags.execute(params![p.post_id])?;
+                for t in &tags { ins_tag.execute(params![p.post_id, t])?; }
+            }
         }
     }
     tx.commit()?;
-    info!("DB: {}", path.display());
     Ok(n)
 }
 
@@ -170,7 +190,17 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
         "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'body_state'", [],
         |r| r.get::<_, i64>(0))? > 0;
     if !has_state { c.execute_batch(POSTS_ADD_BODY_STATE)?; }
+    let has_json: bool = c.query_row(
+        "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'body_json'", [],
+        |r| r.get::<_, i64>(0))? > 0;
+    if !has_json { c.execute_batch(POSTS_ADD_BODY_JSON)?; }
+    let has_score: bool = c.query_row(
+        "SELECT count(*) FROM pragma_table_info('posts') WHERE name = 'score'", [],
+        |r| r.get::<_, i64>(0))? > 0;
+    if !has_score { c.execute_batch(POSTS_ADD_SCORE)?; }
     c.execute_batch(POSTS_MIGRATIONS)?;
+    c.execute_batch(POST_TAGS_SCHEMA)?;
+    c.execute_batch(POST_VERSIONS_SCHEMA)?;
     Ok(())
 }
 
@@ -219,7 +249,7 @@ pub fn save_mentions(db: &std::path::Path, hits: &[MentionHit]) -> Result<()> {
 /// Load profiles and mentions, optionally only for `nicks`.
 pub fn load_profiles_mentions(db: &std::path::Path, nicks: &[String]) -> Result<(Vec<Profile>, Vec<MentionHit>)> {
     if !db.exists() { return Ok((Vec::new(), Vec::new())); }
-    let c = Connection::open(db)?;
+    let c = open_db(db)?;
     let mut profiles = Vec::new();
     let has_p: bool = c.query_row(
         "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='profiles'", [], |r| r.get::<_, i64>(0))
@@ -289,14 +319,14 @@ pub fn save_attachments(db: &Path, atts: &[Attachment]) -> Result<()> {
 /// optionally restricted to `nick`, plus context: each match's parent and
 /// its direct children. Attachments come from the attachments table.
 pub fn search_db(db: &Path, query: Option<&str>, nicks: &[String]) -> Result<(Vec<Post>, Vec<Attachment>, usize)> {
-    let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
+    let c = open_db(db).with_context(|| format!("open {}", db.display()))?;
     ensure_posts_schema(&c)?;
     let like = query.map(|q| format!("%{}%", q.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_")));
-    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state";
+    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state,body_json,score";
     let row = |r: &rusqlite::Row| -> rusqlite::Result<Post> {
         Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
                   content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new(),
-                  truncated: r.get::<_, String>(7)? == "truncated" })
+                  truncated: r.get::<_, String>(7)? == "truncated", body_json: r.get(8)?, score: r.get(9)? })
     };
     let mut st = c.prepare(&format!(
         "SELECT {cols} FROM posts WHERE (?1 IS NULL OR title LIKE ?1 ESCAPE '\\' OR content LIKE ?1 ESCAPE '\\')
@@ -349,28 +379,139 @@ fn attachments_for(c: &Connection, out: &[Post]) -> Result<Vec<Attachment>> {
 /// Exactly these posts (in the order given, duplicates once) with their
 /// attachments, and the ids that are not in the database.
 pub fn posts_by_ids(db: &Path, ids: &[String]) -> Result<(Vec<Post>, Vec<Attachment>, Vec<String>)> {
-    let c = Connection::open(db).with_context(|| format!("open {}", db.display()))?;
+    let c = open_db(db).with_context(|| format!("open {}", db.display()))?;
     ensure_posts_schema(&c)?;
-    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state";
+    let cols = "post_id,parent_post_id,nick,title,content,posted_at,in_reply_to_id,body_state,body_json,score";
     let mut by_id = c.prepare(&format!("SELECT {cols} FROM posts WHERE post_id = ?1"))?;
     let (mut out, mut missing, mut seen) = (Vec::new(), Vec::new(), HashSet::new());
     for id in ids {
         if !seen.insert(id.clone()) { continue; }
         let p = by_id.query_row(params![id], |r| Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
             content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new(),
-            truncated: r.get::<_, String>(7)? == "truncated" })).optional()?;
+            truncated: r.get::<_, String>(7)? == "truncated", body_json: r.get(8)?, score: r.get(9)? })).optional()?;
         match p { Some(p) => out.push(p), None => missing.push(id.clone()) }
     }
     let atts = attachments_for(&c, &out)?;
     Ok((out, atts, missing))
 }
 
+/// One stored edit of a post. `source` is `site`, `peer`, `local` or `draft`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PostVersion {
+    /// The post these versions belong to.
+    pub post_id: String,
+    /// Stable hash of `body_json` and `edited_at` (FNV-1a 64, hex).
+    pub version_hash: String,
+    /// ProseMirror JSON when the site sent a document, otherwise the text body.
+    pub body_json: String,
+    /// When this version was written (`edited_at`, else `inserted_at` / `updated_at`).
+    /// A page that sent no timestamp is `~NNNN`, the order on that page.
+    pub edited_at: String,
+    /// When this client stored the row (RFC 3339).
+    pub observed_at: String,
+    /// `site` (read from the site), or later `peer` / `local` / `draft`.
+    pub source: String,
+}
+
+/// Insert versions. The same `(post_id, version_hash)` only refreshes `observed_at`.
+/// Creates the table. `source` must be `site`, `peer`, `local` or `draft`.
+pub fn save_post_versions(c: &mut Connection, rows: &[PostVersion]) -> Result<usize> {
+    ensure_posts_schema(c)?;
+    let tx = c.transaction()?;
+    {
+        let mut st = tx.prepare(
+            "INSERT INTO post_versions (post_id, version_hash, body_json, edited_at, observed_at, source)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT(post_id, version_hash) DO UPDATE SET observed_at = excluded.observed_at")?;
+        for v in rows {
+            if !matches!(v.source.as_str(), "site" | "peer" | "local" | "draft") {
+                bail!("post version source {:?} is not site, peer, local or draft", v.source);
+            }
+            st.execute(params![v.post_id, v.version_hash, v.body_json, v.edited_at, v.observed_at, v.source])?;
+        }
+    }
+    tx.commit()?;
+    Ok(rows.len())
+}
+
+/// Versions of `post_id`, oldest `edited_at` first. Empty when the table is absent.
+pub fn load_post_versions(c: &Connection, post_id: &str) -> Result<Vec<PostVersion>> {
+    if !table_exists(c, "post_versions")? { return Ok(Vec::new()); }
+    let mut st = c.prepare(
+        "SELECT post_id, version_hash, body_json, edited_at, observed_at, source
+         FROM post_versions WHERE post_id = ?1 ORDER BY edited_at, version_hash")?;
+    let v = st.query_map(params![post_id], |r| Ok(PostVersion {
+        post_id: r.get(0)?, version_hash: r.get(1)?, body_json: r.get(2)?,
+        edited_at: r.get(3)?, observed_at: r.get(4)?, source: r.get(5)?,
+    }))?.collect::<rusqlite::Result<Vec<_>>>()?;
+    Ok(v)
+}
+
+/// Thread id of a stored post: `parent_post_id` when it is a reply, else its own id.
+/// `None` when the post is not stored.
+pub fn thread_of_post(c: &Connection, post_id: &str) -> Result<Option<String>> {
+    if !table_exists(c, "posts")? { return Ok(None); }
+    let parent: Option<String> = c.query_row(
+        "SELECT parent_post_id FROM posts WHERE post_id = ?1",
+        params![post_id], |r| r.get(0)).optional()?;
+    Ok(parent.map(|p| if p.is_empty() { post_id.to_string() } else { p }))
+}
+
+/// One saved site read: the posts in the order the site returned them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SiteFeed {
+    /// Stable key (`top:week`, `top:all:replies`, …).
+    pub key: String,
+    /// Title shown in the Body.
+    pub title: String,
+    /// When this view was last read from the site (RFC 3339).
+    pub fetched_at: String,
+    /// Post ids, in site order.
+    pub post_ids: Vec<String>,
+}
+
+/// Insert or replace a site read. Creates the table.
+pub fn save_site_feed(c: &Connection, feed: &SiteFeed) -> Result<()> {
+    c.execute_batch(SITE_FEEDS_SCHEMA)?;
+    let ids = serde_json::to_string(&feed.post_ids)?;
+    c.execute(
+        "INSERT INTO site_feeds (key, title, fetched_at, post_ids) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(key) DO UPDATE SET title = excluded.title, fetched_at = excluded.fetched_at, post_ids = excluded.post_ids",
+        params![feed.key, feed.title, feed.fetched_at, ids])?;
+    Ok(())
+}
+
+/// The saved site read `key`, if that table and row exist.
+pub fn load_site_feed(c: &Connection, key: &str) -> Result<Option<SiteFeed>> {
+    let has: bool = c.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name='site_feeds'",
+        [], |r| r.get::<_, i64>(0)).unwrap_or(0) > 0;
+    if !has { return Ok(None); }
+    let row: Option<(String, String, String)> = c.query_row(
+        "SELECT title, fetched_at, post_ids FROM site_feeds WHERE key = ?1",
+        params![key], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).optional()?;
+    let Some((title, fetched_at, ids)) = row else { return Ok(None) };
+    let post_ids: Vec<String> = serde_json::from_str(&ids)
+        .with_context(|| format!("site feed {key} has a broken post list"))?;
+    Ok(Some(SiteFeed { key: key.into(), title, fetched_at, post_ids }))
+}
+
 /// Open (creating) the database at `db`, creating its directory first so the
 /// very first write on a fresh `$HOME` works whichever table is written first.
 pub fn open_db(db: &Path) -> Result<Connection> {
-    if let Some(dir) = db.parent() { std::fs::create_dir_all(dir)?; }
-    let c = Connection::open(db)?;
-    // The TUI can write bookmarks while a scan runs: wait for the lock instead of failing.
+    open_db_flags(db, OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_CREATE | OpenFlags::SQLITE_OPEN_URI | OpenFlags::SQLITE_OPEN_NO_MUTEX)
+}
+
+/// Open `db` with `flags`. An encrypted database gets its key before any other statement.
+pub fn open_db_flags(db: &Path, flags: OpenFlags) -> Result<Connection> {
+    if let Some(dir) = db.parent() {
+        if flags.contains(OpenFlags::SQLITE_OPEN_CREATE) {
+            std::fs::create_dir_all(dir)?;
+        }
+    }
+    let c = Connection::open_with_flags(db, flags).with_context(|| format!("open {}", db.display()))?;
+    // SQLCipher wants the key before any other statement, including busy_timeout.
+    crate::crypto::atrest::apply_if_needed(&c, db)?;
     c.busy_timeout(std::time::Duration::from_secs(10))?;
     Ok(c)
 }

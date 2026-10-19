@@ -116,6 +116,10 @@ pub trait Store {
     fn research_projects(&self) -> Result<Vec<ResearchProject>> { Ok(Vec::new()) }
     /// Items of research project `name`, in the order added.
     fn research_items(&self, _name: &str) -> Result<Vec<ResearchItem>> { Ok(Vec::new()) }
+    /// A saved site read (posts in site order), when this store has one.
+    fn site_feed(&self, _key: &str) -> Result<Option<SiteFeed>> { Ok(None) }
+    /// Stored edit versions of `post_id`, oldest first.
+    fn post_versions(&self, _post_id: &str) -> Result<Vec<PostVersion>> { Ok(Vec::new()) }
 }
 
 /// The stored file of research item `research:<id>`, as an attachment (local files, page snapshots).
@@ -133,7 +137,7 @@ const COLS: &str = "post_id,parent_post_id,nick,title,content,posted_at,in_reply
 fn row(r: &rusqlite::Row) -> rusqlite::Result<Post> {
     Ok(Post { post_id: r.get(0)?, parent_post_id: r.get(1)?, nick: r.get(2)?, title: r.get(3)?,
         content: r.get(4)?, posted_at: r.get(5)?, in_reply_to_id: r.get(6)?, media: Vec::new(),
-        truncated: r.get::<_, String>(7)? == "truncated" })
+        truncated: r.get::<_, String>(7)? == "truncated", body_json: r.get(8)?, score: r.get(9)? })
 }
 
 /// The real database, opened read-only. A missing database reads as empty.
@@ -146,9 +150,8 @@ impl SqliteStore {
     pub fn new(path: PathBuf) -> Self { SqliteStore { path } }
     fn conn(&self) -> Result<Option<Connection>> {
         if !self.path.exists() { return Ok(None); }
-        let c = Connection::open_with_flags(&self.path,
-            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)
-            .with_context(|| format!("open {} read-only", self.path.display()))?;
+        let c = crate::storage::db::open_db_flags(&self.path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
         if !crate::maintenance::table_exists(&c, "posts")? { return Ok(None); }
         Ok(Some(c))
     }
@@ -159,6 +162,8 @@ impl SqliteStore {
         let mut s = COLS.to_string();
         if !Self::has_col(c, "in_reply_to_id") { s = s.replace("in_reply_to_id", "parent_post_id"); }
         if !Self::has_col(c, "body_state") { s = s.replace("body_state", "'unknown'"); }
+        if Self::has_col(c, "body_json") { s.push_str(",body_json"); } else { s.push_str(",''"); }
+        if Self::has_col(c, "score") { s.push_str(",score"); } else { s.push_str(",NULL"); }
         s
     }
     fn query(&self, where_: &str, order: &str, p: &[&dyn rusqlite::ToSql]) -> Result<Vec<Post>> {
@@ -237,6 +242,14 @@ impl Store for SqliteStore {
         if !crate::maintenance::table_exists(&c, "research_items")? { return Ok(Vec::new()); }
         match project_id(&c, name)? { Some(id) => project_items(&c, id), None => Ok(Vec::new()) }
     }
+    fn site_feed(&self, key: &str) -> Result<Option<SiteFeed>> {
+        let Some(c) = self.conn()? else { return Ok(None) };
+        load_site_feed(&c, key)
+    }
+    fn post_versions(&self, post_id: &str) -> Result<Vec<PostVersion>> {
+        let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        load_post_versions(&c, post_id)
+    }
 }
 
 /// In-memory store (tests, headless renders).
@@ -252,6 +265,10 @@ pub struct MemStore {
     pub projects: Vec<ResearchProject>,
     /// Research items: (project name, item).
     pub research: Vec<(String, ResearchItem)>,
+    /// Saved site reads (tests and headless renders).
+    pub feeds: Vec<SiteFeed>,
+    /// Stored edit versions (tests and headless renders).
+    pub versions: Vec<PostVersion>,
 }
 
 impl Store for MemStore {
@@ -292,6 +309,14 @@ impl Store for MemStore {
     fn research_projects(&self) -> Result<Vec<ResearchProject>> { Ok(self.projects.clone()) }
     fn research_items(&self, name: &str) -> Result<Vec<ResearchItem>> {
         Ok(self.research.iter().filter(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, i)| i.clone()).collect())
+    }
+    fn site_feed(&self, key: &str) -> Result<Option<SiteFeed>> {
+        Ok(self.feeds.iter().find(|f| f.key == key).cloned())
+    }
+    fn post_versions(&self, post_id: &str) -> Result<Vec<PostVersion>> {
+        let mut v: Vec<PostVersion> = self.versions.iter().filter(|x| x.post_id == post_id).cloned().collect();
+        v.sort_by(|a, b| a.edited_at.cmp(&b.edited_at).then(a.version_hash.cmp(&b.version_hash)));
+        Ok(v)
     }
 }
 

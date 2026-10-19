@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["badge","detail_layout","detail_lines","header_lines","link_label","meta_line","snippet"],"type":["ImageSlots"]};
+window.SIDEBAR_ITEMS = {"fn":["badge","detail_layout","detail_lines","header_lines","link_label","meta_line","snippet"],"type":["DetailLayout","ImageSlots"]};

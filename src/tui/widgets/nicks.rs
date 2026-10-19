@@ -24,6 +24,23 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
         app.hits.push((br, Hit::Bookmarks));
         inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
     }
+    // "EB" row under bookmarks: the Executive Board feed.
+    if inner.height > 1 {
+        let br = Rect { height: 1, ..inner };
+        let on = app.search.as_ref().is_some_and(|v| v.site_key.as_deref().is_some_and(|k| k.starts_with("eb")));
+        let st = if on { t.selected() } else { t.accent_bold() };
+        f.render_widget(Paragraph::new(Line::from(vec![Span::styled(" EB", st)])), br);
+        app.hits.push((br, Hit::Eb));
+        inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
+    }
+    if inner.height > 1 {
+        let br = Rect { height: 1, ..inner };
+        let on = app.search.as_ref().is_some_and(|v| v.site_key.as_deref().is_some_and(|k| k.starts_with("explore")));
+        let st = if on { t.selected() } else { t.accent_bold() };
+        f.render_widget(Paragraph::new(Line::from(vec![Span::styled(" Explore", st)])), br);
+        app.hits.push((br, Hit::Explore));
+        inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
+    }
     // Filter field: "/ text▏  3/390 x".
     if inner.height > 1 && !app.all_nicks.is_empty() {
         let fr = Rect { height: 1, ..inner };

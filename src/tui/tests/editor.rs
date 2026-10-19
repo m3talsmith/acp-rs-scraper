@@ -462,3 +462,16 @@ fn a_truecolor_note_when_the_theme_uses_rgb_and_the_terminal_may_not() {
     e.file = themes::download::starter("plain");
     assert!(ed(&a).truecolor_note().is_none(), "ANSI colours only");
 }
+
+#[test]
+fn the_preview_sample_post_shows_the_markdown_elements() {
+    let mut a = editor("md-elements");
+    let mut missing = Vec::new();
+    for e in [Element::H1, Element::H2, Element::ListMarker, Element::Task, Element::Quote, Element::CodeBlock,
+        Element::Table, Element::TableHeader, Element::Rule, Element::Footnote] {
+        go_to(&mut a, Row::Element(e));
+        let s = text(&draw(&mut a, 140, 50));
+        if !s.contains(&format!("‹{}› highlighted", e.name())) { missing.push(e.name()); }
+    }
+    assert!(missing.is_empty(), "not on screen: {missing:?}\n{}", text(&draw(&mut a, 140, 50)));
+}

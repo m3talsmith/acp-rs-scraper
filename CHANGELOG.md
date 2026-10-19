@@ -6,6 +6,163 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Documentation
+
+- **Draft GitHub Releases.** A version that is not on `main` is a draft release, with the notes from its changelog section and no attached files. The maintainer publishes the draft after that version is merged. Releases for versions already on `main` (2.16.0 and earlier) are left alone. The post-commit hook still only creates the git tag. Nothing in CI publishes a release.
+- **Tombstones, revised.** A signed tombstone keeps the post. The plan no longer drops the body after a grace period. The UI shows a tombstone icon (🪦, or `[RIP]`), the content stays viewable, and a signed restore record or a newer signature of the same post id clears the tombstone. The restore record is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
+- **Password change / re-key is 3.22.0.** It does not change the master or the `acp-id`. It re-wraps the SQLCipher key, the keystore, the sealed phrase, and the backup-wrapping key in one transaction, with rollback, and it requires the old password. It sits before the daemon and the OS keyring. Stages that were 3.22.0 through 3.28.0 are now 3.23.0 through 3.29.0. The write core stays 3.4.0.
+
+## [3.3.1] - 2026-10-19
+
+### Fixed
+
+- **Job elapsed time.** The job-details window measured every refresh from the start to the current time, so a finished, failed, or cancelled job kept counting. Elapsed now stops at the recorded end (finish, failure, or cancel). It still ticks while the job is running. A stopped job with no recorded end shows `unknown`. The header running mark and the status bar do not show a duration. Starting the terminal UI again does not rebuild jobs from log files.
+
+### Documentation
+
+- **Plan decisions.** [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) records the answers from review: an authorizer certificate lasts 30 days, a node certificate lasts 365 days, and clock skew is 5 minutes; renewal, the 7-day grace period, and revocation stay in their planned stages. A future daemon may unlock from the OS keyring (Secret Service, Keychain, Credential Manager) behind `SecretStore`. Public nodes are opt-in and land with `--serve` in the network-node stage. The first machine's history access is accepted (`allowed`, `max_nodes` 16). The 3.3.0 certificate constants are unchanged. The tombstone rule and the stage numbers after 3.21.0 were revised after this note. See Unreleased.
+
+## [3.3.0] - 2026-10-19
+
+### Added
+
+- **Node identity.** `--node-init` generates an ed25519 signing key and an X25519 wrapping key on this machine. Those keys are not derived from the master. The master, rebuilt from the sealed phrase and the password (or from the phrase you type when there is no seal), signs an authorizer certificate and a node certificate, then it is dropped. The secret is sealed at `~/.acp/node/keystore` (mode `0600`) under the unlocked database key. A plain `identity.key` is not written. `--node-id` prints the name, the account id, the peer id, the fingerprint, six verification words, and whether the certificate still checks. The header shows `◉ name` when a node exists. Backups skip the keystore, so a restore does not clone the node. Certificate lifetimes in this release are the plan's proposed defaults (30 days for a node, 365 days for an authorizer, 5 minutes of clock skew). The format is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
+
+## [3.2.0] - 2026-10-19
+
+### Added
+
+- **Shared core crate.** `acp_rs_node_core` holds the master secret, the 24-word phrase, the SLIP-39 shares, canonical CBOR, the HPKE wrap of an account key, and a `SecretStore` interface. The terminal app depends on it. A later relay-only package, tray app, or Dart FFI crate can depend on it without the terminal UI. Canonical CBOR is specified in [docs/PROTOCOL.md](docs/PROTOCOL.md), with test vectors. Signing and hashing use that encoding. There is no protobuf.
+
+### Changed
+
+- Nothing a current install reads or writes. Command-line flags, `preferences.toml`, the SQLCipher database, `rs.database.bootstrap`, `~/.acp/acp-id`, `~/.acp/recovery.seal`, and `.acpbackup` format version 1 are the same bytes as in 3.1.0.
+
+## [3.1.0] - 2026-10-19
+
+### Added
+
+- **Job details.** Click the status bar, or the `⟳` running mark in the header, or press Tab until Status is focused and then Enter. The window shows the job name and what started it, whether it is running, finished, failed or cancelled, the start time and elapsed time, the current stage and a spinner, and a scrollable log tail. When several jobs are running they are a list. `c` or Cancel stops a job that is still running. Esc closes the window. The password and the database key are not shown. Encrypting the database, backup and restore still use the progress screen; they are not jobs in this window.
+
+## [3.0.0] - 2026-10-18
+
+### BREAKING CHANGES
+
+- **A password is required to create or open the local database.** 2.x opened `~/.acp/ai/data/rs.database` with no password. 3.0.0 creates that file encrypted and asks for the password at startup, or reads `ACP_PASSWORD` when there is no terminal. The password is at least 8 characters and has to pass a strength check. There is no password reset.
+- **An existing 2.x database is not opened.** Startup stops and tells you to run `acp-rs-scraper --encrypt-db`. That command writes a `*.acpbackup` first, encrypts the database, checks row counts and a content hash, and deletes the plaintext file only after the encrypted copy matches.
+- **Rollback.** Until `--encrypt-db` succeeds, a 2.x binary still reads the plaintext file. If the migration fails, that file is left in place. After it succeeds, 2.x cannot read the database, `rs.database.bootstrap`, or a `*.acpbackup`. Copy `rs.database` somewhere outside `~/.acp` before migrating if you may need to go back; that copy is what you put back to return to 2.x. 3.0.0 restores one of its own backups with `--restore`.
+- **New files.** `rs.database.bootstrap` (next to the database) holds the wrapped local key. `~/.acp/acp-id` appears only after `--identity-init`. `~/.acp/recovery.seal` is the encrypted copy of the recovery phrase, written by the same command. `session.json` is unchanged and is still not inside a backup.
+
+### Added
+
+- **Master secret and `acp-id`.** `--identity-init` draws 256 bits, shows them as a 24-word BIP-39 phrase on a terminal, and derives the master from that seed and the password. You type the words again to confirm the paper copy. The words are not logged. An encrypted copy of the 256-bit entropy is stored at `~/.acp/recovery.seal` (mode `0600`), wrapped with Argon2id and XChaCha20-Poly1305, so `--show-phrase` can show them again after the password is entered. The password alone cannot rebuild the words. A phrase created before that file existed was shown once and cannot be shown again. The Argon2id salt of the master is `blake3("acp-master" ‖ seed)`, so the email is not an input. ed25519 and X25519 keys are HKDF labels of that master. `--acp-id` prints the pinned id and does not print the phrase. A wrong password still derives an id; the tool shows it and refuses unless it matches the pin.
+- **After encryption.** Creating a database, and `--encrypt-db` after a 2.x migration, explain the recovery phrase on a terminal: what it is for, how to create it, what 3 of 5 shares means, how to store and check a paper copy, and how to restore a `.acpbackup`. The command offers to run `--identity-init` immediately. The terminal UI asks the same question and, if you skip it, opens Help with that text. `--help` and the Help screen (`?` / F1) include it. A non-interactive run does not print it.
+- **`--show-phrase`.** Shows the 24 words again. It requires a terminal and always asks for the password, including when `ACP_PASSWORD` is set. It warns that the words will be on the screen and may stay in scrollback, lets you type a paper copy to check it, and offers to clear the terminal afterward. `--change-password` reseals the phrase with the new password when the phrase used the same password.
+- **Recovery shares.** The 256-bit seed is split with SLIP-39, one group, 3 of 5, and an empty share passphrase. `--shares-print` writes five sheets. `--shares-verify` checks three to five shares and stores nothing secret. The password is not in the shares. Reissuing shares of the same seed does not invalidate older ones. The construction is checked against the official SLIP-39 test vectors.
+- **Backup and restore.** `--backup` writes a `*.acpbackup` file: a consistent SQLite snapshot plus preferences, themes, research, attachments, the pinned `acp-id`, and `recovery.seal` when it exists. The archive is tar, then zstd, then XChaCha20-Poly1305 under a key from Argon2id. `--restore` checks the format, the password and, on a new machine, the phrase or three shares against the header `acp-id`. The seal inside the archive does not unlock a new computer; that still needs the phrase or three shares. `session.json` and the node secret are not in the archive. `--backup-schedule daily|weekly --keep N --dest DIR` is stored and the terminal UI reminds you when it is due. The headless job that runs the schedule is a later release.
+- **Encryption at rest.** A database this program creates is SQLCipher. The on-disk key is a random 256-bit local key, wrapped under the password in `rs.database.bootstrap`. A separate account data key (epoch 1) is wrapped to that password and, when an `acp-id` is pinned, to the master with HPKE. Restore of a backup re-encrypts with a fresh local key.
+- **Progress for the slow steps.** Creating a database, `--encrypt-db`, `--change-password`, `--backup`, and `--restore` run the long work off the thread that draws the terminal. While stdout is a terminal you get a spinner, the stage (deriving the key, encrypting the database, verifying, and the backup and restore stages), and the elapsed time. Keypresses are ignored until that step finishes, so it is not cancelled in the middle of a copy.
+- **`--change-password`.** Rewraps the local database key and the account passphrase wrap. The account id does not change. A backup written with the old password still needs that password.
+
+### Fixed
+
+- **A running session does not ask for the password again.** Scrape, Research, Explore, Executive Board, Sync, and the other jobs are a second copy of this program. That copy did not have the key the terminal UI had just unlocked, so it exited with `Error: this database needs a password. Set ACP_PASSWORD, or run from a terminal.` The terminal UI copied that line into the status bar and opened the same text again over the post list, which is what was left on the screen when changing tabs. The unlocked key now stays in memory for the session and is passed to those jobs on a private pipe (not on the command line and not in the environment). It is wiped when the process exits. `ACP_PASSWORD` and the password prompt are only used at startup. A job that fails is reported in the status bar, and changing tabs redraws the whole screen.
+
+### Changed
+
+- **One Argon2id stretch per operation.** Migration used to stretch the password three times (the backup, the local key, and the account key) with no feedback. Those wraps now share one stretch and split the keys with HKDF. The parameters are unchanged: 64 MiB, three iterations, one lane. A password change stretches the old password and the new password once each when those wraps share a salt. An older wrap that stored its own salt still opens.
+- **The SQLCipher password KDF is not stacked on Argon2id.** The local key is passed as `PRAGMA key = "x'<64 hex>'"`, which uses those bytes directly. SQLCipher's configured KDF stays PBKDF2-HMAC-SHA512 at 256,000 iterations and is what a passphrase key would run; a raw key does not run it. The page HMAC key is still derived with SQLCipher's 2-iteration step. That is the raw-key construction, and opening the file stays well under a millisecond. The temporary copy turns synchronous writes off and fsyncs once before it replaces the plaintext file.
+
+## [2.24.1] - 2026-10-18
+
+### Fixed
+
+- **Bookmarks** push the hook `bookmark {id, state:"1"|"0"}` instead of the click `toggle-bookmark {id}`. `"1"` adds and `"0"` removes. That is the event the site's current page sends; the click name still worked at 2.5.0 and may disappear.
+
+## [2.24.0] - 2026-10-18
+
+### Added
+
+- **Edit history** (`/rs/post/{thread}/{id}/edits`): `--edits THREAD/POST` (or a post id already stored). `p` › View edits opens the saved versions at once and refreshes them. Each version is a line diff against the previous one. Versions are stored in `post_versions` with `source = site`. The table also allows `peer`, `local` and `draft` for later local-first drafts; those are not written yet.
+
+## [2.23.0] - 2026-10-18
+
+### Added
+
+- **Reposts list** (`/rs/post/{id}/reposts`): `--reposts ID`. `p` opens a post menu on the highlighted or open post; View reposts opens that list, saved locally and refreshed from the site.
+
+## [2.22.0] - 2026-10-18
+
+### Added
+
+- **Thread sort:** `s` in an open thread cycles replies newest → oldest → top. Newest is the site default (no hook). Oldest and top send `sort {sort:"oldest"|"top"}` via `--sort-thread ID --thread-sort ORDER` and store `score`. A missing score does not blank one already stored. Top sort puts posts with no score last.
+
+## [2.21.0] - 2026-10-18
+
+### Added
+
+- **Tag feeds** (`/rs/tag/{tag}`): `--tag TAG`. A `#tag` in a post body (and a Tags row on the detail) opens that feed, saved locally and refreshed from the site. `#post-…` anchors and `##` headings are not tags. Tags inside fenced or inline code are not clickable.
+- **`body_json` and `post_tags`:** posts store the ProseMirror body as compact JSON when the site sends one, and tags from mention nodes plus `#word` in the text. A later save does not blank a JSON body or a tag list that this write doesn't carry.
+- **`--backfill-tags`:** rewrites `post_tags` from what is already stored, then re-reads threads whose JSON body is still empty (one page per thread, with a pause). Optional `--nick` / `--nicks`. Stored post text is left as it is.
+
+## [2.20.0] - 2026-10-18
+
+### Added
+
+- **Explore** (`/rs/explore` and `/rs/explore/latest`): `--explore` and `--explore-latest`.
+  The **Explore** row under EB (and View › Explore) opens the saved order; View › Explore latest
+  selects the Latest tab.
+- **Site search** (`/rs/explore?q=`, form `search`, field `q`): `--site-search TEXT`. The Shift-S
+  search modal has a **Where** choice, Local or Site. Site uses the keyword only and says so when
+  nicks, dates, a post id or a kind are also filled in. An empty site keyword is an error. Local
+  search is unchanged.
+
+## [2.19.0] - 2026-10-18
+
+### Added
+
+- **Executive Board feed** (`/rs/eb`): `--eb` and `--eb-replies`. The **EB** row under Bookmarks
+  in the nick bar (and View › Executive Board) opens the saved order at once and refreshes it
+  from the site. View › EB includes replies sends the replies filter.
+
+## [2.18.0] - 2026-10-18
+
+### Added
+
+- **Site-wide Top** (`/rs/top`): `--top [PERIOD]` with the five periods `day`, `week`, `month`,
+  `year` and `all` (default `week`), and `--top-replies` for the feed's replies filter. The posts
+  are stored and the order is kept in `site_feeds`, so View › Site Top (period and replies) opens
+  the saved view at once and refreshes it from the site. The direct URL is read first; if it has
+  no feed, the same `t` / `replies` fields are sent with `configure-feed`.
+
+## [2.17.0] - 2026-10-18
+
+### Added
+
+- Post bodies render full Markdown (CommonMark plus GitHub extensions, parsed with
+  `pulldown-cmark`): headings H1–H6 (H1 a banner with a `━` rule, H2 with a `─` rule), bold,
+  italic, bold italic, ~~strikethrough~~, inline code, fenced and indented code blocks in a box
+  with the language on the top edge, nested block quotes with a `┃` bar, bullet, ordered,
+  nested and loose lists with hanging indents (`•` `◦` `▪` by depth, right-aligned numbers),
+  task lists (`☐`/`☑`), tables with box-drawn borders, aligned columns and wrapped cells,
+  horizontal rules, links and autolinks, images (alt text and URL), footnotes (`[1]` with the
+  notes at the end), hard and soft line breaks, HTML entities, escaped characters and the
+  common inline HTML tags (`<br>`, `<b>`, `<i>`, `<a href>` …).
+- Links in post bodies are clickable in terminals with OSC 8 hyperlinks; the URL is shown
+  after the link text when the text doesn't already contain it.
+- Post bodies are tidied the way the site stores them: lines that start with a typed `•`
+  (also tab-indented) become list items, and a lone indented line is text rather than code.
+- Theme elements for Markdown: `h1` … `h6`, `quote`, `code_block`, `list_marker`, `task`,
+  `table`, `table_header`, `rule` and `footnote`, with defaults in all seven shipped themes.
+  The theme editor's sample post shows them, so they can be highlighted.
+
+### Fixed
+
+- Post bodies: list items separated by blank lines (loose lists) lost their bullet or number,
+  because the item's paragraph replaced the prefix the item had just set. Every list item now
+  shows its `•` or number, also when it starts with bold text, code or a link, when it opens
+  with a sublist or is empty, with wrapped lines indented under the item text.
+
 ## [2.16.0] - 2026-10-18
 
 ### Added

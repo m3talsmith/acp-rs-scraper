@@ -1,3 +1,87 @@
+acp-rs-scraper (3.3.1) unstable; urgency=medium
+
+  * Job details: elapsed time stops when the job finishes, fails, or is cancelled.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 21:00:00 +0000
+
+acp-rs-scraper (3.3.0) unstable; urgency=medium
+
+  * Node identity on this computer: --node-init, --node-id, and a header chip. The node secret is not in a backup.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 18:00:00 +0000
+
+acp-rs-scraper (3.2.0) unstable; urgency=medium
+
+  * Shared core crate: identity, canonical CBOR, and a secret-store interface. CLI flags and the encrypted database are unchanged.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 15:00:00 +0000
+
+acp-rs-scraper (3.1.0) unstable; urgency=medium
+
+  * Job details: click the status bar or the header running mark to see state, elapsed time and the log.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 12:00:00 +0000
+
+acp-rs-scraper (3.0.0) unstable; urgency=medium
+
+  * Breaking: the local database is encrypted and needs a password. A 2.x plaintext database is not opened; migrate with --encrypt-db (writes a backup first).
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 23:45:00 +0000
+
+acp-rs-scraper (2.24.1) unstable; urgency=medium
+
+  * Bookmark sync sends the hook bookmark {id, state} instead of toggle-bookmark.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 21:30:00 +0000
+
+acp-rs-scraper (2.24.0) unstable; urgency=medium
+
+  * Edit history (/rs/post/THREAD/POST/edits): --edits, p › View edits as a diff, post_versions.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 21:00:00 +0000
+
+acp-rs-scraper (2.23.0) unstable; urgency=medium
+
+  * Reposts list (/rs/post/ID/reposts): --reposts, and p › View reposts in the TUI.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 20:30:00 +0000
+
+acp-rs-scraper (2.22.0) unstable; urgency=medium
+
+  * Thread sort: s cycles newest, oldest and top; --sort-thread stores scores.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 20:00:00 +0000
+
+acp-rs-scraper (2.21.0) unstable; urgency=medium
+
+  * Tag feeds (/rs/tag/TAG): --tag, clickable #tags, body_json and post_tags, --backfill-tags.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 19:30:00 +0000
+
+acp-rs-scraper (2.20.0) unstable; urgency=medium
+
+  * Explore (/rs/explore and /rs/explore/latest) and site search (--site-search, Search modal Where: Site).
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 19:00:00 +0000
+
+acp-rs-scraper (2.19.0) unstable; urgency=medium
+
+  * Executive Board feed (/rs/eb): --eb and --eb-replies, opened from the EB row of the nick bar.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 18:40:00 +0000
+
+acp-rs-scraper (2.18.0) unstable; urgency=medium
+
+  * Site-wide Top feed (/rs/top): --top period (day, week, month, year, all) and --top-replies, saved locally and opened from View › Site Top.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 18:10:00 +0000
+
+acp-rs-scraper (2.17.0) unstable; urgency=medium
+
+  * Post bodies render full Markdown (headings, code blocks, quotes, lists, task lists, tables, footnotes, links with OSC 8) with new theme elements; list items always show their bullet or number.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 01:20:48 -0400
+
 acp-rs-scraper (2.16.0) unstable; urgency=medium
 
   * Theme editor sample dialog, per-row revert, changed-on-disk and broken-file save prompts, truecolor note; header missing/broken marker; grouped theme warnings.

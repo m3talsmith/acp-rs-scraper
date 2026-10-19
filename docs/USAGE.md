@@ -28,6 +28,8 @@ You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus le
 
 You can also run it through cargo with `cargo run --release -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
+The workspace also builds `acp_rs_node_core`, the library that holds the account identity, canonical CBOR, and a secret-store interface. The `acp-rs-scraper` binary is the terminal client and depends on that library. Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
+
 ## Terminal UI
 
 `acp-rs-scraper` (no flags) or `acp-rs-scraper --tui` opens it. It needs a terminal on stdin/stdout
@@ -37,7 +39,7 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   "ACP" drawn with tui-big-text on rows 2–4 so it has a row of room above, then name, version,
   session and running job on the middle row of the "ACP") · menu bar (one item per group of CLI
   flags, Start Scanning pinned right) · nick bar on the left (`@nick` and post count) · Body · status
-  line (`l` expands it to a log panel).
+  line (`l` expands it to a log panel). Click that line, or the header's `⟳ kind running (pid)` mark, or press Tab until Status is focused and then Enter, to open job details: the name, what started it, the state, the start time and elapsed time, the stage and a spinner, and a scrollable log. Elapsed counts only while the job is running. After it finishes, fails, or is cancelled, that line stays at the total run time. If the end was not recorded, it says `unknown`. Several jobs are a list; the elapsed line is the selected job. Esc closes the window. `c` or Cancel stops a job that is still running. The password and the database key are not shown. The header mark and the status bar do not show a duration, and a later start of the terminal UI does not reload jobs from log files.
 - **Browsing** is offline and read-only (the database is opened `SQLITE_OPEN_READ_ONLY`). Select a
   nick to list their posts and replies, newest first; select several with `Space`, `Shift-↑/↓`,
   `Ctrl-A`, or Ctrl/Shift-click. The **filter** field on top of the nick bar (click, or `/` from the
@@ -49,8 +51,18 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
   fields as the HTML export. Links (reply-to, thread, post ids in the body, replies) cross-load: the
   linked post nests inside and the previous detail is pushed up into a header strip. `Esc` pops one,
   clicking a header pops back to it, at most 8 deep. Ids not in the database say so. Bodies render
-  as Markdown (headings, emphasis, code, lists, quotes, links; line breaks kept) with one column of
-  padding inside the borders. Attachments are links: Enter / click opens the stored file with
+  as full Markdown (CommonMark + GFM via `pulldown-cmark`): headings H1–H6 (H1 a banner over a
+  `━` rule, H2 over a `─` rule), bold, italic, strikethrough, inline code, fenced/indented code
+  blocks boxed with the language on the top edge, nested block quotes with a `┃` bar, bullet
+  (`•` `◦` `▪` by depth), ordered (right-aligned numbers) and loose lists with hanging indents,
+  task lists (`☐`/`☑`), tables (box-drawn, column alignment, cells wrap and the widest column
+  shrinks to fit), horizontal rules, links and autolinks (bare URLs too; the URL follows the text
+  in the link colour unless the text already shows it, and http/mailto links are OSC 8
+  hyperlinks), images as `▣ alt <url>`, footnotes (`[1]`, notes at the end), soft and hard line
+  breaks (both break the line, as on the site), entities, escapes and the usual inline HTML
+  tags. Before parsing, lines that start with a typed `•` (also tab-indented) become list items
+  and a single indented line is plain text, not code (that's how the site stores them). One
+  column of padding inside the borders. Attachments are links: Enter / click opens the stored file with
   `xdg-open` (`ACP_OPENER` overrides), and they are also emitted as OSC 8 `file://` hyperlinks
   unless `TERM` is `linux`/`dumb` or `ACP_NO_OSC8` is set.
 - **Pictures** (the logo and post images): the graphics protocol is detected at start by querying
@@ -90,7 +102,12 @@ You can also run it through cargo with `cargo run --release -- <flags>`. The fir
 - **View modes** (`v`/`V`, the nav bar's `[View: …]`, or the View menu): Nested (default), Stack
   (full posts in one column, flat details), Stack + pane (list above, content pane below that
   follows `↑`/`↓`), Carousel ∞ (wraps) and Carousel (stops at the ends) with `←`/`→`, and Grid
-  (arrows move; the post opens in a modal with a Close button).
+  (arrows move; the post opens in a modal with a Close button). View › Site Top opens `/rs/top`
+  (period and replies); the **EB** row under Bookmarks opens `/rs/eb`. Both show the saved order
+  at once and refresh it from the site. The **Explore** row opens `/rs/explore` (View › Explore
+  latest selects `/rs/explore/latest`). Shift-S search can look at the local database or the site.
+  `p` opens a post menu; View reposts opens `/rs/post/{id}/reposts`, and View edits
+  opens `/rs/post/{thread}/{id}/edits` as a diff.
 - **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
   (a background `--bookmark`/`--unbookmark` job stores it, offline, next to a running scan); the
   **★ Bookmarks (n)** row on top of the nick bar (or `B`) shows only bookmarked posts and comments;
@@ -211,8 +228,11 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   or missing posts), `code`, `selected`, `field`, `label`, `label_focused`, `bar` (the header and
   status bars), `button`, `post_tag`, `reply_tag`, `dimmed` (behind a modal), `border`,
   `border_focused`. Boxes (`border` sets the border colour): `pane`, `pane_focused`, `card`,
-  `card_selected`, `card_focused`, `detail`, `detail_focused`, `dialog`. Border shapes and padding
-  are fixed in code.
+  `card_selected`, `card_focused`, `detail`, `detail_focused`, `dialog`. Markdown in post bodies:
+  `h1` … `h6`, `quote` (text; `border` is its `┃` bar), `code_block` (box), `list_marker`
+  (bullets and numbers), `task` (`☐`/`☑`), `table` (box), `table_header`, `rule` and `footnote`.
+  Border shapes and padding are fixed in code; there is no strikethrough key (`~~text~~` is
+  always struck through).
 - **Editor** (`Shift-F5`, or *Edit themes…* in the picker). The left list holds the palette and
   every element (`→` expands an element into its keys, `←` hides them) with swatches, `*` for values that differ
   from the saved file and `⚠x.x:1` when an element's text/background contrast is under 3:1. The
@@ -265,6 +285,52 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 
 The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip the code until the site expires it; `--logout` (or Session › Log out) deletes it. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
 
+## Upgrading from 2.x
+
+3.0.0 is a breaking change. The local database is encrypted, and opening it requires a password. 2.x had neither.
+
+**What breaks**
+
+- Starting 3.0.0 against `~/.acp/ai/data/rs.database` from 2.x stops immediately. The message names the file and tells you to run `--encrypt-db`. It does not try to read the plaintext file as if it were SQLCipher.
+- A new database, and every later start of the program, asks for a password on a terminal, or reads `ACP_PASSWORD` when there is no terminal. After that, the same run keeps the unlocked key in memory: Scrape, Research, Explore, Executive Board, Sync, and the other jobs use it and do not ask again. The key is wiped when the process exits. The password is at least 8 characters and has to pass a strength check. There is no password reset.
+- Files 2.x does not know: `~/.acp/ai/data/rs.database.bootstrap` (the wrapped database key), `~/.acp/recovery.seal` (the encrypted recovery phrase, after `--identity-init`), and `~/.acp/acp-id`. `session.json` is still the login session and is still outside the backup.
+
+**Migrate**
+
+1. If you may want to go back to 2.x, copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp`.
+2. Run `acp-rs-scraper --encrypt-db`.
+3. The command writes a `*.acpbackup` under the exports directory first, then encrypts the database. It deletes the plaintext file only after the row counts and a content hash match. You choose the password during this command. After Enter, the terminal shows a spinner, the stage it is on, and how long it has been running. Keypresses are ignored until it finishes.
+
+Stretching the password is the slow part on a small database. The settings are Argon2id with 64 MiB of memory, 3 iterations, and 1 lane, and one migration does that once (the backup, the database key, and the account key are labels of that single stretch). On a 4-core test machine that stretch took about 0.1 seconds in a release build and about 1.7 seconds in an unoptimized `cargo run` build; three separate stretches, which is what an earlier build did, took about 0.3 seconds and about 5 seconds. Copying the database was about 0.1 seconds at 20 MB and about 0.5 seconds at 100 MB in a release build (a few milliseconds per megabyte, including SQLCipher's per-page HMAC). A database of a few thousand posts is usually tens of megabytes, so a release build finishes in well under a second after the password is accepted, most of it the single key stretch. A debug build spends most of that wait on the stretch and shows "Deriving key" while it does.
+
+When `--encrypt-db` finishes on a terminal, it prints what to do next. The password you just chose is not the master key. The master key is a 24-word recovery phrase. The command offers to create that phrase immediately. You type the words a second time to confirm you wrote them down, and you can print the 5 shares in the same step. If you skip it, run `acp-rs-scraper --identity-init` later. After the phrase exists, `acp-rs-scraper --show-phrase` shows the words again. It asks for the password, warns that they will be on the screen and may stay in scrollback, and offers to clear the terminal. The same explanation is in `--help` and in the terminal UI (press `?` or F1). A new database created from the terminal UI opens that Help screen after encryption.
+
+`--change-password` (on a terminal) asks for the current password and a new one, then rewraps the database. The account id does not change. When a recovery phrase is saved on this computer, it moves to the new password too. `--backup` and `--restore` use the same progress screen. `ACP_PASSWORD` with no terminal skips the screen and does the work inline. A non-interactive `--encrypt-db` does not dump the recovery steps into the output; the next run on a terminal shows them.
+
+**Roll back**
+
+- Until `--encrypt-db` finishes successfully, a 2.x binary still reads the plaintext database. A failed migration leaves that file in place.
+- After a successful migration, 2.x cannot open the database or the `*.acpbackup`. To return to 2.x, install a 2.x build, put your saved plaintext copy back at `~/.acp/ai/data/rs.database`, and delete `rs.database.bootstrap` if it is still there.
+- To stay on 3.0.0 and recover the database, use `--restore` on the `*.acpbackup` that `--encrypt-db` wrote. That needs the same password.
+
+## Identity
+
+The password that opens the database is not the master key, and there is no password reset. The master key is a 24-word BIP-39 recovery phrase. Argon2id mixes that phrase with the password. A new computer needs both before it can open a `.acpbackup`. Losing the password locks the database even if the phrase is still on paper.
+
+`--identity-init` (on a terminal) creates the phrase. It shows the 24 words, asks you to type them again to confirm the paper copy, and stores an encrypted copy at `~/.acp/recovery.seal` (mode `0600`). The words are not logged. That file lets this computer show them again. It does not open a backup on a new computer, and the password alone cannot rebuild the words. A phrase created before this file existed was shown once and cannot be recovered from the password.
+
+The command then offers five SLIP-39 shares (any 3 of 5). One or two shares do nothing. The password is not part of a share. The sheets can be postponed; the phrase cannot. Write the words and each share on paper, in different places, and not in the same note as the password. `--shares-print` prints the shares later, from the phrase or from three existing shares plus the password. `--shares-verify` checks three to five shares and writes nothing secret. Reissuing shares of the same seed does not invalidate older ones.
+
+`--show-phrase` shows the 24 words again. It always asks for the password on a terminal (it does not read `ACP_PASSWORD`). It warns that the words will be on the screen and may stay in scrollback, asks you to type a paper copy to check it, and offers to clear the terminal afterward. Clearing the screen does not erase a screenshot.
+
+`--backup` writes an encrypted `*.acpbackup` (use `--output` for the path). The archive includes the encrypted phrase file when one exists, so a restore on this computer keeps `--show-phrase` working. `--restore FILE` puts the archive back. A new machine whose backup names an `acp-id` also asks for the phrase or three shares. A wrong password or a damaged file is refused and nothing is written. `session.json` and the node secret are not in the archive, so a restored machine signs in again and is not a copy of the old node. `--backup-schedule daily|weekly --keep N --dest DIR` remembers a schedule; this build reminds you when it is due.
+
+`--encrypt-db` encrypts an existing plaintext database after writing a backup, and removes the plaintext file only after the encrypted copy matches. On a terminal it then prints these steps and can create the phrase immediately. The terminal UI does the same after it creates a database: it offers to create the phrase, and if you skip that it opens Help, which starts with the same text. `--help` includes it too. `--change-password` changes the database password and reseals the phrase with the new password when the phrase used the same one. The slow steps show a spinner, the stage, and the elapsed time. That progress screen is separate from the job-details window in the terminal UI. Encrypting the database, backup and restore are not listed there. A database this program creates is encrypted. The password is asked on a terminal, or taken from `ACP_PASSWORD` for a non-interactive run. That variable is visible to the same user and is not logged.
+
+`--acp-id` prints the pinned id from `~/.acp/acp-id`, which holds the id, the Argon2 parameters and the two public keys. It does not print the phrase. A wrong password still derives an id; it is shown and refused when it does not match the pin. There is no password reset. A lost password together with lost shares cannot be recovered.
+
+`--node-init` creates this computer's node after `--identity-init`. The node key is generated here and is not derived from the master. The command unlocks the database, rebuilds the master from `~/.acp/recovery.seal` and the password (or asks you to paste the phrase when that file is missing), signs the certificates, and drops the master. It prints the node name, the account id, the peer id, a fingerprint, and six verification words. It does not print the phrase or the node secret. `--node-label NAME` sets the name; otherwise the name is this computer's hostname, letters and digits only. Running it again does not replace an existing keystore. `--node-id` prints that public record and says whether the certificate still checks. The header of the terminal UI shows `◉` and the name. The secret is `~/.acp/node/keystore` (mode `0600`). A plain `identity.key` is not created. A backup does not include the keystore, so restoring onto another computer does not copy this node.
+
 ## Where data lives
 
 | What | Path |
@@ -272,7 +338,12 @@ The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip 
 | Preferences | `~/.acp/preferences.toml` |
 | Saved login session (mode `0600`) | `~/.acp/session.json` |
 | Logs of jobs started from the TUI (mode `0600`) | `~/.acp/logs/tui-<kind>-<time>.log` |
-| Database | `~/.acp/ai/data/rs.database` |
+| Database (encrypted in 3.0.0) | `~/.acp/ai/data/rs.database` |
+| Wrapped database key (mode `0600`) | `~/.acp/ai/data/rs.database.bootstrap` |
+| Pinned `acp-id`, after `--identity-init` | `~/.acp/acp-id` |
+| Encrypted recovery phrase (mode `0600`), after `--identity-init` | `~/.acp/recovery.seal` |
+| Node keystore (mode `0600`), after `--node-init`. Not in a backup | `~/.acp/node/keystore` |
+| Public node name, peer id, and certificates | `~/.acp/node/node.public` |
 | Attachments (persistent copies) | `~/.acp/ai/data/attachments/<hash>.<ext>` |
 | Default export / archive location | `~/.acp/ai/data/exports/` |
 | Research files (copies) and web page snapshots | `~/.acp/research/<project>/files/`, `…/web/` |
@@ -305,6 +376,26 @@ These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`
 | `--trending` | Site-wide crawls use the Trending tab (`/rs`, the site's own default). It isn't chronological, so the early stop is disabled; paging runs until the end of the feed or `--crawl-limit`. |
 
 The two can't be combined. Profiles always use their Latest feed (`/rs/@nick`) in both modes.
+
+### Reading
+
+These read a site view and store it. They don't scrape nicks, and they don't post. Each one is saved in `site_feeds` (the site's order) so the TUI can open it offline and then refresh it. The direct URL is tried first; if that page has no feed, the same fields are submitted with `configure-feed`.
+
+| Flag | Meaning |
+|---|---|
+| `--top [PERIOD]` | Site-wide Top (`/rs/top`). PERIOD is `day`, `week`, `month`, `year` or `all` (default `week`). View › Site Top. |
+| `--top-replies` | With `--top`: the feed's replies filter. |
+| `--eb` | Executive Board feed (`/rs/eb`). The **EB** row of the nick bar, or View › Executive Board. |
+| `--eb-replies` | With `--eb`: the feed's replies filter (View › EB includes replies). |
+| `--explore` | Explore (`/rs/explore`). The **Explore** row of the nick bar, or View › Explore. |
+| `--explore-latest` | Explore's Latest tab (`/rs/explore/latest`). View › Explore latest. |
+| `--site-search TEXT` | Search the site (`/rs/explore?q=`, form `search`, field `q`). The Search modal's **Where: Site** does the same and uses only the keyword; nicks, dates, post id and kind stay local. |
+| `--tag TAG` | Tag feed (`/rs/tag/TAG`). A `#tag` in a post body, or the Tags row on the detail, opens the same view. `#post-…` anchors, `##` headings and tags inside code are not links. |
+| `--backfill-tags` | Rewrite `post_tags` from stored bodies, then re-read threads whose `body_json` is still empty (one page per thread, with a pause). `--nick` / `--nicks` limit the rows. Stored post text is not replaced. |
+| `--sort-thread ID` | Re-read that thread after the `sort` hook and store scores. `s` in an open thread does this. |
+| `--thread-sort ORDER` | With `--sort-thread`: `oldest` or `top`. Newest is the page default and sends no hook. |
+| `--reposts ID` | Reposts of that post (`/rs/post/ID/reposts`). `p` › View reposts does the same. |
+| `--edits THREAD/POST` | Edit history (`/rs/post/THREAD/POST/edits`). A post id already in the database works too (the thread is its parent, or itself when it is a root). `p` › View edits shows each version as a line diff against the previous one. |
 
 ### Scraping
 
@@ -376,8 +467,9 @@ After the commit, attachment, avatar and banner files are deleted from disk **on
 
 Sync rules: a site bookmark missing locally is added; a local one the site lacks is pushed; a
 local removal is pushed and the row dropped; a bookmark that vanished from a fully read site list
-is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) and the
-LiveView event (`toggle-bookmark`) are confirmed against the live site (2.5.0).
+is dropped locally. The site page (`/rs/bookmarks`, override with `ACP_BOOKMARKS_PATH`) was
+confirmed against the live site (2.5.0). Since 2.24.1 the push is the hook `bookmark`
+with `state` `"1"` or `"0"`, which is what the current page sends.
 
 ### Research (offline, except `--url`)
 
@@ -531,7 +623,26 @@ CREATE TABLE posts (
   content TEXT NOT NULL,          -- ProseMirror body flattened to text; paragraphs
                                   -- separated by a blank line (1.26.0)
   posted_at TEXT NOT NULL,        -- inserted_at (ISO 8601)
-  body_state TEXT NOT NULL DEFAULT 'unknown'  -- 'full' | 'truncated' | 'unknown' (1.26.0)
+  body_state TEXT NOT NULL DEFAULT 'unknown', -- 'full' | 'truncated' | 'unknown' (1.26.0)
+  body_json TEXT NOT NULL DEFAULT '', -- ProseMirror body, compact JSON (2.21.0); '' until a feed or thread supplies it
+  score INTEGER                  -- site score (2.22.0); NULL until a thread page sends one. A later save does not blank it
+);
+
+CREATE TABLE post_tags (             -- 2.21.0; #tag without the hash
+  post_id TEXT NOT NULL,
+  tag TEXT NOT NULL,
+  PRIMARY KEY (post_id, tag)
+);
+CREATE INDEX post_tags_tag_idx ON post_tags(tag);
+
+CREATE TABLE post_versions (        -- 2.24.0; edit history. source is site for /rs/post/…/edits
+  post_id TEXT NOT NULL,
+  version_hash TEXT NOT NULL,      -- FNV-1a 64 of body_json and edited_at
+  body_json TEXT NOT NULL,         -- ProseMirror JSON, or the text when that is all the page sent
+  edited_at TEXT NOT NULL,         -- edited_at, else inserted_at / updated_at; ~NNNN when the page sent none
+  observed_at TEXT NOT NULL,       -- when this client stored the row
+  source TEXT NOT NULL CHECK (source IN ('site', 'peer', 'local', 'draft')),
+  PRIMARY KEY (post_id, version_hash)
 );
 
 -- body_state (1.26.0, index posts_body_state_idx): 'full' = complete body;
@@ -590,6 +701,13 @@ A nick's own posts can also be recorded as mentions of that nick.
 Research (2.9.0):
 
 ```sql
+CREATE TABLE site_feeds (          -- 2.18.0; created on first site read
+    key TEXT PRIMARY KEY,         -- top:week, eb, explore, explore:latest, search:…, tag:strike, reposts:…, …
+    title TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,     -- RFC 3339
+    post_ids TEXT NOT NULL        -- JSON array, in the site's order
+);
+
 CREATE TABLE research_projects (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -668,13 +786,14 @@ CREATE TABLE research_items (
   - Loading more thread replies through the InfiniteScroll `next-page` event (a guess).
   - Profile fields beyond author info, data-props and `og:` tags.
   - Whether media hosts require the login cookies.
-- **Mentions are limited by the crawl:** there is no site-wide search in the site's JavaScript. Only `--crawl-limit` posts of the chosen feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed.
+- **Mentions are limited by the crawl:** the mentions pass still scans the chosen feed (there is no mentions search API). Only `--crawl-limit` posts of that feed are scanned, so older mentions, and replies inside threads whose root isn't in that window, can be missed. Searching posts on the site is `--site-search` (or Shift-S › Where: Site).
 - **"Posts and replies":** this is the profile Filter dialog (`<dialog id="js-configureFeed">`, form `configure-feed`, radios `replies=0|1`). Checked on the live site: choosing it switches to `/rs/@nick?replies=1`, the URL the scraper loads. The fallback form submission is covered by the mocked end-to-end tests. Profiles also have a Top feed (`/rs/@nick/top?t=all`), which isn't scraped.
 - **Trending feeds:** these aren't chronological, so incremental stopping is disabled there.
 - **Embeds:** YouTube, X and other embedded players aren't downloaded.
 - **Logins:** a saved session is reused until the site expires it; then the next scrape asks for a fresh email code.
 - **TUI:** bodies are stored as plain text (the site's bold/italic marks are not kept by the
-  scraper), so Markdown styling shows only where the text itself is Markdown; pictures need
+  scraper), so Markdown styling shows only where the text itself is Markdown; no syntax
+  highlighting in code blocks; pictures need
   `avifdec`, ImageMagick or ffmpeg for the site's AVIF files, and half-block pictures are coarse;
   video attachments are links only; research has no delete (use `sqlite3`), Google Drive and
   Telegram sources are pinned for later, and web pages that need JavaScript to render come out
@@ -684,6 +803,10 @@ CREATE TABLE research_items (
 ## Contributing
 
 The repo ships `.githooks/pre-commit`, a credential scanner, and `build.rs` sets `git config core.hooksPath .githooks` on the first `cargo build`.
+
+### Releases
+
+A GitHub Release for a version that is not yet on `main` is a draft. The maintainer publishes that draft after the merge. Versions already on `main` (2.16.0 and earlier) are left as published. `.githooks/post-commit` creates the annotated git tag `vX.Y.Z` when `Cargo.toml` changes and does not create a GitHub Release. There is no CI job that publishes a release. When a release is created it uses `gh release create --draft`, the matching `CHANGELOG.md` section, and no attached files. See [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 The hook blocks commits that contain:
 - **Secret files:** `preferences.toml`, `*.database`, `*.db`, `.env`, keys, cookies and similar.
@@ -695,7 +818,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,refetch}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;
