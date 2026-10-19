@@ -313,6 +313,8 @@ the local copy up to date. Discover finds people, nodes, and rooms. Those stay
 separate menus. The table above stays the map of the current bar until that
 minor. The layout is in [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2.
 
+Before 3.x is finished, every actionable control shows a short tooltip on hover, including menu-bar entries and the icons on a card or detail. When the control has a key, the tooltip includes it (`Bookmark (b)`). One shared helper draws them. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.3. There is no hover tooltip today.
+
 **Suggested change:** selecting a nick in the left bar pre-fills Scrape's
 Nicks field and filters the Body. Multi-select nicks (Shift/Space) are a must have
 for 2.0.

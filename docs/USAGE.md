@@ -96,6 +96,8 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
 
   The table is the bar that ships today. Before 3.x is finished it is reorganized, left to right, into View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, with Start Scanning still pinned on the right. Library keeps Export, Import, Basket, List, and Maintain. Bookmarks is its own menu: Show, Bookmark current, and Sync with acp.us. Search keeps local and site search, and search history (a past query, re-run when picked) joins that menu in its own minor. Sync keeps the local copy up to date (site sync, auto-sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is required, and it is not in 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
 
+  Hover tooltips are not built yet. Before 3.x is finished, every button, menu item, and icon (the star, the basket, the research ◈, and the rest) shows a short explanation on hover, including its key when it has one, as in `Bookmark (b)`. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.3.
+
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
   process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
   quitting asks whether to keep it running in the background (default) or cancel it.
