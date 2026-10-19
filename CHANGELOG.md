@@ -22,6 +22,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **The upload channel is not captured.** `allow_upload` and `lvu` are not built, so `media_attachments` and `file_attachments` are not encoded and no file bytes are sent. A confirmed publish still stops where 3.4.0 stopped: `validate` and `save` are not sent. Vote, subscribe, delete, edit, and repost are not in this release.
 
+### Confirmed
+
+- **The three attachment decisions.** `.jpeg` is accepted as jpg and `.tif` as tiff. There is no count cap and no size cap. This release keeps 3.5.0. Interactions stay unstarted, and 3.10.0 and later, including the locked 3.22.0 re-key, are not shifted.
+
 ## [3.4.0] - 2026-10-19
 
 ### Added
