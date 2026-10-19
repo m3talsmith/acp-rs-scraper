@@ -338,7 +338,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "acp_id", "shares_print", "shares_verify",
-        "backup", "restore", "backup_schedule", "encrypt_db",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
     ])]
     pub identity_init: bool,
     /// Print the pinned acp-id.
@@ -348,7 +348,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "shares_print", "shares_verify",
-        "backup", "restore", "backup_schedule", "encrypt_db",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
     ])]
     pub acp_id: bool,
     /// Print five SLIP-39 recovery sheets (3 of 5) for the pinned account. Needs a terminal.
@@ -359,7 +359,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_verify",
-        "backup", "restore", "backup_schedule", "encrypt_db",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
     ])]
     pub shares_print: bool,
     /// Check three to five recovery shares against the pinned acp-id. Writes nothing secret.
@@ -369,7 +369,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id",
-        "backup", "restore", "backup_schedule", "encrypt_db",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
     ])]
     pub shares_verify: bool,
     /// Sheet or paste to read instead of typing shares. Used with --shares-print or --shares-verify.
@@ -383,7 +383,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "restore", "backup_schedule",
+        "shares_verify", "restore", "backup_schedule", "change_password",
     ])]
     pub backup: bool,
     /// Restore an *.acpbackup into this home. A new machine also asks for the phrase or 3 shares.
@@ -393,7 +393,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "backup", "backup_schedule",
+        "shares_verify", "backup", "backup_schedule", "change_password",
     ])]
     pub restore: Option<PathBuf>,
     /// Remember a daily or weekly backup. The headless service that runs it is a later release.
@@ -403,7 +403,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "backup", "restore",
+        "shares_verify", "backup", "restore", "change_password",
     ])]
     pub backup_schedule: Option<String>,
     /// How many *.acpbackup files to keep. Used with --backup-schedule.
@@ -419,9 +419,20 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "backup", "restore", "backup_schedule",
+        "shares_verify", "backup", "restore", "backup_schedule", "change_password",
     ])]
     pub encrypt_db: bool,
+    /// Change the password on an encrypted database. Rewraps the local key and the
+    /// account key. The account id stays the same. Needs a terminal.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db",
+    ])]
+    pub change_password: bool,
 }
 
 /// Targets for the hidden `--generate` packaging flag.

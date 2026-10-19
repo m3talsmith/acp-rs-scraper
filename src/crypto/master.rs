@@ -207,6 +207,7 @@ pub fn derive_master(phrase: &str, password: &str, params: Argon2Params) -> Resu
     salt_hasher.update(MASTER_SALT_LABEL);
     salt_hasher.update(seed.as_slice());
     let argon_salt = *salt_hasher.finalize().as_bytes();
+    super::progress::set_stage("Deriving key");
     let argon_out = Zeroizing::new(argon2id(password, &argon_salt, params)?);
     let mut ikm = Zeroizing::new([0u8; 64]);
     ikm[..32].copy_from_slice(seed.as_slice());

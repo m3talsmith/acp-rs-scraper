@@ -136,8 +136,16 @@ pub fn prepare_db() -> Result<()> {
     if let Some(msg) = super::atrest::legacy_plaintext_notice(&db) {
         bail!("{msg}");
     }
-    let password = password_for_db(db.is_file())?;
-    super::atrest::prepare(&db, Some(password.as_str()))
+    let existing = db.is_file();
+    let password = password_for_db(existing)?;
+    let title = if existing {
+        "Opening the database"
+    } else {
+        "Creating the encrypted database"
+    };
+    super::progress::run_busy(title, move || {
+        super::atrest::prepare(&db, Some(password.as_str()))
+    })
 }
 
 /// Encrypt a plaintext database in place, after a backup.
@@ -154,15 +162,41 @@ pub fn encrypt_db() -> Result<()> {
     let db = home.join(crate::config::DB_REL_PATH);
     let password = password_for_db(true)?;
     let dest = super::backup::default_backup_path(&home);
-    super::atrest::encrypt_db(&db, password.as_str(), &dest)?;
-    println!(
-        "Encrypted {}. A backup was written to {}.",
-        db.display(),
-        dest.display()
-    );
+    let db_shown = db.display().to_string();
+    let dest_shown = dest.display().to_string();
+    super::progress::run_busy("Encrypting the database", move || {
+        super::atrest::encrypt_db(&db, password.as_str(), &dest)
+    })?;
+    println!("Encrypted {db_shown}. A backup was written to {dest_shown}.");
     println!("The plaintext file was removed after the encrypted copy matched.");
     println!(
         "2.x cannot read this database or that backup. A copy of the plaintext file saved before this command is what a 2.x binary can open."
+    );
+    Ok(())
+}
+
+/// Change the password that wraps the database key and the account key.
+/// The account id stays the same. Needs a terminal.
+pub fn change_password() -> Result<()> {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        bail!("--change-password needs a terminal. There is no password reset.");
+    }
+    let home = home()?;
+    let db = home.join(crate::config::DB_REL_PATH);
+    if !super::atrest::bootstrap_path(&db).is_file() {
+        bail!(
+            "there is no encrypted database here. A plaintext 2.x database is migrated with --encrypt-db."
+        );
+    }
+    let current = Zeroizing::new(rpassword::prompt_password("Current password: ")?);
+    let next = prompt_new_password()?;
+    let params = super::atrest::password_params(&db)?;
+    super::progress::run_busy("Changing the password", move || {
+        super::atrest::rewrap_local(&db, current.as_str(), next.as_str(), params)
+    })?;
+    println!("The database password was changed.");
+    println!(
+        "The account id did not change. A backup written with the old password still needs that password."
     );
     Ok(())
 }
@@ -190,28 +224,34 @@ fn password_for_db(existing: bool) -> Result<Zeroizing<String>> {
 pub fn backup_now(output: Option<&Path>) -> Result<()> {
     let home = home()?;
     let password = password_for_db(true)?;
-    let db = home.join(crate::config::DB_REL_PATH);
-    if super::atrest::bootstrap_path(&db).is_file() {
-        super::atrest::unlock(&db, password.as_str())?;
-    }
-    let params = Pin::load(&home)?
-        .map(|p| p.argon2)
-        .unwrap_or_else(default_params);
-    let dest = match output {
-        Some(path) => path.to_path_buf(),
-        None => match super::backup::load_schedule(&home)? {
-            Some(schedule) => {
-                let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
-                Path::new(&schedule.dest).join(format!("backup-{stamp}.acpbackup"))
-            }
-            None => super::backup::default_backup_path(&home),
-        },
-    };
-    super::backup::write_backup(&home, &dest, password.as_str(), params)?;
-    if let Some(schedule) = super::backup::load_schedule(&home)? {
-        super::backup::mark_backup_ran(&home)?;
-        super::backup::prune_backups(Path::new(&schedule.dest), schedule.keep)?;
-    }
+    let output = output.map(|path| path.to_path_buf());
+    let dest = super::progress::run_busy("Writing the backup", move || {
+        let db = home.join(crate::config::DB_REL_PATH);
+        let stretch = if super::atrest::bootstrap_path(&db).is_file() {
+            super::atrest::unlock_stretch(&db, password.as_str())?
+        } else {
+            let params = Pin::load(&home)?
+                .map(|p| p.argon2)
+                .unwrap_or_else(default_params);
+            super::password::Stretch::fresh(password.as_str(), params)?
+        };
+        let dest = match output {
+            Some(path) => path,
+            None => match super::backup::load_schedule(&home)? {
+                Some(schedule) => {
+                    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+                    Path::new(&schedule.dest).join(format!("backup-{stamp}.acpbackup"))
+                }
+                None => super::backup::default_backup_path(&home),
+            },
+        };
+        super::backup::write_backup_with(&home, &dest, &stretch)?;
+        if let Some(schedule) = super::backup::load_schedule(&home)? {
+            super::backup::mark_backup_ran(&home)?;
+            super::backup::prune_backups(Path::new(&schedule.dest), schedule.keep)?;
+        }
+        Ok(dest)
+    })?;
     println!("Wrote {}", dest.display());
     println!("session.json and the node secret were not included.");
     Ok(())
@@ -232,7 +272,10 @@ pub fn restore_now(path: &Path) -> Result<()> {
         None
     };
     let password = password_for_db(true)?;
-    super::backup::restore_backup(&home, path, password.as_str(), material.as_deref())?;
+    let path = path.to_path_buf();
+    super::progress::run_busy("Restoring the backup", move || {
+        super::backup::restore_backup(&home, &path, password.as_str(), material.as_deref())
+    })?;
     println!("Restored the archive into this home.");
     println!(
         "Sign in again. The node secret was not in the backup, so this machine is not a clone of the old node."

@@ -13,6 +13,7 @@ pub mod cmd;
 pub mod master;
 pub mod password;
 pub mod pin;
+pub mod progress;
 pub mod slip39;
 
 pub use master::{AcpId, Master, derive_master, phrase_from_entropy, recover_seed};

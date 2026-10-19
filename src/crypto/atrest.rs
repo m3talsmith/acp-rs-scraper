@@ -1,10 +1,19 @@
 //! Encryption at rest.
 //!
 //! The on-disk database is SQLCipher. Its key is a random 256-bit local key, passed
-//! with `PRAGMA key = "x'<hex>'"` so SQLCipher does not run its own password KDF.
-//! That local key is wrapped with XChaCha20-Poly1305 under HKDF(Argon2id(password))
-//! and stored in a bootstrap file next to the database. The bootstrap cannot live
-//! inside the database: the database cannot be opened without it.
+//! with `PRAGMA key = "x'<hex>'"` so SQLCipher does not run its 256,000-iteration
+//! password KDF. SQLCipher still derives the page HMAC key with 2 iterations of
+//! that KDF; that step is part of the raw-key construction and is not a second
+//! password stretch. The local key is wrapped with XChaCha20-Poly1305 under
+//! HKDF(Argon2id(password)) and stored in a bootstrap file next to the database.
+//! The bootstrap cannot live inside the database: the database cannot be opened
+//! without it.
+//!
+//! One operation (creating a database, migrating a plaintext file, writing a
+//! backup, restoring) stretches the password once. The local key, the account
+//! key, and the backup key are HKDF labels of that stretch. A password change
+//! stretches the old password and the new password, once each, when the wraps
+//! share a salt.
 //!
 //! A separate account data key, one per epoch, is what a lost node would rotate.
 //! It is wrapped to the local password and, when an `acp-id` is pinned, to the
@@ -31,8 +40,9 @@ use std::sync::Mutex;
 use zeroize::Zeroizing;
 
 use super::master::Master;
-use super::password::{Argon2Params, argon2id};
+use super::password::{Argon2Params, Stretch};
 use super::pin::Pin;
+use super::progress::set_stage;
 use crate::storage::schema::{
     BACKUPS_SCHEMA, IDENTITY_CERTS_SCHEMA, KEY_EPOCHS_SCHEMA, QUARANTINE_SCHEMA, REVOCATIONS_SCHEMA,
 };
@@ -144,7 +154,14 @@ pub fn apply_if_needed(conn: &rusqlite::Connection, db: &Path) -> Result<()> {
 
 /// Unlock an existing encrypted database and remember the local key for this process.
 pub fn unlock(db: &Path, password: &str) -> Result<()> {
-    let key = unwrap_local(&bootstrap_path(db), password)?;
+    let _ = unlock_stretch(db, password)?;
+    Ok(())
+}
+
+/// Unlock, and return the password stretch so a backup can seal without a second Argon2id.
+pub(crate) fn unlock_stretch(db: &Path, password: &str) -> Result<Stretch> {
+    let (key, stretch) = open_local(&bootstrap_path(db), password)?;
+    set_stage("Opening the database");
     let conn =
         rusqlite::Connection::open(db).with_context(|| format!("opening {}", db.display()))?;
     apply_key(&conn, &key)?;
@@ -152,7 +169,7 @@ pub fn unlock(db: &Path, password: &str) -> Result<()> {
         .lock()
         .expect("key cache")
         .insert(cache_key(db), key);
-    Ok(())
+    Ok(stretch)
 }
 
 /// Create an encrypted database, or unlock one, or leave a legacy plaintext file alone.
@@ -198,21 +215,31 @@ pub fn encrypt_db(db: &Path, password: &str, backup_to: &Path) -> Result<()> {
     super::password::check_password(password)?;
     let home = parent_home(db)?;
     let params = chosen_params(db)?;
-    super::backup::write_backup(home, backup_to, password, params)
+    let stretch = Stretch::fresh(password, params)?;
+    super::backup::write_backup_with(home, backup_to, &stretch)
         .context("backup before encryption")?;
-    encrypt_in_place(db, password, params)
+    encrypt_with_stretch(db, &stretch)
 }
 
 /// Replace a plaintext database at `db` with an encrypted one. No backup.
 pub fn encrypt_in_place(db: &Path, password: &str, params: Argon2Params) -> Result<()> {
+    let stretch = Stretch::fresh(password, params)?;
+    encrypt_with_stretch(db, &stretch)
+}
+
+/// Encrypt `db` with an already computed password stretch.
+pub(crate) fn encrypt_with_stretch(db: &Path, stretch: &Stretch) -> Result<()> {
     if bootstrap_path(db).is_file() || !is_plaintext_db(db) {
         bail!("the database is already encrypted");
     }
+    set_stage("Checking the database");
     let before = fingerprint(db, None)?;
     let local = random32();
     let tmp = PathBuf::from(format!("{}.encrypting", db.display()));
     let _ = std::fs::remove_file(&tmp);
+    set_stage("Encrypting database");
     export_encrypted(db, &tmp, &local)?;
+    set_stage("Verifying");
     let after = fingerprint(&tmp, Some(&local))?;
     if before != after {
         let _ = std::fs::remove_file(&tmp);
@@ -227,7 +254,8 @@ pub fn encrypt_in_place(db: &Path, password: &str, params: Argon2Params) -> Resu
         let _ = std::fs::rename(&prev, db);
         return Err(e).context("installing the encrypted database");
     }
-    if let Err(e) = write_bootstrap(db, password, params, &local) {
+    set_stage("Saving the key");
+    if let Err(e) = write_bootstrap(db, stretch, &local) {
         let _ = std::fs::rename(db, &tmp);
         let _ = std::fs::rename(&prev, db);
         return Err(e);
@@ -236,6 +264,7 @@ pub fn encrypt_in_place(db: &Path, password: &str, params: Argon2Params) -> Resu
         .lock()
         .expect("key cache")
         .insert(cache_key(db), local.clone());
+    set_stage("Verifying");
     let check = fingerprint(db, Some(&local))?;
     if check != before {
         bail!(
@@ -243,7 +272,8 @@ pub fn encrypt_in_place(db: &Path, password: &str, params: Argon2Params) -> Resu
             prev.display()
         );
     }
-    seal_epoch(db, password, params)?;
+    set_stage("Saving the account key");
+    seal_epoch(db, stretch)?;
     let _ = std::fs::remove_file(&prev);
     Ok(())
 }
@@ -253,14 +283,14 @@ pub fn add_master_recipient(db: &Path, password: &str, master: &Master) -> Resul
     if !bootstrap_path(db).is_file() {
         return Ok(());
     }
-    unlock(db, password)?;
+    let stretch = unlock_stretch(db, password)?;
     let conn = rusqlite::Connection::open(db)?;
     apply_if_needed(&conn, db)?;
     ensure_tables(&conn)?;
     let Some((epoch, wraps)) = current_epoch(&conn)? else {
         return Ok(());
     };
-    let dek = unwrap_account(&wraps, password, Some(master))?;
+    let dek = unwrap_account(&wraps, password, Some(master), Some(&stretch))?;
     if wraps_to_master(&wraps, &master.wrap_pub) {
         return Ok(());
     }
@@ -270,7 +300,8 @@ pub fn add_master_recipient(db: &Path, password: &str, master: &Master) -> Resul
     Ok(())
 }
 
-/// Rewrap the local key with a new password. The account id does not change.
+/// Rewrap the local key and the account passphrase wrap with a new password.
+/// The account id does not change, and the master wrap is left as it is.
 pub fn rewrap_local(
     db: &Path,
     old_password: &str,
@@ -278,8 +309,20 @@ pub fn rewrap_local(
     params: Argon2Params,
 ) -> Result<()> {
     super::password::check_password(new_password)?;
-    let local = unwrap_local(&bootstrap_path(db), old_password)?;
-    write_bootstrap(db, new_password, params, &local)?;
+    set_stage("Checking the current password");
+    let (local, old) = open_local(&bootstrap_path(db), old_password)?;
+    let dek = load_passphrase_dek(db, &local, old_password, &old)?;
+    let fresh = Stretch::fresh(new_password, params)?;
+    set_stage("Saving the new password");
+    let boot = bootstrap_path(db);
+    let previous = std::fs::read(&boot).with_context(|| format!("reading {}", boot.display()))?;
+    write_bootstrap(db, &fresh, &local)?;
+    if let Some((epoch, dek)) = dek
+        && let Err(e) = store_passphrase_wrap(db, &local, epoch, &fresh, dek.as_slice())
+    {
+        let _ = std::fs::write(&boot, previous);
+        return Err(e);
+    }
     cache()
         .lock()
         .expect("key cache")
@@ -291,8 +334,10 @@ fn create_new(db: &Path, password: &str, params: Argon2Params) -> Result<()> {
     if let Some(dir) = db.parent() {
         std::fs::create_dir_all(dir)?;
     }
+    let stretch = Stretch::fresh(password, params)?;
     let local = random32();
-    write_bootstrap(db, password, params, &local)?;
+    set_stage("Creating the database");
+    write_bootstrap(db, &stretch, &local)?;
     let conn = rusqlite::Connection::open(db)?;
     if let Err(e) = apply_key(&conn, &local) {
         let _ = std::fs::remove_file(bootstrap_path(db));
@@ -304,11 +349,12 @@ fn create_new(db: &Path, password: &str, params: Argon2Params) -> Result<()> {
         .expect("key cache")
         .insert(cache_key(db), local);
     ensure_tables(&conn)?;
-    seal_epoch(db, password, params)?;
+    set_stage("Saving the account key");
+    seal_epoch(db, &stretch)?;
     Ok(())
 }
 
-fn seal_epoch(db: &Path, password: &str, params: Argon2Params) -> Result<()> {
+fn seal_epoch(db: &Path, stretch: &Stretch) -> Result<()> {
     let conn = rusqlite::Connection::open(db)?;
     apply_if_needed(&conn, db)?;
     ensure_tables(&conn)?;
@@ -316,7 +362,7 @@ fn seal_epoch(db: &Path, password: &str, params: Argon2Params) -> Result<()> {
         return Ok(());
     }
     let dek = random32();
-    let mut wraps = vec![seal_passphrase(password, params, &dek)?];
+    let mut wraps = vec![seal_passphrase(stretch, dek.as_slice())?];
     if let Ok(Some(pin)) = Pin::load(parent_home(db)?) {
         wraps.push(seal_master(&pin.wrap_pub, dek.as_slice())?);
     }
@@ -333,12 +379,23 @@ fn export_encrypted(src: &Path, dest: &Path, key: &[u8; 32]) -> Result<()> {
         rusqlite::Connection::open(src).with_context(|| format!("opening {}", src.display()))?;
     let hex = data_encoding::HEXLOWER.encode(key);
     let path = dest.display().to_string().replace('\'', "''");
-    from.execute_batch(&format!(
+    // The attached file is a temp copy. One fsync after the export is enough;
+    // the plaintext file stays in place until the copy has been checked.
+    // The raw key skips SQLCipher's password KDF. Do not set kdf_iter.
+    let copied = from.execute_batch(&format!(
         "ATTACH DATABASE '{path}' AS encrypted KEY \"x'{hex}'\";
+         PRAGMA encrypted.synchronous = OFF;
+         PRAGMA encrypted.journal_mode = OFF;
          SELECT sqlcipher_export('encrypted');
          DETACH DATABASE encrypted;"
-    ))
-    .context("copying the database into an encrypted file")?;
+    ));
+    if let Err(e) = copied {
+        let _ = std::fs::remove_file(dest);
+        return Err(e).context("copying the database into an encrypted file");
+    }
+    std::fs::File::open(dest)
+        .and_then(|f| f.sync_all())
+        .context("flushing the encrypted database")?;
     Ok(())
 }
 
@@ -404,23 +461,17 @@ fn fingerprint(db: &Path, key: Option<&[u8; 32]>) -> Result<String> {
     Ok(data_encoding::HEXLOWER.encode(hasher.finalize().as_bytes()))
 }
 
-fn write_bootstrap(
-    db: &Path,
-    password: &str,
-    params: Argon2Params,
-    local: &[u8; 32],
-) -> Result<()> {
-    let mut salt = [0u8; 16];
+fn write_bootstrap(db: &Path, stretch: &Stretch, local: &[u8; 32]) -> Result<()> {
     let mut nonce = [0u8; 24];
-    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut salt);
     rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
-    let wrapped = aead_seal(password, &salt, &nonce, LOCAL_INFO, params, local)?;
+    let params = stretch.params();
+    let wrapped = seal_with(stretch, &nonce, LOCAL_INFO, local)?;
     let value = Value::Array(vec![
         Value::Integer(BOOT_VERSION.into()),
         Value::Integer(u64::from(params.m_kib).into()),
         Value::Integer(u64::from(params.t).into()),
         Value::Integer(u64::from(params.p).into()),
-        Value::Bytes(salt.to_vec()),
+        Value::Bytes(stretch.salt().to_vec()),
         Value::Bytes(nonce.to_vec()),
         Value::Bytes(wrapped),
     ]);
@@ -439,7 +490,14 @@ fn write_bootstrap(
     Ok(())
 }
 
-fn unwrap_local(boot: &Path, password: &str) -> Result<Zeroizing<[u8; 32]>> {
+struct BootFile {
+    params: Argon2Params,
+    salt: [u8; 16],
+    nonce: [u8; 24],
+    wrapped: Vec<u8>,
+}
+
+fn read_boot(boot: &Path) -> Result<BootFile> {
     let bytes = std::fs::read(boot).with_context(|| format!("reading {}", boot.display()))?;
     let value: Value = ciborium::de::from_reader(bytes.as_slice()).context("bootstrap")?;
     let Value::Array(a) = value else {
@@ -452,11 +510,6 @@ fn unwrap_local(boot: &Path, password: &str) -> Result<Zeroizing<[u8; 32]>> {
     if version > BOOT_VERSION {
         bail!("this bootstrap uses version {version}, and this build reads up to {BOOT_VERSION}");
     }
-    let params = Argon2Params {
-        m_kib: int_field(&a[1])? as u32,
-        t: int_field(&a[2])? as u32,
-        p: int_field(&a[3])? as u32,
-    };
     let salt = bytes_field(&a[4], 16)?;
     let nonce = bytes_field(&a[5], 24)?;
     let wrapped = match &a[6] {
@@ -467,13 +520,32 @@ fn unwrap_local(boot: &Path, password: &str) -> Result<Zeroizing<[u8; 32]>> {
     let mut nonce_a = [0u8; 24];
     salt_a.copy_from_slice(&salt);
     nonce_a.copy_from_slice(&nonce);
-    let plain = aead_open(password, &salt_a, &nonce_a, LOCAL_INFO, params, &wrapped)?;
+    Ok(BootFile {
+        params: Argon2Params {
+            m_kib: int_field(&a[1])? as u32,
+            t: int_field(&a[2])? as u32,
+            p: int_field(&a[3])? as u32,
+        },
+        salt: salt_a,
+        nonce: nonce_a,
+        wrapped,
+    })
+}
+
+fn open_local(boot: &Path, password: &str) -> Result<(Zeroizing<[u8; 32]>, Stretch)> {
+    let file = read_boot(boot)?;
+    let stretch = Stretch::from_salt(password, file.salt, file.params)?;
+    let plain = open_with(&stretch, &file.nonce, LOCAL_INFO, &file.wrapped)?;
     if plain.len() != 32 {
         bail!("the local key has the wrong length");
     }
     let mut key = Zeroizing::new([0u8; 32]);
     key.copy_from_slice(&plain);
-    Ok(key)
+    Ok((key, stretch))
+}
+
+fn unwrap_local(boot: &Path, password: &str) -> Result<Zeroizing<[u8; 32]>> {
+    Ok(open_local(boot, password)?.0)
 }
 
 struct Wrap {
@@ -484,18 +556,16 @@ struct Wrap {
     argon: Option<Argon2Params>,
 }
 
-fn seal_passphrase(password: &str, params: Argon2Params, dek: &[u8; 32]) -> Result<Wrap> {
-    let mut salt = [0u8; 16];
+fn seal_passphrase(stretch: &Stretch, dek: &[u8]) -> Result<Wrap> {
     let mut nonce = [0u8; 24];
-    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut salt);
     rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
-    let body = aead_seal(password, &salt, &nonce, ACCOUNT_PASS_INFO, params, dek)?;
+    let body = seal_with(stretch, &nonce, ACCOUNT_PASS_INFO, dek)?;
     Ok(Wrap {
         kind: KIND_PASS,
-        id: salt.to_vec(),
+        id: stretch.salt().to_vec(),
         extra: nonce.to_vec(),
         body,
-        argon: Some(params),
+        argon: Some(stretch.params()),
     })
 }
 
@@ -526,27 +596,13 @@ fn unwrap_account(
     wraps: &[Wrap],
     password: &str,
     master: Option<&Master>,
+    known: Option<&Stretch>,
 ) -> Result<Zeroizing<Vec<u8>>> {
     for wrap in wraps {
         if wrap.kind != KIND_PASS {
             continue;
         }
-        let Some(params) = wrap.argon else { continue };
-        let mut salt = [0u8; 16];
-        let mut nonce = [0u8; 24];
-        if wrap.id.len() != 16 || wrap.extra.len() != 24 {
-            continue;
-        }
-        salt.copy_from_slice(&wrap.id);
-        nonce.copy_from_slice(&wrap.extra);
-        if let Ok(plain) = aead_open(
-            password,
-            &salt,
-            &nonce,
-            ACCOUNT_PASS_INFO,
-            params,
-            &wrap.body,
-        ) {
+        if let Ok(plain) = open_passphrase_wrap(wrap, password, known) {
             return Ok(Zeroizing::new(plain));
         }
     }
@@ -645,16 +701,85 @@ fn store_wraps(conn: &rusqlite::Connection, epoch: i64, wraps: &[Wrap]) -> Resul
     Ok(())
 }
 
-fn aead_seal(
+fn seal_with(stretch: &Stretch, nonce: &[u8; 24], info: &[u8], plain: &[u8]) -> Result<Vec<u8>> {
+    aead_encrypt(&stretch.key(info), nonce, info, plain)
+}
+
+fn open_with(stretch: &Stretch, nonce: &[u8; 24], info: &[u8], body: &[u8]) -> Result<Vec<u8>> {
+    aead_decrypt(&stretch.key(info), nonce, info, body)
+}
+
+fn open_passphrase_wrap(wrap: &Wrap, password: &str, known: Option<&Stretch>) -> Result<Vec<u8>> {
+    let Some(params) = wrap.argon else {
+        bail!("a passphrase wrap has no parameters");
+    };
+    if wrap.id.len() != 16 || wrap.extra.len() != 24 {
+        bail!("a passphrase wrap has the wrong length");
+    }
+    let mut salt = [0u8; 16];
+    let mut nonce = [0u8; 24];
+    salt.copy_from_slice(&wrap.id);
+    nonce.copy_from_slice(&wrap.extra);
+    if let Some(known) = known
+        && *known.salt() == salt
+        && known.params() == params
+    {
+        return open_with(known, &nonce, ACCOUNT_PASS_INFO, &wrap.body);
+    }
+    let stretch = Stretch::from_salt(password, salt, params)?;
+    open_with(&stretch, &nonce, ACCOUNT_PASS_INFO, &wrap.body)
+}
+
+fn load_passphrase_dek(
+    db: &Path,
+    local: &[u8; 32],
     password: &str,
-    salt: &[u8; 16],
+    old: &Stretch,
+) -> Result<Option<(i64, Zeroizing<Vec<u8>>)>> {
+    let conn = rusqlite::Connection::open(db)?;
+    apply_key(&conn, local)?;
+    let exists: i64 = conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type = 'table' AND name = 'key_epochs'",
+        [],
+        |r| r.get(0),
+    )?;
+    if exists == 0 {
+        return Ok(None);
+    }
+    let Some((epoch, wraps)) = current_epoch(&conn)? else {
+        return Ok(None);
+    };
+    if !wraps.iter().any(|w| w.kind == KIND_PASS) {
+        return Ok(None);
+    }
+    let dek = unwrap_account(&wraps, password, None, Some(old))?;
+    Ok(Some((epoch, dek)))
+}
+
+fn store_passphrase_wrap(
+    db: &Path,
+    local: &[u8; 32],
+    epoch: i64,
+    stretch: &Stretch,
+    dek: &[u8],
+) -> Result<()> {
+    let conn = rusqlite::Connection::open(db)?;
+    apply_key(&conn, local)?;
+    let Some((_, mut wraps)) = current_epoch(&conn)? else {
+        return Ok(());
+    };
+    wraps.retain(|w| w.kind != KIND_PASS);
+    wraps.insert(0, seal_passphrase(stretch, dek)?);
+    store_wraps(&conn, epoch, &wraps)
+}
+
+fn aead_encrypt(
+    key: &Zeroizing<[u8; 32]>,
     nonce: &[u8; 24],
     info: &[u8],
-    params: Argon2Params,
     plain: &[u8],
 ) -> Result<Vec<u8>> {
-    let key = derived_key(password, salt, info, params)?;
-    let cipher = XChaCha20Poly1305::new((&*key).into());
+    let cipher = XChaCha20Poly1305::new((&**key).into());
     cipher
         .encrypt(
             nonce.into(),
@@ -666,16 +791,13 @@ fn aead_seal(
         .map_err(|_| anyhow::anyhow!("wrapping a key failed"))
 }
 
-fn aead_open(
-    password: &str,
-    salt: &[u8; 16],
+fn aead_decrypt(
+    key: &Zeroizing<[u8; 32]>,
     nonce: &[u8; 24],
     info: &[u8],
-    params: Argon2Params,
     body: &[u8],
 ) -> Result<Vec<u8>> {
-    let key = derived_key(password, salt, info, params)?;
-    let cipher = XChaCha20Poly1305::new((&*key).into());
+    let cipher = XChaCha20Poly1305::new((&**key).into());
     cipher
         .decrypt(
             nonce.into(),
@@ -687,20 +809,6 @@ fn aead_open(
         .map_err(|_| {
             anyhow::anyhow!("the password does not open this database. Nothing was written.")
         })
-}
-
-fn derived_key(
-    password: &str,
-    salt: &[u8],
-    info: &[u8],
-    params: Argon2Params,
-) -> Result<Zeroizing<[u8; 32]>> {
-    let argon = Zeroizing::new(argon2id(password, salt, params)?);
-    let hk = hkdf::Hkdf::<sha2::Sha256>::new(Some(salt), argon.as_slice());
-    let mut key = Zeroizing::new([0u8; 32]);
-    hk.expand(info, key.as_mut())
-        .expect("32-byte HKDF output is valid");
-    Ok(key)
 }
 
 fn hpke_seal(pk: &[u8; 32], plain: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
@@ -737,6 +845,11 @@ pub fn hpke_open(sk: &[u8; 32], enc: &[u8], body: &[u8]) -> Result<Zeroizing<Vec
         .open(body, b"")
         .map_err(|_| anyhow::anyhow!("hpke open failed"))?;
     Ok(Zeroizing::new(plain))
+}
+
+/// Argon2id parameters for a new wrap of `db`: the pin, `ACP_ARGON_FAST`, or the floor.
+pub(crate) fn password_params(db: &Path) -> Result<Argon2Params> {
+    chosen_params(db)
 }
 
 fn chosen_params(db: &Path) -> Result<Argon2Params> {
@@ -963,6 +1076,208 @@ mod tests {
         rewrap_local(&db, PASSWORD, next, Argon2Params::FAST).unwrap();
         assert!(unwrap_local(&bootstrap_path(&db), PASSWORD).is_err());
         unlock(&db, next).unwrap();
+        let dek = account_dek(&db, next);
+        assert_eq!(dek.len(), 32);
+        assert!(account_dek_err(&db, PASSWORD).contains("password"));
         let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn creating_or_migrating_stretches_the_password_once() {
+        let home = scratch("once");
+        let db = db_of(&home);
+        super::super::password::start_argon_count();
+        super::super::progress::record_stages();
+        create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        assert_eq!(super::super::password::argon_count(), 1);
+        let stages = super::super::progress::stages();
+        assert_eq!(
+            stages
+                .iter()
+                .filter(|s| s.as_str() == "Deriving key")
+                .count(),
+            1
+        );
+        assert!(stages.iter().any(|s| s.as_str() == "Creating the database"));
+
+        let plain = scratch("once-plain");
+        let db = db_of(&plain);
+        seed_plain(&db);
+        let backup = plain.join("before.acpbackup");
+        super::super::password::start_argon_count();
+        super::super::progress::record_stages();
+        encrypt_db(&db, PASSWORD, &backup).unwrap();
+        assert_eq!(
+            super::super::password::argon_count(),
+            1,
+            "backup, local key, and account key share one stretch"
+        );
+        let stages = super::super::progress::stages();
+        assert_eq!(
+            stages
+                .iter()
+                .filter(|s| s.as_str() == "Deriving key")
+                .count(),
+            1
+        );
+        assert!(
+            stages
+                .iter()
+                .any(|s| s.as_str() == "Snapshotting the database")
+        );
+        assert!(stages.iter().any(|s| s.as_str() == "Encrypting database"));
+        assert!(stages.iter().any(|s| s.as_str() == "Verifying"));
+        let fresh = scratch("once-restore");
+        super::super::password::start_argon_count();
+        super::super::progress::record_stages();
+        crate::crypto::backup::restore_backup(&fresh, &backup, PASSWORD, None).unwrap();
+        assert_eq!(super::super::password::argon_count(), 1);
+        let stages = super::super::progress::stages();
+        assert!(stages.iter().any(|s| s.as_str() == "Restoring files"));
+        assert!(stages.iter().any(|s| s.as_str() == "Encrypting database"));
+        let _ = std::fs::remove_dir_all(&home);
+        let _ = std::fs::remove_dir_all(&plain);
+        let _ = std::fs::remove_dir_all(&fresh);
+    }
+
+    #[test]
+    fn backing_up_an_encrypted_database_reuses_the_unlock_stretch() {
+        let home = scratch("backup-once");
+        let db = db_of(&home);
+        create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        super::super::password::start_argon_count();
+        let stretch = unlock_stretch(&db, PASSWORD).unwrap();
+        let file = home.join("once.acpbackup");
+        crate::crypto::backup::write_backup_with(&home, &file, &stretch).unwrap();
+        assert_eq!(super::super::password::argon_count(), 1);
+        assert!(file.is_file());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_password_change_stretches_each_password_once_when_the_salts_match() {
+        let home = scratch("rewrap-once");
+        let db = db_of(&home);
+        create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        let before = account_dek(&db, PASSWORD);
+        let next = "correct horse battery staple and more";
+        super::super::password::start_argon_count();
+        super::super::progress::record_stages();
+        rewrap_local(&db, PASSWORD, next, Argon2Params::FAST).unwrap();
+        assert_eq!(super::super::password::argon_count(), 2);
+        let stages = super::super::progress::stages();
+        assert_eq!(
+            stages
+                .iter()
+                .filter(|s| s.as_str() == "Deriving key")
+                .count(),
+            2
+        );
+        assert!(
+            stages
+                .iter()
+                .any(|s| s.as_str() == "Saving the new password")
+        );
+        assert_eq!(account_dek(&db, next), before);
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn an_account_wrap_with_its_own_salt_still_opens() {
+        let home = scratch("oldsalt");
+        let db = db_of(&home);
+        create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        unlock(&db, PASSWORD).unwrap();
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        apply_if_needed(&conn, &db).unwrap();
+        let (epoch, mut wraps) = current_epoch(&conn).unwrap().unwrap();
+        let dek = unwrap_account(&wraps, PASSWORD, None, None).unwrap();
+        let other = Stretch::fresh(PASSWORD, Argon2Params::FAST).unwrap();
+        wraps.retain(|w| w.kind != KIND_PASS);
+        wraps.insert(0, seal_passphrase(&other, dek.as_slice()).unwrap());
+        store_wraps(&conn, epoch, &wraps).unwrap();
+        drop(conn);
+        super::super::password::start_argon_count();
+        let opened = {
+            let conn = rusqlite::Connection::open(&db).unwrap();
+            apply_if_needed(&conn, &db).unwrap();
+            let (_, wraps) = current_epoch(&conn).unwrap().unwrap();
+            unwrap_account(&wraps, PASSWORD, None, None).unwrap()
+        };
+        assert_eq!(opened.as_slice(), dek.as_slice());
+        assert_eq!(super::super::password::argon_count(), 1);
+        let next = "correct horse battery staple and more";
+        super::super::password::start_argon_count();
+        rewrap_local(&db, PASSWORD, next, Argon2Params::FAST).unwrap();
+        assert_eq!(super::super::password::argon_count(), 3);
+        assert_eq!(account_dek(&db, next), dek.to_vec());
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_raw_sqlcipher_key_does_not_run_the_password_kdf() {
+        use std::time::Instant;
+        let dir = scratch("kdf");
+        let raw_path = dir.join("raw.db");
+        let pass_path = dir.join("pass.db");
+        let key = [3u8; 32];
+        let hex = data_encoding::HEXLOWER.encode(&key);
+        let raw = rusqlite::Connection::open(&raw_path).unwrap();
+        raw.execute_batch(&format!(
+            "PRAGMA key = \"x'{hex}'\"; CREATE TABLE t (x); INSERT INTO t VALUES (1);"
+        ))
+        .unwrap();
+        let kdf: String = raw.query_row("PRAGMA kdf_iter", [], |r| r.get(0)).unwrap();
+        let algo: String = raw
+            .query_row("PRAGMA cipher_kdf_algorithm", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            kdf, "256000",
+            "the password KDF stays at the SQLCipher default"
+        );
+        assert_eq!(algo, "PBKDF2_HMAC_SHA512");
+        drop(raw);
+        let started = Instant::now();
+        let raw = rusqlite::Connection::open(&raw_path).unwrap();
+        apply_key(&raw, &key).unwrap();
+        let _: i64 = raw.query_row("SELECT x FROM t", [], |r| r.get(0)).unwrap();
+        let raw_open = started.elapsed();
+
+        let pass = rusqlite::Connection::open(&pass_path).unwrap();
+        pass.execute_batch(
+            "PRAGMA key = 'correct horse battery staple'; CREATE TABLE t (x); INSERT INTO t VALUES (1);",
+        )
+        .unwrap();
+        drop(pass);
+        let started = Instant::now();
+        let pass = rusqlite::Connection::open(&pass_path).unwrap();
+        pass.execute_batch("PRAGMA key = 'correct horse battery staple';")
+            .unwrap();
+        let _: i64 = pass.query_row("SELECT x FROM t", [], |r| r.get(0)).unwrap();
+        let pass_open = started.elapsed();
+        assert!(raw_open.as_millis() < 200, "raw key open took {raw_open:?}");
+        assert!(
+            pass_open.as_millis() > raw_open.as_millis().saturating_mul(3).max(5),
+            "passphrase open {pass_open:?} should show the KDF the raw key skips (raw {raw_open:?})"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn account_dek(db: &Path, password: &str) -> Vec<u8> {
+        let conn = rusqlite::Connection::open(db).unwrap();
+        apply_if_needed(&conn, db).unwrap();
+        let (_, wraps) = current_epoch(&conn).unwrap().unwrap();
+        unwrap_account(&wraps, password, None, None)
+            .unwrap()
+            .to_vec()
+    }
+
+    fn account_dek_err(db: &Path, password: &str) -> String {
+        let conn = rusqlite::Connection::open(db).unwrap();
+        apply_if_needed(&conn, db).unwrap();
+        let (_, wraps) = current_epoch(&conn).unwrap().unwrap();
+        unwrap_account(&wraps, password, None, None)
+            .unwrap_err()
+            .to_string()
     }
 }

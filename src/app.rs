@@ -206,6 +206,7 @@ pub async fn run() -> Result<()> {
     if args.backup { return crate::crypto::cmd::backup_now(args.output.as_deref()); }
     if let Some(path) = args.restore.as_deref() { return crate::crypto::cmd::restore_now(path); }
     if args.encrypt_db { return crate::crypto::cmd::encrypt_db(); }
+    if args.change_password { return crate::crypto::cmd::change_password(); }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_themes { return run_list_themes(&args).await; }

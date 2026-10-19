@@ -67,6 +67,11 @@ fn identity_flags_parse_and_do_not_open_the_tui() {
     assert!(!wants_tui(&m));
     assert!(Args::try_parse_from(["x", "--encrypt-db"]).unwrap().encrypt_db);
     assert!(Args::try_parse_from(["x", "--encrypt-db", "--scrape"]).is_err());
+    assert!(Args::try_parse_from(["x", "--change-password"]).unwrap().change_password);
+    assert!(Args::try_parse_from(["x", "--change-password", "--encrypt-db"]).is_err());
+    assert!(Args::try_parse_from(["x", "--change-password", "--backup"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--change-password"]).unwrap();
+    assert!(!wants_tui(&m));
 }
 
 #[test]

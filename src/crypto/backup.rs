@@ -23,11 +23,11 @@ use std::fs::File;
 use std::io::{Cursor, Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
-use zeroize::Zeroizing;
 
 use super::master::{self, AcpId};
-use super::password::{Argon2Params, argon2id};
+use super::password::{Argon2Params, Stretch};
 use super::pin::Pin;
+use super::progress::set_stage;
 use crate::config::{
     ACP_ID_REL_PATH, ATTACH_REL_PATH, DB_REL_PATH, EXPORTS_REL_PATH, LOGS_REL_DIR,
     NODE_SECRET_REL_PATH, PREFS_REL_PATH, RESEARCH_REL_DIR, SESSION_REL_PATH,
@@ -96,6 +96,11 @@ pub fn write_backup(home: &Path, dest: &Path, password: &str, params: Argon2Para
     write_backup_version(home, dest, password, params, FORMAT_VERSION)
 }
 
+/// Write `dest` using a stretch already computed for this operation.
+pub(crate) fn write_backup_with(home: &Path, dest: &Path, stretch: &Stretch) -> Result<()> {
+    write_backup_with_version(home, dest, stretch, FORMAT_VERSION)
+}
+
 fn write_backup_version(
     home: &Path,
     dest: &Path,
@@ -103,12 +108,22 @@ fn write_backup_version(
     params: Argon2Params,
     format: u64,
 ) -> Result<()> {
+    let stretch = Stretch::fresh(password, params)?;
+    write_backup_with_version(home, dest, &stretch, format)
+}
+
+fn write_backup_with_version(
+    home: &Path,
+    dest: &Path,
+    stretch: &Stretch,
+    format: u64,
+) -> Result<()> {
+    set_stage("Snapshotting the database");
     let tar_bytes = pack(home)?;
     let content_hash = *blake3::hash(&tar_bytes).as_bytes();
+    set_stage("Compressing");
     let compressed = zstd::bulk::compress(&tar_bytes, 3).context("zstd")?;
-    let mut salt = [0u8; 16];
     let mut nonce = [0u8; 24];
-    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut salt);
     rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
     let acp_id = Pin::load(home)?
         .map(|p| p.acp_id.to_string())
@@ -120,8 +135,8 @@ fn write_backup_version(
         created_at: now_secs(),
         acp_id,
         epochs: epoch_list(home)?,
-        argon2: params,
-        salt,
+        argon2: stretch.params(),
+        salt: *stretch.salt(),
         nonce,
         content_hash,
     };
@@ -130,7 +145,8 @@ fn write_backup_version(
     aad.extend_from_slice(MAGIC);
     aad.extend_from_slice(&(header_bytes.len() as u32).to_be_bytes());
     aad.extend_from_slice(&header_bytes);
-    let cipher = seal(password, &header, &aad, &compressed)?;
+    set_stage("Sealing the backup");
+    let cipher = seal_with(stretch, &header, &aad, &compressed)?;
     if let Some(dir) = dest.parent() {
         std::fs::create_dir_all(dir)?;
     }
@@ -156,6 +172,7 @@ pub fn restore_backup(
     password: &str,
     material: Option<&str>,
 ) -> Result<()> {
+    set_stage("Checking the backup");
     let bytes = std::fs::read(src).with_context(|| format!("reading {}", src.display()))?;
     let (cipher, header) = split_file(&bytes)?;
     if header.format > FORMAT_VERSION {
@@ -178,16 +195,18 @@ pub fn restore_backup(
         check_material(&header, password, text)?;
     }
     let aad_len = MAGIC.len() + 4 + header_len(&bytes)?;
-    let plain = open_seal(password, &header, &bytes[..aad_len], cipher)?;
+    let stretch = Stretch::from_salt(password, header.salt, header.argon2)?;
+    let plain = open_seal_with(&stretch, &header, &bytes[..aad_len], cipher)?;
     let tar_bytes = zstd::bulk::decompress(&plain, 512 * 1024 * 1024).context("zstd")?;
     let got = *blake3::hash(&tar_bytes).as_bytes();
     if got != header.content_hash {
         bail!("backup contents do not match the header checksum");
     }
+    set_stage("Restoring files");
     unpack(home, &tar_bytes)?;
     let db = home.join(DB_REL_PATH);
     if db.is_file() && crate::crypto::atrest::is_plaintext_db(&db) {
-        crate::crypto::atrest::encrypt_in_place(&db, password, header.argon2)?;
+        crate::crypto::atrest::encrypt_with_stretch(&db, &stretch)?;
     }
     Ok(())
 }
@@ -338,16 +357,21 @@ fn check_material(header: &Header, password: &str, text: &str) -> Result<()> {
     Ok(())
 }
 
-fn seal(password: &str, header: &Header, aad: &[u8], plain: &[u8]) -> Result<Vec<u8>> {
-    let key = archive_key(password, header)?;
+fn seal_with(stretch: &Stretch, header: &Header, aad: &[u8], plain: &[u8]) -> Result<Vec<u8>> {
+    let key = stretch.key(BACKUP_INFO);
     let cipher = XChaCha20Poly1305::new((&*key).into());
     cipher
         .encrypt((&header.nonce).into(), Payload { msg: plain, aad })
         .map_err(|_| anyhow::anyhow!("backup encryption failed"))
 }
 
-fn open_seal(password: &str, header: &Header, aad: &[u8], cipher_text: &[u8]) -> Result<Vec<u8>> {
-    let key = archive_key(password, header)?;
+fn open_seal_with(
+    stretch: &Stretch,
+    header: &Header,
+    aad: &[u8],
+    cipher_text: &[u8],
+) -> Result<Vec<u8>> {
+    let key = stretch.key(BACKUP_INFO);
     let cipher = XChaCha20Poly1305::new((&*key).into());
     cipher
         .decrypt(
@@ -359,15 +383,6 @@ fn open_seal(password: &str, header: &Header, aad: &[u8], cipher_text: &[u8]) ->
                 "the password does not open this backup, or the file is damaged. Nothing was written."
             )
         })
-}
-
-fn archive_key(password: &str, header: &Header) -> Result<Zeroizing<[u8; 32]>> {
-    let argon = Zeroizing::new(argon2id(password, &header.salt, header.argon2)?);
-    let hk = hkdf::Hkdf::<sha2::Sha256>::new(Some(&header.salt), argon.as_slice());
-    let mut key = Zeroizing::new([0u8; 32]);
-    hk.expand(BACKUP_INFO, key.as_mut())
-        .expect("32-byte HKDF output is valid");
-    Ok(key)
 }
 
 fn split_file(bytes: &[u8]) -> Result<(&[u8], Header)> {
@@ -556,6 +571,8 @@ fn snapshot_db(home: &Path) -> Result<Vec<u8>> {
     // writes a plaintext snapshot, which the archive then seals.
     src.execute_batch(&format!(
         "ATTACH DATABASE '{path}' AS plaintext KEY '';
+         PRAGMA plaintext.synchronous = OFF;
+         PRAGMA plaintext.journal_mode = OFF;
          SELECT sqlcipher_export('plaintext');
          DETACH DATABASE plaintext;"
     ))
