@@ -16,6 +16,7 @@ mod basket;
 mod research;
 mod modals;
 mod render;
+mod slogan;
 mod state;
 mod theme;
 mod sync;

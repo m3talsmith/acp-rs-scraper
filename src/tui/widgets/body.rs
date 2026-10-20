@@ -1,7 +1,8 @@
 //! Body: navigation bar (with `<` back from search), the post cards, and the
 //! detail stack that slides the list up and nests linked posts.
 
-use crate::config::DETAIL_HEADER_ROWS;
+use crate::branding::{slogan_style, SLOGAN};
+use crate::config::{DETAIL_HEADER_ROWS, TUI_SUBTITLE};
 use crate::tui::layout::{CARD_ROWS, card_height, carousel, detail_split, ellipsize, grid_cells, grid_rows, modal_rect, stack_layout, wrap};
 use crate::tui::state::{AnimKind, App, Focus, Hit, ViewMode};
 use crate::tui::widgets::detail::{badge, detail_layout, header_lines, meta_line, snippet};
@@ -78,9 +79,20 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
         let msg = if in_search { "No posts match this search. Press < to go back." }
             else if app.nicks.is_empty() { "The database is empty. Open Scrape (or Import) in the menu bar to fill it." }
             else { "Click a nick (Space / Ctrl-click to select several) to read their posts and replies." };
-        f.render_widget(Paragraph::new(msg).style(t.muted()), Rect { y: content.y + 1, height: content.height.saturating_sub(1), ..content });
+        // Welcome puts the title, then the slogan, above the hint. An empty search stays a hint.
+        let (text, anim_pad) = if in_search {
+            (vec![Line::styled(msg, t.muted())], 3)
+        } else {
+            (vec![
+                Line::styled(TUI_SUBTITLE, t.bold()),
+                Line::styled(SLOGAN, slogan_style(app.color_mode, app.no_color, false)),
+                Line::raw(""),
+                Line::styled(msg, t.muted()),
+            ], 6)
+        };
+        f.render_widget(Paragraph::new(text), Rect { y: content.y + 1, height: content.height.saturating_sub(1), ..content });
         // Below the hint, the empty-Body animation (paused when there's no room).
-        let area = Rect { y: content.y + 3, height: content.height.saturating_sub(3), ..content };
+        let area = Rect { y: content.y + anim_pad, height: content.height.saturating_sub(anim_pad), ..content };
         app.empty_anim_frame = None;
         if let Some(fr) = &app.empty_anim {
             let i = fr.index(now.saturating_duration_since(app.empty_anim_start));

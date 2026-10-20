@@ -1339,6 +1339,11 @@ impl App {
         let h = match topic { Some(t) if !t.is_empty() => crate::tui::modals::HelpModal::topic(t), _ => crate::tui::modals::HelpModal::new() };
         self.modal = Some(Modal::Help(h));
     }
+    /// About, with the slogan as its header.
+    pub fn open_about(&mut self) {
+        self.close_menu();
+        self.modal = Some(Modal::About(crate::tui::modals::AboutModal));
+    }
     /// Write `[ui] color` when the TUI has a real preferences file (not a unit test).
     fn persist_color_mode(&mut self) {
         if self.themes_dir.is_none() { return; }
@@ -1573,6 +1578,7 @@ impl App {
             Action::Login => { self.close_menu(); self.open_login(None); }
             Action::Logout => { self.close_menu(); self.effects.push(Effect::Logout); }
             Action::Help => self.open_help(None),
+            Action::About => self.open_about(),
             Action::ToggleLog => { self.show_log = !self.show_log; }
             Action::StackPrev => { if !self.stack_prev() { self.push_status("no previous post: this is the list"); } }
             Action::StackNext => { if !self.stack_next() { self.push_status("no next post: open one, or go back with prev first"); } }

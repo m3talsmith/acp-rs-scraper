@@ -1,5 +1,7 @@
 //! Modal rendering: dims the layout, then draws the modal with a small margin.
 
+use crate::branding::{slogan_style, SLOGAN, SLOGAN_COLS};
+use crate::config::TUI_SUBTITLE;
 use crate::tui::layout::{modal_rect, wrap};
 use crate::tui::modals::*;
 use crate::tui::state::{status_line_is_problem, App, Hit};
@@ -250,7 +252,11 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         Modal::Login(l) => {
             let r = modal_rect(area, area.width, area.height);
             let inner = frame(f, &t, r, &l.title());
-            let mut lines = vec![Line::raw("")];
+            let mut lines = vec![
+                Line::styled(TUI_SUBTITLE, t.bold()),
+                Line::styled(SLOGAN, slogan_style(app.color_mode, app.no_color, false)),
+                Line::raw(""),
+            ];
             if let Some(why) = &l.reason { lines.push(Line::styled(why.clone(), t.accent_bold())); lines.push(Line::raw("")); }
             lines.push(Line::raw("acp.us logs you in with a one-time code sent by email."));
             lines.push(Line::raw(""));
@@ -403,6 +409,20 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 f.render_widget(Paragraph::new(Span::styled(format!(" {}", action.label()), st)), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
             }
+        }
+        Modal::About(m) => {
+            let r = modal_rect(area, SLOGAN_COLS.saturating_add(8).max(52), 8);
+            f.render_widget(Clear, r);
+            let title = Line::from(Span::styled(format!(" {} ", m.title()), slogan_style(app.color_mode, app.no_color, false)));
+            let b = boxed(&t.dialog()).title(title);
+            let inner = b.inner(r);
+            f.render_widget(b, r);
+            let body = vec![
+                Line::styled(TUI_SUBTITLE, t.bold()),
+                Line::styled(format!("v{}", env!("CARGO_PKG_VERSION")), t.muted()),
+            ];
+            f.render_widget(Paragraph::new(body), Rect { height: inner.height.saturating_sub(2), ..inner });
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
         }
         Modal::Job(m) => draw_job(f, app, area, m, &t),
         Modal::Compose(m) => draw_compose(f, app, area, m, &t),

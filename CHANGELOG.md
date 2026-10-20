@@ -16,7 +16,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **The product name is ACP Red Star.** The binary is `acp-red-star`. `acp-rs-scraper` still runs, prints one deprecation line, and forwards its arguments through version 3. The library crate is `acp_red_star`. The shared core is `acp_red_star_node_core`. The encrypted database stays at `~/.acp/ai/data/rs.database`. `ACP_*` environment variables are unchanged. The GitHub repository URL is unchanged.
+- **The product name is ACP Red Star.** The binary is `acp-red-star`. `acp-rs-scraper` still runs, prints one deprecation line, and forwards its arguments through version 3. The library crate is `acp_red_star`. The shared core is `acp_red_star_node_core`. The encrypted database stays at `~/.acp/ai/data/rs.database`. `ACP_*` environment variables are unchanged. The GitHub repository URL is unchanged. The terminal UI shows the slogan "The future belongs to the working class" under that title on the welcome screen and the login screen, as the header of About, and at the right of the status bar when the bar is wide enough to leave the status text intact. With `NO_COLOR` or `--color never` the slogan is plain text.
 
 ### Added
 
