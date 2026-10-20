@@ -144,10 +144,18 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
         let n = pick.iter().filter(|on| **on).count();
         for (i, on) in pick.iter().enumerate() {
             if y >= btn_y { break; }
-            let name = m.attachments.get(i).and_then(|p| p.file_name()).map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+            let path = m.attachments.get(i);
+            let name = path.and_then(|p| p.file_name()).map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+            let eligible = path.is_some_and(|p| crate::config::site_accepts_path(p));
             let mark = if *on { "[x]" } else { "[ ]" };
-            let st = if m.focus == ComposeFocus::SitePick && i == m.site_at { t.selected() } else { t.plain() };
-            f.render_widget(Paragraph::new(Span::styled(clip(&format!(" {mark} {} {name}", i + 1), inner.width as usize), st)), row(y));
+            let line = if eligible {
+                format!(" {mark} {} {name}", i + 1)
+            } else {
+                format!(" {mark} {} {name} — {}", i + 1, crate::config::site_ineligible_reason())
+            };
+            let focused = m.focus == ComposeFocus::SitePick && i == m.site_at;
+            let st = if !eligible { t.muted() } else if focused { t.selected() } else { t.plain() };
+            f.render_widget(Paragraph::new(Span::styled(clip(&line, inner.width as usize), st)), row(y));
             app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
             y += 1;
         }
@@ -156,7 +164,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
             y += 1;
         }
         if y < btn_y {
-            let tip = format!("Space checks a file. At most {max} go to Red Star.  ? site-attachments");
+            let tip = format!("At most {max} images or videos. Others stay local.  ? site-attachments");
             f.render_widget(Paragraph::new(Span::styled(clip(&tip, inner.width as usize), t.muted())), row(y));
             y += 1;
         }

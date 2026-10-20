@@ -49,7 +49,7 @@ fn line_text(lines: &[ratatui::text::Line]) -> String {
 
 #[test]
 fn more_than_four_opens_a_picker_and_four_or_fewer_does_not() {
-    let (dir, paths) = files("six", &["one.jpg", "two.png", "three.gif", "four.webp", "notes.pdf", "extra.png"]);
+    let (dir, paths) = files("six", &["one.jpg", "two.png", "three.gif", "four.webp", "five.mp4", "notes.pdf"]);
     let mut a = composing(paths.clone());
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal) };
@@ -98,23 +98,23 @@ fn more_than_four_opens_a_picker_and_four_or_fewer_does_not() {
 
 #[test]
 fn the_picker_links_to_its_help_topic_and_clears_when_the_list_shrinks() {
-    let (dir, paths) = files("help", &["one.jpg", "two.png", "three.gif", "four.webp", "notes.pdf"]);
+    let (dir, paths) = files("help", &["one.jpg", "two.png", "three.gif", "four.webp", "five.mp4"]);
     let mut a = composing(paths);
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::Char('?'));
     let Some(Modal::Help(h)) = &a.modal else { panic!("{:?}", a.modal) };
     assert!(h.lines[h.scroll].contains("[[site-attachments]]"), "{}", h.lines[h.scroll]);
-    let mut a = composing(files("f1", &["one.jpg", "two.png", "three.gif", "four.webp", "notes.pdf"]).1);
+    let mut a = composing(files("f1", &["one.jpg", "two.png", "three.gif", "four.webp", "five.mp4"]).1);
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Compose(m)) = &mut a.modal else { panic!() };
     assert_eq!(m.on_key(KeyEvent::new(KeyCode::F(1), KeyModifiers::NONE)), Some(ModalResult::Help("site-attachments")));
-    let mut a = composing(files("esc", &["one.jpg", "two.png", "three.gif", "four.webp", "notes.pdf"]).1);
+    let mut a = composing(files("esc", &["one.jpg", "two.png", "three.gif", "four.webp", "five.mp4"]).1);
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::Esc);
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal) };
     assert!(m.site_pick.is_none());
     assert_eq!(m.focus, ComposeFocus::Publish);
-    let mut a = composing(files("drop", &["one.jpg", "two.png", "three.gif", "four.webp", "notes.pdf"]).1);
+    let mut a = composing(files("drop", &["one.jpg", "two.png", "three.gif", "four.webp", "five.mp4"]).1);
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::BackTab);
     key(&mut a, KeyCode::Backspace);
@@ -146,4 +146,49 @@ fn detail_names_the_site_subset_and_skips_research_files() {
     let (lines, _, _, _) = detail_layout(&frame, 80, &Theme::acp(), 0);
     let text = line_text(&lines);
     assert!(!text.contains("On Red Star"), "{text}");
+}
+
+#[test]
+fn an_audio_file_is_not_selectable_and_a_mix_offers_only_images_and_videos() {
+    let (dir, paths) = files("audio", &["one.jpg", "two.mp4", "talk.mp3", "three.png", "four.webm", "five.gif"]);
+    let mut a = composing(paths);
+    key(&mut a, KeyCode::Enter);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal) };
+    assert_eq!(m.focus, ComposeFocus::SitePick);
+    let pick = m.site_pick.as_deref().unwrap();
+    assert_eq!(pick, &[true, true, false, true, true, false]);
+    assert!(!pick[2], "audio is not preselected");
+    let screen = render(&mut a);
+    assert!(screen.contains("talk.mp3"), "{screen}");
+    assert!(screen.contains("stays local"), "{screen}");
+    assert!(screen.contains("image/*") && screen.contains("video/*"), "{screen}");
+    for _ in 0..2 { key(&mut a, KeyCode::Down); }
+    key(&mut a, KeyCode::Char(' '));
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal) };
+    assert!(!m.site_pick.as_ref().unwrap()[2], "space does not check audio");
+    let err = m.error.as_deref().unwrap_or("");
+    assert!(err.contains("talk.mp3"), "{err}");
+    assert!(err.contains("image/*") && err.contains("video/*"), "{err}");
+    let Some(Modal::Compose(m)) = &mut a.modal else { panic!() };
+    m.site_at = 0;
+    m.error = None;
+    key(&mut a, KeyCode::Char(' '));
+    for _ in 0..5 { key(&mut a, KeyCode::Down); }
+    key(&mut a, KeyCode::Char(' '));
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal) };
+    let pick = m.site_pick.as_deref().unwrap();
+    assert!(!pick[0] && pick[5], "the fifth image can be checked once a slot is free");
+    assert!(!pick[2], "audio stays unchecked under the cap");
+    let _ = std::fs::remove_dir_all(&dir);
+
+    let (dir, paths) = files("under", &["one.jpg", "two.png", "three.gif", "four.webp", "talk.mp3"]);
+    let mut a = composing(paths);
+    key(&mut a, KeyCode::Enter);
+    let Some(Modal::Message(m)) = &a.modal else { panic!("4 images plus audio skip the picker: {:?}", a.modal) };
+    let text = m.lines.join("\n");
+    assert!(text.contains("nothing was published"), "{text}");
+    assert!(text.contains("local-only file talk.mp3"), "{text}");
+    assert!(text.contains("site media one.jpg"), "{text}");
+    assert!(!text.contains("selected for Red Star"), "{text}");
+    let _ = std::fs::remove_dir_all(&dir);
 }

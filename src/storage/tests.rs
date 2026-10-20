@@ -195,3 +195,48 @@ fn site_subset_round_trips_and_old_rows_count_as_on_the_site() {
     assert!(flag("https://media.example/c.jpg"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn an_audio_attachment_is_stored_viewed_and_exported() {
+    let dir = std::env::temp_dir().join(format!("acp-audio-store-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let db = dir.join("rs.database");
+    let audio = dir.join("talk.mp3");
+    std::fs::write(&audio, b"ID3").unwrap();
+    let att = Attachment {
+        post_id: "P1".into(), url: "https://media.example/talk.mp3".into(), kind: "audio".into(),
+        local_path: audio.clone(), mime_type: "audio/mpeg".into(), on_site: false,
+    };
+    crate::storage::db::save_attachments(&db, &[att]).unwrap();
+    use crate::tui::data::Store;
+    let store = crate::tui::data::SqliteStore::new(db.clone());
+    let got = store.attachments("P1").unwrap();
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].mime_type, "audio/mpeg");
+    assert_eq!(got[0].local_path, audio);
+    assert!(!got[0].on_site);
+    let c = Connection::open(&db).unwrap();
+    c.execute_batch("CREATE TABLE posts (id INTEGER PRIMARY KEY AUTOINCREMENT, post_id TEXT NOT NULL,
+            parent_post_id TEXT NOT NULL, nick TEXT NOT NULL, title TEXT NOT NULL, content TEXT NOT NULL, posted_at TEXT NOT NULL);
+        INSERT INTO posts (post_id,parent_post_id,nick,title,content,posted_at) VALUES ('P1','','ada','t','c','1');").unwrap();
+    drop(c);
+    let (posts, atts, _) = crate::storage::db::posts_by_ids(&db, &["P1".into()]).unwrap();
+    assert_eq!(atts.len(), 1, "export still loads the audio file");
+    assert_eq!(atts[0].mime_type, "audio/mpeg");
+    let doc = build_json("ada", &posts, &atts, &[], &[], &|x| x.local_path.file_name().unwrap().to_string_lossy().into_owned());
+    let files = doc["posts"][0]["attachments"].as_array().unwrap();
+    assert_eq!(files.len(), 1);
+    assert_eq!(files[0]["mime_type"], "audio/mpeg");
+    assert_eq!(files[0]["local_path"], "talk.mp3");
+    assert_eq!(files[0]["on_site"], false);
+    let json_path = dir.join("out.json");
+    std::fs::write(&json_path, doc.to_string()).unwrap();
+    let att_dir = dir.join("imported");
+    let (_posts, imported, _, _) = import(&json_path, None, &att_dir, &dir).unwrap();
+    assert_eq!(imported.len(), 1);
+    assert_eq!(imported[0].mime_type, "audio/mpeg");
+    assert!(imported[0].local_path.ends_with("talk.mp3"));
+    assert!(imported[0].local_path.exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}

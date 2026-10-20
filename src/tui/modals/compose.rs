@@ -19,7 +19,7 @@ pub enum ComposeFocus {
     Complete,
     /// A local file path. Enter adds it. Nothing is uploaded.
     Attach,
-    /// Which files go to Red Star. Shown only when the post has more than the site cap.
+    /// Which images or videos go to Red Star. Other types are shown and cannot be checked.
     SitePick,
     /// Default. Enter closes and sends nothing.
     Cancel,
@@ -228,10 +228,14 @@ impl ComposeModal {
         self.note_attachments_changed();
     }
 
+    fn eligible_site_count(&self) -> usize {
+        self.attachments.iter().filter(|p| crate::config::site_accepts_path(p)).count()
+    }
+
     fn note_attachments_changed(&mut self) {
         let n = self.attachments.len();
         let max = crate::config::SITE_MAX_ATTACHMENTS;
-        if n <= max {
+        if self.eligible_site_count() <= max {
             self.site_pick = None;
             if self.focus == ComposeFocus::SitePick {
                 self.focus = ComposeFocus::Attach;
@@ -249,8 +253,15 @@ impl ComposeModal {
     fn open_site_picker(&mut self) {
         let max = crate::config::SITE_MAX_ATTACHMENTS;
         let mut pick = vec![false; self.attachments.len()];
-        for on in pick.iter_mut().take(max) {
-            *on = true;
+        let mut left = max;
+        for (on, path) in pick.iter_mut().zip(self.attachments.iter()) {
+            if left == 0 {
+                break;
+            }
+            if crate::config::site_accepts_path(path) {
+                *on = true;
+                left -= 1;
+            }
         }
         self.site_at = 0;
         self.site_pick = Some(pick);
@@ -267,6 +278,11 @@ impl ComposeModal {
         if pick[i] {
             pick[i] = false;
             self.error = None;
+            return;
+        }
+        let name = self.attachments.get(i).and_then(|p| p.file_name()).map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+        if self.attachments.get(i).is_some_and(|p| !crate::config::site_accepts_path(p)) {
+            self.error = Some(crate::config::site_attachment_refusal(&name));
             return;
         }
         let n = pick.iter().filter(|on| **on).count();
@@ -301,7 +317,7 @@ impl ComposeModal {
     }
 
     fn try_publish(&mut self) -> Option<ModalResult> {
-        if self.attachments.len() > crate::config::SITE_MAX_ATTACHMENTS && self.site_pick.is_none() {
+        if self.eligible_site_count() > crate::config::SITE_MAX_ATTACHMENTS && self.site_pick.is_none() {
             self.open_site_picker();
             return None;
         }

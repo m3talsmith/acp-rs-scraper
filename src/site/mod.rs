@@ -343,7 +343,8 @@ mod tests {
         d.attachments = vec![jpg.clone(), pdf.clone()];
         let plan = prepare(&d).unwrap();
         assert_eq!(plan.attachments.len(), 2);
-        assert!(plan.attachments.iter().all(|a| a.on_site));
+        assert!(plan.attachments[0].on_site);
+        assert!(!plan.attachments[1].on_site, "a pdf stays on the local copy");
         assert!(plan.site_notice.is_none());
         assert_eq!(plan.attachments[0].kind, AttachmentKind::Media);
         assert_eq!(plan.attachments[0].kind.input_name(), "media_attachments");
@@ -355,18 +356,25 @@ mod tests {
         assert!(!frames.contains("jpeg-bytes"), "{frames}");
         assert!(plan.fields.iter().all(|(k, _)| !k.contains("attachment")), "{:?}", plan.fields);
         let text = decide(&d, false, true).unwrap();
-        assert!(text.contains("attachments (local only, not uploaded)"), "{text}");
-        assert!(text.contains("media photo.jpg"), "{text}");
-        assert!(text.contains("file notes.pdf"), "{text}");
+        assert!(text.contains("the site copy is a subset"), "{text}");
+        assert!(text.contains("site media photo.jpg"), "{text}");
+        assert!(text.contains("local-only file notes.pdf"), "{text}");
         assert!(text.contains("allow_upload"), "{text}");
-        assert!(text.contains("not uploaded"), "{text}");
+        assert!(text.contains("no file bytes are sent"), "{text}");
         assert!(!text.contains("nothing was published"), "{text}");
         let err = decide(&d, true, false).unwrap_err();
         assert!(err.message.contains("nothing was published"), "{}", err.message);
         assert!(err.message.contains("photo.jpg"), "{}", err.message);
         assert!(err.message.contains("allow_upload"), "{}", err.message);
-        d.attachments = vec![bad];
-        assert!(prepare(&d).unwrap_err().message.contains("not an allowed attachment"));
+        d.attachments = vec![bad.clone()];
+        let notes = prepare(&d).unwrap();
+        assert!(!notes.attachments[0].on_site, "a text file stays local");
+        assert_eq!(notes.attachments[0].kind, AttachmentKind::File);
+        d.site_attachments = Some(vec![0]);
+        let refused = prepare(&d).unwrap_err().message;
+        assert!(refused.contains("notes.txt"), "{refused}");
+        assert!(refused.contains("image/*") && refused.contains("video/*"), "{refused}");
+        d.site_attachments = None;
         d.attachments = vec![dir.join("missing.png")];
         assert!(prepare(&d).unwrap_err().message.contains("not found"));
         d.attachments = vec![dir.clone()];
@@ -403,7 +411,7 @@ mod tests {
         assert!(plan.attachments.iter().take(4).all(|a| a.on_site));
         assert!(plan.attachments.iter().skip(4).all(|a| !a.on_site));
         let note = plan.site_notice.clone().unwrap();
-        assert_eq!(note, "site copy keeps the first 4 of 6 attachments (Red Star allows 4). Left off the site: 5 notes.pdf, 6 extra.png");
+        assert_eq!(note, "site copy keeps the first 4 of 5 images or videos (Red Star allows 4: image/* and video/*). Left off the site: 5 notes.pdf, 6 extra.png");
         let text = decide(&d, false, true).unwrap();
         assert!(text.contains(&note), "{text}");
         assert!(text.contains("local-only file notes.pdf"), "{text}");
@@ -422,9 +430,13 @@ mod tests {
         assert!(decide(&d, false, true).unwrap().contains("attachments (local only, not uploaded)"));
         d.attachments = paths.clone();
         d.site_attachments = Some(vec![0, 2, 4, 5]);
+        let refused = prepare(&d).unwrap_err().message;
+        assert!(refused.contains("notes.pdf"), "{refused}");
+        assert!(refused.contains("image/*") && refused.contains("video/*"), "{refused}");
+        d.site_attachments = Some(vec![0, 2, 3, 5]);
         let chosen = prepare(&d).unwrap();
         assert!(chosen.site_notice.is_none());
-        assert_eq!(chosen.attachments.iter().map(|a| a.on_site).collect::<Vec<_>>(), vec![true, false, true, false, true, true]);
+        assert_eq!(chosen.attachments.iter().map(|a| a.on_site).collect::<Vec<_>>(), vec![true, false, true, true, false, true]);
         d.site_attachments = Some(vec![9]);
         assert!(prepare(&d).unwrap_err().message.contains("not in the list"));
         use clap::Parser;
@@ -434,6 +446,27 @@ mod tests {
         ]).unwrap();
         assert_eq!(parsed.site_attachments.as_deref(), Some(&[0usize, 2, 4, 5][..]));
         assert!(cli_requested(&parsed));
+        let audio = dir.join("talk.mp3");
+        std::fs::write(&audio, b"id3").unwrap();
+        let cli = Args::try_parse_from([
+            "x", "--new-post", "Title", "--dry-run",
+            "--attachment", paths[0].to_str().unwrap(),
+            "--attachment", audio.to_str().unwrap(),
+            "--site-attachments", "2",
+        ]).unwrap();
+        d.attachments = cli.attachment.clone();
+        d.site_attachments = cli.site_attachments.as_ref().map(|list| list.0.clone());
+        let err = prepare(&d).unwrap_err().message;
+        assert!(err.contains("talk.mp3"), "{err}");
+        assert!(err.contains("image/*") && err.contains("video/*"), "{err}");
+        d.site_attachments = None;
+        let mut mixed = vec![audio];
+        mixed.extend(paths.iter().filter(|p| p.extension().is_some_and(|e| e != "pdf")).cloned());
+        d.attachments = mixed;
+        let auto = prepare(&d).unwrap();
+        assert!(!auto.attachments[0].on_site, "audio is not auto-selected");
+        assert!(auto.attachments.iter().skip(1).take(4).all(|a| a.on_site));
+        assert!(auto.attachments.iter().skip(5).all(|a| !a.on_site));
         let _ = std::fs::remove_dir_all(&dir);
     }
 

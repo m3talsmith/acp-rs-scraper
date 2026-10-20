@@ -188,10 +188,10 @@ pub struct Args {
     /// Allow writes after the site's script URL changes from the one stored in `site_state`.
     #[arg(long, help_heading = "Writing")]
     pub accept_site_update: bool,
-    /// Local file for `--new-post` or `--reply`. Repeat for more than one. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. `--dry-run` lists them and does not upload. A confirmed publish still does not send. The app keeps every file. Red Star allows 4 on the site copy; see --site-attachments
+    /// Local file for `--new-post` or `--reply`. Repeat for more than one. Every file stays on the local copy, including audio and documents. Red Star takes up to 4 images or videos (image/* and video/*) on the site copy; other types stay local. `--dry-run` lists them and does not upload. A confirmed publish still does not send. See --site-attachments
     #[arg(long, value_name = "PATH", help_heading = "Writing")]
     pub attachment: Vec<PathBuf>,
-    /// Which `--attachment` files go to Red Star. LIST is 1-based indexes, comma-separated, for example 1,3,5,6. At most 4, which is the site cap. Each index has to exist in the attachment list. Omit it when there are more than 4 files and the first 4 are the site copy; the rest stay on the local and network copy, and a notice names the ones left off. With 4 or fewer files every file goes to the site.
+    /// Which `--attachment` files go to Red Star. LIST is 1-based indexes, comma-separated, for example 1,3,5,6. At most 4, and each index has to be an image or a video. Naming an audio file, a pdf, or another type is an error that names that file. Omit it and the first 4 images or videos are the site copy; other types are skipped. A notice names files left off when there are more than 4 images or videos.
     #[arg(long, value_name = "LIST", value_parser = parse_site_attachments, help_heading = "Writing")]
     pub site_attachments: Option<SiteAttachmentList>,
     /// Guided capture of one reply. Documented in architecture/PLAN-3.0-CLIENT.md. Does not publish.
