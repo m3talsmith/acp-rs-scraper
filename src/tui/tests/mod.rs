@@ -3,6 +3,7 @@
 
 mod commands;
 mod compose;
+mod vote;
 mod bookmarks;
 mod data;
 mod empty_anim;

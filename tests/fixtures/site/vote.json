@@ -1,0 +1,17 @@
+{
+  "capture_status": "missing",
+  "source": "architecture/PLAN-3.0-CLIENT.md row 29, from the JS survey. Not a live capture. Placeholders are not used because this file has no session material.",
+  "event": "vote",
+  "states": ["1", "0", "-1"],
+  "documented_hook": {
+    "type": "hook",
+    "event": "vote",
+    "value": {"id": "POST", "state": "1"}
+  },
+  "needed": [
+    "A LiveView frame for the vote hook with state 1 (upvote), 0 (clear), and -1 (downvote), including whether the payload is type hook and which component it targets",
+    "The phx_reply after each state: score, vote, and upvote_percentage",
+    "The server error when a vote is rejected",
+    "Whether a vote is debounced or rate-limited on the socket"
+  ]
+}

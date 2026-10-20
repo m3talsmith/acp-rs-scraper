@@ -753,6 +753,21 @@ impl App {
         let v = self.view();
         v.posts.get(v.cursor).cloned()
     }
+    /// `+` upvotes and `-` downvotes the open or highlighted post. Nothing is sent.
+    pub fn vote_current(&mut self, state: &str) {
+        if !self.writes_are_on() {
+            self.show_writes_off();
+            return;
+        }
+        let Some(post) = self.current_post() else {
+            self.push_status("no post: open one to vote");
+            return;
+        };
+        match crate::site::vote::present(&post.post_id, state, true, false) {
+            Ok(text) => self.push_status(text),
+            Err(e) => self.error("Vote", &e.message),
+        }
+    }
     /// `r` on an open post: reply. A comment pre-fills `postRef`.
     pub fn open_reply(&mut self) {
         if !self.writes_are_on() { self.show_writes_off(); return; }

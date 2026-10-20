@@ -150,7 +150,7 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 26 | Repost / quote-post | `/rs/post/new?repost={id}` (the post renders `quoted_post`), gated by `actions.repost` | C | ✗ | Post menu › Repost (Compose with an embedded quote) |
 | 27 | Edit post | `/rs/post/{id}/edit` (`actions.edit`). Probably the same editor form. | I | ✗ | Post menu › Edit (own posts) |
 | 28 | Delete post | hook `delete-post {id}` after `confirm()` (`actions.delete`) | C | ✗ | Post menu › Delete, typed confirmation. A tombstoned post stays in the list with a tombstone icon and its body still readable (§7.5). |
-| 29 | Up/down vote | hook `vote {id, state:"1"\|"0"\|"-1"}`. The post has `score`, `vote` and `upvote_percentage`. | C | ✗ | `+` / `-` keys and a score column |
+| 29 | Up/down vote | hook `vote {id, state:"1"\|"0"\|"-1"}`. The post has `score`, `vote` and `upvote_percentage`. | C (JS) / missing live frame | ◐ | `+` / `-` and `--vote` build the hook. The send stays behind `CAPTURE_BLOCK`. `tests/fixtures/site/vote.json` lists the capture still needed |
 | 30 | Bookmark | hook `bookmark {id, state}` (current), or the click `toggle-bookmark {id}` (what we use) | C | ✅ | Existing; move to the new event |
 | 31 | Subscribe to a thread | hook `subscribe {id, state:"1"\|"0"}` (field `subscribed`) | C | ✗ | Post menu › Subscribe |
 | 32 | Share / copy link | Client-side only (`navigator.share` / clipboard) | C | ◐ | `y` copies the URL (OSC 52) |
