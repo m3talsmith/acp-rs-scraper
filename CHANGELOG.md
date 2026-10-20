@@ -6,6 +6,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`rs` theme.** A shipped theme matching the Red Star site (acp.us/rs): near-black zinc `#111113`, text `#d3d3d7`, muted `#898994`, divider `#333336`, ACP red `#c01d1c` (the logo and links), and vote gold `#eaa313` for bold text, H3, and table headers. Selection, buttons, and the header use the site's grey surfaces (`#2b2b2e`, `#0b0b0b`), and quotes are muted text on the divider colour. The light variant is zinc grey with the same red and a darkened gold. `rs` is in the theme picker once the file is in `~/.acp/themes`; `--theme-init rs` downloads it. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
+
 ### Documentation
 
 - **Draft GitHub Releases.** A version that is not on `main` is a draft release, with the notes from its changelog section and no attached files. The maintainer publishes the draft after that version is merged. Releases for versions already on `main` (2.16.0 and earlier) are left alone. The post-commit hook still only creates the git tag. Nothing in CI publishes a release.
