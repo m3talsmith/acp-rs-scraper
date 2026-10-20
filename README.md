@@ -50,6 +50,8 @@ scripts/install.sh --user   # or install into ~/.local without root
 
 Uninstall with `scripts/uninstall.sh` (add `--no-purge` to keep `~/.acp`). See [docs/INSTALL.md](docs/INSTALL.md) for details.
 
+`cargo install --path .` installs three commands, because cargo cannot add a symlink: `acp-red-star` (the primary binary), `acprs` (the same program), and `acp-rs-scraper` (the old name, through version 3). `acprs --version` prints `acp-red-star` and the version. `acprs --help` uses `acprs` in the usage line, the same way `acp-rs-scraper --help` uses that name.
+
 ## Usage
 
 ```text
