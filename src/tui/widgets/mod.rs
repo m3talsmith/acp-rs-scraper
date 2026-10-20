@@ -38,6 +38,7 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
         editor::draw(f, app, &mut ed, now);
         app.theme_editor = Some(ed);
         if app.modal.is_some() { modal::draw(f, app, area); }
+        crate::tui::tooltip::paint(f, app, area);
         if app.egg.is_some() { draw_egg(f, app, area, now); }
         return;
     }
@@ -50,6 +51,7 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     status(f, app, a.status);
     menu::draw_dropdown(f, app, area);
     if app.modal.is_some() { modal::draw(f, app, area); }
+    crate::tui::tooltip::paint(f, app, area);
     if app.egg.is_some() { draw_egg(f, app, area, now); }
 }
 
@@ -147,6 +149,11 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
         Span::styled(left, t.bar().bold(true)), Span::styled(" ".repeat(pad), &bar), Span::styled(job, &bar),
         Span::styled(switch, t.bar().underline(true)), Span::styled(right, &bar),
     ])), rest);
+    if r.width > 2 && r.height > 0 {
+        let mark = Rect { x: r.x + r.width - 2, y: r.y, width: 1, height: 1 };
+        f.render_widget(Paragraph::new(Span::styled("?", t.bar().bold(true))), mark);
+        app.hits.push((mark, Hit::HelpMark));
+    }
 }
 
 fn status(f: &mut Frame, app: &mut App, r: Rect) {

@@ -7,10 +7,12 @@ use crossterm::event::KeyCode;
 /// Scrollable help text.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HelpModal {
-    /// Lines.
+    /// Every line, unfiltered.
     pub lines: Vec<String>,
-    /// First visible line.
+    /// First visible line of the current view.
     pub scroll: usize,
+    /// Search. Typing filters topics and key bindings.
+    pub query: String,
 }
 
 /// Help text: key bindings, the order and limit topics, then `acp-red-star --help`.
@@ -18,10 +20,12 @@ pub fn help_text() -> Vec<String> {
     use clap::CommandFactory;
     let guide = crate::crypto::recovery::GUIDE.trim();
     let mut v: Vec<String> = guide.lines().map(str::to_string).collect();
-    v.extend(["".into(), "Terminal UI keys".into(), String::new()]);
+    v.extend(["[[keys]]".into(), "Terminal UI keys".into(), String::new()]);
     for (k, d) in crate::config::TUI_KEYBINDINGS { v.push(format!("  {k:<22} {d}")); }
     v.extend(["".into(), "Menu commands map to these flags; Start Scanning runs the same scrape the CLI does.".into()]);
     v.extend(help_topics());
+    v.extend(area_topics());
+    v.extend(menu_topics());
     v.push(String::new());
     let help = crate::cli::Args::command().render_long_help().to_string();
     let help = help.replacen(guide, "", 1);
@@ -126,9 +130,106 @@ fn help_topics() -> Vec<String> {
     ].into_iter().map(str::to_string).collect()
 }
 
+fn push_topic(v: &mut Vec<String>, id: &str, title: &str, body: &[&str]) {
+    v.push(format!("[[{id}]]"));
+    v.push(title.into());
+    for line in body { v.push((*line).into()); }
+    v.push(String::new());
+}
+
+fn area_topics() -> Vec<String> {
+    let mut v = Vec::new();
+    let started = include_str!("../../../docs/GETTING-STARTED.md");
+    v.push("[[getting-started]]".into());
+    v.push("Getting started".into());
+    v.extend(started.lines().map(str::to_string));
+    v.push(String::new());
+    push_topic(&mut v, "browse", "Browse", &[
+        "  The nick bar lists who is in the database. Enter opens that nick's posts.",
+        "  Enter on a post opens it. Esc closes the top detail. / filters nicks.",
+        "  b bookmarks the open or highlighted post. The star on a card does the same.",
+    ]);
+    push_topic(&mut v, "compose", "Compose", &[
+        "  n is a new post. On an open post, r replies and Q quotes.",
+        "  Cancel is the default. Publish does not send. --dry-run prints the form.",
+        "  Attach lists local files. The capture gate still blocks validate, save, and uploads.",
+    ]);
+    push_topic(&mut v, "research", "Research", &[
+        "  r, or the ◈ on a card, adds the current post to a research project.",
+        "  Add current view / search queues the list on screen. Export project writes that project.",
+    ]);
+    push_topic(&mut v, "sync", "Sync", &[
+        "  Sync now reads the site into the local database. Auto sync repeats it while the TUI is open.",
+    ]);
+    push_topic(&mut v, "discover", "Discover", &[
+        "  People, nodes, and rooms arrive with the network node. Discover does not pretend they are here.",
+    ]);
+    push_topic(&mut v, "account", "Account", &[
+        "  Log in uses the email code. Log out deletes ~/.acp/session.json.",
+        "  Browsing the local database does not need a session. Start Scanning does.",
+    ]);
+    push_topic(&mut v, "about-credits", "About · Credits", &[
+        "  About is one modal with three sections. Credits names who built the client.",
+        "  Choose Credits, Why this is necessary, or ACP platform. Each opens this same window.",
+    ]);
+    push_topic(&mut v, "about-why", "About · Why this is necessary", &[
+        "  The local copy is why this client exists: read, search, and export without the site.",
+        "  The database is encrypted. This topic is not the party program.",
+    ]);
+    push_topic(&mut v, "about-platform", "About · ACP platform", &[
+        "  ACP platform is the American Communist Party Program adopted October 12, 2024.",
+        "  The text is the vendored copy, with headings and a scroll. It is not paraphrased.",
+        "  https://acp.us/program",
+        "  https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf",
+        "  https://acp.us/join is at the top and the bottom of that section only.",
+    ]);
+    push_topic(&mut v, "bookmark", "Bookmarks", &[
+        "  Bookmark (b) marks the open or highlighted post. B shows the bookmark list.",
+        "  Sync with acp.us is Bookmarks › Sync with acp.us.",
+    ]);
+    push_topic(&mut v, "basket", "Basket", &[
+        "  Export basket (x) adds or removes the open post. Library › Basket exports it.",
+    ]);
+    push_topic(&mut v, "quit", "Quit", &[
+        "  q leaves the TUI. A running job can keep going in the background.",
+    ]);
+    v
+}
+
+fn menu_topics() -> Vec<String> {
+    use clap::Parser;
+    let Ok(args) = crate::cli::Args::try_parse_from(["acp-red-star"]) else { return Vec::new() };
+    let menu = crate::tui::commands::Menu::new(&args);
+    let mut v = Vec::new();
+    for id in [
+        crate::tui::commands::CommandId::View,
+        crate::tui::commands::CommandId::Search,
+        crate::tui::commands::CommandId::Library,
+        crate::tui::commands::CommandId::Scrape,
+        crate::tui::commands::CommandId::Export,
+        crate::tui::commands::CommandId::Import,
+        crate::tui::commands::CommandId::List,
+        crate::tui::commands::CommandId::Maintain,
+        crate::tui::commands::CommandId::Debug,
+    ] {
+        let c = menu.get(id);
+        let topic = crate::tui::commands::command_topic(id);
+        v.push(format!("[[{topic}]]"));
+        v.push(c.label.into());
+        for o in &c.opts {
+            let flag = if o.flag.is_empty() { String::new() } else { format!(" {}", o.flag) };
+            let label = o.label;
+            let help = o.help;
+            v.push(format!("  {label}{flag}. ? {help}"));
+        }
+        v.push(String::new());
+    }
+    v
+}
+
 impl HelpModal {
     /// Help with the generated text.
-    pub fn new() -> Self { HelpModal { lines: help_text(), scroll: 0 } }
+    pub fn new() -> Self { HelpModal { lines: help_text(), scroll: 0, query: String::new() } }
     /// Help scrolled to `[[topic]]`.
     pub fn topic(topic: &str) -> Self {
         let mut h = Self::new();
@@ -136,9 +237,39 @@ impl HelpModal {
         if let Some(i) = h.lines.iter().position(|l| l == &mark) { h.scroll = i; }
         h
     }
+    /// Lines after the search filter. An empty query is the full text.
+    pub fn view_lines(&self) -> Vec<String> {
+        let q = self.query.trim().to_lowercase();
+        if q.is_empty() { return self.lines.clone(); }
+        let query = self.query.as_str();
+        let mut out = vec![format!("Search: {query}")];
+        let mut block = Vec::new();
+        let mut take = false;
+        let flush = |out: &mut Vec<String>, block: &mut Vec<String>, take: bool| {
+            if take { out.append(block); } else { block.clear(); }
+        };
+        for line in &self.lines {
+            if line.starts_with("[[") {
+                flush(&mut out, &mut block, take);
+                take = false;
+            }
+            block.push(line.clone());
+            if line.to_lowercase().contains(&q) { take = true; }
+        }
+        flush(&mut out, &mut block, take);
+        if out.len() == 1 { out.push("No matching topic.".into()); }
+        out
+    }
     fn scroll_by(&mut self, d: i32) {
-        let max = self.lines.len().saturating_sub(1) as i64;
+        let max = self.view_lines().len().saturating_sub(1) as i64;
         self.scroll = (self.scroll as i64 + d as i64).clamp(0, max) as usize;
+    }
+    fn jump_topic(&mut self, d: i32) {
+        let lines = self.view_lines();
+        let marks: Vec<usize> = lines.iter().enumerate().filter(|(_, l)| l.starts_with("[[")).map(|(i, _)| i).collect();
+        if marks.is_empty() { return; }
+        let cur = marks.iter().rposition(|&i| i <= self.scroll).unwrap_or(0);
+        self.scroll = marks[crate::tui::modals::cycle(cur, marks.len(), d)];
     }
 }
 
@@ -148,14 +279,19 @@ impl ModalState for HelpModal {
     fn title(&self) -> String { "Help".into() }
     fn on_key(&mut self, k: KeyEvent) -> Option<ModalResult> {
         match k.code {
-            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('?') | KeyCode::F(1) => return Some(ModalResult::ClosedCancelled),
+            KeyCode::Esc | KeyCode::Char('?') | KeyCode::F(1) => return Some(ModalResult::ClosedCancelled),
+            KeyCode::Char('q') if self.query.is_empty() => return Some(ModalResult::ClosedCancelled),
             KeyCode::Enter => return Some(ModalResult::ClosedSubmitted),
             KeyCode::Down | KeyCode::Char('j') => self.scroll_by(1),
             KeyCode::Up | KeyCode::Char('k') => self.scroll_by(-1),
-            KeyCode::PageDown | KeyCode::Char(' ') => self.scroll_by(15),
+            KeyCode::PageDown => self.scroll_by(15),
             KeyCode::PageUp => self.scroll_by(-15),
             KeyCode::Home => self.scroll = 0,
             KeyCode::End => self.scroll_by(i32::MAX / 2),
+            KeyCode::Left => self.jump_topic(-1),
+            KeyCode::Right => self.jump_topic(1),
+            KeyCode::Backspace => { self.query.pop(); self.scroll = 0; }
+            KeyCode::Char(c) => { self.query.push(c); self.scroll = 0; }
             _ => {}
         }
         None
