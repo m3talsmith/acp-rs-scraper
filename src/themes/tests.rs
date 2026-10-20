@@ -196,6 +196,49 @@ fn contrast_ratios() {
 }
 
 #[test]
+fn red_star_is_the_banner_palette_and_body_text_meets_aa() {
+    use ratatui::style::Color;
+    let src = include_str!("../../themes/red-star.toml");
+    let (f, w) = parse(src, "red-star").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    assert_eq!(f.name, "red-star");
+    assert_eq!(f.description, "ACP Red Star brand: ink black, vermilion and gold, cream text, from the banner");
+    let poster = parse(include_str!("../../themes/chinese-poster.toml"), "chinese-poster").unwrap().0;
+    for side in ["dark", "light"] {
+        let want = if side == "dark" { &poster.dark.styles } else { &poster.light.as_ref().unwrap().styles };
+        let got = if side == "dark" { &f.dark.styles } else { &f.light.as_ref().unwrap().styles };
+        for (name, _) in want {
+            assert!(got.iter().any(|(n, _)| n == name), "{side} is missing [{name}]");
+        }
+    }
+    let ratio = |a, b| contrast(a, b).unwrap();
+    let dark = crate::tui::theme::Theme::from_file(&f, Variant::Dark);
+    let light = crate::tui::theme::Theme::from_file(&f, Variant::Light);
+    assert_eq!(dark.bg, Color::Rgb(0x0e, 0x04, 0x04));
+    assert_eq!(dark.fg, Color::Rgb(0xf6, 0xe8, 0xc8));
+    assert_eq!(dark.accent, Color::Rgb(0xc8, 0x10, 0x2e));
+    assert_eq!(dark.muted, Color::Rgb(0xe8, 0xb6, 0x48));
+    assert_eq!(dark.on_accent, Color::Rgb(0xf6, 0xe8, 0xc8));
+    assert_eq!(light.bg, Color::Rgb(0xf6, 0xe8, 0xc8));
+    assert_eq!(light.fg, Color::Rgb(0x0e, 0x04, 0x04));
+    assert_eq!(light.accent, Color::Rgb(0xc8, 0x10, 0x2e));
+    let body = [
+        ("dark fg/bg", ratio(dark.fg, dark.bg)),
+        ("dark muted/bg", ratio(dark.muted, dark.bg)),
+        ("light fg/bg", ratio(light.fg, light.bg)),
+        ("light muted/bg", ratio(light.muted, light.bg)),
+    ];
+    for (name, r) in body {
+        assert!(r >= 4.5, "{name} is {r:.2}:1");
+    }
+    assert!(ratio(dark.accent, dark.bg) >= 3.0, "dark accent/bg");
+    assert!(ratio(light.accent, light.bg) >= 4.5, "light accent/bg");
+    assert!(ratio(dark.on_accent, dark.accent) >= 4.5, "h1 cream on vermilion");
+    assert!(ratio(light.on_accent, light.accent) >= 4.5, "light h1 cream on vermilion");
+    assert!(ratio(dark.border, dark.bg) >= 2.0, "dark border should read on ink");
+}
+
+#[test]
 fn every_shipped_theme_loads_cleanly_with_both_variants_and_readable_text() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("themes");
     let files = toml_files(&dir);
