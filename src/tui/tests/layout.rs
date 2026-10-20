@@ -9,7 +9,12 @@ fn base_layout_tiles_the_screen() {
     assert_eq!((a.top.y, a.top.height, a.menu.y), (0, TUI_HEADER_ROWS, TUI_HEADER_ROWS));
     assert_eq!(a.nicks.y, TUI_HEADER_ROWS + 1);
     assert_eq!(a.nicks.width, NICK_BAR_WIDTH);
-    assert_eq!(a.nicks.width + a.body.width, 100);
+    assert_eq!(a.actions.width, 1);
+    assert_eq!(a.nicks.width + a.body.width + a.actions.width, 100);
+    let both = areas_open(r, 1, false, true);
+    assert_eq!(both.nicks.width, 1);
+    assert!(both.actions.width > 1);
+    assert_eq!(both.nicks.width + both.body.width + both.actions.width, 100);
     assert_eq!(a.body.y + a.body.height, a.status.y);
     assert_eq!(a.status.y + a.status.height, 30);
     let big_log = areas(r, 10);

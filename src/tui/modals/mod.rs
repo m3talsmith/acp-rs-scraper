@@ -5,6 +5,7 @@ pub mod about;
 pub mod compose;
 pub mod confirm;
 pub mod help;
+pub mod history;
 pub mod job;
 pub mod login;
 pub mod message;
@@ -20,6 +21,7 @@ pub use about::*;
 pub use compose::*;
 pub use confirm::*;
 pub use help::*;
+pub use history::*;
 pub use job::JobModal;
 pub use login::*;
 pub use message::*;
@@ -90,6 +92,8 @@ pub enum Modal {
     Compose(ComposeModal),
     /// Name, slogan, and a star. The credits stay hidden.
     About(AboutModal),
+    /// Saved searches. Choosing one re-runs it.
+    History(HistoryModal),
 }
 
 impl Modal {
@@ -102,6 +106,7 @@ impl Modal {
             Modal::Job(m) => m,
             Modal::Compose(m) => m,
             Modal::About(m) => m,
+            Modal::History(m) => m,
         }
     }
 }

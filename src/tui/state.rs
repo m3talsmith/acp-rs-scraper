@@ -321,6 +321,33 @@ pub enum Hit {
     Status,
     /// The header's red star.
     Logo,
+    /// Collapse or open the nick bar.
+    ToggleNicks,
+    /// Collapse or open the action history bar.
+    ToggleActions,
+    /// The n-th action in the right bar.
+    Action(usize),
+}
+
+/// One step on the way to the current view. Session only.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ViewSnap {
+    /// What the bar shows.
+    pub label: String,
+    /// The search that produced the view, when it was a search.
+    pub filter: Option<crate::tui::data::SearchFilter>,
+    /// The search ran on the site.
+    pub site: bool,
+    /// Selected nicks.
+    pub selected: Vec<String>,
+    /// The bookmarks view.
+    pub bookmarks: bool,
+    /// The research project, when the view is one.
+    pub research: Option<String>,
+    /// The site read key, when the view is one.
+    pub site_key: Option<String>,
+    /// Body layout.
+    pub view_mode: ViewMode,
 }
 
 /// Menu bar state.
@@ -475,6 +502,16 @@ pub struct App {
     pub logo_taps: u8,
     /// When the header star was last pressed.
     pub logo_tap_at: Option<Instant>,
+    /// Steps that led to the current view. The right bar lists them.
+    pub actions: Vec<ViewSnap>,
+    /// Which step is showing.
+    pub action_at: usize,
+    /// A click on the action bar is restoring a step, so it does not record another.
+    pub restoring: bool,
+    /// The nick bar is open. Collapsed, it is one column.
+    pub nicks_open: bool,
+    /// The action bar is open. Collapsed, it is one column.
+    pub actions_open: bool,
 }
 
 fn nick_label(q: &str) -> String {
@@ -519,6 +556,7 @@ impl App {
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
             konami: crate::eggs::Konami::new(), egg: None, logo_taps: 0, logo_tap_at: None,
+            actions: Vec::new(), action_at: 0, restoring: false, nicks_open: true, actions_open: false,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -630,6 +668,8 @@ impl App {
         self.menu.menu.set_text(CommandId::Scrape, "nicks", &self.selected.join(","));
         self.search = None;
         self.load_base();
+        let who = if self.selected.is_empty() { "Nicks".into() } else { self.selected.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ") };
+        self.note_view(who);
     }
     /// Reload the nick posts view for the selection.
     pub fn load_base(&mut self) {
@@ -660,6 +700,7 @@ impl App {
         if missing > 0 { self.push_status(format!("{missing} bookmarked posts are not in the database (Bookmarks › Sync stores them)")); }
         self.place_search(BodyView { title: "★ Bookmarks".into(), posts, bookmarks: true, kind: crate::tui::order::ListKind::Bookmarks, ..BodyView::default() });
         self.focus = Focus::Body;
+        self.note_view("Bookmarks");
     }
     /// Show a saved site read, in the site's order. Returns whether it was stored.
     pub fn show_site_feed(&mut self, key: &str) -> bool {
@@ -668,8 +709,10 @@ impl App {
                 let posts: Vec<Post> = f.post_ids.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
                 let missing = f.post_ids.len() - posts.len();
                 if missing > 0 { self.push_status(format!("{missing} posts from {} are not in the database", f.title)); }
+                let title = f.title.clone();
                 self.place_search(BodyView { title: f.title, posts, site_key: Some(key.into()), kind: crate::tui::order::ListKind::Site, site_order: true, ..BodyView::default() });
                 self.focus = Focus::Body;
+                self.note_view(title);
                 true
             }
             Ok(None) => false,
@@ -874,6 +917,9 @@ impl App {
         if local {
             self.push_status("nicks, dates, post id, kind, order and limit stay local; searching the site for the keyword");
         }
+        let saved = SearchFilter { keyword: q.into(), ..SearchFilter::default() };
+        self.remember_query(&saved, true);
+        self.note_site(format!("Site search {}", saved.describe()), saved);
         match self.menu.menu.site_search_argv(q) {
             Ok(argv) => self.open_site_read(&search_key(q), argv),
             Err(e) => self.error("Site search", &e),
@@ -914,6 +960,7 @@ impl App {
         let posts: Vec<Post> = self.basket.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
         self.place_search(BodyView { title: format!("+ Export basket ({})", self.basket.len()), posts, kind: crate::tui::order::ListKind::Basket, ..BodyView::default() });
         self.focus = Focus::Body;
+        self.note_view("Basket");
     }
     // ------------------------------------------------------------ research
     /// Projects for the modal: (name, items, description).
@@ -1014,6 +1061,7 @@ impl App {
             if v.offset > i { v.offset = i; }
         }
         self.research_current = Some(name.to_string());
+        self.note_view(format!("Research {name}"));
     }
     /// A research modal closed with a choice.
     fn research_chosen(&mut self, m: ResearchModal) {
@@ -1099,6 +1147,7 @@ impl App {
         self.reflow_lists();
         self.anim = None;
         self.push_status(format!("view: {}", m.label()));
+        self.note_view(format!("View {}", m.label()));
     }
     /// Move to the previous / next post in the current layout: carousels and the
     /// grid go side to side (the infinite carousel wraps around).
@@ -1147,6 +1196,7 @@ impl App {
                 let label = format!("search {}", f.describe());
                 self.orders.set(crate::tui::order::ListKind::Search, order);
                 self.sync_search_menu(&f);
+                let saved = f.clone();
                 self.place_search(BodyView {
                     title: format!("Search: {}", f.describe()), posts, filter: Some(f),
                     kind: crate::tui::order::ListKind::Search, ..BodyView::default()
@@ -1155,9 +1205,98 @@ impl App {
                 let shown = self.view().posts.len();
                 self.push_status(crate::tui::order::result_status(&label, shown, total, order, limited));
                 self.persist_list_order();
+                self.remember_query(&saved, false);
+                self.note_view(format!("Search: {}", saved.describe()));
             }
             Err(e) => self.error("Search failed", &format!("{e:#}")),
         }
+    }
+    /// How many history rows to keep. A blank Search › History kept field keeps all of them.
+    fn history_keep(&self) -> Option<usize> {
+        let t = self.menu.menu.text(CommandId::Search, "keep");
+        let t = t.trim();
+        if t.is_empty() { None } else { t.parse().ok() }
+    }
+    /// Write the query into the database. A cap drops older rows.
+    fn remember_query(&mut self, f: &SearchFilter, site: bool) {
+        let q = crate::tui::data::saved_query(f, site);
+        let keep = self.history_keep();
+        if let Err(e) = self.store.remember_search(&q, keep) {
+            self.push_status(format!("error: search history: {e:#}"));
+        }
+        self.persist_history_keep(keep);
+    }
+    /// Store the cap in preferences when this TUI has a real preferences file.
+    fn persist_history_keep(&mut self, keep: Option<usize>) {
+        if self.themes_dir.is_none() { return; }
+        if let Err(e) = crate::auth::prefs::save_search_history_limit(keep.map(|n| n as u64)) {
+            self.push_status(format!("error: could not save history setting: {e:#}"));
+        }
+    }
+    /// Record the view on the action bar. A restore does not record itself.
+    fn note_view(&mut self, label: impl Into<String>) {
+        let snap = ViewSnap {
+            label: label.into(),
+            filter: self.search.as_ref().and_then(|v| v.filter.clone()),
+            site: false,
+            selected: self.selected.clone(),
+            bookmarks: self.search.as_ref().is_some_and(|v| v.bookmarks),
+            research: self.search.as_ref().and_then(|v| v.research.clone()),
+            site_key: self.search.as_ref().and_then(|v| v.site_key.clone()),
+            view_mode: self.view_mode,
+        };
+        self.push_snap(snap);
+    }
+    /// Record a site search. The body may still be the previous view.
+    fn note_site(&mut self, label: impl Into<String>, f: SearchFilter) {
+        let snap = ViewSnap {
+            label: label.into(),
+            filter: Some(f),
+            site: true,
+            selected: self.selected.clone(),
+            bookmarks: false,
+            research: None,
+            site_key: None,
+            view_mode: self.view_mode,
+        };
+        self.push_snap(snap);
+    }
+    fn push_snap(&mut self, snap: ViewSnap) {
+        if self.restoring { return; }
+        if self.actions.get(self.action_at).is_some_and(|s| s == &snap) { return; }
+        let end = self.action_at.saturating_add(1).min(self.actions.len());
+        self.actions.truncate(end);
+        self.actions.push(snap);
+        if self.actions.len() > 40 { let n = self.actions.len() - 40; self.actions.drain(0..n); }
+        self.action_at = self.actions.len() - 1;
+    }
+    /// Jump the main view back to an earlier action. A search export from there still has the query.
+    pub fn jump_action(&mut self, i: usize) {
+        let Some(snap) = self.actions.get(i).cloned() else { return };
+        self.restoring = true;
+        self.action_at = i;
+        self.view_mode = snap.view_mode;
+        if snap.site {
+            if let Some(f) = snap.filter {
+                match self.menu.menu.site_search_argv(&f.keyword) {
+                    Ok(argv) => self.open_site_read(&search_key(&f.keyword), argv),
+                    Err(e) => self.error("Site search", &e),
+                }
+            }
+        } else if let Some(f) = snap.filter {
+            self.show_search(f);
+        } else if snap.bookmarks {
+            self.open_bookmarks();
+        } else if let Some(name) = snap.research {
+            self.open_research(&name);
+        } else if let Some(key) = snap.site_key {
+            let _ = self.show_site_feed(&key);
+        } else {
+            self.search = None;
+            self.selected = snap.selected;
+            self.load_base();
+        }
+        self.restoring = false;
     }
     /// Back from search results to the nick posts (`<`).
     pub fn search_back(&mut self) -> bool { self.search.take().is_some() }
@@ -1692,7 +1831,13 @@ impl App {
                     self.push_status("nick, order and limit stay local; searching the site for the keyword");
                 }
                 match self.menu.menu.site_search_argv(&q) {
-                    Ok(argv) => { self.close_menu(); self.open_site_read(&search_key(&q), argv); }
+                    Ok(argv) => {
+                        self.close_menu();
+                        let f = SearchFilter { keyword: q.trim().into(), ..self.current_filter() };
+                        self.remember_query(&f, true);
+                        self.note_site(format!("Site search {}", f.describe()), f);
+                        self.open_site_read(&search_key(&q), argv);
+                    }
                     Err(e) => self.error("Site search", &e),
                 }
             }
@@ -1709,6 +1854,22 @@ impl App {
                 self.close_menu();
                 self.push_status("people, nodes, and rooms arrive with the network node");
             }
+            Action::SearchHistory => {
+                self.close_menu();
+                match self.store.search_history() {
+                    Ok(rows) => self.modal = Some(Modal::History(crate::tui::modals::HistoryModal::new(rows))),
+                    Err(e) => self.error("Search history", &format!("{e:#}")),
+                }
+            }
+            Action::ClearSearchHistory => {
+                self.close_menu();
+                match self.store.clear_search_history() {
+                    Ok(()) => self.push_status("search history cleared"),
+                    Err(e) => self.error("Search history", &format!("{e:#}")),
+                }
+            }
+            Action::ToggleNicks => self.nicks_open = !self.nicks_open,
+            Action::ToggleActions => self.actions_open = !self.actions_open,
             Action::ExportResearch => match self.research_name().ok_or_else(|| "pick a research project first (Research › Projects…)".to_string())
                 .and_then(|n| self.menu.menu.research_export_argv(&n)) {
                 Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
@@ -1979,6 +2140,19 @@ impl App {
                 if s.cleared { self.clear_search(); }
                 else if s.site { self.open_site_search(&s); }
                 else if let Ok(f) = s.filter() { self.run_search(f); }
+            }
+            (Modal::History(h), ModalResult::ClosedSubmitted) => {
+                if let Some(q) = h.chosen().cloned() {
+                    let f = crate::tui::data::filter_of(&q);
+                    if q.site {
+                        match self.menu.menu.site_search_argv(&f.keyword) {
+                            Ok(argv) => self.open_site_read(&search_key(&f.keyword), argv),
+                            Err(e) => self.error("Site search", &e),
+                        }
+                    } else {
+                        self.run_search(f);
+                    }
+                }
             }
             (_, ModalResult::Help(topic)) => self.open_help(Some(topic)),
             (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),

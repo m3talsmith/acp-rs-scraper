@@ -437,6 +437,9 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::ListPane | Hit::DetailPane) => app.focus = Focus::Body,
         Some(Hit::Status | Hit::Job) => { app.focus = Focus::Status; app.open_jobs(); }
         Some(Hit::Logo) => app.tap_logo(Instant::now()),
+        Some(Hit::ToggleNicks) => app.nicks_open = !app.nicks_open,
+        Some(Hit::ToggleActions) => app.actions_open = !app.actions_open,
+        Some(Hit::Action(i)) => app.jump_action(i),
         _ => {}
     }
 }
