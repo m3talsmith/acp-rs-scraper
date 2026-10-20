@@ -48,6 +48,7 @@ pub mod liveview;
 pub mod maintenance;
 pub mod media;
 pub mod research;
+pub mod rules;
 pub mod scrape;
 pub mod site;
 pub mod storage;

@@ -238,6 +238,78 @@ fn draw_about(f: &mut Frame, app: &mut App, area: Rect, m: &AboutModal, t: &Them
     buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
 }
 
+fn draw_rules(f: &mut Frame, app: &mut App, area: Rect, m: &crate::tui::modals::RulesModal, t: &Theme) {
+    use crate::tui::modals::RuleFocus;
+    if !m.editing {
+        let n = m.rules.len().max(1) as u16;
+        let r = modal_rect(area, 72, n + 5);
+        let inner = frame(f, t, r, "Rules · j/k · Enter edits · n new · Space toggles · Esc closes");
+        if m.rules.is_empty() {
+            f.render_widget(Paragraph::new("No rules."), inner);
+        }
+        for (i, rule) in m.rules.iter().enumerate() {
+            let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+            if rr.y >= inner.y + inner.height.saturating_sub(1) { break; }
+            let on = if rule.enabled { "on " } else { "off" };
+            let who = rule.origin.as_str();
+            let line = format!(" {:>4}  {on}  {who:<6}  {}", rule.priority, rule.name);
+            let st = if i == m.cursor { t.selected() } else { t.plain() };
+            f.render_widget(Paragraph::new(Span::styled(line, st)), rr);
+            app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+        }
+        if let Some(note) = &m.notice {
+            let rr = Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner };
+            f.render_widget(Paragraph::new(Span::styled(note.clone(), t.muted())), rr);
+        }
+        return;
+    }
+    let r = modal_rect(area, 76, 14);
+    let title = if m.origin == crate::rules::Origin::System && m.id.is_some() { "Rule · system, read-only · Clone to edit" } else { "Rule · Tab moves · ? help" };
+    let inner = frame(f, t, r, title);
+    let locked = m.origin == crate::rules::Origin::System && m.id.is_some();
+    let rows: [(&str, RuleFocus); 6] = [
+        ("Name", RuleFocus::Name),
+        ("Condition", RuleFocus::Cond),
+        ("Value", RuleFocus::CondValue),
+        ("Action", RuleFocus::Act),
+        ("Value", RuleFocus::ActValue),
+        ("Priority", RuleFocus::Priority),
+    ];
+    for (i, (label, focus)) in rows.iter().enumerate() {
+        let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+        let on = m.focus == *focus;
+        let line = match focus {
+            RuleFocus::Name => field_line(label, &m.name, on, t),
+            RuleFocus::CondValue => field_line(label, &m.cond_value, on, t),
+            RuleFocus::ActValue => field_line(label, &m.act_value, on, t),
+            RuleFocus::Priority => field_line(label, &m.priority, on, t),
+            RuleFocus::Cond => choice_line(label, m.cond_label(), on, t),
+            RuleFocus::Act => choice_line(label, m.act_label(), on, t),
+            RuleFocus::Button(_) => choice_line(label, "", on, t),
+        };
+        f.render_widget(Paragraph::new(line), rr);
+        app.hits.push((rr, Hit::Modal(ModalHit::Field(i))));
+    }
+    if locked {
+        let rr = Rect { y: inner.y + 6, height: 1, ..inner };
+        f.render_widget(Paragraph::new(Span::styled(" System rule. Save changes priority only.", t.muted())), rr);
+    }
+    if let Some(e) = &m.error {
+        let rr = Rect { y: inner.y + 7, height: 1, ..inner };
+        f.render_widget(Paragraph::new(Span::styled(e.clone(), t.accent())), rr);
+    }
+    let labels: Vec<String> = m.buttons().iter().map(|s| (*s).to_string()).collect();
+    let focus = match m.focus { RuleFocus::Button(i) => Some(i), _ => None };
+    buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &labels, focus);
+}
+
+fn choice_line(label: &str, value: &str, focused: bool, t: &Theme) -> Line<'static> {
+    Line::from(vec![
+        Span::styled(format!("{label:>18}: "), if focused { t.accent_bold() } else { t.plain() }),
+        Span::raw(format!("‹ {value} ›")),
+    ])
+}
+
 /// Draw the open modal over `area`, or nothing when none is open.
 pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
     let theme = app.theme;
@@ -441,6 +513,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         Modal::Job(m) => draw_job(f, app, area, m, &t),
         Modal::Compose(m) => draw_compose(f, app, area, m, &t),
         Modal::About(m) => draw_about(f, app, area, m, &t),
+        Modal::Rules(m) => draw_rules(f, app, area, m, &t),
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

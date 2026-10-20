@@ -160,6 +160,43 @@ fn area_topics() -> Vec<String> {
     ]);
     push_topic(&mut v, "sync", "Sync", &[
         "  Sync now reads the site into the local database. Auto sync repeats it while the TUI is open.",
+        "  Sync › Rules opens the rule list. A sync runs the enabled rules on the rows it just wrote.",
+    ]);
+    push_topic(&mut v, "rules", "Rules", &[
+        "  Sync › Rules lists system rules and user rules. Lower priority runs first.",
+        "  j and k move. Enter edits. n starts a user rule. Space enables or disables a user rule.",
+        "  A system rule is read-only. Clone makes a user rule you can edit, disable, or delete.",
+        "  The shipped Synced post rule starts off, so a sync does not notify on every post.",
+        "  --rules-list, --rules-show, --rules-enable, --rules-disable, --rules-clone,",
+        "  --rules-delete, --rules-priority with --rules-rank, --rules-import, --rules-export,",
+        "  and --rules-preview. Import and export are TOML and JSON. --rules-preview applies nothing.",
+    ]);
+    push_topic(&mut v, "rules-trigger", "Rule trigger", &[
+        "  The trigger is a post that just synced. Conditions are the filters.",
+        "  A preview (--rules-preview) runs the same rules on posts already stored and applies nothing.",
+        "  ? on the rule name opens this topic.",
+    ]);
+    push_topic(&mut v, "rules-condition", "Rule condition", &[
+        "  none matches every synced post. author, keyword, regex, source, tag, saved_search,",
+        "  and replies_to narrow it. A keyword is case-insensitive. An invalid regex is an error.",
+        "  source site and redstar match Red Star. node does not, until peer sync exists.",
+        "  saved_search keeps the keyword on the rule. It does not read search history.",
+        "  replies_to matches a reply whose parent was written by that nick.",
+        "  The editor keeps one condition. An imported rule may have several; all of them must match.",
+    ]);
+    push_topic(&mut v, "rules-action", "Rule action", &[
+        "  notify prints a line for the job log. bookmark, tag, research, and export change local data.",
+        "  Notify is capped at 8 in one sync. A post fires at most once per rule.",
+        "  Nothing is sent to the site. Publish stays behind the capture gate.",
+    ]);
+    push_topic(&mut v, "rules-priority", "Rule priority", &[
+        "  Lower priority runs first, system rules and user rules together.",
+        "  Changing priority is allowed on a system rule. That is ordering, not a body edit.",
+    ]);
+    push_topic(&mut v, "rules-clone", "Clone a system rule", &[
+        "  Clone copies a system rule into a user rule and leaves the original in place.",
+        "  The clone starts enabled. Edit, disable, and delete apply to that copy.",
+        "  --rules-clone takes the system key, for example synced-post.",
     ]);
     push_topic(&mut v, "discover", "Discover", &[
         "  People, nodes, and rooms arrive with the network node. Discover does not pretend they are here.",

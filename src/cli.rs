@@ -106,6 +106,7 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply"]).multiple(false).conflicts_with_all([
@@ -359,6 +360,42 @@ pub struct Args {
     /// Offline: export research project NAME (its posts, files, pages and notes) to --export FILE (--format json,html; --compress --tar-gz bundles the files).
     #[arg(long, value_name = "NAME", help_heading = "Research", requires = "export", conflicts_with_all = ["nick", "nicks", "search", "import", "post_ids"])]
     pub research_export: Option<String>,
+    /// Offline: list rules (system and user), lower priority first. `--rules-format json` prints JSON.
+    #[arg(long, help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_list: bool,
+    /// Offline: show one rule by name. `--rules-format json` prints JSON; otherwise TOML.
+    #[arg(long, value_name = "NAME", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_show: Option<String>,
+    /// Offline: enable a user rule. A system rule is refused; clone it instead.
+    #[arg(long, value_name = "NAME", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_enable: Option<String>,
+    /// Offline: disable a user rule. A system rule is refused; clone it instead.
+    #[arg(long, value_name = "NAME", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_disable: Option<String>,
+    /// Offline: clone a system rule by its key. The clone is a user rule and starts enabled.
+    #[arg(long, value_name = "KEY", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_clone: Option<String>,
+    /// Offline: delete a user rule. A system rule is refused.
+    #[arg(long, value_name = "NAME", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_delete: Option<String>,
+    /// Offline: set a rule's priority (system or user). Lower runs first. Pass `--rules-rank`.
+    #[arg(long, value_name = "NAME", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_priority: Option<String>,
+    /// With `--rules-priority`: the new priority. Lower runs first.
+    #[arg(long, value_name = "N", help_heading = "Rules", requires = "rules_priority")]
+    pub rules_rank: Option<i64>,
+    /// Offline: import rules from a TOML or JSON file. Each row is inserted as a user rule.
+    #[arg(long, value_name = "PATH", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_import: Option<PathBuf>,
+    /// Offline: export every rule (system and user) to a TOML or JSON file.
+    #[arg(long, value_name = "PATH", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_export: Option<PathBuf>,
+    /// Offline: preview enabled rules against posts already stored. Applies nothing.
+    #[arg(long, help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids", "sync"])]
+    pub rules_preview: bool,
+    /// With a rules command: `toml` or `json`. Import and export otherwise follow the file extension.
+    #[arg(long, value_enum, value_name = "toml|json", help_heading = "Rules")]
+    pub rules_format: Option<RulesFormat>,
     /// With a write: print the documented frames and open no connection. With --remove-nick / --clear-all: show what would be removed and change nothing.
     #[arg(long, requires = "confirmable", help_heading = "Writing")]
     pub dry_run: bool,
@@ -540,6 +577,15 @@ pub struct Args {
         "show_phrase", "node_init", "new_post", "reply", "capture_reply",
     ])]
     pub node_id: bool,
+}
+
+/// File format for `--rules-import`, `--rules-export`, `--rules-list`, and `--rules-show`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
+pub enum RulesFormat {
+    /// TOML (`[[rules]]` tables).
+    Toml,
+    /// JSON (`{"rules":[...]}`).
+    Json,
 }
 
 /// Targets for the hidden `--generate` packaging flag.

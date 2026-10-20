@@ -1334,6 +1334,8 @@ Local notices. This is not the site Notifications pane (P4, 3.10.0–3.11.0, `/r
 
 ##### 3.32.0 Rule engine and editor
 
+The client has this engine. 3.32.0 stays the plan number and is not taken early. The crate version stays 3.5.0.
+
 A core engine in the library (`acp_red_star`, and the shared core if a later node needs the same evaluation). It is triggers, conditions, and actions. It runs when a sync commits new rows. By default it sees only data that sync just wrote. A dry-run previews the same rules against data already stored and applies nothing.
 
 **System rules and user rules.** The app ships a read-only set of system rules. The user can clone one. The clone is an ordinary user rule and can be edited, disabled, or deleted. The shipped original stays. User rules sit in the same list as the system rules, in the terminal editor and in `rules` on the command line. The app uses this set for its own notices instead of keeping a second, private path.

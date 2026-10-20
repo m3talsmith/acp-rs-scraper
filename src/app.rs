@@ -247,6 +247,9 @@ pub async fn run() -> Result<()> {
     crate::crypto::cmd::prepare_db()?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
     let clean = |n: String| n.replace(['/', '\\'], "_");
+    if crate::rules::cli_requested(&args) {
+        return crate::rules::run_cli(&args);
+    }
     if args.research_list || args.research_create.is_some() || args.research_add.is_some() || args.research_show.is_some() || args.research_export.is_some() {
         return run_research(&args).await;
     }
@@ -534,6 +537,9 @@ pub async fn run() -> Result<()> {
     let label = ok_nicks.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
     // A sync only updates the database, unless an output was asked for.
     if args.sync && args.output.is_none() && args.compression().is_none() {
+        if let Err(e) = crate::rules::on_sync(&db, &posts) {
+            err!("warning: rules: {e:#}");
+        }
         info!("sync: {} nicks up to date", ok_nicks.len());
         return Ok(());
     }

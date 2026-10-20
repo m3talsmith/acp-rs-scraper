@@ -1540,6 +1540,7 @@ impl App {
             Some(Modal::Search(s)) => SearchModal::text_index(s.focus).is_some(),
             Some(Modal::Compose(c)) => matches!(c.focus, ComposeFocus::Title | ComposeFocus::Body | ComposeFocus::Attach | ComposeFocus::Complete),
             Some(Modal::Research(r)) => matches!(r.focus, RField::Name | RField::Desc | RField::Note),
+            Some(Modal::Rules(r)) => r.text_focused(),
             Some(Modal::Confirm(c)) if c.strict => true,
             Some(Modal::Help(_)) => true,
             _ => false,
@@ -1742,6 +1743,13 @@ impl App {
             Action::ToggleBookmark => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_mark(&id), None => self.push_status("no post to bookmark: open or highlight one first") }
+            }
+            Action::OpenRules => {
+                self.close_menu();
+                match crate::config::home().map(|h| h.join(crate::config::DB_REL_PATH)).and_then(crate::tui::modals::RulesModal::open) {
+                    Ok(m) => self.modal = Some(crate::tui::modals::Modal::Rules(m)),
+                    Err(e) => self.error("Rules", &format!("{e:#}")),
+                }
             }
             Action::SyncNow => match self.menu.menu.sync_argv(&sel) {
                 Ok(argv) => { self.sync_next = None; self.start_online_job(JobKind::Sync, argv); }

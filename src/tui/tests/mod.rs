@@ -31,6 +31,7 @@ mod session;
 mod theming;
 mod editor;
 mod eggs;
+mod rules;
 mod help_about;
 
 use crate::prelude::*;
