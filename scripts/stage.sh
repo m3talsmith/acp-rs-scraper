@@ -14,6 +14,9 @@ install -Dm755 "$bin" "$d/bin/$name"
 alias="$root/target/release/acp-rs-scraper"
 [ -x "$alias" ] || { echo "stage.sh: $alias not built (the compatibility name)" >&2; exit 1; }
 install -Dm755 "$alias" "$d/bin/acp-rs-scraper"
+short="$root/target/release/acprs"
+[ -x "$short" ] || { echo "stage.sh: $short not built (the short command)" >&2; exit 1; }
+install -Dm755 "$short" "$d/bin/acprs"
 install -Dm644 "$root/LICENSE" "$d/share/licenses/$name/LICENSE"
 for f in README.md CHANGELOG.md docs/USAGE.md docs/INSTALL.md assets/empty-body.NOTICE.md; do
   install -Dm644 "$root/$f" "$d/share/doc/$name/$(basename "$f")"
@@ -26,5 +29,11 @@ install -d "$d/share/man/man1" "$d/share/bash-completion/completions" \
 "$bin" --generate bash > "$d/share/bash-completion/completions/$name"
 "$bin" --generate zsh  > "$d/share/zsh/site-functions/_$name"
 "$bin" --generate fish > "$d/share/fish/vendor_completions.d/$name.fish"
+"$bin" --generate acprs-man  > "$d/share/man/man1/acprs.1"
+"$bin" --generate acprs-bash > "$d/share/bash-completion/completions/acprs"
+"$bin" --generate acprs-zsh  > "$d/share/zsh/site-functions/_acprs"
+"$bin" --generate acprs-fish > "$d/share/fish/vendor_completions.d/acprs.fish"
 chmod 644 "$d/share/man/man1/$name.1" "$d/share/bash-completion/completions/$name" \
-  "$d/share/zsh/site-functions/_$name" "$d/share/fish/vendor_completions.d/$name.fish"
+  "$d/share/zsh/site-functions/_$name" "$d/share/fish/vendor_completions.d/$name.fish" \
+  "$d/share/man/man1/acprs.1" "$d/share/bash-completion/completions/acprs" \
+  "$d/share/zsh/site-functions/_acprs" "$d/share/fish/vendor_completions.d/acprs.fish"

@@ -129,7 +129,11 @@ if [ $user = 1 ] || [ $family = other ]; then
   manifest="$pfx/share/$name/install-manifest"
   $S install -d "$pfx/share/$name"
   (cd "$stage" && find . -type f | sed 's,^\./,,') | while read -r f; do
-    $S install -Dm"$( [ "$f" = bin/$name ] && echo 755 || echo 644)" "$stage/$f" "$pfx/$f"
+    case "$f" in
+      bin/*) mode=755 ;;
+      *) mode=644 ;;
+    esac
+    $S install -Dm"$mode" "$stage/$f" "$pfx/$f"
     echo "$pfx/$f"
   done | $S tee "$manifest" >/dev/null
   echo "$manifest" | $S tee -a "$manifest" >/dev/null
