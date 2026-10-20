@@ -24,6 +24,25 @@ fn click(a: &mut App, hit: Hit, mods: KeyModifiers) {
 fn key(a: &mut App, c: KeyCode) { on_key(a, KeyEvent::new(c, KeyModifiers::NONE)); }
 
 #[test]
+fn red_star_theme_paints_the_welcome_screen() {
+    let (f, w) = crate::themes::parse(include_str!("../../../themes/red-star.toml"), "red-star").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    let theme = Theme::from_file(&f, crate::themes::Variant::Dark);
+    let mut a = App::new(Box::new(crate::tui::data::MemStore::default()), &no_args(), theme, false);
+    a.theme_name = "red-star".into();
+    let (w, h) = (160u16, 45u16);
+    let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+    let now = Instant::now() + std::time::Duration::from_secs(5);
+    t.draw(|frame| crate::tui::widgets::draw(frame, &mut a, now)).unwrap();
+    let buf = t.backend().buffer().clone();
+    let s = (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n");
+    assert!(s.contains(crate::config::TUI_SUBTITLE), "{s}");
+    assert!(s.contains(crate::branding::SLOGAN), "{s}");
+    let body = &buf[(20, 16)];
+    assert_eq!(body.style().bg, Some(ratatui::style::Color::Rgb(0x0e, 0x04, 0x04)), "ink background");
+}
+
+#[test]
 fn rs_theme_paints_the_welcome_screen() {
     let (f, w) = crate::themes::parse(include_str!("../../../themes/rs.toml"), "rs").unwrap();
     assert!(w.is_empty(), "{w:?}");

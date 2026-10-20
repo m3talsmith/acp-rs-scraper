@@ -388,6 +388,8 @@ Red Star already supports bookmarks. Let's start from there. Phases:
 
 ## Left nick bar
 
+Before 3.x is finished this bar collapses, the same pull-out as the action-history bar on the right, so the main view can use the horizontal space. The right bar lists the actions that led to the current view. Clicking an earlier action jumps back to that state. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §7.14.5. The bar does not collapse today.
+
 - Data: `list_nicks_db` → nick + `post_count` (show `@nick` and count).
 - Optional: display_name as secondary text when width allows.
 - Empty DB: friendly empty state ("No nicks yet — use Scrape or Import").

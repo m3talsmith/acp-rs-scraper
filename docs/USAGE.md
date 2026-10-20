@@ -45,6 +45,8 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   session and running job on the middle row of the "ACP") · menu bar (one item per group of CLI
   flags, Start Scanning pinned right) · nick bar on the left (`@nick` and post count) · Body · status
   line (`l` expands it to a log panel). Click that line, or the header's `⟳ kind running (pid)` mark, or press Tab until Status is focused and then Enter, to open job details: the name, what started it, the state, the start time and elapsed time, the stage and a spinner, and a scrollable log. Elapsed counts only while the job is running. After it finishes, fails, or is cancelled, that line stays at the total run time. If the end was not recorded, it says `unknown`. Several jobs are a list; the elapsed line is the selected job. Esc closes the window. `c` or Cancel stops a job that is still running. The password and the database key are not shown. The header mark and the status bar do not show a duration, and a later start of the terminal UI does not reload jobs from log files.
+- **Side bars, not built yet.** Before 3.x is finished the nick bar on the left collapses, and a right bar pulls out with the actions that led to the current view (a search, a filter change, a view). Clicking an earlier action jumps back to that state, and an export from a search state still includes the query and the filters. Both bars collapse to give the Body the width. This is not the previous and next post walk. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
+- **Embedded assistant, not in 3.x.** A local model inside the client is a 4.0 roadmap item. It is not a heavy interest of 3.0. It answers questions about the posts already stored here, and it can run a search, a filter, or an export from plain language. An AI button at the bottom center opens a chat strip that pushes the body and the side bars up. It is not a modal. The strip keeps the prompts and replies, and the actions change the Body. The voice is a local persona: a system prompt and optional retrieval first, and a later fine-tune on local material if wanted. The model is not chosen. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.12.
 - **Browsing** is offline and read-only (the database is opened `SQLITE_OPEN_READ_ONLY`). Select a
   nick to list their posts and replies, newest first; select several with `Space`, `Shift-↑/↓`,
   `Ctrl-A`, or Ctrl/Shift-click. The **filter** field on top of the nick bar (click, or `/` from the
@@ -83,6 +85,7 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   replaces the Body in place; `<` / `< Back` returns, `Ctrl-S` clears. Order is newest or oldest.
   Limit keeps that many matches at the chosen end (blank keeps every match), the same window as
   `--order` and `--limit`. The status line shows it, for example `search "strike": 100 of 236 posts · oldest`.
+  Search history is not on the bar yet. When it ships it is part of Search: each local or site search keeps the query and the filters (keyword, nicks, post id, dates, posts or replies or both, Where, order, and limit) in the encrypted database, and picking one runs that search again. Clear history removes those rows. The default keeps every search. A preference can instead keep the N most recent. Exporting that result includes the same query and filters with the posts. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 - **Menu → flags:**
 
   | Menu | Flags it builds |
@@ -215,8 +218,8 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   a theme that can't be used reads `‹default: missing› ▾` (no file) or `‹mine: broken› ▾` (the
   file can't be read as a theme).
 - **Themes in the repo.** `default` (ACP red on the terminal's colours), `soviet` (red and gold),
-  `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (deep
-  crimson), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
+  `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (ACP Red
+  Star brand: ink black, vermilion and gold, cream text, from the banner), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
   accent), `rs` (Red Star site: near-black zinc with ACP red and vote gold); each has dark and
   light variants with text contrast of at least 3:1. Only `default`
   is downloaded automatically; get the rest with `--theme-init NAME` or `--theme-init all`.
@@ -463,6 +466,8 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 `--nick`/`--nicks` also filter `--search` and `--export` (posts by any listed nick).
 
 Default names: `<nick>-<YYYYmmdd-HHMMSS>`, `nick1+nick2-<ts>` for several nicks (`multi-<ts>` for more than 4 nicks or more than 40 characters), `search-<slug>-<ts>` for a search, `basket-<ts>` for `--post-ids`, and `db-<ts>` for a full dump.
+
+A search export does not yet record the query. Before 3.x is finished, exporting a search result includes the query and the filters that produced it (keyword, nicks, post id, dates, posts or replies or both, Where, order, and limit), along with the posts. A full dump, a nick filter, or a basket does not add a search. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 
 ### Maintenance (offline)
 
@@ -802,6 +807,7 @@ CREATE TABLE research_items (
 - **Parent ids:** `parent_post_id` is the thread root and `in_reply_to_id` the immediate parent (equal to the root for a direct reply, `""` for roots). Import reads `in_reply_to_id` when present and falls back to `parent_post_id`.
 - **Research exports** (`--research-export`) add `"research": { "name", "description", "created_at", "items": [ { "id", "kind", "ref", "title", "note", "meta", "content", "file", "added_at" } ] }`, where `file` is the bundle-relative path of the copy or snapshot (`attachments/…`) or the absolute one outside a bundle. The HTML page gets a Research section listing every item with its note, linking posts to their `#post-` article. Import ignores the section.
 - **Versions:** import accepts versions 1 (no profiles or mentions) and 2, and refuses newer versions or unknown formats.
+- **Search metadata, not in version 2 yet.** Before 3.x is finished, an export of a search result also carries the query and the filters that produced those posts. A dump, a nick filter, or a basket does not. The field names are not assigned here. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 
 ## Troubleshooting and debugging
 
