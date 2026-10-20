@@ -148,7 +148,7 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 24 | Quote selection | `canQuote`: selected text becomes a `blockquote` + `postRef` | C/I | ◐ | `Q` quotes the open post. Save is not sent |
 | 25 | Mentions and tag autocomplete | `pushEventTo('#js-postForm', 'mention-query'\|'tag-query', {query})`. Results land in a listbox. Nodes are `mention {id, label:"@nick"}`; tags are `mention` with `mentionSuggestionChar:"#"`. | C | ◐ | Local completion in the compose box. `mention-query` and `tag-query` are not sent. Mention id stays empty |
 | 26 | Repost / quote-post | `/rs/post/new?repost={id}` (the post renders `quoted_post`), gated by `actions.repost` | C | ✗ | Post menu › Repost (Compose with an embedded quote) |
-| 27 | Edit post | `/rs/post/{id}/edit` (`actions.edit`). Probably the same editor form. | I | ✗ | Post menu › Edit (own posts) |
+| 27 | Edit post | `/rs/post/{id}/edit` (`actions.edit`). Probably the same editor form. An edit stays open for one hour after the post. | I / missing live frame | ◐ | Post menu › Edit checks the hour. The form is not built. The send stays behind `CAPTURE_BLOCK`. `tests/fixtures/site/edit.json` lists the capture still needed |
 | 28 | Delete post | hook `delete-post {id}` after `confirm()` (`actions.delete`) | C | ✗ | Post menu › Delete, typed confirmation. A tombstoned post stays in the list with a tombstone icon and its body still readable (§7.5). |
 | 29 | Up/down vote | hook `vote {id, state:"1"\|"0"\|"-1"}`. The post has `score`, `vote` and `upvote_percentage`. | C | ✗ | `+` / `-` keys and a score column |
 | 30 | Bookmark | hook `bookmark {id, state}` (current), or the click `toggle-bookmark {id}` (what we use) | C | ✅ | Existing; move to the new event |

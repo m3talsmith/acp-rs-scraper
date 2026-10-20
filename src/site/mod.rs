@@ -4,10 +4,11 @@
 //! form frames live here. Publishing does not open a connection. The P0
 //! guided capture has not confirmed the submit payload or the upload channel,
 //! so validate, save, and `allow_upload` / `lvu` stay behind
-//! [`write::CAPTURE_BLOCK`]. Vote, subscribe, delete, edit, and repost are
-//! later minors and are not built.
+//! [`write::CAPTURE_BLOCK`]. Edit keeps the one-hour window and does not
+//! build the form. Vote, subscribe, delete, and repost are later minors.
 
 mod attach;
+pub mod edit;
 mod prosemirror;
 mod write;
 
@@ -38,6 +39,7 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.quote_post.is_some()
         || args.accept_site_update
         || args.site_attachments.is_some()
+        || args.edit.is_some()
 }
 
 /// Run a write command. Cancel prints `nothing sent` and returns Ok.
@@ -45,6 +47,29 @@ pub fn cli_requested(args: &Args) -> bool {
 pub fn run_cli(args: &Args) -> Result<()> {
     if let Some(thread) = args.capture_reply.as_deref() {
         bail!("{}", capture_stub_message(thread.trim()));
+    }
+    if let Some(id) = args.edit.as_deref() {
+        let confirmed = if args.dry_run {
+            false
+        } else if args.yes {
+            true
+        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            eprint!("Edit? [y/N] ");
+            io::stderr().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+            matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
+        } else {
+            false
+        };
+        let now = chrono::Utc::now().timestamp();
+        return match edit::present(id.trim(), args.posted_at, now, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
     }
     if args.new_post.is_none() && args.reply.is_none() {
         bail!("a write needs --new-post TITLE or --reply THREAD. --dry-run prints the frames and does not connect.");
