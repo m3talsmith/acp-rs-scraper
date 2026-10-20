@@ -11,7 +11,7 @@ Update 2026-10-18 (versioning): **3.0.0 is identity, encryption at rest, and bac
 
 Update 2026-10-19: **3.1.0 is the job-details window** (click a running job in the terminal UI). The write core moves to 3.2.0, and every later phase moves up one minor with it.
 
-Update 2026-10-19 (crate split): **3.2.0** is `acp_red_star_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.23.0 and later. That work stays in 3.x. A later 4.0 line is other product work and does not move it.
+Update 2026-10-19 (crate split): **3.2.0** is `acp_red_star_node_core`: identity crypto, canonical CBOR, and a secret-store interface, separate from the terminal client. **3.3.0** is local node identity (an independent node key, how a node is named and verified, the certificate format, `--node-init` and `--node-id`). The write core moves to **3.4.0**, and every phase the 3.1.0 update numbered from 3.2.0 upward moves up two minors. Writes stay off until 3.4.0. Network enrollment, relays, and peers stay in 3.23.0 and later. That work stays in 3.x. A later 4.0 line is other product work and does not move it (§7.14.12).
 
 Update 2026-10-19 (write core): **3.4.0** ships compose for New post and Reply, the Markdown to ProseMirror writer, and the safety layer (writes on by default, Cancel first, `--dry-run`, the 30 second gap, bundle-hash refusal). Publish does not open a connection. The P0 capture has not confirmed the submit payload, so validate/save, `_target`, uploads, mention-query replies, and read-back stay stubbed. Attachments wait for 3.5.0. Later write features stay in their own minors.
 
@@ -25,15 +25,17 @@ Update 2026-10-19 (v3 historical posts, launch checklist): two drafts are kept u
 
 Update 2026-10-19 (colour, approved): `--color auto|always|never` (default auto) and `[ui] color` in `preferences.toml`. `auto` follows NO_COLOR. `always` calls `crossterm::style::force_color_output(true)` before the terminal is raw, including command-line coloured output. `never` forces colour off. When NO_COLOR is set and colours are off, the terminal UI says `NO_COLOR is set, so colours are off (use --color always)` at start, when a theme is chosen or edited, and inside the theme picker and the theme editor. View › Colour sets the same choice and remembers it. This does not add a minor and does not move numbered stages.
 
-Update 2026-10-19 (server and relay packaging, parked on the same gate): the server and the relay each ship both ways. The server is the headless node (`--serve`, planned binary `acp-rs`). The relay is `acp-rs-relay`, from `acp_rs_node_relay`. Each has its own binary, its own release artifact, and its own install path, so a machine can seed the network without the terminal app. Each also stays an option inside the app: the TUI embeds a node, and `--serve --relay` embeds the relay. Both forms are required. Packaging waits until writes and replies with attachments are functional and the decentralized network work is functional. This note does not cut a server release or a relay release. Details are in §7.2, §7.14.3, and §7.14.11.
+Update 2026-10-19 (server and relay packaging, parked on the same gate): the server and the relay each ship both ways. The server is the headless node (`--serve`, planned binary `acp-rs`). The relay is `acp-rs-relay`, from `acp_rs_node_relay`. Each has its own binary, its own release artifact, and its own install path, so a machine can seed the network without the terminal app. Each also stays an option inside the app: the TUI embeds a node, and `--serve --relay` embeds the relay. Both forms are required. Packaging waits until writes and replies with attachments are functional and the decentralized network work is functional. This note does not cut a server release or a relay release. Details are in §4.5, §7.2, §7.14.3, and §7.14.11.
 
 Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a node certificate lasts **365 days**, and clock skew is **5 minutes**. Renewal, the 7-day grace period, and revocation stay in the stages already planned for them. The first machine's authorizer limits are accepted (`history_grant = allowed`, `max_nodes` 16). A future daemon may unlock from the OS keyring through `SecretStore`. Public nodes exist, as an opt-in on the serve and relay work. APT, COPR, AUR, and the Homebrew formula stay unpublished until the full client set exists.
 
-Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. Decentralization still stays in 3.x. The later 4.0 line does not move it.
+Update 2026-10-19 (search history): recent searches are rows in the SQLCipher database that already holds posts and nicks. A row stores the query and the filters only, not a snapshot of the results. Those filters are the keyword, nicks, post id, from and to dates, posts or replies or both, local or site, order (`newest` or `oldest`), and limit (N, or none). Picking a history item re-runs that search live, including that order and limit. Clear history deletes the rows. The default keeps the entire history, with no automatic pruning. A preference can instead keep the N most recent entries. An export of a search result carries that same query and those filters with the posts. It belongs in the Search menu and is its own minor once Search work is touched; that minor is not numbered here, and numbered stages are not moved. Details are in §7.14.5.
+
+Update 2026-10-19 (action history): before 3.x is finished, a right bar pulls out and collapses. It lists the actions that led to the current view, as a stack. Clicking an earlier action jumps back to that state, and an export from a search state still carries the query and the filters. The left nick bar collapses the same way, so the main view can use that width. This replaces a simple previous/next along that path. It is not the previous and next post controls. The minor is not numbered here. Details are in §7.14.5.
+
+Update 2026-10-19 (embedded assistant, revised): a local assistant is not a 3.x requirement and is not a heavy interest of 3.0. It does not weigh down 3.0, and it does not displace attachments, interactions, categorized menus, tooltips, Help, search history, the action-history bar, or collapsible bars. It is a 4.0 roadmap item, and 4.0 may treat it as a substantial part of that major. Decentralization stays in 3.x. Opening a 4.0 line does not move peers, relays, or the network node. The design is in §7.14.12. The model is not chosen.
 
 Update 2026-10-19 (TUI menu, required before 3.x is finished): the menu bar is reorganized into the categories in §4.2. This is a hard requirement for 3.x, and it is its own minor. It is not polish after 3.x. This note does not assign that minor a number and does not move stages that already have one. 3.5.0 attachments does not include it. Start Scanning stays pinned on the right. **Bookmarks** is its own top-level menu, not an item under Library. **Sync** keeps the local copy up to date. **Discover** finds people, nodes, and rooms. Those two menus stay separate. Hover tooltips on every actionable control are the same kind of requirement (§4.3). Friendlier, searchable Help, with a help icon on the chrome, is the same kind of requirement (§4.4). Each can ship with that menu minor or as its own.
-
-Update 2026-10-19 (embedded assistant): a local assistant is not a 3.x requirement and is not a heavy interest of 3.0. It does not weigh down 3.0, and it does not displace attachments, interactions, categorized menus, tooltips, Help, search history, the action-history bar, or collapsible bars. It is a 4.0 roadmap item, and 4.0 may treat it as a substantial part of that major. Decentralization stays in 3.x. Opening a 4.0 line does not move peers, relays, or the network node. The model is not chosen. This note does not specify the assistant.
 
 Update 2026-10-19 (product name and launch docs): during 3.x the user-facing name is **ACP Red Star**. A docs pass is required before the 3.0 client is presented as launched. Communications (pitch, demo, stickers, backgrounds, a cutscene, and a comrades' forum post) wait until that pass exists. Neither list blocks attachments. Details are in §4.5.
 
@@ -41,11 +43,12 @@ Update 2026-10-19 (About and the launch post, parked): About is a menu item with
 
 Update 2026-10-19 (tooltip Help links, parked): every action tooltip includes a deep link to the Help topic for that particular action. One generic Help page for every tooltip does not meet §4.3. A description without that link does not either. Tooltip UI is not started while `CAPTURE_BLOCK` is in force.
 
-Update 2026-10-19 (attachments, confirmed): Michael confirmed the three 3.5.0 decisions. `.jpeg` is accepted as jpg and `.tif` as tiff. There is no count cap and no size cap. Attachments keep **3.5.0**. Interactions (vote, subscribe, delete, edit, repost) were numbered 3.5.0–3.9.0 and have not started. That numbering is not shifted onto 3.10.0 and later, including the locked 3.22.0 re-key. Later stages stay as written. Live upload stays behind `CAPTURE_BLOCK`.
+Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. Decentralization still stays in 3.x. The later 4.0 line does not move it. The assistant is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major.
 
 Update 2026-10-19 (crates, install, alpha parked): launch docs name the two crates that are in the workspace today: `acp-red-star` at the repository root, and `acp_red_star_node_core` at `crates/acp_red_star_node_core`. Source install stays `scripts/install.sh`. Docs also point at the repository [Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page for binaries and alphas once a release publishes them, and they do not invent a download URL for an unpublished file. Alpha packaging waits until both gates are clear: writes and replies with attachments are done, and the decentralized network work (P9) is completed. This note does not tag an alpha and does not attach release assets. Details are in §4.5.
 
-Update 2026-10-19 (server and relay packaging, parked on the same gate): the server and the relay each ship both ways. The server is the headless node (`--serve`, planned binary `acp-rs`). The relay is `acp-rs-relay`, from `acp_rs_node_relay`. Each has its own binary, its own release artifact, and its own install path, so a machine can seed the network without the terminal app. Each also stays an option inside the app: the TUI embeds a node, and `--serve --relay` embeds the relay. Both forms are required. Packaging waits until writes and replies with attachments are functional and the decentralized network work is functional. This note does not cut a server release or a relay release. Details are in §4.5, §7.2, §7.14.3, and §7.14.11.
+
+Update 2026-10-20 (notices, the rule engine, alert templates): three new minors, one feature each, after the stages already planned. **3.30.0** is already the surprises minor on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16) and is not restated here, so these start at **3.31.0**. Nothing from 3.6.0–3.9.0 or 3.10.0–3.29.0 is renumbered, including the locked 3.22.0 re-key. **3.31.0** is local notifications (in-terminal toasts and OS desktop notifications). **3.32.0** is the rule engine and its if-this-then-that editor, including the system rules the app itself runs. **3.33.0** is alert presets, which are templates on that engine. There is no separate alert subsystem. §7.14.12 and §4.0 are already claimed, for different subjects, by [draft PR #10](https://github.com/m3talsmith/acp-rs-scraper/pull/10) (embedded assistant) and [draft PR #15](https://github.com/m3talsmith/acp-rs-scraper/pull/15) (post source and the Haz stream corpus). This note does not take those numbers. The write-up is §7.14.13.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -118,7 +121,7 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 3 | Top posts (site-wide) | `/rs/top`, with `configure-feed` and fields `t` (5 periods) + `replies` | C | ◐ (profile top only) | View-mode menu: Top › period |
 | 4 | Executive Board feed | `/rs/eb` (+ `replies` filter) | C | ✗ | Nick-bar row "EB" |
 | 5 | Explore | `/rs/explore` and `/rs/explore/latest` | C | ✗ | Explore screen |
-| 6 | Site search | `/rs/explore?q=…` (form `phx-submit="search"`, field `q`) returns a `forum/Feed` | C | ✗ (local search only) | Search modal gets a "Site / Local" toggle |
+| 6 | Site search | `/rs/explore?q=…` (form `phx-submit="search"`, field `q`) returns a `forum/Feed` | C | ✗ (local search only) | Search modal gets a "Site / Local" toggle. History is part of the Search menu: the query and the filters only (not a snapshot of results), including order (`newest` or `oldest`) and limit (N, or none), in the encrypted database, and picking one re-runs the search live. Exporting that result carries the same query and filters. Its own minor when Search work is touched (§7.14.5) |
 | 7 | Tag feeds | `/rs/tag/{tag}` returns a `forum/Feed` (same pagination) | C | ✗ | Click a `#tag` to open its feed |
 | 8 | Thread view + focus | `/rs/post/{thread}` and `/rs/post/{thread}/{post}` (patch) | C | ✅ | Existing |
 | 9 | Thread sort | hook `sort {sort:"oldest"\|"top"}` | C | ✗ | `s` in thread view |
@@ -292,6 +295,12 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | 3.22.0: Password change / re-key | **3.22.0** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. |
 | P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
+| Search history | later minor, when Search work is touched | Reopen a past query from the Search menu (§7.14.5). The row is the query and the filters only, including order (`newest` or `oldest`) and limit (N, or none). A pick re-runs the search live, the rows live in the encrypted database, and Clear history deletes them. The default keeps every row. A preference can cap the list at the N most recent. An export of a search result carries that query and those filters with the posts. The version number is not assigned here, and numbered stages are not moved. |
+| Action history bar | later minor, required before 3.x closes | A collapsible right bar of the actions that led to the current view (§7.14.5). Click one to jump back, then export from that state. The left nick bar collapses the same way. The version number is not assigned here, and numbered stages are not moved. |
+| 3.30.0: Surprises | **3.30.0** | Assigned on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16). This file does not restate it. The next minors are 3.31.0–3.33.0 so that assignment is not a silent skip. |
+| 3.31.0: Notifications | **3.31.0** | In-terminal toasts and OS desktop notifications. Per-type toggles, do-not-disturb, a notice log, and the same notices on stderr. Replaces ad-hoc status-line notices. Not the site Notifications pane (P4). Respects `NO_COLOR` / `--color never` (§7.14.13). |
+| 3.32.0: Rule engine | **3.32.0** | A triggers / conditions / actions engine in the library, evaluated on sync. Built-in system rules ship read-only and cloneable. The user's rules sit beside them in the editor and in `rules`. Stored encrypted (§7.14.13). |
+| 3.33.0: Alert templates | **3.33.0** | One-click rule templates on the 3.32.0 engine: watch a user, saved-search matches, replies to me. The user can open and edit them. No separate alert subsystem (§7.14.13). |
 | TUI menu categories | later minor, required before 3.x closes | Reorganize the menu bar (§4.2). Must ship before 3.x is finished. The version number is not assigned here, and numbered stages are not moved. |
 | Hover tooltips | later minor, required before 3.x closes | Every button, menu item, and card icon explains itself on hover, including its key when it has one, and a deep link to the Help topic for that action (§4.3). One generic Help page for every tooltip does not count, and neither does a description without a link. One shared helper. Not built while `CAPTURE_BLOCK` is in force. The version number is not assigned here, and numbered stages are not moved. |
 | Help topics | later minor, required before 3.x closes | Help becomes topics you can move between, with search, and a help icon on the chrome that opens the matching topic (§4.4). Every flag and control is described. `?` and F1 stay the entry. Can ship with the menu reorganization or on its own. The version number is not assigned here, and numbered stages are not moved. |
@@ -304,7 +313,9 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 
 4.0 is a later major. Decentralization stays in 3.x (3.23.0 and later). Opening this line does not move peers, relays, or the network node.
 
-The embedded assistant is on this roadmap. It is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. The model is not chosen, and this note does not implement the assistant or specify it.
+The embedded assistant is on this roadmap (§7.14.12). It is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. The model is not chosen, and this note does not implement the assistant or specify it beyond the row below.
+
+| Embedded assistant | 4.0 | A local model inside the client (§7.14.12). Questions about the local corpus, and existing actions such as search, filter, and export. A bottom-center button opens a chat strip that pushes the body and side bars up. It is not a modal. Voice is a system prompt and optional retrieval first; a later LoRA adaption is optional and is not training from scratch. Not part of 3.x. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -842,6 +853,10 @@ cookies or tokens. Peers only carry signed *intents*.
 | 3.27.0 | Opt-in feed and research sharing |
 | 3.28.0 | Draft review: links, comments, suggestions (§7.14.8) |
 | 3.29.0 | `acp_rs_node_ffi` and the first Dart SDK release (§7.14.7) |
+| **3.30.0** | Surprises. Assigned on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16). Not specified in this file. |
+| **3.31.0** | Local notifications: stacked toasts, an OS notification, a notice log, per-type toggles, do-not-disturb, and stderr for the command line (§7.14.13). |
+| **3.32.0** | Rule engine: library triggers / conditions / actions, evaluated on sync. System rules are read-only and cloneable. User rules sit beside them (§7.14.13). |
+| **3.33.0** | Alert templates on that engine: watch `@user`, saved-search matches, replies to me. Editable. No second alert subsystem (§7.14.13). |
 
 ### 7.12 Privacy and security risks
 - A node reveals its IP to peers, and gossip reveals who has which posts.
@@ -1158,6 +1173,19 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **State lives in the encrypted database.** Peers, bootstrap list, relay addresses, node roles, sync state and certificates are rows, not files, so they are encrypted at rest and included in backups.
   - Outside the database there are only the small bootstrap file (the database location and the Argon2 parameters needed to unlock) and `preferences.toml` for hand-edited settings, which holds no state.
   - The old `peers.toml` becomes a one-time import into `p2p_peers`.
+- **Search history (decided 2026-10-19).** Each local search and each site search is saved so a past query can be opened again. This is part of the Search menu, not a menu of its own. It is its own minor once Search work is touched. This note does not assign that minor a number and does not move numbered stages.
+  - Recent searches are rows in the same SQLCipher database as posts and nicks (`~/.acp/ai/data/rs.database`). They travel with that database in a backup. `preferences.toml` stays hand-edited settings and does not hold this list, and there is no separate history file.
+  - A row stores the query and the filters only: keyword, nicks, post id, the from and to dates, posts or replies or both, whether the search was local or on the site, order (`newest` or `oldest`), and limit (N, or none). It does not store a snapshot of the results. Opening the row again uses that order and that limit.
+  - Picking a history item re-runs that search live, against the database as it is now, or against the site when the row says site.
+  - Clear history deletes these rows and leaves posts, nicks, and preferences in place.
+  - **Retention (decided 2026-10-19).** The default keeps the entire history. Nothing is pruned on its own. A preference chooses either the entire history or a cap of the N most recent entries. A cap drops the older rows. The preference is a setting in `preferences.toml`. That file still does not hold the list of queries.
+  - **Export of a search (decided 2026-10-19).** When the user runs a search and then exports, the export carries the query and the filters that produced that result set, not only the posts. Those are the same fields as a history row: keyword, nicks, post id, the from and to dates, posts or replies or both, whether the search was local or on the site, order (`newest` or `oldest`), and limit (N, or none). A full dump, a nick filter, or a basket is not a search and does not add one. Export format version 2 does not include this yet. The field names land with this minor. This note does not assign a new format version.
+- **Action history and collapsible bars (decided 2026-10-19).** Required before 3.x is finished. This note does not implement it, does not assign a minor, and does not move numbered stages.
+  - A right bar pulls out and collapses. It lists the actions taken on the way to the current view, as a stack, in the manner of Photoshop's history: searches, filter changes, views, and the like.
+  - Clicking an earlier action jumps the main view back to that state. From the restored state the user can export. When that state came from a search, the export still carries the query and the filters.
+  - This is the path to the current view, made something you can move along and export from. It replaces a simple previous/next on that path. It is not the previous and next post controls.
+  - The left nick bar collapses the same way, so the main view can use the horizontal space. Both bars are pull-outs.
+  - Not blocking: what exactly counts as an action, how deep the stack goes, and whether the stack lasts only for the session or is kept after quit.
 - **Fleet view:** one Nodes list showing last seen, version, certificate expiry, sync lag and disk use, with rename, role change and revoke from any authorizer. `--doctor` checks the local setup.
 - **Version compatibility:** nodes speak the current and the previous protocol version, announce their version, and warn when one lags.
 - **Peer management:** a Peers tab with status (up, down, unknown), last seen, trust level, source (invite, mDNS, bootstrap, backup), bytes in and out and notes, with actions to change trust, block, forget and re-check.
@@ -1222,7 +1250,8 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **3.23.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, authorizer and node certificates, and OS keyring unlock for the daemon.
 - **3.28.0:** draft review links, comments and suggestions.
 - **3.29.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
-- **Embedded assistant** is a 4.0 roadmap item. It is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Numbered 3.x stages are not moved. Decentralization stays in 3.x.
+- **Embedded assistant (§7.14.12)** is a 4.0 roadmap item. It is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Numbered 3.x stages through 3.29.0 are not moved. Decentralization stays in 3.x.
+- **3.30.0** is the surprises minor on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16). This file does not restate it. **3.31.0** is local notifications, **3.32.0** is the rule engine, and **3.33.0** is alert templates on that engine (§7.14.13). Those three do not move 3.10.0–3.29.0.
 - **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.23.0 together with the service install. The TUI header already shows `v<version>` from 3.0.0.
 
 #### 7.14.10 Version display and desktop trays
@@ -1231,7 +1260,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
   - the header, an About screen (version, build date and commit, protocol version, whether the `p2p` feature is built in), `--version` and `--node-status`
   - the node chip in the header, the Nodes list for every node (§7.14.5, which also warns about lagging versions), the relay binary's `--version`, and the tray menu header
   - every window title of the tray apps
-  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and 3.5.0 is attachments (confirmed). Interactions were numbered 3.5.0–3.9.0 before that and have not started; Michael confirmed that this note does not shift them or the later stages. Live stays 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). Decentralization stays in 3.x. A 4.0 line is later product work, including the embedded assistant, and it does not move the network node. The assistant is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Inserting 3.22.0 moved each later 3.x stage up one minor.
+  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and 3.5.0 is attachments (confirmed). Interactions were numbered 3.5.0–3.9.0 before that and have not started; Michael confirmed that this note does not shift them or the later stages. Live stays 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). Decentralization stays in 3.x. A 4.0 line is later product work, including the embedded assistant (§7.14.12), and it does not move the network node. The assistant is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. **3.30.0** is assigned on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16). **3.31.0–3.33.0** are local notifications, the rule engine, and alert templates (§7.14.13). §7.14.12 is the embedded assistant. Draft PR #15 also uses §4.0 and §7.14.12 for post source and the Haz corpus, so this note does not use those numbers. Stages 3.10.0–3.29.0 are not renumbered. Inserting 3.22.0 moved each later stage up one minor.
 - **Tray apps** to control the node and the relay without a terminal: a small separate binary, `acp-rs-tray`, in its own crate, that talks to the node and relay over the local control socket (§7.2).
   - **Menu:** status (running, stopped, locked, peers online, sync state, version), Start, Stop and Restart for the node and for the relay, **Unlock** (prompts for the passphrase when the node started locked), Open TUI, Nearby nodes and pending enrollments (approve from the tray), Pause syncing, Copy `acp-id`, Open logs, Quit.
   - **Notifications** for a pairing request, a new node enrolled, a certificate close to expiry, a revocation received, and a sync error. Each is optional.
@@ -1263,6 +1292,114 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
   - The package version is the release version (§7.14.10), shown by `acp-rs-relay --version`.
 - **Publishing (decided 2026-10-19, §8 Q14).** APT, Fedora COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing (3.25.0), replies (3.4.0), review (3.28.0), the node crates (through 3.27.0), and the Dart package (3.29.0). Until that set has shipped, packaging in this repository stays unpublished. Someone can still build a package by hand from the tree.
 - **Roadmap:** the relay crate lands in 3.23.0 (§7.14.9). It is not published to APT, COPR, AUR, or Homebrew in that release. Those repositories wait for the full set above.
+
+#### 7.14.12 Embedded assistant (4.0)
+
+This is a 4.0 roadmap item. It is not a 3.x requirement and is not a heavy interest of 3.0, so it does not weigh down 3.0. 4.0 may treat it as a substantial part of that major. Decentralization stays in 3.x. This note does not implement it, does not choose a model, and does not move numbered 3.x stages.
+
+- A local, embedded model runs inside the client. Michael's example is Gemma 4, or a similar local model. That example is not a selection.
+- The user can ask questions about the data they already have, the local corpus.
+- Natural language can drive searches and filters.
+- Natural language can issue commands that call existing app actions. "Export this" is one. Search, filter, and export are in that set, and so are the other actions the app already has.
+- **Chrome (decided 2026-10-19).** An AI button sits at the bottom center of the terminal UI. It opens an AI chat panel. That panel is not a modal overlay. It pushes the body and the side bars up, so the chat strip is visible below while the main layout stays usable.
+- The panel shows the chat: the user's tasks and prompts, and the assistant's replies.
+- What the assistant does changes the main body. A search, a filter, or another content change appears in the body as the result of the chat.
+- **Voice (decided 2026-10-19).** The assistant has a local voice and persona, not only a generic one. Replies can take a communist, party-aligned tone and framing. That is an adaption of the embedded model, not a foundation model trained from scratch.
+  - The default is a system prompt, plus optional retrieval over the local Red Star corpus and the library. That path does no training.
+  - Optional later: a LoRA or QLoRA fine-tune of the embedded model (a Gemma-class model is the example, not a selection) on a corpus the user provides or that is already local. That is the voice adaption. It is not required for the first assistant.
+- Not blocking: which model, whether it is offline only, and how a request turns into those existing actions.
+
+#### 7.14.13 Notifications, the rule engine, and alert templates (3.31.0 → 3.33.0)
+
+**Section number.** §7.14.12 on main is the embedded assistant. [Draft PR #15](https://github.com/m3talsmith/acp-rs-scraper/pull/15) uses §4.0 and §7.14.12 for post source and the Haz stream corpus, and adds `architecture/PLAN-4.0.md` on that branch. This note does not copy that write-up and does not take §4.0 or §7.14.12. **3.30.0** is already assigned on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16), so the three features below are 3.31.0, 3.32.0, and 3.33.0. One minor each. 3.6.0–3.9.0 stay unassigned. 3.10.0–3.29.0, including the locked 3.22.0 re-key, are not renumbered.
+
+The order is notifications, then the rule engine, then alert templates. Alerts work better as rules, and the app should run on rule sets too, so the engine comes before the presets that sit on it.
+
+##### 3.31.0 Notifications
+
+Local notices. This is not the site Notifications pane (P4, 3.10.0–3.11.0, `/rs/notifications`, §1a item 15, §8 Q4).
+
+- **In the terminal UI:** toasts, stacked, that dismiss on their own. A notice log keeps the ones that already dismissed, so a missed toast can still be read.
+- **On the desktop:** an OS notification. Linux uses the freedesktop notification spec over D-Bus. macOS and Windows use the platform notification API.
+- **Controls:** each notice type can be turned off. Do-not-disturb silences toasts and OS notifications together. The notice log still records them.
+- **Command line:** the same notices print on stderr. `NO_COLOR` and `--color never` leave them plain.
+- **What it replaces:** ad-hoc status-line notices. The status line keeps job and list state. A notice that the user should see becomes a toast, an OS notification, and a log row.
+
+##### 3.32.0 Rule engine and editor
+
+A core engine in the library (`acp_red_star`, and the shared core if a later node needs the same evaluation). It is triggers, conditions, and actions. It runs when a sync commits new rows. By default it sees only data that sync just wrote. A dry-run previews the same rules against data already stored and applies nothing.
+
+**System rules and user rules.** The app ships a read-only set of system rules. The user can clone one. The clone is an ordinary user rule and can be edited, disabled, or deleted. The shipped original stays. User rules sit in the same list as the system rules, in the terminal editor and in `rules` on the command line. The app uses this set for its own notices instead of keeping a second, private path.
+
+**Triggers:** a post that just synced, the author, a saved-search match, a keyword or a regular expression, the source (the site, a node, and later a YouTube transcript), and a tag.
+
+**Actions:** notify (the 3.31.0 toast and OS notification), bookmark, tag, add to a research project, and export.
+
+**Editor and command line.** The terminal editor is if-this-then-that: pick a trigger, add conditions, pick actions. Every control has a tooltip, and that tooltip links to its own Help topic, the same rule as the rest of the terminal UI. `rules` lists, shows, enables, disables, clones a system rule, reorders by priority, imports, and exports. Import and export are TOML and JSON.
+
+**Stored encrypted**, in the SQLCipher database, with the rest of the account data. An export file is plaintext because the user asked for a file. The database copy stays encrypted.
+
+```sql
+CREATE TABLE rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  origin TEXT NOT NULL CHECK (origin IN ('system','user')),
+  enabled INTEGER NOT NULL DEFAULT 1,
+  priority INTEGER NOT NULL DEFAULT 100,       -- lower runs first
+  system_key TEXT,                             -- stable id for a shipped rule; null on a user rule
+  cloned_from TEXT,                            -- system_key of the rule this clone came from
+  template_key TEXT,                           -- set when a 3.33.0 preset created this rule
+  trigger TEXT NOT NULL,                       -- canonical JSON: kind plus its fields
+  conditions TEXT NOT NULL,                    -- canonical JSON array
+  actions TEXT NOT NULL,                       -- canonical JSON array
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX rules_system_key ON rules(system_key) WHERE system_key IS NOT NULL;
+CREATE TABLE rule_firings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_id INTEGER NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
+  post_id TEXT,
+  source TEXT NOT NULL,                        -- site | node | later transcript sources
+  action TEXT NOT NULL,
+  outcome TEXT NOT NULL,                       -- fired | skipped | error
+  detail TEXT NOT NULL DEFAULT '',
+  fired_at TEXT NOT NULL
+);
+```
+
+A system row is not updated by the editor. Clone inserts a `user` row with `cloned_from` set. Disable, delete, and edit apply to user rows. Priority orders every enabled row, system and user, when a sync is evaluated. The audit table is the log of what fired.
+
+**What should move onto the engine.** 3.31.0 may ship its toasts before the engine exists. Once 3.32.0 exists, those notices become system rules whose action is notify, and the app stops raising them from a private path.
+
+- The app's own notices, including the status-line notices 3.31.0 replaces.
+- Sync-complete and sync-error notices.
+- The tray notices already listed in §7.14.10 (a pairing request, a new node enrolled, a certificate close to expiry, a revocation, a sync error) when that tray exists. They stay in 3.23.0 until then. This note does not move that stage. They become system rules rather than a second notifier.
+- Automatic tagging, if the app grows it. Nothing in the current plan tags posts by itself. A tagger should be a system rule the user can clone, not a private pass. The feed include/exclude rules in §6 stay a view compiler. Whether a feed later runs as an action on this engine is open (§8 Q15).
+- The alert presets in 3.33.0 are the first user-facing templates. They are not a second product.
+
+##### 3.33.0 Alert templates
+
+Presets on the 3.32.0 engine. There is no alert table, no alert runner, and no alert screen of its own. Each preset is a one-click rule the user can open and edit:
+
+- **Watch a user.** `@someone` posted. The notice names the author and links the post.
+- **Saved-search matches.** A saved search hit in the sync that just finished.
+- **Replies to me.** Someone replied to one of my posts.
+
+Evaluation is the engine's sync pass. Today that sync is Red Star. After peer and node sync (P9, 3.23.0 and later) the same rules run on those rows, and each firing records its source. A post fires at most once per rule. Notices are rate-limited. The toast and the log deep-link to the post in the terminal UI and carry the site URL.
+
+A saved search is a pinned query plus its filters, stored in the encrypted database, including order and limit. That storage is the search-history work now on main (merged from #10, §7.14.5). The minor for search history stays unnumbered.
+
+##### Dependencies
+
+- **3.31.0 before a notify action.** The engine can be built beside notifications, but a rule that notifies needs the toast, the OS notification, and the log.
+- **Search history (on main, §7.14.5, merged from #10).** The saved-search trigger and the saved-search template need a saved or pinned search in the encrypted database (query, filters, order, and limit). That minor stays unnumbered.
+- **P9, 3.23.0 and later.** Node and peer sync are a later trigger source. Until they exist, rules run on the Red Star sync only, and `source` is the site.
+- **Post source ([draft PR #15](https://github.com/m3talsmith/acp-rs-scraper/pull/15)).** A source condition (Red Star, a YouTube transcript, later others) waits on the post-source columns in that pull request (`architecture/PLAN-4.0.md` on its branch). Until those columns exist, source conditions match Red Star only.
+
+##### Tests
+
+Unit tests for trigger, condition, and action matching, for system-rule immutability and clone, for priority, and for "new rows only" versus dry-run. A terminal test opens a template, edits it, and checks the tooltip Help link. A command-line test imports and exports TOML and JSON. Notification tests cover stacking, do-not-disturb, stderr, and plain text when colour is off. No test posts to the site or talks to a real notification daemon. The OS backend is an interface with a fake in tests.
 
 ---
 
@@ -1329,6 +1466,9 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - ~~Node roles~~ are opt-in. Every node starts equal (§7.14.4).
     - ~~Service install~~ covers Linux (systemd), macOS (launchd) and Windows (Windows Service) (§7.14.5).
     - ~~State~~ lives in the encrypted database, with only a bootstrap file and `preferences.toml` outside it (§7.14.5).
+    - ~~**Search history (2026-10-19):**~~ rows in that same database. Each row is the query and the filters only, not a snapshot of the results. The filters include order (`newest` or `oldest`) and limit (N, or none), so picking one re-runs that window live. Clear history deletes the rows. The default keeps every row. A preference can instead keep the N most recent. An export of a search result carries that query and those filters (§7.14.5).
+    - ~~**Action history (2026-10-19):**~~ a collapsible right bar of the actions that led to the current view. Click one to jump back, then export from that state. The left nick bar collapses the same way (§7.14.5).
+    - ~~**Embedded assistant (2026-10-19, revised):**~~ a 4.0 roadmap item, not a 3.x requirement, and not a heavy interest of 3.0. A local model inside the client answers questions about the local corpus and invokes existing actions such as search, filter, and export. A bottom-center button opens a chat strip that pushes the layout up. It is not a modal. The voice is a local persona: a system prompt and optional retrieval first, and a later LoRA-style adaption if wanted. The model is not chosen (§7.14.12).
     - ~~Peers~~ are transient and checked automatically after a restore, with a Peers tab and `--peer-*` commands. Own nodes are never revoked automatically (§7.14.5).
     - ~~The certificate~~ is returned to the new node by the approver inside the enrollment bundle (§7.14.2).
     - ~~Dart SDK~~ is a thin package over FFI to the embedded Rust crates, with a separate `acp_rs_node_ffi` crate (§7.14.7).
@@ -1342,7 +1482,17 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
-13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap on the app, the archive, or the network (the site copy is capped at 4). Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. Decentralization stays in 3.x. A 4.0 line is later product work. The embedded assistant is on that line, not among the 3.x must-haves, and not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Numbered stages from 3.10.0 onward are not moved.
+13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap on the app, the archive, or the network (the site copy is capped at 4). Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. Decentralization stays in 3.x. A 4.0 line is later product work. The embedded assistant is on that line (§7.14.12), not among the 3.x must-haves, and not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Numbered stages from 3.10.0 through 3.29.0 are not moved. **3.30.0** is the surprises minor on draft PR #16. **3.31.0** notifications, **3.32.0** the rule engine, and **3.33.0** alert templates follow it (§7.14.13).
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later. **Confirmed 2026-10-19:** the server (`acp-rs`, `--serve`) is also its own install, and both the server and the relay stay available embedded in the app. That packaging waits for the alpha gate. No server or relay release is cut on this note.
     **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.29.0, §7.14.11). Until then, packaging stays unpublished.
+15. **Notifications, the rule engine, and alert templates (§7.14.13).** The order is 3.31.0, then 3.32.0, then 3.33.0. Alerts are templates on the engine. Dependencies stay as written: search history on main (§7.14.5, unnumbered), node and peer sync in P9 (3.23.0+), and post source on draft PR #15 for source conditions.
+    Still open:
+    - May the user disable a shipped system rule in place, or only by cloning it and disabling the clone? The shipped row stays read-only either way.
+    - What is the rate limit, and how long does "already fired for this post" last?
+    - Does a dry-run ever write, or is it preview only? Proposed: preview only.
+    - Is a saved search a pinned row in the #10 history table, or its own table that references that history?
+    - Do the feed rules in §6 eventually become actions on this engine, or do they stay a separate view compiler?
+    - How long is `rule_firings` kept, and does backup include it?
+    - Import: may an imported file contain a `system` origin, or only user rules? Proposed: user rules only, and `system_key` in a file is rejected.
+    - When the OS notification service refuses permission, is the toast and the log enough, and does the app say so once?

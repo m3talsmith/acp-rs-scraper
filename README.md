@@ -566,7 +566,7 @@ Screenshots (dark variants, a 160×45 true-colour terminal):
 <table>
 <tr>
 <td width="50%"><img src="docs/screenshots/themes/default.png" alt="default theme"><br><b><code>default</code></b>: ACP red on your terminal's own colours (the classic look)</td>
-<td width="50%"><img src="docs/screenshots/themes/red-star.png" alt="red-star theme"><br><b><code>red-star</code></b>: deep crimson with ACP red as the accent</td>
+<td width="50%"><img src="docs/screenshots/themes/red-star.png" alt="red-star theme"><br><b><code>red-star</code></b>: ACP Red Star brand: ink black, vermilion and gold, cream text, from the banner</td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/themes/soviet.png" alt="soviet theme"><br><b><code>soviet</code></b>: classic Soviet red and gold, a gold hammer-and-sickle on banner red</td>
