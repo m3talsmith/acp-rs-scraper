@@ -26,8 +26,14 @@ pub struct SavedCookie {
     pub value: String,
 }
 
-/// `~/.acp/session.json`.
+/// `~/.acp/session.json`, under `ACP_HOME` when that is set.
 pub fn session_path() -> Result<PathBuf> { Ok(home()?.join(SESSION_REL_PATH)) }
+
+/// Login-window sentence naming the real session file (not a hardcoded `~`).
+pub fn session_login_hint() -> String {
+    let path = session_path().map(|p| p.display().to_string()).unwrap_or_else(|_| "~/.acp/session.json".into());
+    format!("The session is saved in {path} (mode 0600); browsing works offline without it.")
+}
 
 fn origin() -> Result<Url> { Ok(Url::parse(base_url())?) }
 

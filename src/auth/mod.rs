@@ -1,12 +1,16 @@
 //! Login: email + one-time code over the `/auth` LiveView, finished by the
-//! `phx-trigger-action` sign-in POST that sets the session cookie.
+//! sign-in POST that sets the session cookie.
 //!
 //! The socket stays up while the code is read: Phoenix heartbeats go out on
-//! [`LV_HEARTBEAT`](crate::liveview::LV_HEARTBEAT). A dropped socket is closed and dropped
-//! before a new one is joined, and the same code is tried again (a fresh join with
-//! no code form posts the OTP directly). If the verify diff already rendered the
+//! [`LV_HEARTBEAT`](crate::liveview::LV_HEARTBEAT). A heartbeat with no reply
+//! before the next one is a dead socket (a successful write is not enough).
+//! The old socket is closed and dropped before a new one is joined. Rejoining
+//! does not send the email again. The code form seen before the drop
+//! (`user[otp]`, `submit-code`, the form's own `_csrf_token`) is what the
+//! fallback POST sends. If the verify diff already rendered the
 //! `phx-trigger-action` sign-in form and the socket then closes, that form is
 //! posted anyway: that close is the site leaving LiveView, not a failed code.
+//! A redirect back to `/auth` is a rejection, and the flash text is the error.
 //! A wrong code leaves the attempt open.
 
 pub mod prefs;
@@ -27,22 +31,11 @@ pub fn find_redirect(v: &Value) -> Option<String> {
 /// Discover the code form's event / field / cid from the rendered LiveView
 /// (falls back to the raw reply text, then to constants).
 pub fn detect_code_form(html: &str, reply: &Value) -> (String, String, Option<u64>) {
-    let raw = format!("{html}{}", reply.to_string().replace("\\\"", "\""));
-    let ev = regex::Regex::new(r#"phx-submit="([^"]+)""#).unwrap()
-        .captures_iter(&raw).map(|c| c[1].to_string())
-        .find(|e| e != EMAIL_EVENT)
-        .unwrap_or_else(|| CODE_EVENT_FALLBACK.into());
-    let doc = Html::parse_fragment(html);
-    let field = doc.select(&Selector::parse("form input").unwrap())
-        .filter(|i| !matches!(i.value().attr("type"), Some("hidden" | "email")))
-        .filter_map(|i| i.value().attr("name").map(str::to_string))
-        .find(|n| n != EMAIL_FIELD && !n.starts_with('_'))
-        .unwrap_or_else(|| CODE_FIELD_FALLBACK.into());
-    let cid = Selector::parse(&format!("form[phx-submit='{ev}']")).ok()
-        .and_then(|sel| doc.select(&sel).next()
-            .and_then(|f| f.value().attr("phx-target")?.parse().ok()))
-        .or(Some(EMAIL_FORM_CID));
-    (ev, field, cid)
+    let raw = reply.to_string().replace("\\\"", "\"");
+    if let Some(form) = otp_form_from_html(html).or_else(|| otp_form_from_html(&raw)) {
+        return (form.event, form.code_field, form.cid.or(Some(EMAIL_FORM_CID)));
+    }
+    (CODE_EVENT_FALLBACK.into(), CODE_FIELD_FALLBACK.into(), Some(EMAIL_FORM_CID))
 }
 
 /// `phx-trigger-action`: LiveView asks the client to do a real HTTP POST of
@@ -50,6 +43,7 @@ pub fn detect_code_form(html: &str, reply: &Value) -> (String, String, Option<u6
 /// authenticated session cookie.
 pub async fn trigger_action_post(
     http: &reqwest::Client, html: &str, csrf: &str, email: &str, code_field: &str, code: &str,
+    return_to: Option<&str>,
 ) -> Result<()> {
     // Own the fields before the POST. A scraper node held across `.await` is
     // not `Send`, which forced the terminal UI onto a second runtime and closed
@@ -74,18 +68,124 @@ pub async fn trigger_action_post(
     if !fields.iter().any(|(n, _)| n == "_csrf_token") {
         fields.push(("_csrf_token".into(), csrf.into()));
     }
+    if let Some(rt) = return_to.filter(|s| !s.is_empty())
+        && !fields.iter().any(|(n, _)| n == "return_to")
+    {
+        fields.push(("return_to".into(), rt.into()));
+    }
+    post_sign_in(http, &action, &fields, code).await
+}
+
+/// POST the sign-in form the way the browser does, then follow redirects only
+/// to see where they land. A landing on `/auth` is a rejection (the flash is
+/// the error). The code and the cookie values are not logged.
+async fn post_sign_in(
+    http: &reqwest::Client, action: &str, fields: &[(String, String)], code: &str,
+) -> Result<()> {
     let names: Vec<&str> = fields.iter().map(|(n, _)| n.as_str()).collect();
     verbose!("POST {action} with fields {names:?}");
-    let resp = http.post(Url::parse(base_url())?.join(&action)?)
+    let resp = http.post(Url::parse(base_url())?.join(action)?)
         .header("Origin", base_url())
         .header("Referer", format!("{}/auth", base_url()))
         .header("Sec-Fetch-Mode", "navigate")
-        .form(&fields)
+        .form(fields)
         .send().await?;
-    if !resp.status().is_success() {
-        bail!("sign-in POST failed: {}", resp.status());
+    let status = resp.status();
+    let final_url = resp.url().clone();
+    let on_login = matches!(final_url.path(), "/auth" | "/auth/");
+    if on_login {
+        let body = resp.text().await.unwrap_or_default();
+        if let Some(f) = flash_text(&body, code) {
+            bail!("sign-in was rejected: {f}");
+        }
+        bail!("sign-in was rejected");
+    }
+    if !status.is_success() {
+        bail!("sign-in POST failed: {status}");
     }
     Ok(())
+}
+
+/// The code form remembered from a LiveView diff, so a later POST can use it
+/// after the socket (and the form) are gone.
+struct OtpForm {
+    action: String,
+    event: String,
+    code_field: String,
+    cid: Option<u64>,
+    fields: Vec<(String, String)>,
+}
+
+fn code_markers(s: &str) -> bool {
+    const NEEDLES: &[&str] = &[
+        "user[otp]",
+        "user[code]",
+        "phx-trigger-action",
+        "phx-submit=\"submit-code\"",
+        "phx-submit=\\\"submit-code\\\"",
+        "phx-submit=\"verify-code\"",
+        "phx-submit=\\\"verify-code\\\"",
+    ];
+    NEEDLES.iter().any(|n| s.contains(n))
+}
+
+fn return_to_from(url: &str) -> Option<String> {
+    let u = Url::parse(url).ok()?;
+    u.query_pairs().find(|(k, v)| k == "return_to" && !v.is_empty()).map(|(_, v)| v.into_owned())
+}
+
+/// Alert / flash text from an `/auth` page. `code` is removed so a rejection
+/// that echoes the one-time code is not logged or shown.
+fn flash_text(html: &str, code: &str) -> Option<String> {
+    let doc = Html::parse_document(html);
+    let sel = Selector::parse("[role=alert], .alert, .flash, #flash").ok()?;
+    let mut parts = Vec::new();
+    for el in doc.select(&sel) {
+        let t = el.text().collect::<Vec<_>>().join(" ");
+        let t = t.split_whitespace().collect::<Vec<_>>().join(" ");
+        if !t.is_empty() { parts.push(t); }
+    }
+    let t = parts.join(" ");
+    if t.is_empty() { return None; }
+    let t = if code.is_empty() { t } else { t.replace(code, "[REDACTED]") };
+    Some(t)
+}
+
+fn otp_form_from_html(html: &str) -> Option<OtpForm> {
+    let doc = Html::parse_fragment(html);
+    let form = doc.select(&Selector::parse("form").ok()?).find(|f| {
+        let submit = f.value().attr("phx-submit").unwrap_or("");
+        submit == "submit-code" || submit == "verify-code" || submit == CODE_EVENT_FALLBACK
+            || f.value().attr("phx-trigger-action").is_some()
+            || f.select(&Selector::parse("input[name]").unwrap())
+                .any(|i| matches!(i.value().attr("name"), Some("user[otp]" | "user[code]")))
+    })?;
+    let event = form.value().attr("phx-submit").filter(|s| *s != EMAIL_EVENT)
+        .unwrap_or(CODE_EVENT_FALLBACK).to_string();
+    let action = form.value().attr("action").unwrap_or(OTP_SIGN_IN_FALLBACK).to_string();
+    let cid = form.value().attr("phx-target").and_then(|s| s.parse().ok());
+    let mut fields = Vec::new();
+    for i in form.select(&Selector::parse("input[name]").unwrap()) {
+        let name = i.value().attr("name").unwrap_or_default();
+        if name.is_empty() { continue; }
+        let typ = i.value().attr("type").unwrap_or("text").to_ascii_lowercase();
+        if typ == "submit" || typ == "button" || typ == "image" { continue; }
+        let value = i.value().attr("value").unwrap_or_default().to_string();
+        if typ == "checkbox" || typ == "radio" {
+            let checked = i.value().attr("checked").is_some();
+            // `user[remember_me]` is part of this sign-in form. An unchecked
+            // marketing box is omitted, the way a browser omits it.
+            if !checked && name != "user[remember_me]" { continue; }
+            let v = if value.is_empty() { "true".into() } else { value };
+            fields.push((name.to_string(), v));
+            continue;
+        }
+        fields.push((name.to_string(), value));
+    }
+    let code_field = fields.iter().map(|(n, _)| n.clone())
+        .find(|n| n == "user[otp]" || n == "user[code]")
+        .unwrap_or_else(|| CODE_FIELD_FALLBACK.into());
+    Some(OtpForm { action, event, code_field, cid, fields })
 }
 
 /// Whether the jar's session is accepted by the site: `GET /rs` does not redirect to `/auth`.
@@ -120,6 +220,11 @@ pub struct LoginSession {
     /// or after the site reported that this jar is already signed in.
     lv: Option<Lv>,
     email_reply: Value,
+    /// Code form from the diff that followed the email. Kept after the socket
+    /// dies so the fallback POST still has the form's csrf and fields.
+    code_form: Option<OtpForm>,
+    /// `return_to` query on the `/auth` page, sent with the sign-in POST.
+    return_to: Option<String>,
     /// `GET /auth` came back already signed in (the socket had died after the cookie was set).
     signed_in: bool,
 }
@@ -136,6 +241,7 @@ impl LoginSession {
             return Ok(LoginStart::Already);
         }
         let page = parse_lv(&url, &html)?;
+        let return_to = return_to_from(&url);
         let email = match email {
             Some(e) => { save_email(&e)?; e }
             None => load_email()?,
@@ -143,9 +249,12 @@ impl LoginSession {
         let mut lv = Lv::connect(&page, jar).await?;
         let email_reply = submit_email(&mut lv, &email).await?;
         info!("Login email requested for {email}.");
-        Ok(LoginStart::NeedCode(Box::new(LoginSession {
-            http: http.clone(), jar: jar.clone(), email, page, lv: Some(lv), email_reply, signed_in: false,
-        })))
+        let mut session = LoginSession {
+            http: http.clone(), jar: jar.clone(), email, page, lv: Some(lv), email_reply,
+            code_form: None, return_to, signed_in: false,
+        };
+        session.note_code_form();
+        Ok(LoginStart::NeedCode(Box::new(session)))
     }
 
     /// Heartbeat interval for this attempt. `0` is treated as 1ms. Tests set a short interval.
@@ -162,6 +271,7 @@ impl LoginSession {
             self.reconnect().await?;
             if self.signed_in { return Ok(fut.await); }
         }
+        self.note_code_form();
         let mut fut = std::pin::pin!(fut);
         let every = self.lv.as_ref().map(|l| l.heartbeat).unwrap_or(LV_HEARTBEAT);
         let mut beat = tokio::time::interval(every);
@@ -176,25 +286,32 @@ impl LoginSession {
                 tokio::select! {
                     biased;
                     out = &mut fut => Ev::Done(out),
-                    _ = beat.tick() => Ev::Beat,
                     msg = ws.next() => Ev::Frame(msg),
+                    _ = beat.tick() => Ev::Beat,
                 }
             };
             match ev {
                 Ev::Done(out) => return Ok(out),
                 Ev::Beat => {
+                    // A write is not a reply. `send_heartbeat` fails when the
+                    // previous heartbeat is still unanswered.
                     let beat_result = match self.lv.as_mut() {
                         Some(lv) => lv.send_heartbeat().await,
                         None => Err(anyhow!("login socket is closed")),
                     };
-                    if let Err(e) = beat_result { self.recover(e, &mut drops).await?; } else { drops = 0; }
+                    if let Err(e) = beat_result { self.recover(e, &mut drops).await?; }
                 }
                 Ev::Frame(msg) => {
                     let absorbed = match self.lv.as_mut() {
                         Some(lv) => lv.absorb(msg, None).await,
                         None => Err(anyhow!("login socket is closed")),
                     };
-                    if let Err(e) = absorbed { self.recover(e, &mut drops).await?; } else { drops = 0; }
+                    if let Err(e) = absorbed {
+                        self.recover(e, &mut drops).await?;
+                    } else {
+                        drops = 0;
+                        self.note_code_form();
+                    }
                 }
             }
         }
@@ -250,11 +367,15 @@ impl LoginSession {
     }
 
     async fn verify_once(&mut self, code: &str) -> Result<()> {
+        self.note_code_form();
         if !self.ready_for_code() {
             return self.direct_otp_post(code).await;
         }
         let html = self.lv.as_ref().context("login socket is closed")?.html();
-        let (ev, field, cid) = detect_code_form(&html, &self.email_reply);
+        let (ev, field, cid) = match &self.code_form {
+            Some(form) => (form.event.clone(), form.code_field.clone(), form.cid.or(Some(EMAIL_FORM_CID))),
+            None => detect_code_form(&html, &self.email_reply),
+        };
         let replied = match self.lv.as_mut().context("login socket is closed")?.form(&ev, &field, code, cid).await {
             Ok(r) => r,
             Err(e) if socket_closed(&e) && self.html_has_trigger() => {
@@ -265,6 +386,7 @@ impl LoginSession {
             Err(e) => return Err(e),
         };
         if replied["status"] != "ok" { bail!("code submit failed: {replied}"); }
+        self.note_code_form();
         if let Some(to) = find_redirect(&replied) {
             self.http.get(Url::parse(base_url())?.join(&to)?).send().await?.error_for_status()?;
         } else if self.html_has_trigger() {
@@ -276,37 +398,76 @@ impl LoginSession {
     }
 
     fn html_has_trigger(&self) -> bool {
-        self.lv.as_ref().is_some_and(|lv| lv.html().contains("phx-trigger-action"))
+        self.lv.as_ref().is_some_and(|lv| lv.html().contains("phx-trigger-action") || lv.rendered.to_string().contains("phx-trigger-action"))
     }
 
     async fn finish_trigger(&self, field: &str, code: &str) -> Result<()> {
         let html = self.lv.as_ref().context("login socket is closed")?.html();
-        trigger_action_post(&self.http, &html, &self.page.csrf, &self.email, field, code).await
+        trigger_action_post(&self.http, &html, &self.page.csrf, &self.email, field, code, self.return_to.as_deref()).await
     }
 
-    /// The fresh join after a reconnect only has the email form. Post the OTP without that form.
+    /// The socket no longer has the code form (a re-join shows the email form,
+    /// and sending the email again would mail a new code). Post the form that
+    /// was rendered when the code was requested.
     async fn direct_otp_post(&self, code: &str) -> Result<()> {
-        let fields: Vec<(String, String)> = vec![
-            ("_csrf_token".into(), self.page.csrf.clone()),
-            (EMAIL_FIELD.into(), self.email.clone()),
-            (CODE_FIELD_FALLBACK.into(), code.into()),
-        ];
-        verbose!("POST {} directly (the LiveView form was gone)", OTP_SIGN_IN_FALLBACK);
-        let resp = self.http.post(Url::parse(base_url())?.join(OTP_SIGN_IN_FALLBACK)?)
-            .header("Origin", base_url())
-            .header("Referer", format!("{}/auth", base_url()))
-            .header("Sec-Fetch-Mode", "navigate")
-            .form(&fields)
-            .send().await?;
-        if !resp.status().is_success() { bail!("sign-in POST failed: {}", resp.status()); }
-        Ok(())
+        let (action, code_field, mut fields) = match &self.code_form {
+            Some(form) => (form.action.clone(), form.code_field.clone(), form.fields.clone()),
+            None => (
+                OTP_SIGN_IN_FALLBACK.to_string(),
+                CODE_FIELD_FALLBACK.to_string(),
+                vec![
+                    ("_csrf_token".into(), String::new()),
+                    (EMAIL_FIELD.into(), String::new()),
+                    (CODE_FIELD_FALLBACK.into(), String::new()),
+                ],
+            ),
+        };
+        let mut saw_csrf = false;
+        let mut saw_email = false;
+        let mut saw_code = false;
+        let mut saw_return = false;
+        for (n, v) in &mut fields {
+            if n == "_csrf_token" {
+                saw_csrf = true;
+                if v.is_empty() { *v = self.page.csrf.clone(); }
+            } else if n == EMAIL_FIELD {
+                saw_email = true;
+                if v.is_empty() { *v = self.email.clone(); }
+            } else if n == &code_field || n == "user[otp]" || n == "user[code]" {
+                saw_code = true;
+                *v = code.to_string();
+            } else if n == "return_to" {
+                saw_return = true;
+            }
+        }
+        if !saw_csrf { fields.push(("_csrf_token".into(), self.page.csrf.clone())); }
+        if !saw_email { fields.push((EMAIL_FIELD.into(), self.email.clone())); }
+        if !saw_code { fields.push((code_field, code.to_string())); }
+        if !saw_return && let Some(rt) = &self.return_to {
+            fields.push(("return_to".into(), rt.clone()));
+        }
+        verbose!("POST {action} directly (the LiveView code form is not on this socket)");
+        post_sign_in(&self.http, &action, &fields, code).await
     }
 
+    /// True when the joined view is showing the code form. The live form is
+    /// `user[otp]` / `submit-code`; `user[code]` / `verify-code` is the older
+    /// shape. The rendered tree is checked as well as the HTML, because a
+    /// keyed comprehension can hold the form in `k` / `p`.
     fn ready_for_code(&self) -> bool {
         let Some(lv) = self.lv.as_ref() else { return false };
+        code_markers(&lv.html()) || code_markers(&lv.rendered.to_string())
+    }
+
+    /// Remember the code form while it is on the socket. A later render that
+    /// is only the email form does not wipe it.
+    fn note_code_form(&mut self) {
+        let Some(lv) = self.lv.as_ref() else { return };
         let html = lv.html();
-        html.contains(CODE_FIELD_FALLBACK) || html.contains("phx-trigger-action")
-            || html.contains(&format!("phx-submit=\"{CODE_EVENT_FALLBACK}\""))
+        let raw = lv.rendered.to_string().replace("\\\"", "\"");
+        if let Some(form) = otp_form_from_html(&html).or_else(|| otp_form_from_html(&raw)) {
+            self.code_form = Some(form);
+        }
     }
 
     async fn confirm_session(&mut self) -> Result<()> {
@@ -333,17 +494,25 @@ impl LoginSession {
             old.close().await;
             drop(old);
         }
-        let resp = self.http.get(format!("{}/auth", base_url())).send().await.context("reconnecting the login")?;
+        let auth = match &self.return_to {
+            Some(rt) if !rt.is_empty() => format!("{}/auth?return_to={}", base_url(), urlenc(rt)),
+            _ => format!("{}/auth", base_url()),
+        };
+        let resp = self.http.get(auth).send().await.context("reconnecting the login")?;
         let url = resp.url().to_string();
         let html = resp.text().await?;
         if !url.contains("/auth") {
             self.signed_in = true;
             return Ok(());
         }
+        if let Some(rt) = return_to_from(&url) { self.return_to = Some(rt); }
         self.page = parse_lv(&url, &html)?;
         let mut lv = Lv::connect(&self.page, &self.jar).await?;
         lv.heartbeat = every;
         self.lv = Some(lv);
+        // A restored code form (new csrf included) replaces the snapshot.
+        // The email form does not: the code already mailed must stay usable.
+        self.note_code_form();
         Ok(())
     }
 }
@@ -398,5 +567,31 @@ mod tests {
     fn login_session_can_move_to_the_app_runtime() {
         fn assert_send<T: Send>() {}
         assert_send::<super::LoginSession>();
+    }
+
+    #[test]
+    fn code_form_snapshot_uses_the_diff_token_and_otp_field() {
+        let html = r#"<form action="/auth/user/otp/sign_in" method="post" phx-target="1" phx-submit="submit-code"><input type="hidden" name="_csrf_token" value="form-csrf"><input type="hidden" name="user[email]" value=""><input type="text" name="user[otp]"><input type="hidden" name="user[remember_me]" value="true"><input type="hidden" name="marketing_opt_in" value="false"></form>"#;
+        let form = super::otp_form_from_html(html).expect("code form");
+        assert_eq!(form.event, "submit-code");
+        assert_eq!(form.code_field, "user[otp]");
+        assert_eq!(form.cid, Some(1));
+        assert!(form.fields.iter().any(|(n, v)| n == "_csrf_token" && v == "form-csrf"));
+        assert!(form.fields.iter().any(|(n, v)| n == "user[remember_me]" && v == "true"));
+        assert!(form.fields.iter().any(|(n, v)| n == "marketing_opt_in" && v == "false"));
+        assert!(super::code_markers(html));
+        assert!(!super::code_markers(r#"<form phx-submit="send-login-email"><input type="email" name="user[email]"></form>"#));
+        let older = r#"<form phx-submit="verify-code"><input type="text" name="user[code]"></form>"#;
+        let older = super::otp_form_from_html(older).expect("older code form");
+        assert_eq!(older.event, "verify-code");
+        assert_eq!(older.code_field, "user[code]");
+    }
+
+    #[test]
+    fn auth_flash_is_the_rejection_and_the_code_is_not_kept() {
+        let html = r#"<html><body><p class="alert alert-danger" role="alert">invalid or expired code</p></body></html>"#;
+        assert_eq!(super::flash_text(html, "KWMRUV").as_deref(), Some("invalid or expired code"));
+        let echoed = r#"<p role="alert">KWMRUV is not valid</p>"#;
+        assert_eq!(super::flash_text(echoed, "KWMRUV").as_deref(), Some("[REDACTED] is not valid"));
     }
 }
