@@ -324,6 +324,8 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 
 The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip the code until the site expires it; `--logout` (or Account › Log out) deletes it. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
 
+`ACP_HOME`, when set to a non-empty path, is used instead of `$HOME` as the root of that `.acp` directory (session, database, preferences, and the rest of the table below). Leave it unset for the normal home directory. A login try that must not touch the real `~/.acp` sets it to a fresh directory.
+
 ## Upgrading from 2.x
 
 3.0.0 is a breaking change. The local database is encrypted, and opening it requires a password. 2.x had neither.
@@ -371,6 +373,8 @@ The command then offers five SLIP-39 shares (any 3 of 5). One or two shares do n
 `--node-init` creates this computer's node after `--identity-init`. The node key is generated here and is not derived from the master. The command unlocks the database, rebuilds the master from `~/.acp/recovery.seal` and the password (or asks you to paste the phrase when that file is missing), signs the certificates, and drops the master. It prints the node name, the account id, the peer id, a fingerprint, and six verification words. It does not print the phrase or the node secret. `--node-label NAME` sets the name; otherwise the name is this computer's hostname, letters and digits only. An authorizer certificate lasts 30 days and a node certificate lasts 365 days. Running `--node-init` again does not replace an existing keystore, and there is no separate re-certify command. A node created on 3.3.0 or 3.3.1 has those two lifetimes reversed. Remove `~/.acp/node` and run `--node-init` again to sign a new node key with the corrected lifetimes. The peer id changes. The account id does not. `--node-id` prints that public record and says whether the certificate still checks. The header of the terminal UI shows `◉` and the name. The secret is `~/.acp/node/keystore` (mode `0600`). A plain `identity.key` is not created. A backup does not include the keystore, so restoring onto another computer does not copy this node.
 
 ## Where data lives
+
+`~` below is `$HOME`, or `$ACP_HOME` when that variable is set and not empty.
 
 | What | Path |
 |---|---|

@@ -149,8 +149,11 @@ impl Lv {
             Some(Ok(m)) => m,
         };
         match msg {
-            Message::Ping(p) => {
-                self.ws.send(Message::Pong(p)).await.map_err(|e| anyhow!("websocket closed: {e}"))?;
+            Message::Ping(_) => {
+                // `read` already queued the matching pong. Flush that one.
+                // A second pong replaces the queued reply and can drop it
+                // (tungstenite: do not answer a ping by hand).
+                self.ws.flush().await.map_err(|e| anyhow!("websocket closed: {e}"))?;
                 Ok(None)
             }
             Message::Close(_) => bail!("websocket closed"),
@@ -179,6 +182,12 @@ impl Lv {
             for c in m.values() { lv_render(c, &self.rendered, &comps, &mut out); }
         }
         out
+    }
+
+    /// Send a close frame and flush it. Errors from an already-dead socket are ignored
+    /// by the caller; this only tries.
+    pub async fn close(&mut self) {
+        let _ = self.ws.close(None).await;
     }
 
     /// Submit a LiveView form event (`field=val`, URL-encoded), optionally to component `cid`.
