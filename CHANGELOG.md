@@ -9,6 +9,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **`acprs`.** A third binary, next to `acp-red-star` and the `acp-rs-scraper` compatibility name. `cargo install` cannot create a symlink, so `acprs` is its own executable and runs the same program. `--version` still prints `acp-red-star` and the version. The usage line uses the name you typed, as `acp-rs-scraper --help` already does, and `acprs` does not print the deprecation line. Packages and `scripts/install.sh` install it with a man page and bash, zsh, and fish completions. `scripts/uninstall.sh` removes it with the rest of the install. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
+- If you go looking, there is art in the dark of the tree.
+
+### Changed
+
+- **`red-star` theme.** The shipped theme matches the brand banner: ink `#0e0404`, cream `#f6e8c8`, vermilion `#c8102e`, gold `#e8b648`, with a light variant on cream. It replaces the old deep-crimson palette. The name stays `red-star`, so `--theme red-star` still selects it and the theme picker shows the new description. A copy already saved in `~/.acp/themes` is not overwritten. Delete `~/.acp/themes/red-star.toml` and run `--theme-init red-star` (or copy `themes/red-star.toml`) to take the new look. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
 
 ### Documentation
 
