@@ -106,7 +106,7 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview", "rules_watch", "rules_saved", "rules_replies"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply"]).multiple(false).conflicts_with_all([
@@ -393,6 +393,15 @@ pub struct Args {
     /// Offline: preview enabled rules against posts already stored. Applies nothing.
     #[arg(long, help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids", "sync"])]
     pub rules_preview: bool,
+    /// Offline: add a user rule that notifies when this nick posts. The notice names the author and links the post.
+    #[arg(long, value_name = "NICK", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_watch: Option<String>,
+    /// Offline: add a user rule that notifies when a synced post matches this keyword.
+    #[arg(long, value_name = "TEXT", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_saved: Option<String>,
+    /// Offline: add a user rule that notifies when someone replies to this nick.
+    #[arg(long, value_name = "NICK", help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
+    pub rules_replies: Option<String>,
     /// With a rules command: `toml` or `json`. Import and export otherwise follow the file extension.
     #[arg(long, value_enum, value_name = "toml|json", help_heading = "Rules")]
     pub rules_format: Option<RulesFormat>,

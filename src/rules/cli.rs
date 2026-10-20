@@ -1,7 +1,7 @@
 //! `--rules-*` flags. Offline. Nothing here talks to the site.
 
 use super::{
-    by_name, clone_system, delete_user, export_file, file, import_file, list_rules, open_rules, preview, set_enabled, set_priority,
+    by_name, clone_system, delete_user, export_file, file, import_file, install_template, list_rules, open_rules, preview, set_enabled, set_priority, Template,
 };
 use crate::prelude::*;
 
@@ -69,6 +69,21 @@ pub fn run_cli(args: &Args) -> Result<()> {
         let as_json = json.unwrap_or_else(|| path.extension().is_some_and(|e| e == "json"));
         export_file(&c, path, as_json)?;
         info!("exported rules to {}", path.display());
+        return Ok(());
+    }
+    if let Some(nick) = &args.rules_watch {
+        let rule = install_template(&c, Template::WatchUser, nick)?;
+        info!("rule {:?} watches @{nick}", rule.name);
+        return Ok(());
+    }
+    if let Some(text) = &args.rules_saved {
+        let rule = install_template(&c, Template::SavedSearch, text)?;
+        info!("rule {:?} matches {text:?}", rule.name);
+        return Ok(());
+    }
+    if let Some(nick) = &args.rules_replies {
+        let rule = install_template(&c, Template::RepliesToMe, nick)?;
+        info!("rule {:?} watches replies to @{nick}", rule.name);
         return Ok(());
     }
     if args.rules_preview {

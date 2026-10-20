@@ -5,7 +5,7 @@
 
 use super::*;
 use crate::prelude::*;
-use crate::rules::{Condition, NewRule, Origin, Rule, RuleAction, RuleEdit, Trigger};
+use crate::rules::{Condition, NewRule, Origin, Rule, RuleAction, RuleEdit, Template, Trigger};
 use crate::tui::widgets::text::TextField;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -48,6 +48,8 @@ pub struct RulesModal {
     pub origin: Origin,
     /// Shipped key, when this is a system row.
     pub system_key: Option<String>,
+    /// Preset that started this draft. Kept on insert. An edit does not clear it.
+    pub template_key: Option<String>,
     /// Kept across a save. The form does not edit it.
     pub enabled: bool,
     /// Name.
@@ -75,7 +77,7 @@ impl RulesModal {
     pub fn open(db: PathBuf) -> Result<Self> {
         let rules = crate::rules::list_rules(&crate::rules::open_rules(&db)?)?;
         Ok(Self {
-            db, rules, cursor: 0, editing: false, id: None, origin: Origin::User, system_key: None, enabled: true,
+            db, rules, cursor: 0, editing: false, id: None, origin: Origin::User, system_key: None, template_key: None, enabled: true,
             name: TextField::new(""), cond: 0, cond_value: TextField::new(""), act: 0, act_value: TextField::new(""),
             priority: TextField::new("100"), focus: RuleFocus::Name, error: None, notice: None,
         })
@@ -125,6 +127,7 @@ impl RulesModal {
         self.id = Some(rule.id);
         self.origin = rule.origin;
         self.system_key = rule.system_key.clone();
+        self.template_key = rule.template_key.clone();
         self.enabled = rule.enabled;
         self.name.set(&rule.name);
         self.priority.set(&rule.priority.to_string());
@@ -153,6 +156,7 @@ impl RulesModal {
         self.id = None;
         self.origin = Origin::User;
         self.system_key = None;
+        self.template_key = None;
         self.enabled = true;
         self.name.set("");
         self.cond = 0;
@@ -162,6 +166,22 @@ impl RulesModal {
         self.priority.set("100");
         self.focus = RuleFocus::Name;
         self.error = None;
+    }
+
+    /// Prefill a preset and leave the cursor on the value.
+    fn start_template(&mut self, kind: Template) {
+        self.edit_new();
+        let (name, cond) = match kind {
+            Template::WatchUser => ("Watch", "author"),
+            Template::SavedSearch => ("Search", "saved_search"),
+            Template::RepliesToMe => ("Replies to", "replies_to"),
+        };
+        self.template_key = Some(kind.key().into());
+        self.name.set(name);
+        self.cond = COND.iter().position(|k| *k == cond).unwrap_or(0);
+        self.act = 0;
+        self.priority.set("40");
+        self.focus = RuleFocus::CondValue;
     }
 
     fn move_focus(&mut self, d: i32) {
@@ -197,13 +217,14 @@ impl RulesModal {
         }
         let conditions = self.conditions()?;
         let actions = self.actions()?;
+        let name = self.finished_name();
         if let Some(id) = self.id {
             crate::rules::update_user(&c, id, &RuleEdit {
-                name: self.name.value.clone(), enabled: self.enabled, priority, trigger: Trigger::PostSynced, conditions, actions,
+                name, enabled: self.enabled, priority, trigger: Trigger::PostSynced, conditions, actions,
             })?;
         } else {
             crate::rules::insert_user(&c, &NewRule {
-                name: self.name.value.clone(), enabled: true, priority, cloned_from: None, template_key: None,
+                name, enabled: true, priority, cloned_from: None, template_key: self.template_key.clone(),
                 trigger: Trigger::PostSynced, conditions, actions,
             })?;
         }
@@ -228,6 +249,19 @@ impl RulesModal {
             Err(e) => self.error = Some(e.to_string()),
         }
         None
+    }
+
+    /// A preset name is filled in from the value until the user types their own.
+    fn finished_name(&self) -> String {
+        let name = self.name.value.trim();
+        let v = self.cond_value.value.trim().trim_start_matches('@').trim();
+        if v.is_empty() { return self.name.value.clone(); }
+        match (self.template_key.as_deref(), name) {
+            (Some("watch-user"), "Watch") => format!("Watch @{v}"),
+            (Some("saved-search"), "Search") => format!("Search: {v}"),
+            (Some("replies-to-me"), "Replies to") => format!("Replies to @{v}"),
+            _ => self.name.value.clone(),
+        }
     }
 
     fn priority_value(&self) -> Result<i64> {
@@ -274,6 +308,9 @@ impl RulesModal {
                 None
             }
             KeyCode::Char('n') => { self.edit_new(); None }
+            KeyCode::Char('w') => { self.start_template(Template::WatchUser); None }
+            KeyCode::Char('s') => { self.start_template(Template::SavedSearch); None }
+            KeyCode::Char('m') => { self.start_template(Template::RepliesToMe); None }
             KeyCode::Char(' ') => { self.toggle(); None }
             _ => None,
         }
