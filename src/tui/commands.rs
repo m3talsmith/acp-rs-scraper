@@ -11,7 +11,7 @@ use crate::tui::state::ViewMode;
 use crate::tui::widgets::text::TextField;
 
 /// Program name used as `argv[0]` for validation.
-pub const ARGV0: &str = "acp-rs-scraper";
+pub const ARGV0: &str = "acp-red-star";
 
 /// A menu path the child process will open. `~` and `~/…` expand here because the
 /// TUI does not pass the line through a shell. Other paths are unchanged.
@@ -58,6 +58,8 @@ pub enum CommandId {
     Debug,
     /// Usage modal.
     Help,
+    /// Product name and slogan.
+    About,
     /// Leave the TUI.
     Quit,
 }
@@ -99,6 +101,8 @@ pub enum Action {
     Logout,
     /// Help modal.
     Help,
+    /// About modal.
+    About,
     /// Toggle the log panel.
     ToggleLog,
     /// Quit (detaching a running job).
@@ -423,6 +427,7 @@ impl Menu {
                 opt("show_log", "Show log panel", "l", false, button(Action::ToggleLog)),
             ]},
             MenuCommand { id: Help, label: "Help", hint: 'h', opts: vec![], action: Some(Action::Help) },
+            MenuCommand { id: About, label: "About", hint: 't', opts: vec![], action: Some(Action::About) },
             MenuCommand { id: Quit, label: "Quit", hint: 'q', opts: vec![], action: Some(Action::Quit) },
         ];
         Menu { items }

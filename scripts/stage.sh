@@ -5,12 +5,15 @@
 set -euo pipefail
 dest=${1:?usage: stage.sh DESTDIR [BINARY] [PREFIX]}
 root=$(cd "$(dirname "$0")/.." && pwd)
-bin=${2:-$root/target/release/acp-rs-scraper}
+bin=${2:-$root/target/release/acp-red-star}
 prefix=${3:-/usr}
-name=acp-rs-scraper
+name=acp-red-star
 [ -x "$bin" ] || { echo "stage.sh: $bin not built (run cargo build --release --locked)" >&2; exit 1; }
 d="$dest$prefix"
 install -Dm755 "$bin" "$d/bin/$name"
+alias="$root/target/release/acp-rs-scraper"
+[ -x "$alias" ] || { echo "stage.sh: $alias not built (the compatibility name)" >&2; exit 1; }
+install -Dm755 "$alias" "$d/bin/acp-rs-scraper"
 install -Dm644 "$root/LICENSE" "$d/share/licenses/$name/LICENSE"
 for f in README.md CHANGELOG.md docs/USAGE.md docs/INSTALL.md assets/empty-body.NOTICE.md; do
   install -Dm644 "$root/$f" "$d/share/doc/$name/$(basename "$f")"

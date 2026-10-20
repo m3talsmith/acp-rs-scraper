@@ -1,4 +1,4 @@
-# Plan: acp-rs-scraper 2.0 TUI
+# Plan: acp-red-star 2.0 TUI
 
 Status: **design only — do not implement until Michael reviews.**
 Source of truth for UX: [SPECS.md](./SPECS.md) (includes Design expansions).
@@ -104,7 +104,7 @@ Resolve the five open questions in SPECS before coding. Defaults if unstated:
 
 ## Done when
 
-Michael can run `acp-rs-scraper` with no flags, browse haz/m3talsmith posts,
+Michael can run `acp-red-star` with no flags, browse haz/m3talsmith posts,
 open nested reply details, log in from a modal, start a scan from the menu,
 and still use every 1.20 CLI flag headlessly — with tests green and 2.0.0
 committed locally.

@@ -87,7 +87,7 @@ Then the little things that make it a joy to use every day:
 
 ## Built to be built on.
 
-Red Star 3.0 isn't only an app. It's a foundation. The code is organized into **Rust crates** that anyone can build on: the client library (`acp_rs_scraper`) and the shared node core (`acp_rs_node_core`) for identity, canonical CBOR, and sealed secrets. Write a tool, a bot, a dashboard, a new client. It's GPL, and it's yours.
+Red Star 3.0 isn't only an app. It's a foundation. The code is organized into **Rust crates** that anyone can build on: the client library (`acp_red_star`) and the shared node core (`acp_red_star_node_core`) for identity, canonical CBOR, and sealed secrets. Write a tool, a bot, a dashboard, a new client. It's GPL, and it's yours.
 
 ## Launch showcase
 

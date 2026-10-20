@@ -166,7 +166,7 @@ pub fn print_node_id() -> Result<()> {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
                 .unwrap_or(0);
-            match acp_rs_node_core::node::verify_chain(
+            match acp_red_star_node_core::node::verify_chain(
                 &public.node,
                 Some(&public.authorizer),
                 &pin.sign_pub,

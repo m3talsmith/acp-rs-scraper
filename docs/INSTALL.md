@@ -1,4 +1,4 @@
-# Installing acp-rs-scraper
+# Installing acp-red-star
 
 Every install method **builds from source** on your machine (`cargo build --release --locked`). No prebuilt binaries are shipped or installed.
 
@@ -17,7 +17,7 @@ Every install method **builds from source** on your machine (`cargo build --rele
 
 ```bash
 git clone https://github.com/m3talsmith/acp-rs-scraper
-cd acp-rs-scraper
+cd acp-red-star
 scripts/install.sh          # native package for your distro (asks before using sudo)
 scripts/install.sh --user   # or: into ~/.local, no root needed
 ```
@@ -28,7 +28,7 @@ scripts/install.sh --user   # or: into ~/.local, no root needed
 |---|---|---|---|
 | arch | arch, manjaro, endeavouros, garuda, artix | pacman | `makepkg -si` (packaging/arch/PKGBUILD) |
 | debian | debian, ubuntu, linuxmint, pop, elementary, zorin, kali, raspbian | apt | `dpkg-buildpackage` (debian/), then `apt install ./dist/*.deb` |
-| fedora | fedora, rhel, centos, rocky, almalinux, nobara, ol | dnf | `rpmbuild -ba` (packaging/fedora/acp-rs-scraper.spec), then `dnf install` |
+| fedora | fedora, rhel, centos, rocky, almalinux, nobara, ol | dnf | `rpmbuild -ba` (packaging/fedora/acp-red-star.spec), then `dnf install` |
 | other | anything else | — | `cargo build`, binary installed to `/usr/local` (with sudo) |
 
 **Options:**
@@ -76,7 +76,7 @@ SQLCipher is compiled in, with its OpenSSL vendored, and TLS uses rustls, so no 
 ```bash
 cd packaging/arch
 makepkg -si          # build from this source tree, install with pacman
-sudo pacman -R acp-rs-scraper
+sudo pacman -R acp-red-star
 ```
 
 The PKGBUILD builds the tree it lives in (`packaging/arch/../..`), runs `cargo test`, and installs through `scripts/stage.sh`. A commented `source=` line shows how to build from a release tarball instead.
@@ -85,8 +85,8 @@ The PKGBUILD builds the tree it lives in (`packaging/arch/../..`), runs `cargo t
 
 ```bash
 scripts/package.sh deb                       # dpkg-buildpackage on a clean copy → dist/
-sudo apt install ./dist/acp-rs-scraper_1.25.0_*.deb
-sudo apt remove acp-rs-scraper
+sudo apt install ./dist/acp-red-star_1.25.0_*.deb
+sudo apt remove acp-red-star
 ```
 
 `debian/` is a native (`3.0 (native)`) source package. `debian/rules` runs `cargo build --release`, `cargo test` (skipped with `DEB_BUILD_OPTIONS=nocheck`) and `scripts/stage.sh`. The source package (`.dsc` + `.tar.xz`) also lands in `dist/`.
@@ -95,11 +95,11 @@ sudo apt remove acp-rs-scraper
 
 ```bash
 scripts/package.sh rpm        # tarball of the tree + rpmbuild -ba → dist/*.rpm and *.src.rpm
-sudo dnf install ./dist/acp-rs-scraper-1.25.0-1.*.x86_64.rpm
-sudo dnf remove acp-rs-scraper
+sudo dnf install ./dist/acp-red-star-1.25.0-1.*.x86_64.rpm
+sudo dnf remove acp-red-star
 ```
 
-You can also rebuild the SRPM anywhere with `rpmbuild --rebuild dist/acp-rs-scraper-1.25.0-1.*.src.rpm`.
+You can also rebuild the SRPM anywhere with `rpmbuild --rebuild dist/acp-red-star-1.25.0-1.*.src.rpm`.
 
 ## User install without a package (`--user`)
 
@@ -108,12 +108,12 @@ scripts/install.sh --user
 ```
 
 This builds with `cargo build --release --locked` and installs:
-- `~/.local/bin/acp-rs-scraper`
+- `~/.local/bin/acp-red-star`
 - the man page under `~/.local/share/man/man1/`
 - shell completions under `~/.local/share/{bash-completion,zsh,fish}`
-- the docs under `~/.local/share/doc/acp-rs-scraper/`
+- the docs under `~/.local/share/doc/acp-red-star/`
 
-It records every installed file in `~/.local/share/acp-rs-scraper/install-manifest`, which `uninstall.sh` uses. Make sure `~/.local/bin` is on your `PATH`. On distros the script doesn't recognise, an install without `--user` goes to `/usr/local` the same way.
+It records every installed file in `~/.local/share/acp-red-star/install-manifest`, which `uninstall.sh` uses. Make sure `~/.local/bin` is on your `PATH`. On distros the script doesn't recognise, an install without `--user` goes to `/usr/local` the same way.
 
 ## Building every package: `scripts/package.sh`
 
@@ -152,18 +152,18 @@ Empty `~/.acp/ai/data`, `~/.acp/ai` and `~/.acp` directories are removed afterwa
 - Run under `sudo`, the script purges the invoking user's (`$SUDO_USER`) home, not root's.
 - Without `--yes`, the script refuses to run when stdin isn't a terminal.
 
-> **Package-manager removal alone never deletes your data.** `pacman -R`, `apt remove`/`purge` and `dnf remove` only remove the files the package installed. Package maintainer scripts can't, and deliberately don't, touch per-user home directories. To delete scraped data, use `scripts/uninstall.sh`, or from inside the tool, `acp-rs-scraper --clear-all` (which keeps preferences and exports).
+> **Package-manager removal alone never deletes your data.** `pacman -R`, `apt remove`/`purge` and `dnf remove` only remove the files the package installed. Package maintainer scripts can't, and deliberately don't, touch per-user home directories. To delete scraped data, use `scripts/uninstall.sh`, or from inside the tool, `acp-red-star --clear-all` (which keeps preferences and exports).
 
 ## What gets installed
 
 | Path | Contents |
 |---|---|
-| `/usr/bin/acp-rs-scraper` | the binary |
-| `/usr/share/man/man1/acp-rs-scraper.1` | man page (`man acp-rs-scraper`) |
-| `/usr/share/bash-completion/completions/acp-rs-scraper` | bash completion |
-| `/usr/share/zsh/site-functions/_acp-rs-scraper` | zsh completion |
-| `/usr/share/fish/vendor_completions.d/acp-rs-scraper.fish` | fish completion |
-| `/usr/share/doc/acp-rs-scraper/` | README.md, USAGE.md, INSTALL.md, CHANGELOG.md (Debian gzips them and installs the changelog as `changelog.gz`) |
-| `/usr/share/licenses/acp-rs-scraper/LICENSE` | GPL-3.0-or-later (Debian also ships `copyright` in the doc dir) |
+| `/usr/bin/acp-red-star` | the binary |
+| `/usr/share/man/man1/acp-red-star.1` | man page (`man acp-red-star`) |
+| `/usr/share/bash-completion/completions/acp-red-star` | bash completion |
+| `/usr/share/zsh/site-functions/_acp-red-star` | zsh completion |
+| `/usr/share/fish/vendor_completions.d/acp-red-star.fish` | fish completion |
+| `/usr/share/doc/acp-red-star/` | README.md, USAGE.md, INSTALL.md, CHANGELOG.md (Debian gzips them and installs the changelog as `changelog.gz`) |
+| `/usr/share/licenses/acp-red-star/LICENSE` | GPL-3.0-or-later (Debian also ships `copyright` in the doc dir) |
 
 The man page and completions come from the binary itself (a hidden `--generate man|bash|zsh|fish` flag), via `scripts/stage.sh`, which all three package builds share.

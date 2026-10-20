@@ -24,7 +24,7 @@ fn bare_and_logging_only_open_tui_flags_do_not() {
 fn scrape_defaults_map_to_cli_defaults() {
     let m = Menu::new(&no_args());
     let argv = m.scrape_argv(&["alice".into()]).unwrap();
-    assert_eq!(argv, ["acp-rs-scraper", "--nicks", "alice", "--latest"]);
+    assert_eq!(argv, ["acp-red-star", "--nicks", "alice", "--latest"]);
     let a = parsed(&argv);
     assert_eq!(a.nick_list().unwrap(), ["alice"]);
     assert!(a.mentions && !a.said_by && !a.full && !a.no_attachments && !a.trending);

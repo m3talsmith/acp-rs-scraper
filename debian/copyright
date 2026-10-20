@@ -1,5 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: acp-rs-scraper
+Upstream-Name: acp-red-star
 Source: https://github.com/m3talsmith/acp-rs-scraper
 
 Files: *
@@ -15,4 +15,4 @@ License: other
  All Things?" by the YouTube channel IGG | Qizilbash
  (https://youtu.be/iK-_kgVuv6Y), whose speaker is the executive chair of the
  ACP. Used with permission of the ACP in ACP apps such as this reader. Not
- covered by the GPL; see /usr/share/doc/acp-rs-scraper/empty-body.NOTICE.md.
+ covered by the GPL; see /usr/share/doc/acp-red-star/empty-body.NOTICE.md.

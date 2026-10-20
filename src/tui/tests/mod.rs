@@ -16,6 +16,7 @@ mod basket;
 mod research;
 mod modals;
 mod render;
+mod slogan;
 mod state;
 mod theme;
 mod sync;
@@ -63,7 +64,7 @@ impl Theme {
 }
 
 /// Default parsed args (no flags).
-pub fn no_args() -> Args { use clap::Parser; Args::parse_from(["acp-rs-scraper"]) }
+pub fn no_args() -> Args { use clap::Parser; Args::parse_from(["acp-red-star"]) }
 
 /// App over the fixture.
 pub fn app() -> App { App::new(Box::new(fixture()), &no_args(), Theme::acp(), false) }

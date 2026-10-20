@@ -6,9 +6,9 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
-use acp_rs_scraper::auth::{LoginSession, LoginStart};
-use acp_rs_scraper::http::client;
-use acp_rs_scraper::prelude::{Arc, Jar, Result, Value, json};
+use acp_red_star::auth::{LoginSession, LoginStart};
+use acp_red_star::http::client;
+use acp_red_star::prelude::{Arc, Jar, Result, Value, json};
 use axum::{
     Router,
     extract::{State, ws::{Message, WebSocket, WebSocketUpgrade}},

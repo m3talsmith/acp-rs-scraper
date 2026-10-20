@@ -160,7 +160,7 @@ fn start_scan_with_valid_session_runs_and_cancel_while_running() {
     a.act(Action::StartScan);
     assert!(matches!(a.effects.as_slice(), [Effect::RunJob(JobKind::Scan, _)]));
     a.effects.clear();
-    a.job_started(JobView { kind: JobKind::Scan, pid: 42, log: "/tmp/x.log".into() }, "acp-rs-scraper --nicks zed");
+    a.job_started(JobView { kind: JobKind::Scan, pid: 42, log: "/tmp/x.log".into() }, "acp-red-star --nicks zed");
     a.act(Action::StartScan);
     assert_eq!(a.effects, [Effect::CancelJob]);
     a.effects.clear();
@@ -338,7 +338,7 @@ fn menu_open_activate_options() {
 #[test]
 fn args_nicks_preselect() {
     use clap::Parser;
-    let args = Args::parse_from(["acp-rs-scraper", "--tui", "--nicks", "bob,ghost"]);
+    let args = Args::parse_from(["acp-red-star", "--tui", "--nicks", "bob,ghost"]);
     let a = App::new(Box::new(fixture()), &args, Theme::acp(), true);
     assert_eq!(a.selected, ["bob"]);
     assert_eq!(a.session, SessionState::Saved);

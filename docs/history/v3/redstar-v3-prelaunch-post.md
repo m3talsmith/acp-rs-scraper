@@ -54,13 +54,13 @@ scripts/install.sh          # or: scripts/install.sh --user
 
 1. **TUI**: run with no flags. Unlock with your password, log in under Session, pick nicks, Start Scanning (F6). Press `?` or F1 for Help.
 2. **Interactive terminal**: first-run password, encrypt/migrate (`--encrypt-db` from 2.x), backup/restore progress, confirmations like `Publish? [y/N]`.
-3. **CLI**: headless, e.g. `acp-rs-scraper --scrape --nicks @yourNick`, `--search`, `--export`, identity flags (`--identity-init`, `--backup`).
+3. **CLI**: headless, e.g. `acp-red-star --scrape --nicks @yourNick`, `--search`, `--export`, identity flags (`--identity-init`, `--backup`).
 
 **If you’re on 2.x:** copy your DB, then run `--encrypt-db` and write down the recovery phrase when offered. There is no password reset.
 
 **Writing:** you can draft New post / Reply now; live publish stays careful until we finish the guided capture. Attachments land next.
 
-Docs: `docs/INSTALL.md`, `docs/USAGE.md`, and the 3.0 plan under `architecture/PLAN-3.0-CLIENT.md`. Repo: https://github.com/m3talsmith/acp-rs-scraper (product name **ACP Red Star**; binary name may still say scraper until the rebrand finishes).
+Docs: `docs/INSTALL.md`, `docs/USAGE.md`, and the 3.0 plan under `architecture/PLAN-3.0-CLIENT.md`. Repo: https://github.com/m3talsmith/acp-rs-scraper (product name **ACP Red Star**; binary `acp-red-star`, with `acp-rs-scraper` kept as a compatibility alias through version 3).
 
 
 ## Coming with the launch

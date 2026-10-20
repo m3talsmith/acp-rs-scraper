@@ -56,21 +56,21 @@ fn redact_hides_the_key_and_a_password_assignment() {
 
 #[test]
 fn source_names_the_command_including_backup_flags() {
-    assert_eq!(job_source(JobKind::Read, "acp-rs-scraper --eb"), "View › Executive Board");
-    assert_eq!(job_source(JobKind::Read, "acp-rs-scraper --explore-latest"), "Explore");
-    assert_eq!(job_source(JobKind::Read, "acp-rs-scraper --top week"), "Site Top");
-    assert_eq!(job_source(JobKind::Sync, "acp-rs-scraper --sync"), "Sync");
-    assert_eq!(job_source(JobKind::Scan, "acp-rs-scraper --encrypt-db"), "Encrypt database");
-    assert_eq!(job_source(JobKind::Scan, "acp-rs-scraper --backup"), "Backup");
-    assert_eq!(job_source(JobKind::Scan, "acp-rs-scraper --restore x.acpbackup"), "Restore");
+    assert_eq!(job_source(JobKind::Read, "acp-red-star --eb"), "View › Executive Board");
+    assert_eq!(job_source(JobKind::Read, "acp-red-star --explore-latest"), "Explore");
+    assert_eq!(job_source(JobKind::Read, "acp-red-star --top week"), "Site Top");
+    assert_eq!(job_source(JobKind::Sync, "acp-red-star --sync"), "Sync");
+    assert_eq!(job_source(JobKind::Scan, "acp-red-star --encrypt-db"), "Encrypt database");
+    assert_eq!(job_source(JobKind::Scan, "acp-red-star --backup"), "Backup");
+    assert_eq!(job_source(JobKind::Scan, "acp-red-star --restore x.acpbackup"), "Restore");
     assert!(app().tracked.is_empty());
 }
 
 #[test]
 fn two_jobs_render_as_a_selectable_list() {
     let mut a = app();
-    started(&mut a, JobKind::Scan, 11, "acp-rs-scraper --scrape");
-    a.track_side(JobKind::Research, 22, "/tmp/research.log".into(), "acp-rs-scraper --research-add Strikes");
+    started(&mut a, JobKind::Scan, 11, "acp-red-star --scrape");
+    a.track_side(JobKind::Research, 22, "/tmp/research.log".into(), "acp-red-star --research-add Strikes");
     a.open_jobs();
     let Some(Modal::Job(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert_eq!(m.rows.len(), 2);
@@ -88,7 +88,7 @@ fn two_jobs_render_as_a_selectable_list() {
 #[test]
 fn failed_job_shows_the_error_and_not_the_secret() {
     let mut a = app();
-    started(&mut a, JobKind::Import, 9, "acp-rs-scraper --import /tmp/in.json");
+    started(&mut a, JobKind::Import, 9, "acp-red-star --import /tmp/in.json");
     let hidden = "hunter22";
     let line = format!("error: bad archive password={hidden}");
     a.note_job_line(9, &line);
@@ -108,7 +108,7 @@ fn failed_job_shows_the_error_and_not_the_secret() {
 #[test]
 fn click_status_or_header_opens_and_esc_closes() {
     let mut a = app();
-    started(&mut a, JobKind::Read, 4, "acp-rs-scraper --eb");
+    started(&mut a, JobKind::Read, 4, "acp-red-star --eb");
     let s = render(&mut a, 140, 32);
     assert!(s.contains("running (pid 4)"), "{s}");
     assert!(a.hits.iter().any(|(_, h)| *h == Hit::Status));
@@ -140,7 +140,7 @@ fn enter_on_focused_status_opens_the_job() {
     key(&mut a, KeyCode::Enter);
     assert!(a.modal.is_none());
     assert!(a.status.back().unwrap().contains("no job to show"));
-    started(&mut a, JobKind::Sync, 7, "acp-rs-scraper --sync");
+    started(&mut a, JobKind::Sync, 7, "acp-red-star --sync");
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Job(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert_eq!(m.rows[m.cursor].name, "Sync");
@@ -158,8 +158,8 @@ fn enter_on_focused_status_opens_the_job() {
 #[test]
 fn cancel_main_and_side_from_the_window() {
     let mut a = app();
-    started(&mut a, JobKind::Scan, 11, "acp-rs-scraper --scrape");
-    a.track_side(JobKind::Bookmark, 22, "/tmp/mark.log".into(), "acp-rs-scraper --bookmark ALICE0001");
+    started(&mut a, JobKind::Scan, 11, "acp-red-star --scrape");
+    a.track_side(JobKind::Bookmark, 22, "/tmp/mark.log".into(), "acp-red-star --bookmark ALICE0001");
     a.open_jobs();
     key(&mut a, KeyCode::Char('c'));
     assert_eq!(a.effects, [Effect::CancelJob]);
@@ -180,14 +180,14 @@ fn finished_elapsed_does_not_change_between_renders() {
     let late = early + Duration::from_secs(7200);
 
     let mut running = app();
-    started(&mut running, JobKind::Sync, 1, "acp-rs-scraper --sync");
+    started(&mut running, JobKind::Sync, 1, "acp-red-star --sync");
     running.open_jobs();
     let run_early = elapsed_of(&render_at(&mut running, 120, 36, early));
     let run_late = elapsed_of(&render_at(&mut running, 120, 36, late));
     assert_ne!(run_early, run_late, "a running job should keep counting");
 
     let mut done = app();
-    started(&mut done, JobKind::Sync, 258651, "acp-rs-scraper --sync");
+    started(&mut done, JobKind::Sync, 258651, "acp-red-star --sync");
     done.job_finished(true, Some(0), &[]);
     done.open_jobs();
     let _ = render_at(&mut done, 120, 36, early);
@@ -208,7 +208,7 @@ fn finished_elapsed_does_not_change_between_renders() {
     assert!(unknown_early.contains("unknown"), "{unknown_early}");
 
     let mut failed = app();
-    started(&mut failed, JobKind::Import, 9, "acp-rs-scraper --import /tmp/in.json");
+    started(&mut failed, JobKind::Import, 9, "acp-red-star --import /tmp/in.json");
     let boom = "boom".to_string();
     failed.job_finished(false, Some(1), std::slice::from_ref(&boom));
     failed.open_jobs();
@@ -218,7 +218,7 @@ fn finished_elapsed_does_not_change_between_renders() {
     );
 
     let mut cancelled = app();
-    started(&mut cancelled, JobKind::Scan, 4, "acp-rs-scraper --scrape");
+    started(&mut cancelled, JobKind::Scan, 4, "acp-red-star --scrape");
     cancelled.job_cancelled();
     cancelled.open_jobs();
     assert_eq!(
@@ -227,8 +227,8 @@ fn finished_elapsed_does_not_change_between_renders() {
     );
 
     let mut both = app();
-    started(&mut both, JobKind::Sync, 11, "acp-rs-scraper --sync");
-    both.track_side(JobKind::Research, 22, "/tmp/research.log".into(), "acp-rs-scraper --research-add Strikes");
+    started(&mut both, JobKind::Sync, 11, "acp-red-star --sync");
+    both.track_side(JobKind::Research, 22, "/tmp/research.log".into(), "acp-red-star --research-add Strikes");
     both.job_finished(true, Some(0), &[]);
     both.open_jobs();
     let _ = render_at(&mut both, 120, 36, early);

@@ -11,11 +11,11 @@ use zeroize::Zeroizing;
 
 use super::master;
 use super::pin::Pin;
-use acp_rs_node_core::node::{
+use acp_red_star_node_core::node::{
     self, NodeSecret, SignedCert, certify_first_node, decode_secret, encode_secret, keystore_key,
     sanitize_label, verification_words,
 };
-use acp_rs_node_core::store::{open_blob, seal_blob};
+use acp_red_star_node_core::store::{open_blob, seal_blob};
 use crate::config::{DB_REL_PATH, NODE_KEYSTORE_REL_PATH, NODE_PUBLIC_REL_PATH, NODE_SECRET_REL_PATH};
 
 const MAGIC: &[u8] = b"ACPKEY01";
@@ -120,7 +120,7 @@ pub fn create_first_node(
     let db = home.join(DB_REL_PATH);
     if !super::atrest::bootstrap_path(&db).is_file() && !db.is_file() {
         bail!(
-            "this home has no encrypted database yet. Open acp-rs-scraper once so the database exists, then run --node-init."
+            "this home has no encrypted database yet. Open acp-red-star once so the database exists, then run --node-init."
         );
     }
     super::atrest::prepare(&db, Some(password))?;
@@ -321,8 +321,8 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
     use crate::config::ACP_ID_REL_PATH;
-    use acp_rs_node_core::node::verify_chain;
-    use acp_rs_node_core::password::Argon2Params;
+    use acp_red_star_node_core::node::verify_chain;
+    use acp_red_star_node_core::password::Argon2Params;
 
     fn scratch(label: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(

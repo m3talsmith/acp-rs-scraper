@@ -153,7 +153,7 @@ pub fn legacy_plaintext_notice(db: &Path) -> Option<String> {
          \n\
          Migrate it with a backup first:\n\
          \n\
-           acp-rs-scraper --encrypt-db\n\
+           acp-red-star --encrypt-db\n\
          \n\
          That writes a *.acpbackup, encrypts the database, and removes the plaintext \
          file only after the encrypted copy matches. It asks for the password the \
@@ -902,12 +902,12 @@ fn aead_decrypt(
 }
 
 fn hpke_seal(pk: &[u8; 32], plain: &[u8]) -> Result<(Vec<u8>, Vec<u8>)> {
-    acp_rs_node_core::hpke::seal(pk, plain)
+    acp_red_star_node_core::hpke::seal(pk, plain)
 }
 
 /// Open an HPKE wrap with a raw X25519 secret.
 pub fn hpke_open(sk: &[u8; 32], enc: &[u8], body: &[u8]) -> Result<Zeroizing<Vec<u8>>> {
-    acp_rs_node_core::hpke::open(sk, enc, body)
+    acp_red_star_node_core::hpke::open(sk, enc, body)
 }
 
 /// Argon2id parameters for a new wrap of `db`: the pin, `ACP_ARGON_FAST`, or the floor.
