@@ -44,7 +44,35 @@ pub struct UiPrefs {
     /// `auto`, `always`, or `never`. Omitted means auto (follow NO_COLOR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// Toasts and desktop notifications (`[ui.notify]`). Omitted keeps every kind on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub notify: Option<NotifyPrefs>,
 }
+
+/// `[ui.notify]` in `~/.acp/preferences.toml`.
+///
+/// `dnd` silences toasts and desktop notifications together. The log still records them.
+/// Each kind defaults to on when the key is omitted.
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct NotifyPrefs {
+    /// Do-not-disturb.
+    #[serde(default)]
+    pub dnd: bool,
+    /// Error notices.
+    #[serde(default = "default_true")]
+    pub error: bool,
+    /// Warning notices.
+    #[serde(default = "default_true")]
+    pub warning: bool,
+    /// Sync notices.
+    #[serde(default = "default_true")]
+    pub sync: bool,
+    /// Job notices.
+    #[serde(default = "default_true")]
+    pub job: bool,
+}
+
+fn default_true() -> bool { true }
 
 /// `[ui.list_order]` in `~/.acp/preferences.toml`.
 ///
@@ -114,6 +142,31 @@ pub fn save_ui_color_at(path: &Path, color: &str) -> Result<()> {
 /// Set `[ui] color` in `~/.acp/preferences.toml`, keeping every other key.
 pub fn save_ui_color(color: &str) -> Result<()> {
     save_ui_color_at(&home()?.join(PREFS_REL_PATH), color)
+}
+
+/// Set `[ui.notify]` in `path`, keeping every other key.
+pub fn save_notify_prefs_at(path: &Path, p: &NotifyPrefs) -> Result<()> {
+    let mut t: toml::Table = match std::fs::read_to_string(path) {
+        Ok(s) => toml::from_str(&s).with_context(|| format!("{} is not valid TOML; not changing it", path.display()))?,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => toml::Table::new(),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    };
+    let ui = t.entry("ui").or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    let Some(ui) = ui.as_table_mut() else { bail!("[ui] in {} is not a table; not changing it", path.display()) };
+    let notify = ui.entry("notify").or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    let Some(notify) = notify.as_table_mut() else { bail!("[ui.notify] in {} is not a table; not changing it", path.display()) };
+    notify.insert("dnd".into(), toml::Value::Boolean(p.dnd));
+    notify.insert("error".into(), toml::Value::Boolean(p.error));
+    notify.insert("warning".into(), toml::Value::Boolean(p.warning));
+    notify.insert("sync".into(), toml::Value::Boolean(p.sync));
+    notify.insert("job".into(), toml::Value::Boolean(p.job));
+    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+    crate::themes::atomic_write(path, toml::to_string(&t)?.as_bytes()).with_context(|| format!("writing {}", path.display()))
+}
+
+/// Set `[ui.notify]` in `~/.acp/preferences.toml`.
+pub fn save_notify_prefs(p: &NotifyPrefs) -> Result<()> {
+    save_notify_prefs_at(&home()?.join(PREFS_REL_PATH), p)
 }
 
 /// Set `[ui] theme` in `~/.acp/preferences.toml`, keeping every other key (also unknown

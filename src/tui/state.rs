@@ -321,6 +321,8 @@ pub enum Hit {
     Status,
     /// The header's red star.
     Logo,
+    /// The n-th toast. A click dismisses it. The log keeps the notice.
+    Toast(usize),
 }
 
 /// Menu bar state.
@@ -475,6 +477,8 @@ pub struct App {
     pub logo_taps: u8,
     /// When the header star was last pressed.
     pub logo_tap_at: Option<Instant>,
+    /// Toasts, the notice log, and desktop notifications.
+    pub notices: crate::notify::NoticeBoard,
 }
 
 fn nick_label(q: &str) -> String {
@@ -519,6 +523,7 @@ impl App {
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
             konami: crate::eggs::Konami::new(), egg: None, logo_taps: 0, logo_tap_at: None,
+            notices: crate::notify::NoticeBoard::new(),
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -538,8 +543,37 @@ impl App {
         let s = s.into();
         for l in s.lines() {
             if status_line_is_problem(l) { self.needs_redraw = true; }
+            if let Some(n) = crate::notify::Notice::from_status_line(l) {
+                self.notices.post(n, Instant::now());
+            } else if l.starts_with("auto sync skipped") {
+                self.notices.post(crate::notify::Notice {
+                    kind: crate::notify::NoticeKind::Sync,
+                    title: "Sync".into(),
+                    body: l.to_string(),
+                }, Instant::now());
+            }
             self.status.push_back(l.to_string());
             while self.status.len() > TUI_STATUS_KEEP { self.status.pop_front(); }
+        }
+    }
+    /// Flip do-not-disturb or one notice kind, and store it when this TUI has a preferences file.
+    pub fn toggle_notice_row(&mut self, row: usize) {
+        if !self.notices.settings.toggle_row(row) { return; }
+        self.persist_notices();
+    }
+    /// Store the notice switches. Unit tests leave `themes_dir` unset and do not write.
+    fn persist_notices(&mut self) {
+        if self.themes_dir.is_none() { return; }
+        let s = &self.notices.settings;
+        let p = crate::auth::prefs::NotifyPrefs {
+            dnd: s.dnd,
+            error: s.on[crate::notify::NoticeKind::Error.index()],
+            warning: s.on[crate::notify::NoticeKind::Warning.index()],
+            sync: s.on[crate::notify::NoticeKind::Sync.index()],
+            job: s.on[crate::notify::NoticeKind::Job.index()],
+        };
+        if let Err(e) = crate::auth::prefs::save_notify_prefs(&p) {
+            self.push_status(format!("error: could not save notice settings: {e:#}"));
         }
     }
     /// Show an error modal and log it.
@@ -1522,6 +1556,7 @@ impl App {
     pub fn tick(&mut self, now: Instant) {
         if self.anim.is_some_and(|a| a.done(now)) { self.anim = None; }
         if self.egg.as_ref().is_some_and(|e| e.finished(now)) { self.egg = None; }
+        self.notices.tick(now);
     }
     /// A text field is taking keys, so the star burst must not start.
     pub fn text_input_focused(&self) -> bool {
@@ -1709,6 +1744,10 @@ impl App {
                 self.close_menu();
                 self.push_status("people, nodes, and rooms arrive with the network node");
             }
+            Action::OpenNotices => {
+                self.close_menu();
+                self.modal = Some(Modal::Notices(crate::tui::modals::NoticesModal::new()));
+            }
             Action::ExportResearch => match self.research_name().ok_or_else(|| "pick a research project first (Research › Projects…)".to_string())
                 .and_then(|n| self.menu.menu.research_export_argv(&n)) {
                 Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
@@ -1845,7 +1884,13 @@ impl App {
             self.restore_thread_sort(&id, sort);
         }
         if ok {
-            self.push_status(format!("{} finished", j.kind.name()));
+            let name = j.kind.name();
+            self.push_status(format!("{name} finished"));
+            self.notices.post(crate::notify::Notice {
+                kind: crate::notify::NoticeKind::Job,
+                title: "Job".into(),
+                body: format!("{name} finished"),
+            }, Instant::now());
         } else if auto {
             self.push_status(format!("error: auto sync failed (exit {}); see {}", code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into()), j.log.display()));
         } else {

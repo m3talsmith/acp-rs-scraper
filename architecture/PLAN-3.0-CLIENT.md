@@ -1326,6 +1326,8 @@ The order is notifications, then the rule engine, then alert templates. Alerts w
 
 Local notices. This is not the site Notifications pane (P4, 3.10.0–3.11.0, `/rs/notifications`, §1a item 15, §8 Q4).
 
+The client has the toasts, the log, the per-type switches, and do-not-disturb. A skipped sync and a finished job raise a notice. Errors and warnings on the status line do too. The status line still keeps job and list state. The stderr line stays plain when colour is off. The desktop backend is an interface. Tests use a fake and do not talk to a notification daemon. Linux uses `notify-send` (the freedesktop notification spec over D-Bus). macOS uses Notification Center. Windows uses the toast API. The crate stays 3.5.0 until this minor is released. This note does not take 3.31.0 early, and it does not move 3.10.0–3.30.0 or the locked 3.22.0 re-key.
+
 - **In the terminal UI:** toasts, stacked, that dismiss on their own. A notice log keeps the ones that already dismissed, so a missed toast can still be read.
 - **On the desktop:** an OS notification. Linux uses the freedesktop notification spec over D-Bus. macOS and Windows use the platform notification API.
 - **Controls:** each notice type can be turned off. Do-not-disturb silences toasts and OS notifications together. The notice log still records them.

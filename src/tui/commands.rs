@@ -181,6 +181,8 @@ pub enum Action {
     OpenMenu(CommandId),
     /// Discover has no network yet.
     DiscoverLater,
+    /// View › Notices. The log, do-not-disturb, and the per-type switches.
+    OpenNotices,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -347,6 +349,7 @@ fn view_item() -> MenuCommand {
         opt_topic("nick_order", "Nick order", "Newest or oldest nick by latest post. o toggles while Nicks is focused.", "nick-order", false, choice(ORDER_CHOICES)),
         opt_topic("nick_limit", "Nick limit", "Keep this many nicks at the chosen end. Blank keeps all. The / filter runs first.", "nick-limit", false, text("")),
         opt_topic("color", "Colour", "auto, always, or never. Same as --color", "color", false, choice(COLOR_CHOICES)),
+        opt("notices", "Notices…", "the log, do not disturb, and per-type switches", false, button(Action::OpenNotices)),
         opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
         opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
         opt("top", "Site Top", "--top", false, button(Action::OpenTop)),

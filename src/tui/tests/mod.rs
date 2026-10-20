@@ -22,6 +22,7 @@ mod theme;
 mod sync;
 mod views;
 mod history;
+mod notices;
 mod nick_filter;
 mod order;
 mod site_attachments;

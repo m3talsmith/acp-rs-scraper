@@ -48,6 +48,7 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     nicks::draw(f, app, a.nicks);
     body::draw(f, app, a.body, now);
     status(f, app, a.status);
+    draw_toasts(f, app, area);
     menu::draw_dropdown(f, app, area);
     if app.modal.is_some() { modal::draw(f, app, area); }
     if app.egg.is_some() { draw_egg(f, app, area, now); }
@@ -75,6 +76,29 @@ fn draw_egg(f: &mut Frame, app: &App, area: Rect, now: Instant) {
             }
             x += 1;
         }
+    }
+}
+
+/// Stacked toasts in the lower right, just above the status line. A click dismisses one.
+fn draw_toasts(f: &mut Frame, app: &mut App, area: Rect) {
+    if app.modal.is_some() || app.notices.toasts.is_empty() || area.width < 8 || area.height < 4 { return; }
+    let t = app.theme;
+    let rows: Vec<(String, String)> = app.notices.toasts.iter()
+        .map(|toast| (toast.notice.title.clone(), toast.notice.body.clone())).collect();
+    let n = rows.len();
+    let h = 2u16;
+    let w = 42.min(area.width.saturating_sub(2));
+    let status_h = if app.show_log { 10 } else { 1 };
+    let top = area.y + area.height.saturating_sub(status_h + n as u16 * h);
+    let x = area.x + area.width.saturating_sub(w);
+    for (i, (title, body)) in rows.iter().enumerate() {
+        let r = Rect { x, y: top + i as u16 * h, width: w, height: h };
+        let shown: String = body.chars().take(w.saturating_sub(2) as usize).collect();
+        f.render_widget(Paragraph::new(vec![
+            Line::from(Span::styled(format!("▸ {title}"), t.bar())),
+            Line::from(Span::styled(format!("  {shown}"), t.plain())),
+        ]), r);
+        app.hits.push((r, Hit::Toast(i)));
     }
 }
 

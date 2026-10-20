@@ -238,6 +238,47 @@ fn draw_about(f: &mut Frame, app: &mut App, area: Rect, m: &AboutModal, t: &Them
     buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
 }
 
+/// The notice log. Do-not-disturb and each kind are switches. Space flips the highlighted one.
+fn draw_notices(f: &mut Frame, app: &mut App, area: Rect, m: &NoticesModal, t: &Theme) {
+    let controls = crate::notify::control_rows();
+    let dnd = app.notices.settings.dnd;
+    let on = app.notices.settings.on;
+    let log: Vec<String> = app.notices.log.iter().map(|n| {
+        let kind = n.kind.label();
+        let body = &n.body;
+        format!("{kind}: {body}")
+    }).collect();
+    let rows = controls + log.len().max(1);
+    let r = modal_rect(area, 72, (rows as u16).saturating_add(4).min(area.height.saturating_sub(2)));
+    let inner = frame(f, t, r, "Notices · Space toggles · Esc closes");
+    let list_h = inner.height.saturating_sub(2);
+    let cursor = m.cursor.min(rows.saturating_sub(1));
+    for i in 0..list_h as usize {
+        if i >= rows { break; }
+        let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+        let st = if i == cursor { t.selected() } else { t.plain() };
+        let text = if i == 0 {
+            let mark = if dnd { "x" } else { " " };
+            format!(" [{mark}] Do not disturb")
+        } else if i < controls {
+            let kind = crate::notify::NoticeKind::ALL[i - 1];
+            let mark = if on[kind.index()] { "x" } else { " " };
+            let label = kind.label();
+            format!(" [{mark}] {label}")
+        } else {
+            match log.get(i - controls) {
+                Some(line) => format!(" {line}"),
+                None => " (none)".into(),
+            }
+        };
+        let w = inner.width as usize;
+        let text: String = text.chars().take(w).collect();
+        f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
+        app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+    }
+    buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
+}
+
 /// Draw the open modal over `area`, or nothing when none is open.
 pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
     let theme = app.theme;
@@ -440,6 +481,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         Modal::Job(m) => draw_job(f, app, area, m, &t),
         Modal::Compose(m) => draw_compose(f, app, area, m, &t),
         Modal::About(m) => draw_about(f, app, area, m, &t),
+        Modal::Notices(m) => draw_notices(f, app, area, m, &t),
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

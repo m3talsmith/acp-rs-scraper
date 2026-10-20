@@ -17,6 +17,10 @@ pub fn on_event(app: &mut App, ev: Event) {
 }
 
 fn after_modal(app: &mut App, r: Option<ModalResult>) {
+    if r.is_none() && let Some(Modal::Notices(m)) = &mut app.modal && m.take_toggle() {
+        let row = m.cursor;
+        app.toggle_notice_row(row);
+    }
     if let Some(Modal::Login(m)) = &mut app.modal
         && let Some(req) = m.request.take() {
             app.effects.push(match req {
@@ -437,6 +441,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::ListPane | Hit::DetailPane) => app.focus = Focus::Body,
         Some(Hit::Status | Hit::Job) => { app.focus = Focus::Status; app.open_jobs(); }
         Some(Hit::Logo) => app.tap_logo(Instant::now()),
+        Some(Hit::Toast(i)) => app.notices.dismiss(i),
         _ => {}
     }
 }
