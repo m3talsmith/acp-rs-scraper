@@ -420,7 +420,15 @@ pub async fn run() -> Result<()> {
     let mut ok_nicks = Vec::new();
     for nick in &nicks {
         info!("== scraping @{nick}");
-        match scrape(&http, &jar, nick, &known, &reply_counts, args.full, args.said_by, args.limit, args.profile_feed, args.order).await {
+        match scrape(&http, &jar, nick, &ScrapeOptions {
+            known: &known,
+            reply_counts: &reply_counts,
+            full: args.full,
+            said_by: args.said_by,
+            limit: args.limit,
+            profile_feed: args.profile_feed,
+            order: args.order,
+        }).await {
             Ok((ps, html, st)) => {
                 info!("  @{nick}: feed {} items ({} from posts and replies), ~{} new, {} skipped known, threads fetched {} / skipped {}",
                     st.feed_items, st.replies_tab_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);

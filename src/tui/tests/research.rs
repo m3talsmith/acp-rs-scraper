@@ -137,7 +137,7 @@ fn a_keyword_search_adds_all_results_as_a_search() {
     let mut a = app();
     a.run_search(SearchFilter { keyword: "strike".into(), nicks: vec!["alice".into()], ..SearchFilter::default() });
     let w = a.research_candidates();
-    assert!(w[0].0.starts_with("This search result"), "{:?}", w);
+    assert!(w[0].0.starts_with("This search result"), "{w:?}");
     assert_eq!(w.last().unwrap().1, ResearchSource::Search { query: "strike".into(), nicks: vec!["alice".into()] });
     a.act(Action::AddViewToResearch);
     assert_eq!(modal(&a).what.len(), 1);

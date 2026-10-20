@@ -76,8 +76,10 @@ fn konami_does_not_fire_while_typing() {
 #[test]
 fn the_phrase_flashes_the_starfield_then_the_results() {
     let mut a = app();
-    let mut f = SearchFilter::default();
-    f.keyword = format!("  {}  ", COSMOS_QUERY.to_uppercase());
+    let f = SearchFilter {
+        keyword: format!("  {}  ", COSMOS_QUERY.to_uppercase()),
+        ..SearchFilter::default()
+    };
     a.run_search(f);
     assert!(a.egg.is_some());
     let flash = render(&mut a, 80, 24);
@@ -89,8 +91,7 @@ fn the_phrase_flashes_the_starfield_then_the_results() {
     assert!(results.to_lowercase().contains(COSMOS_QUERY), "{results}");
 
     let mut a = app();
-    let mut other = SearchFilter::default();
-    other.keyword = "strike".into();
+    let other = SearchFilter { keyword: "strike".into(), ..SearchFilter::default() };
     a.run_search(other);
     assert!(a.egg.is_none());
     assert!(!render(&mut a, 80, 24).contains(BURST_LINE));
