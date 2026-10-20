@@ -543,6 +543,9 @@ pub struct Args {
 }
 
 /// Targets for the hidden `--generate` packaging flag.
+///
+/// The `acprs-*` values write the same page or script under the short command
+/// name. The running program's own help stays `acp-red-star`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum Generate {
     /// roff man page (`acp-red-star.1`).
@@ -553,18 +556,58 @@ pub enum Generate {
     Zsh,
     /// fish completion script.
     Fish,
+    /// roff man page for the `acprs` command (`acprs.1`).
+    #[value(name = "acprs-man")]
+    AcprsMan,
+    /// bash completion script for `acprs`.
+    #[value(name = "acprs-bash")]
+    AcprsBash,
+    /// zsh completion function for `acprs` (`_acprs`).
+    #[value(name = "acprs-zsh")]
+    AcprsZsh,
+    /// fish completion script for `acprs`.
+    #[value(name = "acprs-fish")]
+    AcprsFish,
+}
+
+impl Generate {
+    /// Command name written into the man page or completion script.
+    fn bin_name(self) -> &'static str {
+        match self {
+            Self::AcprsMan | Self::AcprsBash | Self::AcprsZsh | Self::AcprsFish => "acprs",
+            Self::Man | Self::Bash | Self::Zsh | Self::Fish => "acp-red-star",
+        }
+    }
+
+    fn kind(self) -> Self {
+        match self {
+            Self::AcprsMan => Self::Man,
+            Self::AcprsBash => Self::Bash,
+            Self::AcprsZsh => Self::Zsh,
+            Self::AcprsFish => Self::Fish,
+            other => other,
+        }
+    }
 }
 
 /// Write the man page or a completion script for [`Args`] to `out`.
 pub fn generate(what: Generate, out: &mut dyn Write) -> Result<()> {
     use clap::CommandFactory;
+    let bin = what.bin_name();
     let mut cmd = Args::command();
-    let name = cmd.get_name().to_string();
-    match what {
+    cmd.set_bin_name(bin);
+    if bin != "acp-red-star" && matches!(what.kind(), Generate::Man) {
+        // The man page title follows the command name. Help text at runtime does not.
+        cmd = cmd.name(bin);
+    }
+    match what.kind() {
         Generate::Man => clap_mangen::Man::new(cmd).render(out)?,
-        Generate::Bash => clap_complete::generate(clap_complete::Shell::Bash, &mut cmd, name, out),
-        Generate::Zsh => clap_complete::generate(clap_complete::Shell::Zsh, &mut cmd, name, out),
-        Generate::Fish => clap_complete::generate(clap_complete::Shell::Fish, &mut cmd, name, out),
+        Generate::Bash => clap_complete::generate(clap_complete::Shell::Bash, &mut cmd, bin, out),
+        Generate::Zsh => clap_complete::generate(clap_complete::Shell::Zsh, &mut cmd, bin, out),
+        Generate::Fish => clap_complete::generate(clap_complete::Shell::Fish, &mut cmd, bin, out),
+        Generate::AcprsMan | Generate::AcprsBash | Generate::AcprsZsh | Generate::AcprsFish => {
+            unreachable!("kind() maps the acprs values onto the primary ones")
+        }
     }
     Ok(())
 }
