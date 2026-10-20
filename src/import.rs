@@ -76,8 +76,13 @@ pub fn import(file: &Path, compress: Option<Compress>, att_dir: &Path, tmp_root:
                 log_error(format_args!("warning: attachment {} not imported: {e}", src.display()));
                 continue;
             }
+            let on_site = match a.get("on_site") {
+                Some(v) if v.is_boolean() => v.as_bool().unwrap_or(true),
+                Some(v) => v.as_i64().unwrap_or(1) != 0,
+                None => true,
+            };
             atts.push(Attachment { post_id: id.clone(), url, kind: a["kind"].as_str().unwrap_or("file").into(),
-                local_path: dst, mime_type: a["mime_type"].as_str().unwrap_or_default().into() });
+                local_path: dst, mime_type: a["mime_type"].as_str().unwrap_or_default().into(), on_site });
         }
         for c in n["children"].as_array().into_iter().flatten() { walk(c, &id, base, att_dir, posts, atts, seen); }
     }

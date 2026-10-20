@@ -8,6 +8,10 @@
 
 Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that browses everything you have scraped; with flags it logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
 
+**v3 pre-launch write-up (historical draft, coming soon):** [docs/history/v3/redstar-v3-prelaunch-post.md](docs/history/v3/redstar-v3-prelaunch-post.md)
+
+<!-- TODO(3.0 release): switch the link above from the pre-launch post to docs/history/v3/redstar-v3-launch-post.md. Publish that launch post only when 3.x has fully shipped. -->
+
 ## Breaking changes in 3.0.0
 
 3.0.0 encrypts the local database and requires a password of at least 8 characters that passes a strength check. A 2.x install does not.
@@ -19,7 +23,7 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 The header of the terminal UI shows `v3.5.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.5.0** attaches local files to New post and Reply. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. `--dry-run` lists those files and does not upload them. A confirmed publish still does not send, and the upload channel has not been captured.
+**3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images or videos on the site copy: more than 4 images or videos opens a picker (or `--site-attachments 1,3,5,6`), other types stay local, and with no choice the first 4 images or videos are the site copy. `--dry-run` lists those files and does not upload them. A confirmed publish still does not send, and the upload channel has not been captured. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
 **3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed publish is not sent until a guided capture of a real reply. Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
 
@@ -122,6 +126,9 @@ Interface:
 
       --theme-starter <NAME>
           Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file
+
+      --color <WHEN>
+          Colour output. auto follows NO_COLOR (a non-empty value turns colours off). always forces colours on, even when NO_COLOR is set. never turns colours off. Omitted: [ui] color in preferences.toml, or auto
 
 Scraping:
       --scrape
@@ -604,7 +611,7 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   `~/.acp/preferences.toml`. `[ui] theme_mode = "dark" | "light" | "system"` picks the variant;
   `system` (the default) uses `COLORFGBG` when set, else asks the terminal (`OSC 11`), else
   dark. `--theme NAME` uses a theme for one run without saving it;
-  `--list-themes` prints them all.
+  `--list-themes` prints them all. `--color auto|always|never` follows `NO_COLOR`, forces colour on, or turns it off. `[ui] color` is the default when the flag is omitted.
 - **Editor** (`Shift-F5`): see [Theme editor](#theme-editor) below.
 - **Safety.** A missing or broken theme file never stops the TUI: it falls back to the terminal's
   colours and a notice names the file and how to fix it. Broken files are never overwritten

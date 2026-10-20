@@ -115,11 +115,14 @@ fn draw_job(f: &mut Frame, app: &mut App, area: Rect, m: &JobModal, t: &Theme) {
 
 /// Draw the open modal.
 fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &Theme) {
-    let r = modal_rect(area, 72, 16);
+    let pick_n = m.site_pick.as_ref().map(|p| p.len()).unwrap_or(0) as u16;
+    let extra = if pick_n > 0 { pick_n.saturating_sub(2) + 2 } else { 0 };
+    let r = modal_rect(area, 72, 16 + extra);
     let inner = frame(f, t, r, &m.title());
     if inner.height < 4 || inner.width < 8 { return; }
     let row = |y: u16| Rect { y, height: 1, ..inner };
     let mut y = inner.y;
+    let btn_y = inner.y + inner.height.saturating_sub(1);
     if matches!(m.kind, ComposeKind::NewPost) {
         let st = if m.focus == ComposeFocus::Title { t.accent_bold() } else { t.plain() };
         f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Title: {}", m.title), inner.width as usize), st)), row(y));
@@ -136,10 +139,42 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Attach: {shown}"), inner.width as usize), st)), row(y));
     app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
     y += 1;
-    for path in m.attachments.iter().take(2) {
-        let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {name}"), inner.width as usize), t.muted())), row(y));
-        y += 1;
+    if let Some(pick) = &m.site_pick {
+        let max = crate::config::SITE_MAX_ATTACHMENTS;
+        let n = pick.iter().filter(|on| **on).count();
+        for (i, on) in pick.iter().enumerate() {
+            if y >= btn_y { break; }
+            let path = m.attachments.get(i);
+            let name = path.and_then(|p| p.file_name()).map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+            let eligible = path.is_some_and(|p| crate::config::site_accepts_path(p));
+            let mark = if *on { "[x]" } else { "[ ]" };
+            let line = if eligible {
+                format!(" {mark} {} {name}", i + 1)
+            } else {
+                format!(" {mark} {} {name} — {}", i + 1, crate::config::site_ineligible_reason())
+            };
+            let focused = m.focus == ComposeFocus::SitePick && i == m.site_at;
+            let st = if !eligible { t.muted() } else if focused { t.selected() } else { t.plain() };
+            f.render_widget(Paragraph::new(Span::styled(clip(&line, inner.width as usize), st)), row(y));
+            app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
+            y += 1;
+        }
+        if y < btn_y {
+            f.render_widget(Paragraph::new(Span::styled(clip(&format!(" {n}/{max} selected for Red Star"), inner.width as usize), t.accent())), row(y));
+            y += 1;
+        }
+        if y < btn_y {
+            let tip = format!("At most {max} images or videos. Others stay local.  ? site-attachments");
+            f.render_widget(Paragraph::new(Span::styled(clip(&tip, inner.width as usize), t.muted())), row(y));
+            y += 1;
+        }
+    } else {
+        for path in m.attachments.iter().take(2) {
+            if y >= btn_y { break; }
+            let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {name}"), inner.width as usize), t.muted())), row(y));
+            y += 1;
+        }
     }
     if let Some(q) = &m.quote {
         f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Quote: {q}"), inner.width as usize), t.muted())), row(y));
@@ -153,7 +188,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
             app.hits.push((row(y), Hit::Modal(ModalHit::Item(i))));
             y += 1;
         }
-    } else {
+    } else if m.site_pick.is_none() {
         let matches = m.pending.as_ref().map(|q| crate::site::completions(q, &m.nicks, &m.tags)).unwrap_or_default();
         for (i, row_c) in matches.iter().take(4).enumerate() {
             let st = if m.focus == ComposeFocus::Complete && i == m.complete_at { t.selected() } else { t.plain() };
@@ -163,7 +198,9 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
         }
     }
     let note = m.error.clone().unwrap_or_else(|| "Attach lists local files. Publish does not upload them.".into());
-    f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
+    if y < btn_y {
+        f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
+    }
     let focus = match m.focus {
         ComposeFocus::Cancel => Some(0),
         ComposeFocus::Publish => Some(1),
@@ -322,10 +359,12 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &m.buttons(), focus);
         }
         Modal::ThemePicker(p) => {
+            let hint = app.color_hint();
+            let extra = u16::from(hint.is_some());
             let rows = p.rows() as u16;
-            let r = modal_rect(area, 76, (rows + 4).min(area.height.saturating_sub(2)));
+            let r = modal_rect(area, 76, (rows + 4 + extra).min(area.height.saturating_sub(2)));
             let inner = frame(f, &t, r, &p.title());
-            let list = Rect { y: inner.y + 1, height: inner.height.saturating_sub(1), ..inner };
+            let list = Rect { y: inner.y + 1, height: inner.height.saturating_sub(1 + extra), ..inner };
             let skip = p.cursor.saturating_sub(list.height.saturating_sub(1) as usize);
             for (row, i) in (0..p.rows()).skip(skip).take(list.height as usize).enumerate() {
                 let rr = Rect { y: list.y + row as u16, height: 1, ..list };
@@ -349,6 +388,10 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 let text: String = if text.chars().count() > w { text.chars().take(w.saturating_sub(1)).chain(['…']).collect() } else { text };
                 f.render_widget(Paragraph::new(Span::styled(text, st)), rr);
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+            if let Some(h) = hint {
+                let rr = Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner };
+                f.render_widget(Paragraph::new(Span::styled(format!(" {h}"), t.muted())), rr);
             }
         }
         Modal::Post(p) => {

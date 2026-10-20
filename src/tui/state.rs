@@ -334,6 +334,10 @@ pub struct MenuState {
     pub opt: usize,
     /// Typing into the highlighted text option.
     pub editing: bool,
+    /// Other path completions for the field being typed. Empty when there is one match or none.
+    pub path_matches: Vec<String>,
+    /// Which [`MenuState::path_matches`] entry is highlighted.
+    pub path_at: usize,
 }
 
 /// Everything the TUI shows.
@@ -455,6 +459,10 @@ pub struct App {
     pub nick_order: ScrapeOrder,
     /// How many nicks to keep after the filter. `None` keeps all of them.
     pub nick_limit: Option<usize>,
+    /// Colour output for this run. `always` ignores NO_COLOR.
+    pub color_mode: ColorMode,
+    /// NO_COLOR was set when the terminal UI started.
+    pub no_color: bool,
 }
 
 fn nick_label(q: &str) -> String {
@@ -489,7 +497,7 @@ impl App {
         let mut app = App {
             store, nicks: Vec::new(), all_nicks: Vec::new(), nick_filter: Default::default(), filter_editing: false, nick_cursor: 0, nick_offset: 0, selected: Vec::new(),
             base: BodyView::default(), search: None, focus: Focus::Nicks,
-            menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
+            menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false, path_matches: Vec::new(), path_at: 0 },
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
@@ -497,6 +505,7 @@ impl App {
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None,
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
+            color_mode: ColorMode::Auto, no_color: false,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -1184,6 +1193,7 @@ impl App {
         self.menu.menu.set_choice(CommandId::View, "nick_order", crate::tui::order::order_choice(self.nick_order));
         self.menu.menu.set_text(CommandId::View, "nick_limit", &self.nick_limit.map(|n| n.to_string()).unwrap_or_default());
         self.menu.menu.set_choice(CommandId::Search, "order", crate::tui::order::order_choice(self.orders.search));
+        self.menu.menu.set_choice(CommandId::View, "color", color_choice(self.color_mode));
         let kind = self.view().kind;
         if kind != crate::tui::order::ListKind::Edits {
             self.menu.menu.set_choice(CommandId::View, "list_order", crate::tui::order::order_choice(self.orders.get(kind)));
@@ -1258,6 +1268,16 @@ impl App {
                     self.push_status(format!("{}. Help: nick-order", crate::tui::order::result_status(&nick_label(&self.nick_filter.value), shown, total, self.nick_order, self.nick_limit.is_some())));
                 }
             }
+            (View, "color") => {
+                let mode = color_from_choice(self.menu.menu.choice(View, "color"));
+                if self.color_mode != mode {
+                    self.color_mode = mode;
+                    apply_color_mode(mode);
+                    self.persist_color_mode();
+                    if self.color_hint().is_some() { self.note_no_color(); }
+                    else { self.push_status(format!("colour: {mode}. Help: color")); }
+                }
+            }
             (Search, "order") => {
                 let order = crate::tui::order::order_from_choice(self.menu.menu.choice(Search, "order"));
                 if self.view().kind == crate::tui::order::ListKind::Search {
@@ -1319,6 +1339,22 @@ impl App {
         let h = match topic { Some(t) if !t.is_empty() => crate::tui::modals::HelpModal::topic(t), _ => crate::tui::modals::HelpModal::new() };
         self.modal = Some(Modal::Help(h));
     }
+    /// Write `[ui] color` when the TUI has a real preferences file (not a unit test).
+    fn persist_color_mode(&mut self) {
+        if self.themes_dir.is_none() { return; }
+        if let Err(e) = crate::auth::prefs::save_ui_color(self.color_mode.as_str()) {
+            self.push_status(format!("error: could not save colour: {e:#}"));
+        }
+    }
+    /// The NO_COLOR hint, when colours are off because of it.
+    pub fn color_hint(&self) -> Option<&'static str> { no_color_hint(self.color_mode, self.no_color) }
+    /// Say so on the status line. Skips a repeat of the same line.
+    pub fn note_no_color(&mut self) {
+        let Some(h) = self.color_hint() else { return };
+        if self.status.back().is_some_and(|s| s == h) { return; }
+        self.push_status(h);
+    }
+
     /// The highlighted menu option's Help topic, when it has one.
     pub fn menu_help_topic(&self) -> Option<&'static str> {
         let i = self.menu.open?;

@@ -31,6 +31,7 @@ impl App {
                 self.theme_fault = None;
                 self.apply_theme(t);
                 if persist { self.effects.push(Effect::SaveUiTheme(name.to_string())); }
+                self.note_no_color();
                 true
             }
             Err(e) => {
@@ -41,6 +42,7 @@ impl App {
                 self.apply_theme(Theme::reset());
                 self.push_status(format!("warning: {n}"));
                 self.modal = Some(Modal::Message(MessageModal::error("Theme", &n)));
+                self.note_no_color();
                 false
             }
         }
@@ -55,7 +57,7 @@ impl App {
     /// Read the selected theme's file again.
     pub fn reload_theme(&mut self) {
         let n = self.theme_name.clone();
-        if self.use_theme(&n, false) { self.push_status(format!("theme {n} reloaded")); }
+        if self.use_theme(&n, false) { self.push_status(format!("theme {n} reloaded")); self.note_no_color(); }
     }
 
     /// Every theme file, for the picker.
@@ -65,6 +67,7 @@ impl App {
     pub fn open_theme_picker(&mut self) {
         let entries = self.theme_entries();
         self.modal = Some(Modal::ThemePicker(Box::new(ThemePickerModal::new(entries, &self.theme_name, self.theme))));
+        self.note_no_color();
     }
 
     /// Show the highlighted picker entry (without selecting it).
@@ -96,6 +99,7 @@ impl App {
         if self.themes_dir.is_none() { self.error("Theme editor", "no themes folder (~/.acp/themes)"); return; }
         let name = self.theme_name.clone();
         self.theme_editor = Some(Box::new(crate::tui::editor::ThemeEditor::open(self, &name)));
+        self.note_no_color();
     }
 
     /// Show every theme file in a message.

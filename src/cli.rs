@@ -188,9 +188,12 @@ pub struct Args {
     /// Allow writes after the site's script URL changes from the one stored in `site_state`.
     #[arg(long, help_heading = "Writing")]
     pub accept_site_update: bool,
-    /// Local file for `--new-post` or `--reply`. Repeat for more than one. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. `--dry-run` lists them and does not upload. A confirmed publish still does not send.
+    /// Local file for `--new-post` or `--reply`. Repeat for more than one. Every file stays on the local copy, including audio and documents. Red Star takes up to 4 images or videos (image/* and video/*) on the site copy; other types stay local. `--dry-run` lists them and does not upload. A confirmed publish still does not send. See --site-attachments
     #[arg(long, value_name = "PATH", help_heading = "Writing")]
     pub attachment: Vec<PathBuf>,
+    /// Which `--attachment` files go to Red Star. LIST is 1-based indexes, comma-separated, for example 1,3,5,6. At most 4, and each index has to be an image or a video. Naming an audio file, a pdf, or another type is an error that names that file. Omit it and the first 4 images or videos are the site copy; other types are skipped. A notice names files left off when there are more than 4 images or videos.
+    #[arg(long, value_name = "LIST", value_parser = parse_site_attachments, help_heading = "Writing")]
+    pub site_attachments: Option<SiteAttachmentList>,
     /// Guided capture of one reply. Documented in architecture/PLAN-3.0-CLIENT.md. Does not publish.
     #[arg(long, value_name = "THREAD", hide = true)]
     pub capture_reply: Option<String>,
@@ -210,6 +213,9 @@ pub struct Args {
     /// Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file.
     #[arg(long, value_name = "NAME", help_heading = "Interface")]
     pub theme_starter: Option<String>,
+    /// Colour output. auto follows NO_COLOR (a non-empty value turns colours off). always forces colours on, even when NO_COLOR is set. never turns colours off. Omitted: [ui] color in preferences.toml, or auto.
+    #[arg(long, value_name = "WHEN", value_parser = parse_color_mode, help_heading = "Interface")]
+    pub color: Option<ColorMode>,
     /// Scrape headlessly, without the terminal UI (what a bare invocation did before 2.0). Asks for nicks when no --nick/--nicks is given. Implied by any other scraping flag.
     #[arg(long, help_heading = "Scraping")]
     pub scrape: bool,
@@ -596,6 +602,111 @@ impl std::fmt::Display for FeedMode {
 /// A parsed `--nicks` list: `@` stripped, trimmed, deduplicated case-insensitively.
 pub struct NickList(pub Vec<String>);
 
+/// Whether coloured output is forced on, forced off, or left to NO_COLOR.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ColorMode {
+    /// Follow NO_COLOR. A non-empty value turns colours off.
+    #[default]
+    Auto,
+    /// Colours on, even when NO_COLOR is set.
+    Always,
+    /// Colours off.
+    Never,
+}
+
+impl ColorMode {
+    /// `auto`, `always`, or `never`. Case does not matter.
+    pub fn parse(s: &str) -> std::result::Result<Self, String> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "auto" => Ok(Self::Auto),
+            "always" => Ok(Self::Always),
+            "never" => Ok(Self::Never),
+            _ => Err(format!("--color must be auto, always, or never, not {s:?}")),
+        }
+    }
+    /// The preferences and menu spelling.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Auto => "auto",
+            Self::Always => "always",
+            Self::Never => "never",
+        }
+    }
+}
+
+impl std::fmt::Display for ColorMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.as_str()) }
+}
+
+/// Menu label for `mode`.
+pub fn color_choice(mode: ColorMode) -> &'static str {
+    match mode {
+        ColorMode::Auto => "Auto",
+        ColorMode::Always => "Always",
+        ColorMode::Never => "Never",
+    }
+}
+
+/// `Auto`, `Always`, or `Never` from a menu choice. Anything else is auto.
+pub fn color_from_choice(choice: &str) -> ColorMode {
+    ColorMode::parse(choice).unwrap_or_default()
+}
+
+/// Flag wins. Otherwise `[ui] color`. Otherwise auto.
+pub fn resolve_color_mode(flag: Option<ColorMode>, pref: Option<&str>) -> ColorMode {
+    if let Some(mode) = flag { return mode; }
+    pref.and_then(|s| ColorMode::parse(s).ok()).unwrap_or_default()
+}
+
+/// NO_COLOR is set to a non-empty value (<https://no-color.org/>).
+pub fn no_color_set() -> bool {
+    std::env::var("NO_COLOR").ok().is_some_and(|v| !v.is_empty())
+}
+
+/// Colours are off for this mode when `no_color` is the NO_COLOR check.
+pub fn colors_suppressed(mode: ColorMode, no_color: bool) -> bool {
+    match mode {
+        ColorMode::Always => false,
+        ColorMode::Never => true,
+        ColorMode::Auto => no_color,
+    }
+}
+
+/// Shown when NO_COLOR is set and colours are off.
+pub const NO_COLOR_HINT: &str = "NO_COLOR is set, so colours are off (use --color always). Help: color";
+
+/// The hint, when NO_COLOR is set and this mode leaves colours off.
+pub fn no_color_hint(mode: ColorMode, no_color: bool) -> Option<&'static str> {
+    (no_color && colors_suppressed(mode, no_color)).then_some(NO_COLOR_HINT)
+}
+
+static COLOR_MODE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+fn color_mode_code(mode: ColorMode) -> u8 {
+    match mode { ColorMode::Auto => 0, ColorMode::Always => 1, ColorMode::Never => 2 }
+}
+
+/// The mode last passed to [`apply_color_mode`]. Auto until then.
+pub fn current_color_mode() -> ColorMode {
+    match COLOR_MODE.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => ColorMode::Always,
+        2 => ColorMode::Never,
+        _ => ColorMode::Auto,
+    }
+}
+
+/// Apply `mode` for this process. `always` forces colour on. `never` forces it off.
+/// `auto` follows NO_COLOR. Call this before `enable_raw_mode`.
+pub fn apply_color_mode(mode: ColorMode) {
+    COLOR_MODE.store(color_mode_code(mode), std::sync::atomic::Ordering::Relaxed);
+    let enabled = match mode {
+        ColorMode::Always => true,
+        ColorMode::Never => false,
+        ColorMode::Auto => !no_color_set(),
+    };
+    crossterm::style::force_color_output(enabled);
+}
+
 /// `--profile-feed` is `newest` or `top`.
 pub fn parse_profile_feed(s: &str) -> std::result::Result<ProfileFeed, String> {
     ProfileFeed::parse(s)
@@ -604,6 +715,48 @@ pub fn parse_profile_feed(s: &str) -> std::result::Result<ProfileFeed, String> {
 /// `--order` is `newest` or `oldest`.
 pub fn parse_scrape_order(s: &str) -> std::result::Result<ScrapeOrder, String> {
     ScrapeOrder::parse(s)
+}
+
+/// 0-based attachment indexes chosen for the Red Star copy (`--site-attachments`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SiteAttachmentList(pub Vec<usize>);
+
+impl std::ops::Deref for SiteAttachmentList {
+    type Target = [usize];
+    fn deref(&self) -> &Self::Target { &self.0 }
+}
+
+/// `--site-attachments`: 1-based indexes, at most [`SITE_MAX_ATTACHMENTS`], no duplicates. Stored 0-based.
+pub fn parse_site_attachments(s: &str) -> std::result::Result<SiteAttachmentList, String> {
+    let max = SITE_MAX_ATTACHMENTS;
+    if s.trim().is_empty() {
+        return Err(format!("--site-attachments needs a list such as 1,3,5,{max}"));
+    }
+    let mut out = Vec::new();
+    let mut seen = HashSet::new();
+    for tok in s.split(',') {
+        let tok = tok.trim();
+        if tok.is_empty() {
+            return Err("--site-attachments needs numbers separated by commas".into());
+        }
+        let n: usize = tok.parse().map_err(|_| format!("--site-attachments needs numbers, not {tok:?}"))?;
+        if n == 0 {
+            return Err("attachment indexes start at 1".into());
+        }
+        if !seen.insert(n) {
+            return Err(format!("attachment {n} is listed twice"));
+        }
+        out.push(n - 1);
+    }
+    if out.len() > max {
+        return Err(format!("Red Star allows {max} attachments on the site copy; {} were listed", out.len()));
+    }
+    Ok(SiteAttachmentList(out))
+}
+
+/// `--color` is `auto`, `always`, or `never`.
+pub fn parse_color_mode(s: &str) -> std::result::Result<ColorMode, String> {
+    ColorMode::parse(s)
 }
 
 /// `--limit` must be a whole number of at least 1.

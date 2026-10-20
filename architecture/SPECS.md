@@ -470,6 +470,10 @@ binary. If binary size becomes an issue later, revisit. *Agreed.*
 5. Quit while a scan runs: block quit, or confirm and detach/cancel?
     1. Detach and run the scan in a background process (fork) on the machine
 
+## Colour output (3.x)
+
+Approved 2026-10-19. `--color auto|always|never`, default `auto`. `auto` follows [NO_COLOR](https://no-color.org/): a non-empty value drops foreground and background colour and leaves bold, dim, and underline. `always` forces colour on. `never` forces it off. `[ui] color` in `~/.acp/preferences.toml` is the default when the flag is omitted. The flag wins. When NO_COLOR is set and colours are off, the terminal UI says so on the status line, in the theme picker, and in the theme editor, including when a theme is chosen or edited.
+
 ## Acceptance sketch (for when we implement)
 
 - No flags → TUI; Body empty-state or last nick; Help modal shows real clap help

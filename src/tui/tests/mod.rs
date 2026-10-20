@@ -23,6 +23,8 @@ mod views;
 mod history;
 mod nick_filter;
 mod order;
+mod site_attachments;
+mod color;
 mod reads;
 mod session;
 mod theming;
@@ -48,7 +50,7 @@ pub fn fixture() -> MemStore {
         post("ALICE0003", "BOB000001", "BOB000001", "alice", "2026-10-02T11:00:00Z", "Agreed with bob"),
         post("BOB000002", "ALICE0001", "ALICE0001", "bob", "2026-10-01T12:00:00Z", "Reply to alice"),
     ], atts: vec![Attachment { post_id: "ALICE0001".into(), url: "https://media.acp.us/x.jpg".into(), kind: "image".into(),
-        local_path: PathBuf::from("/nonexistent/x.jpg"), mime_type: "image/jpeg".into() }], marks: vec!["BOB000002".into()], ..MemStore::default() }
+        local_path: PathBuf::from("/nonexistent/x.jpg"), mime_type: "image/jpeg".into(), on_site: true }], marks: vec!["BOB000002".into()], ..MemStore::default() }
 }
 
 impl Theme {

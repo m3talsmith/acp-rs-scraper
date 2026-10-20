@@ -305,18 +305,56 @@ pub fn load_profiles_mentions(db: &std::path::Path, nicks: &[String]) -> Result<
     Ok((profiles, hits))
 }
 
+/// Create `attachments` if missing and add `on_site` on tables from before the site subset.
+pub fn ensure_attachments_schema(c: &Connection) -> Result<()> {
+    c.execute_batch(ATTACHMENTS_SCHEMA)?;
+    if !attachments_have_on_site(c) {
+        c.execute_batch(ATTACHMENTS_ADD_ON_SITE)?;
+    }
+    Ok(())
+}
+
+/// `true` when `attachments.on_site` is already a column.
+pub fn attachments_have_on_site(c: &Connection) -> bool {
+    c.query_row("SELECT count(*) FROM pragma_table_info('attachments') WHERE name = 'on_site'", [], |r| r.get::<_, i64>(0)).unwrap_or(0) > 0
+}
+
+/// One attachment row. Column 5 is `on_site` (0 or 1).
+pub fn attachment_from_row(r: &rusqlite::Row) -> rusqlite::Result<Attachment> {
+    Ok(Attachment {
+        post_id: r.get(0)?, url: r.get(1)?, kind: "file".into(),
+        local_path: PathBuf::from(r.get::<_, String>(2)?), mime_type: r.get(3)?,
+        on_site: r.get::<_, i64>(4)? != 0,
+    })
+}
+
+/// Mark which stored files of `post_id` are on the site copy.
+/// Paths in `on_site` get `on_site = 1`. Every other attachment of that post gets `0`.
+pub fn set_post_site_attachments(db: &Path, post_id: &str, on_site: &[PathBuf]) -> Result<()> {
+    let mut c = open_db(db)?;
+    ensure_attachments_schema(&c)?;
+    let tx = c.transaction()?;
+    tx.execute("UPDATE attachments SET on_site = 0 WHERE post_id = ?1", params![post_id])?;
+    {
+        let mut st = tx.prepare("UPDATE attachments SET on_site = 1 WHERE post_id = ?1 AND local_path = ?2")?;
+        for p in on_site {
+            st.execute(params![post_id, p.to_string_lossy()])?;
+        }
+    }
+    tx.commit()?;
+    Ok(())
+}
+
 /// Insert or update attachment rows. A row whose URL differs from a stored one
 /// only in its query string (a fresh presigned link to the same file) replaces it.
 pub fn save_attachments(db: &Path, atts: &[Attachment]) -> Result<()> {
     let mut c = open_db(db)?;
-    c.execute_batch(
-        ATTACHMENTS_SCHEMA,
-    )?;
+    ensure_attachments_schema(&c)?;
     let tx = c.transaction()?;
     {
         let mut st = tx.prepare(
-            "INSERT INTO attachments (post_id,url,local_path,mime_type) VALUES (?1,?2,?3,?4)
-             ON CONFLICT(post_id,url) DO UPDATE SET local_path=excluded.local_path, mime_type=excluded.mime_type")?;
+            "INSERT INTO attachments (post_id,url,local_path,mime_type,on_site) VALUES (?1,?2,?3,?4,?5)
+             ON CONFLICT(post_id,url) DO UPDATE SET local_path=excluded.local_path, mime_type=excluded.mime_type, on_site=excluded.on_site")?;
         let mut old = tx.prepare("SELECT id,url FROM attachments WHERE post_id = ?1 AND url <> ?2")?;
         let mut del = tx.prepare("DELETE FROM attachments WHERE id = ?1")?;
         for a in atts {
@@ -325,7 +363,7 @@ pub fn save_attachments(db: &Path, atts: &[Attachment]) -> Result<()> {
                 .filter(|(_, u)| crate::media::canonical_url(u) == crate::media::canonical_url(&a.url))
                 .map(|(id, _)| id).collect();
             for id in stale { del.execute(params![id])?; }
-            st.execute(params![a.post_id, a.url, a.local_path.to_string_lossy(), a.mime_type])?;
+            st.execute(params![a.post_id, a.url, a.local_path.to_string_lossy(), a.mime_type, i64::from(a.on_site)])?;
         }
     }
     tx.commit()?;
@@ -375,15 +413,13 @@ fn attachments_for(c: &Connection, out: &[Post]) -> Result<Vec<Attachment>> {
     let mut atts = Vec::new();
     let has_att: bool = c.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='attachments'", [], |r| r.get::<_, i64>(0))? > 0;
     if has_att {
+        ensure_attachments_schema(c)?;
         // Newest row first; older rows for the same file (stale presigned links
         // stored before 1.26.1) are skipped so each file is exported once.
-        let mut st = c.prepare("SELECT post_id,url,local_path,mime_type FROM attachments WHERE post_id = ?1 ORDER BY id DESC")?;
+        let mut st = c.prepare("SELECT post_id,url,local_path,mime_type,on_site FROM attachments WHERE post_id = ?1 ORDER BY id DESC")?;
         let mut seen_att: HashSet<(String, String)> = HashSet::new();
         for p in out {
-            for a in st.query_map(params![p.post_id], |r| Ok(Attachment {
-                post_id: r.get(0)?, url: r.get(1)?, kind: "file".into(),
-                local_path: PathBuf::from(r.get::<_, String>(2)?), mime_type: r.get(3)?,
-            }))? {
+            for a in st.query_map(params![p.post_id], attachment_from_row)? {
                 let a = a?;
                 if !seen_att.insert((a.post_id.clone(), crate::media::canonical_url(&a.url).to_string())) { continue; }
                 if a.local_path.exists() { atts.push(a); } else { log_error(format_args!("warning: missing attachment file {}", a.local_path.display())); }

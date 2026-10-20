@@ -2,6 +2,8 @@
 
 Run `acp-rs-scraper` with no flags (or `--tui`) for the [terminal UI](#terminal-ui). With flags, `acp-rs-scraper` logs in to the Red Star forum (https://acp.us/rs) as Firefox and scrapes one or more nicks' posts, the replies in their threads, the posts that mention them, and their profiles into a local SQLite database. It downloads attachments and exports to JSON or HTML, optionally compressed. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` run offline.
 
+**v3 pre-launch write-up (historical draft, coming soon):** [redstar-v3-prelaunch-post.md](history/v3/redstar-v3-prelaunch-post.md). The launch post, [redstar-v3-launch-post.md](history/v3/redstar-v3-launch-post.md), stays unpublished until 3.x has shipped. At the 3.0 release, switch this link to the launch post.
+
 - [Install and build](#install-and-build)
 - [Terminal UI](#terminal-ui)
 - [First run and login](#first-run-and-login)
@@ -91,7 +93,7 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
-  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; ◂ Previous post / Next post ▸ (TUI only) |
+  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; Colour; ◂ Previous post / Next post ▸ (TUI only) |
   | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked |
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
@@ -130,7 +132,9 @@ The workspace also builds `acp_rs_node_core`, the library that holds the account
   that post or reply to the basket (`✓` = in it; click again to take it out). Export › Show basket
   lists it (`<` back), Export basket writes it with Export's Path / Format / Name / Compress
   (`--export PATH --post-ids …`), Clear basket empties it; Export › From also has a Basket choice.
-  The basket lives for the TUI session.
+  The basket lives for the TUI session. Export › Path, Import › Path, Research › Export to,
+  Research › Local file, and Start Scanning › Output file complete a real path on Tab
+  (`~` becomes `~/`). The job expands `~` before it runs, because it is not a shell.
 - **Research:** a `◈` button left of the basket button on every card and detail (click, or `r`)
   opens the research picker: **Add** (‹ › chooses: this post or reply, the posts it links, its
   attachment files, the web pages in its body, or all posts of the view / the search results),
@@ -209,6 +213,12 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
   (`OSC 11`), else dark. `--theme NAME` overrides for one run; `--list-themes`
   lists them.
+- **Colour.** `--color auto|always|never`. `auto` (the default) follows `NO_COLOR`: a non-empty value
+  turns colours off and leaves bold, dim, and underline. `always` forces colours on, which is what a
+  recording needs when the shell exported `NO_COLOR=1`. `never` turns colours off. `[ui] color` in
+  `preferences.toml` is used when the flag is omitted. View › Colour sets it and remembers it.
+  When `NO_COLOR` is set and colours are off, the status line, the theme picker, and the theme editor
+  say `NO_COLOR is set, so colours are off (use --color always)`. `?` on View › Colour opens that Help topic.
 - **Format v1.**
 
   ```toml
@@ -545,7 +555,7 @@ acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.ht
 acp-rs-scraper --export db --format html --format json                               # db.html + db.json
 ```
 
-An archive contains `<name>/<name>.<ext>` (one per format) and `<name>/attachments/`. It's written to `--output`, or to `~/.acp/ai/data/exports/<name>.tar.gz` by default. `--tar-gz` is the only format for now. Once the archive is written, the uncompressed `<name>/` folder is removed; if compression fails it is left in place.
+An archive contains `<name>/<name>.<ext>` (one per format) and `<name>/attachments/`. It's written to `--output` or `--export`. A path that already ends in `.tar.gz` or `.tgz` is that file. A directory, or a path ending in `/`, gets `<dir>/<export-name>.tar.gz` (the export name, as a file name: `Resonance Cosmos` becomes `resonance-cosmos.tar.gz`). Any other path gets `.tar.gz` appended, so a bare name such as `resonance-cosmos` becomes `resonance-cosmos.tar.gz` instead of failing with "Is a directory". The success log prints `wrote <final path>`. With no path, the archive is `~/.acp/ai/data/exports/<name>.tar.gz`. `--tar-gz` is the only format for now. Once the archive is written, the uncompressed `<name>/` folder is removed; if compression fails it is left in place. The terminal UI expands a leading `~` or `~/` on Export › Path before it starts that export.
 
 ### Debug
 
@@ -687,7 +697,8 @@ CREATE TABLE attachments (        -- unique (post_id, url)
   post_id TEXT NOT NULL,
   url TEXT NOT NULL,
   local_path TEXT NOT NULL,
-  mime_type TEXT NOT NULL
+  mime_type TEXT NOT NULL,
+  on_site INTEGER NOT NULL DEFAULT 1  -- 1 when this file is on the Red Star copy (at most 4)
 );
 
 CREATE TABLE mentions (           -- unique (post_id, mentioned_nick, match_type)
@@ -828,7 +839,7 @@ CREATE TABLE research_items (
 
 In the terminal UI, `n` opens New post. On an open post, `r` replies (a comment pre-fills the reference) and `Q` quotes that post. The button under the cursor starts on Cancel. Publish checks the body locally and then stops: the guided capture of a real reply has not confirmed the payload, so nothing is sent. `--dry-run` prints the same frames and opens no connection. A confirmed attempt starts the 30 second gap even when that send is refused. `--dry-run` does not start the gap.
 
-3.5.0 adds local attachments on that same compose box. The attach line takes a path; Enter adds the file, and Backspace on an empty line removes the last one. Tab on a non-empty line completes the next real directory entry. `~` becomes `~/`. `~/…` is completed under the home directory and keeps the `~/` prefix on the line; the stored path is expanded. `~user` is not completed. A name starting with `.` is offered only when the prefix starts with `.`. One match fills the line (a directory ends with `/`). Several matches stay listed: Tab, Up, and Down move the highlight, Enter writes that path and does not attach it yet, and Esc clears the list and stays on the line. A Tab that changes nothing moves to the next field, including a second Tab on a file that is already complete, and a second Tab on a completed directory lists what is inside it. An empty attach line still moves focus. `--attachment PATH` repeats for `--new-post` and `--reply`. The shell completes that flag; Tab completion is the compose box. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment (`file_attachments` in the plan; the others are `media_attachments`). `--dry-run` prints that list and does not upload. The upload channel (`allow_upload`, `lvu`) has not been captured, so those inputs are not encoded and no file bytes are sent. A confirmed publish still does not send `validate` or `save`.
+3.5.0 adds local attachments on that same compose box. The attach line takes a path; Enter adds the file, and Backspace on an empty line removes the last one. Tab on a non-empty line completes the next real directory entry. `~` becomes `~/`. `~/…` is completed under the home directory and keeps the `~/` prefix on the line; the stored path is expanded. `~user` is not completed. A name starting with `.` is offered only when the prefix starts with `.`. One match fills the line (a directory ends with `/`). Several matches stay listed: Tab, Up, and Down move the highlight, Enter writes that path and does not attach it yet, and Esc clears the list and stays on the line. A Tab that changes nothing moves to the next field, including a second Tab on a file that is already complete, and a second Tab on a completed directory lists what is inside it. An empty attach line still moves focus. `--attachment PATH` repeats for `--new-post` and `--reply`. The shell completes that flag; Tab completion is the compose box. Any file can be attached locally, including audio and documents. Images and videos are `media_attachments` in the plan; other types are `file_attachments`. `--dry-run` prints that list and does not upload. The upload channel (`allow_upload`, `lvu`) has not been captured, so those inputs are not encoded and no file bytes are sent. A confirmed publish still does not send `validate` or `save`. The app, the archive, and the network keep every file. Red Star takes up to 4 images or videos on the site copy (`image/*` and `video/*`). Audio, documents, and other types stay on the local copy and are never sent. More than 4 images or videos, with no choice, keeps the first 4 of those and skips anything else; a notice names the files left off. `--site-attachments 1,3,5,6` (1-based, at most 4, no duplicates) chooses which images or videos are that site copy. An index that names an audio file or another ineligible type fails and names that file. In the compose box the same choice is a picker: Space toggles an image or a video, other types are greyed out with the reason, a fifth check is refused, Enter confirms, Esc returns to Publish without sending. `?` opens the `site-attachments` Help topic. Each attachment row stores `on_site`; a row from before that column counts as on the site. Export JSON includes `"on_site"`.
 
 ```bash
 acp-rs-scraper --new-post "Title" --body "hello **world**" --attachment photo.jpg --dry-run
