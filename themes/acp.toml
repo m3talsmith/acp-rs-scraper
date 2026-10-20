@@ -1,0 +1,140 @@
+# acp-red-star theme, format v1. See docs/USAGE.md (Themes).
+# The American Communist Party site (acp.us) is light-first. [light] is that
+# look: blush page #fff1f1 (the radial wash from #ffcdcd/#ffd7d7 to white),
+# black wordmark #000000, logo red #c01c1c, white donate chip, pink-grey
+# rules. The sampled map grey #ccb3b3 is too light for text; muted is that
+# pink-grey darkened until it clears WCAG AA. [dark] is black with blush text,
+# the same red, and the site blush #ffcdcd as secondary text. The site has no metallic accent.
+version = 1
+name = "acp"
+description = "American Communist Party: ACP red, black and white on blush pink"
+
+[dark.palette]
+accent = "#c01c1c"
+muted = "#ffcdcd"
+border = "#6e3a3a"
+on_accent = "#ffffff"
+fg = "#fff1f1"
+bg = "#000000"
+paper = "#2a1212"
+
+[dark.styles.bold]
+fg = "@fg"
+
+[dark.styles.accent_bold]
+fg = "@fg"
+
+[dark.styles.link]
+fg = "@accent"
+underline = true
+
+[dark.styles.bar]
+fg = "@fg"
+bg = "@bg"
+
+[dark.styles.button]
+fg = "@fg"
+bg = "@paper"
+bold = true
+
+[dark.styles.dialog]
+bg = "@paper"
+border = "@border"
+
+[dark.styles.selected]
+fg = "@on_accent"
+bg = "@accent"
+
+[dark.styles.post_tag]
+fg = "@on_accent"
+bg = "@accent"
+bold = true
+
+[dark.styles.reply_tag]
+fg = "@on_accent"
+bg = "@accent"
+bold = true
+
+[dark.styles.code]
+fg = "@muted"
+
+[dark.styles.card_focused]
+border = "@accent"
+
+# Markdown in post bodies ([light] uses these too unless it sets its own)
+[dark.styles.h1]
+fg = "@on_accent"
+bg = "@accent"
+bold = true
+
+[dark.styles.h2]
+bold = true
+
+[dark.styles.h3]
+fg = "@accent"
+bold = true
+
+[dark.styles.h4]
+bold = true
+italic = true
+
+[dark.styles.h5]
+fg = "@muted"
+bold = true
+
+[dark.styles.h6]
+fg = "@muted"
+italic = true
+
+[dark.styles.quote]
+fg = "@muted"
+border = "@border"
+italic = true
+
+[dark.styles.code_block]
+border = "@border"
+
+[dark.styles.list_marker]
+fg = "@accent"
+
+[dark.styles.task]
+fg = "@accent"
+bold = true
+
+[dark.styles.table]
+border = "@border"
+
+[dark.styles.table_header]
+fg = "@accent"
+bold = true
+
+[dark.styles.rule]
+fg = "@muted"
+
+[dark.styles.footnote]
+fg = "@muted"
+
+[light.palette]
+accent = "#c01c1c"
+muted = "#706262"
+border = "#c8a8a8"
+on_accent = "#ffffff"
+fg = "#000000"
+bg = "#fff1f1"
+paper = "#ffffff"
+
+[light.styles.bold]
+fg = "@fg"
+
+[light.styles.bar]
+fg = "@fg"
+bg = "@bg"
+
+[light.styles.dialog]
+bg = "@paper"
+border = "@border"
+
+[light.styles.post_tag]
+fg = "@on_accent"
+bg = "@accent"
+bold = true

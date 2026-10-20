@@ -6,6 +6,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`acp` theme.** A shipped theme matching the American Communist Party site (acp.us). The light variant is the site: blush `#fff1f1`, black `#000000`, ACP red `#c01c1c`, a white chip for buttons, and a pink-grey rule darkened from `#edc8c8` so it shows on the blush. Muted text is the map grey `#ccb3b3` darkened to `#706262` so it clears WCAG AA. H1 is white on red. The dark variant is black with blush text `#fff1f1`, the same red, and blush `#ffcdcd` for secondary text. There is no gold. `acp` is in the theme picker once the file is in `~/.acp/themes`; `--theme-init acp` downloads it. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
+
 ### Documentation
 
 - **Draft GitHub Releases.** A version that is not on `main` is a draft release, with the notes from its changelog section and no attached files. The maintainer publishes the draft after that version is merged. Releases for versions already on `main` (2.16.0 and earlier) are left alone. The post-commit hook still only creates the git tag. Nothing in CI publishes a release.

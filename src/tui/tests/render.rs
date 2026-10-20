@@ -24,6 +24,31 @@ fn click(a: &mut App, hit: Hit, mods: KeyModifiers) {
 fn key(a: &mut App, c: KeyCode) { on_key(a, KeyEvent::new(c, KeyModifiers::NONE)); }
 
 #[test]
+fn acp_theme_paints_light_and_dark() {
+    let (f, w) = crate::themes::parse(include_str!("../../../themes/acp.toml"), "acp").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    for (variant, page, logo) in [
+        (crate::themes::Variant::Light, ratatui::style::Color::Rgb(0xff, 0xf1, 0xf1), ratatui::style::Color::Rgb(0xc0, 0x1c, 0x1c)),
+        (crate::themes::Variant::Dark, ratatui::style::Color::Rgb(0x00, 0x00, 0x00), ratatui::style::Color::Rgb(0xc0, 0x1c, 0x1c)),
+    ] {
+        let theme = Theme::from_file(&f, variant);
+        let mut a = app();
+        a.theme = theme;
+        a.theme_name = "acp".into();
+        let (w, h) = (160u16, 45u16);
+        let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+        let now = Instant::now() + std::time::Duration::from_secs(5);
+        t.draw(|frame| crate::tui::widgets::draw(frame, &mut a, now)).unwrap();
+        let buf = t.backend().buffer().clone();
+        let s = (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n");
+        assert!(s.contains("‹acp› ▾"), "{variant:?}\n{s}");
+        assert_eq!(buf[(40, 0)].bg, page, "{variant:?} header matches the page, not a red bar");
+        assert_eq!(buf[(2, 1)].bg, logo, "{variant:?} logo");
+        assert_eq!(buf[(80, 20)].bg, page, "{variant:?} page");
+    }
+}
+
+#[test]
 fn base_layout_renders_title_menu_nicks_and_empty_state() {
     let mut a = app();
     let s = render(&mut a, 110, 30);

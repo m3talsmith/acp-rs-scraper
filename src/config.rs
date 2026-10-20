@@ -275,7 +275,7 @@ pub const THEME_DOWNLOAD_ENV: &str = "ACP_THEME_DOWNLOAD";
 /// How long a theme download may take.
 pub const THEME_DOWNLOAD_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 /// Themes in the repo's `themes/` that `--theme-init` and the palette offer by name.
-pub const SHIPPED_THEMES: &[&str] = &["default", "soviet", "constructivist", "cuba", "red-star", "chinese-poster", "plattenbau"];
+pub const SHIPPED_THEMES: &[&str] = &["default", "soviet", "constructivist", "cuba", "red-star", "chinese-poster", "plattenbau", "acp"];
 
 /// Download URL of theme `name`: [`THEME_URL_ENV`] (or [`THEME_DOWNLOAD_BASE`]) + `name.toml`.
 pub fn theme_download_url(name: &str) -> String {
