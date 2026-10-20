@@ -12,6 +12,8 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 <!-- TODO(3.0 release): switch the link above from the pre-launch post to docs/history/v3/redstar-v3-launch-post.md. Publish that launch post only when 3.x has fully shipped. -->
 
+**Build on this foundation.** The Cargo workspace has two crates. [`acp-red-star`](Cargo.toml) at the repository root is the terminal client and the `acp-red-star` binary. [`acp_red_star_node_core`](crates/acp_red_star_node_core) is the shared library for identity, canonical CBOR, and sealed secrets. The client depends on it. The list is in [docs/INSTALL.md](docs/INSTALL.md#workspace-crates).
+
 ## Breaking changes in 3.0.0
 
 3.0.0 encrypts the local database and requires a password of at least 8 characters that passes a strength check. A 2.x install does not.
@@ -39,7 +41,7 @@ The header of the terminal UI shows `v3.5.0`. Details are in [CHANGELOG.md](CHAN
 
 ## Install
 
-Every install builds from source. You need Rust 1.88 or newer (`rust-toolchain.toml` pins 1.88.0). rustc 1.85 cannot build this crate: edition 2024 is old enough, but a dependency uses let-chains and fails with `E0658`. The installer offers rustup if Rust is missing or too old.
+Source install uses `scripts/install.sh`. Every install builds from source. You need Rust 1.88 or newer (`rust-toolchain.toml` pins 1.88.0). rustc 1.85 cannot build this crate: edition 2024 is old enough, but a dependency uses let-chains and fails with `E0658`. The installer offers rustup if Rust is missing or too old. Binaries and alphas, once a release publishes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. This page links that index. An asset URL is added only after the file is published. An alpha, and separate server and relay installs, wait until writes and replies with attachments work and the decentralized network work is done. The server and the relay also stay options inside the app ([plan](architecture/PLAN-3.0-CLIENT.md)).
 
 ```sh
 git clone https://github.com/m3talsmith/acp-rs-scraper.git
@@ -840,7 +842,7 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 
 ## Releases
 
-A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.4.0. 3.5.0 stays a draft until that version is merged; publish it by hand after the merge. Releases for 2.16.0 and earlier stay as they were published. Drafts that already exist for versions now on `main` are left for the maintainer to publish.
+A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.4.0. 3.5.0 stays a draft until that version is merged; publish it by hand after the merge. Releases for 2.16.0 and earlier stay as they were published. Drafts that already exist for versions now on `main` are left for the maintainer to publish. Binaries and alphas, when a release publishes them, are listed on the [Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. An alpha waits until writes and replies with attachments work and the decentralized network work is done.
 
 `.githooks/post-commit` tags `vX.Y.Z` when the version in `Cargo.toml` changes. It does not create a GitHub Release, and no workflow publishes one. A release is created with `gh release create --draft`, notes from the matching [CHANGELOG.md](CHANGELOG.md) section, and no attached files. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
