@@ -1,5 +1,6 @@
 //! Modal rendering: dims the layout, then draws the modal with a small margin.
 
+use crate::auth::session::session_login_hint;
 use crate::branding::{slogan_style, SLOGAN, SLOGAN_COLS};
 use crate::cli::colors_suppressed;
 use crate::config::TUI_SUBTITLE;
@@ -304,7 +305,10 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             }
             if let Some(e) = &l.error { lines.push(Line::raw("")); lines.push(Line::styled(format!("✗ {e}"), t.accent_bold())); }
             lines.push(Line::raw(""));
-            lines.push(Line::styled("The session is saved in ~/.acp/session.json (mode 0600); browsing works offline without it.", t.muted()));
+            let hint_w = inner.width.saturating_sub(2).max(20) as usize;
+            for line in wrap(&session_login_hint(), hint_w) {
+                lines.push(Line::styled(line, t.muted()));
+            }
             f.render_widget(Paragraph::new(lines), Rect { height: inner.height.saturating_sub(2), ..inner });
             let labels: Vec<String> = if l.on_code_step() {
                 vec!["Verify".into(), "Resend code".into(), "Cancel".into()]
