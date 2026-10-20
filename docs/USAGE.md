@@ -220,8 +220,8 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 - **Themes in the repo.** `default` (ACP red on the terminal's colours), `soviet` (red and gold),
   `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (ACP Red
   Star brand: ink black, vermilion and gold, cream text, from the banner), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
-  accent), `rs` (Red Star site: near-black zinc with ACP red and vote gold); each has dark and
-  light variants with text contrast of at least 3:1. Only `default`
+  accent), `rs` (Red Star site: near-black zinc with ACP red and vote gold), `acp` (American Communist Party: ACP red, black and white on blush pink); each has
+  dark and light variants with text contrast of at least 3:1. Only `default`
   is downloaded automatically; get the rest with `--theme-init NAME` or `--theme-init all`.
 - **Choosing.** `[ui] theme = "name"` (written by the picker), `[ui] theme_mode = "dark" | "light"
   | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
