@@ -47,7 +47,20 @@ pub fn lv_render(node: &Value, root: &Value, comps: &Value, out: &mut String) {
         }
         Value::Object(_) => {
             let st = lv_statics(node, root, comps);
-            if let Some(rows) = node.get("d").and_then(Value::as_array) {
+            if let Some(k) = node.get("k").and_then(Value::as_object) {
+                // Keyed comprehension (`k` / `kc`). The code form can arrive here;
+                // skipping it leaves the client unable to see `user[code]`.
+                let count = k.get("kc").and_then(Value::as_u64).map(|n| n as usize).unwrap_or_else(|| {
+                    k.keys().filter_map(|key| key.parse::<usize>().ok()).map(|i| i + 1).max().unwrap_or(0)
+                });
+                for idx in 0..count {
+                    let row = k.get(&idx.to_string());
+                    for (i, s) in st.iter().enumerate() {
+                        out.push_str(s);
+                        if let Some(v) = row.and_then(|r| r.get(i.to_string())) { lv_render(v, root, comps, out); }
+                    }
+                }
+            } else if let Some(rows) = node.get("d").and_then(Value::as_array) {
                 for row in rows {
                     for (i, s) in st.iter().enumerate() {
                         out.push_str(s);
@@ -62,5 +75,21 @@ pub fn lv_render(node: &Value, root: &Value, comps: &Value, out: &mut String) {
             }
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keyed_comprehension_renders_each_entry() {
+        let root = json!({
+            "s": ["<li>", "</li>"],
+            "k": { "0": {"0": "one"}, "1": {"0": "user[code]"}, "kc": 2 }
+        });
+        let mut out = String::new();
+        lv_render(&root, &root, &json!({}), &mut out);
+        assert_eq!(out, "<li>one</li><li>user[code]</li>");
     }
 }
