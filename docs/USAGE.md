@@ -20,7 +20,7 @@ Run `acp-red-star` with no flags (or `--tui`) for the [terminal UI](#terminal-ui
 
 ## Install and build
 
-For distro packages (Arch, Debian, Fedora and derivatives), `scripts/install.sh` and uninstalling, see [INSTALL.md](INSTALL.md). Building by hand:
+For distro packages (Arch, Debian, Fedora and derivatives), `scripts/install.sh` and uninstalling, see [INSTALL.md](INSTALL.md). Published binaries and alphas, once a release includes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. Building by hand:
 
 You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus let-chains in the `scraper` dependency) (install with [rustup](https://rustup.rs)). SQLite is compiled in (rusqlite `bundled`) and TLS uses rustls, so there are no system libraries to install.
 
@@ -33,7 +33,7 @@ That build also writes `./target/release/acprs` and `./target/release/acp-rs-scr
 
 You can also run it through cargo with `cargo run --release -- <flags>`, or `cargo run --release --bin acprs -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
-The workspace also builds `acp_red_star_node_core`, the library that holds the account identity, canonical CBOR, and a secret-store interface. The `acp-red-star` binary is the terminal client and depends on that library. Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
+The workspace members are `acp-red-star` (repository root, the terminal client and binary) and `acp_red_star_node_core` (`crates/acp_red_star_node_core`), the library for account identity, canonical CBOR, and a secret-store interface. `acp_red_star_node_core` is `publish = false`. The binary depends on that library. The module list is in [INSTALL.md](INSTALL.md#workspace-crates). Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
 
 ## Terminal UI
 
@@ -100,6 +100,14 @@ The workspace also builds `acp_red_star_node_core`, the library that holds the a
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
+  The table is the bar that ships today. Before 3.x is finished it is reorganized, left to right, into View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, with Start Scanning still pinned on the right. Library keeps Export, Import, Basket, List, and Maintain. Bookmarks is its own menu: Show, Bookmark current, and Sync with acp.us. Search keeps local and site search, and search history (a past query, re-run when picked) joins that menu in its own minor. Sync keeps the local copy up to date (site sync, auto-sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is required, and it is not in 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
+
+  Hover tooltips are not built yet, and they wait until publish is no longer behind the capture gate. Before 3.x is finished, every button, menu item, and icon (the star, the basket, the research ◈, and the rest) shows a short explanation on hover, including its key when it has one, as in `Bookmark (b)`. Every action tooltip also includes a deep link to the Help topic for that particular action. Bookmark does not open the same page as Compose. One generic Help page for every tooltip does not count, and neither does a description alone. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.3.
+
+  Help stays on `?` and F1. Before 3.x is finished it becomes topics you can move between (Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the rest), with search inside Help. A help icon on the chrome opens the topic for that control. Every user-facing flag, menu command, menu option, and control needs a description there, and a tooltip. Today Help is one scroll of keys and the command-line help, and a menu row only shows its label plus a flag hint. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.4.
+
+  About is a required menu item beside Help (Account is an acceptable home). The menu has three segments: Credits (who worked on the project), Why this is necessary, and ACP platform. Choosing any segment opens the same modal, focused on that section, not a separate modal. ACP platform is the full American Communist Party Program (adopted October 12, 2024), a vendored copy with headings and scroll, and a link to <https://acp.us/program>. The same how-to-join link, <https://acp.us/join>, sits at the top and the bottom of that text only. Those links are chrome around the platform section, not a fourth section. It is not paraphrased. Each segment has a tooltip and a Help topic, and the tooltip deep-links to that segment. No other section is added. About is not on the bar today, and it is not built while publish stays behind the capture gate. A new-user walkthrough, `docs/GETTING-STARTED.md`, will cover the command line, the terminal prompts outside the TUI, and the TUI, and it will be the Getting started topic. The user-facing name for that docs pass is ACP Red Star. End-of-3.0 communications (a pitch, a demo, stickers, backgrounds, a cutscene in video and ASCII from licensed archival footage, and a comrades' forum post) wait until those docs exist. The forum post features the cutscene in both forms beside the pitch and the demo. A separate community-work video is also planned and is not the cutscene or the demo. The pre-launch / coming-soon draft is [docs/history/v3/redstar-v3-prelaunch-post.md](history/v3/redstar-v3-prelaunch-post.md). It is not the live forum post. At the 3.0 release, the README link switches to `docs/history/v3/redstar-v3-launch-post.md`. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.5.
+
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
   process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
   quitting asks whether to keep it running in the background (default) or cancel it.
@@ -147,7 +155,7 @@ The workspace also builds `acp_red_star_node_core`, the library that holds the a
   note, metadata and text; Enter opens one, its stored file is an attachment link), Add current
   post…, Add current view / search…, Local file + Add local file…, Web page URL + Add web page…,
   Google Drive / Telegram (pinned for later), Export to / Format / Compress + Export project
-  (`--research-export`).
+  (`--research-export`). Making **Add current view / search…** easier to find is required before 3.x is finished. It already queues the current list or search. Whether that should also mean an open thread's root and every loaded reply is still open, and no new key is assigned. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
 - **Sync:** Sync menu: Auto sync, Interval (minutes, default 15), Nicks (blank: selected), Mentions
   (off), Bookmarks (on), Sync now, Save as default (`[sync]` in `preferences.toml`). An automatic
   sync runs `--sync` as a background job when it's due and nothing else runs; it checks the saved
