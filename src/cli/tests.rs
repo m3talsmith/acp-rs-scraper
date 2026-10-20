@@ -191,6 +191,13 @@ fn generators_render() {
         let t = String::from_utf8(v).unwrap().replace("\\-", "-");
         assert!(t.contains("remove-nick"), "{g:?}");
     }
+    for g in [Generate::AcprsMan, Generate::AcprsBash, Generate::AcprsZsh, Generate::AcprsFish] {
+        let mut v = Vec::new();
+        generate(g, &mut v).unwrap();
+        let t = String::from_utf8(v).unwrap().replace("\\-", "-");
+        assert!(t.contains("acprs"), "{g:?}: {t}");
+        assert!(t.contains("remove-nick"), "{g:?}");
+    }
 }
 
 #[test]

@@ -29,7 +29,9 @@ You need Rust 1.88 or newer (`rust-version` in Cargo.toml: edition 2024, plus le
     cargo build --release
     ./target/release/acp-red-star --help
 
-You can also run it through cargo with `cargo run --release -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
+That build also writes `./target/release/acprs` and `./target/release/acp-rs-scraper`. `acprs` is the same program. `cargo install --path .` installs all three, because cargo cannot create a symlink. `acprs --version` prints `acp-red-star` and the version. `acprs --help` uses `acprs` in the usage line, the same way `acp-rs-scraper --help` uses that name. `acp-rs-scraper` prints one deprecation line and then runs the same program, through version 3. `acprs` does not.
+
+You can also run it through cargo with `cargo run --release -- <flags>`, or `cargo run --release --bin acprs -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
 The workspace also builds `acp_red_star_node_core`, the library that holds the account identity, canonical CBOR, and a secret-store interface. The `acp-red-star` binary is the terminal client and depends on that library. Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
 

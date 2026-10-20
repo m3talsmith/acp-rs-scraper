@@ -24,6 +24,10 @@ path = "src/main.rs"
 name = "acp-rs-scraper"
 path = "src/bin/acp-rs-scraper.rs"
 
+[[bin]]
+name = "acprs"
+path = "src/bin/acprs.rs"
+
 [dependencies]
 anyhow = "1"
 acp_red_star_node_core = { path = "crates/acp_red_star_node_core" }
