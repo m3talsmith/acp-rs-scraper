@@ -32,10 +32,18 @@ pub fn is_path_field(id: CommandId, key: &str) -> bool {
 /// Menu bar items, left to right.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandId {
-    /// Scrape options (Start Scanning runs it).
+    /// Scrape options. Pinned beside Start Scanning, not a left-hand category.
     Scrape,
-    /// Offline search into the Body.
+    /// Offline search into the Body, and a site search of the same query.
     Search,
+    /// New post, Reply, and Quote.
+    Compose,
+    /// Export, Import, Basket, List, and Maintain.
+    Library,
+    /// People, nodes, and rooms. A stub until the network node.
+    Discover,
+    /// Show, add, export, and clear the export basket.
+    Basket,
     /// Dump the DB / selection to a file.
     Export,
     /// Import an export into the DB.
@@ -44,7 +52,7 @@ pub enum CommandId {
     List,
     /// Remove nicks / clear everything.
     Maintain,
-    /// Login / logout.
+    /// Login / logout. The bar label is Account.
     Session,
     /// Bookmarks: show, toggle, sync.
     Bookmarks,
@@ -161,6 +169,18 @@ pub enum Action {
     OpenExplore,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
+    /// Compose › New post.
+    NewPost,
+    /// Compose › Reply.
+    Reply,
+    /// Compose › Quote.
+    Quote,
+    /// Search the site with the Search menu's query (`--site-search`).
+    RunSiteSearch,
+    /// Open a menu that is not on the bar (Library › Export, and the rest).
+    OpenMenu(CommandId),
+    /// Discover has no network yet.
+    DiscoverLater,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -271,6 +291,10 @@ pub struct MenuCommand {
     pub opts: Vec<Opt>,
     /// Action of an option-less item.
     pub action: Option<Action>,
+    /// Drawn on the bar. Library's children stay off the bar and open from Library.
+    pub on_bar: bool,
+    /// Drawn in the right cluster, immediately left of Start Scanning.
+    pub pin_right: bool,
 }
 
 fn opt(key: &'static str, label: &'static str, flag: &'static str, required: bool, widget: Widget) -> Opt {
@@ -283,6 +307,18 @@ fn check(v: bool) -> Widget { Widget::Check(v) }
 fn text(v: &str) -> Widget { Widget::Text(TextField::new(v)) }
 fn choice(choices: &'static [&'static str]) -> Widget { Widget::Choice { choices, idx: 0 } }
 fn button(a: Action) -> Widget { Widget::Button(a) }
+fn shown(id: CommandId, label: &'static str, hint: char, opts: Vec<Opt>) -> MenuCommand {
+    MenuCommand { id, label, hint, opts, action: None, on_bar: true, pin_right: false }
+}
+fn shown_action(id: CommandId, label: &'static str, hint: char, action: Action) -> MenuCommand {
+    MenuCommand { id, label, hint, opts: vec![], action: Some(action), on_bar: true, pin_right: false }
+}
+fn tucked(id: CommandId, label: &'static str, hint: char, opts: Vec<Opt>) -> MenuCommand {
+    MenuCommand { id, label, hint, opts, action: None, on_bar: false, pin_right: false }
+}
+fn pinned(id: CommandId, label: &'static str, hint: char, opts: Vec<Opt>) -> MenuCommand {
+    MenuCommand { id, label, hint, opts, action: None, on_bar: true, pin_right: true }
+}
 
 /// Scrape feed choices for the mentions crawl (`--latest` / `--trending`).
 pub const MODE_CHOICES: &[&str] = &["Latest", "Trending"];
@@ -299,10 +335,192 @@ pub const SCOPE_CHOICES: &[&str] = &["Selected nicks", "Current view", "Everythi
 /// Site Top periods (`/rs/top?t=`). Week is first: the default.
 pub const TOP_PERIODS: &[&str] = &["week", "day", "month", "year", "all"];
 
+fn view_item() -> MenuCommand {
+    shown(CommandId::View, "View", 'v', vec![
+        opt("nested", "Nested", "v cycles", false, button(Action::SetView(ViewMode::Nested))),
+        opt("stack", "Stack", "", false, button(Action::SetView(ViewMode::Stack))),
+        opt("pane", "Stack + content pane", "", false, button(Action::SetView(ViewMode::Pane))),
+        opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
+        opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
+        opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
+        opt_topic("list_order", "Order", "Newest or oldest for this list. o toggles. Nested orders roots; replies stay in thread order.", "order", false, choice(ORDER_CHOICES)),
+        opt_topic("nick_order", "Nick order", "Newest or oldest nick by latest post. o toggles while Nicks is focused.", "nick-order", false, choice(ORDER_CHOICES)),
+        opt_topic("nick_limit", "Nick limit", "Keep this many nicks at the chosen end. Blank keeps all. The / filter runs first.", "nick-limit", false, text("")),
+        opt_topic("color", "Colour", "auto, always, or never. Same as --color", "color", false, choice(COLOR_CHOICES)),
+        opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
+        opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
+        opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
+        opt("eb_replies", "EB includes replies", "--eb-replies", false, check(false)),
+        opt("eb", "Executive Board", "--eb", false, button(Action::OpenEb)),
+        opt("explore_latest", "Explore latest", "--explore-latest", false, check(false)),
+        opt("explore", "Explore", "--explore", false, button(Action::OpenExplore)),
+        opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
+        opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
+    ])
+}
+
+fn search_item() -> MenuCommand {
+    shown(CommandId::Search, "Search", 'e', vec![
+        opt("query", "Query", "--search", true, text("")),
+        opt("nick", "Nick filter", "--nicks", false, text("")),
+        opt_topic("order", "Order", "Newest or oldest for these results. Same window as --order", "search-order", false, choice(ORDER_CHOICES)),
+        opt_topic("limit", "Limit", "Keep this many matches at the chosen end. Blank keeps all. Same as --limit", "search-limit", false, text("")),
+        opt("run", "Search", "", false, button(Action::RunSearch)),
+        opt("site", "Search the site", "--site-search", false, button(Action::RunSiteSearch)),
+        opt("advanced", "Advanced…", "Shift-S", false, button(Action::OpenSearchModal)),
+        opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
+    ])
+}
+
+fn compose_item() -> MenuCommand {
+    shown(CommandId::Compose, "Compose", 'c', vec![
+        opt("new", "New post", "n", false, button(Action::NewPost)),
+        opt("reply", "Reply", "r on an open post", false, button(Action::Reply)),
+        opt("quote", "Quote", "Q on an open post", false, button(Action::Quote)),
+    ])
+}
+
+fn library_item() -> MenuCommand {
+    use CommandId::*;
+    shown(Library, "Library", 'l', vec![
+        opt("export", "Export", "", false, button(Action::OpenMenu(Export))),
+        opt("import", "Import", "", false, button(Action::OpenMenu(Import))),
+        opt("basket", "Basket", "", false, button(Action::OpenMenu(Basket))),
+        opt("list", "List", "", false, button(Action::OpenMenu(List))),
+        opt("maintain", "Maintain", "", false, button(Action::OpenMenu(Maintain))),
+    ])
+}
+
+fn bookmarks_item() -> MenuCommand {
+    shown(CommandId::Bookmarks, "Bookmarks", 'b', vec![
+        opt("show", "Show bookmarks", "B · --list-bookmarks", false, button(Action::ShowBookmarks)),
+        opt("toggle", "Bookmark current post", "b · --bookmark / --unbookmark", false, button(Action::ToggleBookmark)),
+        opt("sync", "Sync with acp.us", "--sync-bookmarks", false, button(Action::SyncBookmarks)),
+    ])
+}
+
+fn research_item() -> MenuCommand {
+    shown(CommandId::Research, "Research", 'r', vec![
+        opt("project", "Project", "--research-add / --research-show NAME", false, text("")),
+        opt("projects", "Projects…", "--research-list · pick or create", false, button(Action::ResearchProjects)),
+        opt("show", "Show project", "--research-show", false, button(Action::ShowResearch)),
+        opt("add", "Add current post…", "r · --post-ids", false, button(Action::AddToResearch)),
+        opt("add_view", "Add current view / search…", "--search / --post-ids", false, button(Action::AddViewToResearch)),
+        opt("file", "Local file", "--file  Tab completes", false, text("")),
+        opt("add_file", "Add local file…", "--file", false, button(Action::AddFileToResearch)),
+        opt("url", "Web page URL", "--url", false, text("")),
+        opt("add_url", "Add web page…", "--url", false, button(Action::AddUrlToResearch)),
+        opt("gdrive", "Google Drive (coming later)", "pinned for later", false, button(Action::ComingLater(0))),
+        opt("telegram", "Telegram (coming later)", "pinned for later", false, button(Action::ComingLater(1))),
+        opt("export_path", "Export to", "--export  Tab completes", false, text("")),
+        opt("export_format", "Format", "--format", false, choice(FORMAT_CHOICES)),
+        opt("export_compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
+        opt("export", "Export project", "--research-export", false, button(Action::ExportResearch)),
+    ])
+}
+
+fn sync_item() -> MenuCommand {
+    shown(CommandId::Sync, "Sync", 'y', vec![
+        opt("auto", "Auto sync", "while the TUI is open", false, check(false)),
+        opt("interval", "Interval (minutes)", "", false, text(&TUI_SYNC_DEFAULT_MINUTES.to_string())),
+        opt("nicks", "Nicks", "--sync --nicks (blank: selected nicks)", false, text("")),
+        opt("mentions", "Mentions", "--no-mentions when off", false, check(false)),
+        opt("bookmarks", "Bookmarks", "--no-bookmarks when off", false, check(true)),
+        opt("now", "Sync now", "--sync", false, button(Action::SyncNow)),
+        opt("save", "Save as default", "~/.acp/preferences.toml [sync]", false, button(Action::SaveSyncPrefs)),
+    ])
+}
+
+fn discover_item() -> MenuCommand {
+    shown(CommandId::Discover, "Discover", 'g', vec![
+        opt("later", "People, nodes, and rooms", "with the network node", false, button(Action::DiscoverLater)),
+    ])
+}
+
+fn account_item() -> MenuCommand {
+    shown(CommandId::Session, "Account", 'n', vec![
+        opt("login", "Log in", "", false, button(Action::Login)),
+        opt("logout", "Log out", "--logout", false, button(Action::Logout)),
+    ])
+}
+
+fn debug_item(args: &Args) -> MenuCommand {
+    shown(CommandId::Debug, "Debug", 'd', vec![
+        opt("verbose", "Verbose", "-v", false, check(args.verbose)),
+        opt("debug", "Debug wire log", "--debug", false, check(args.debug)),
+        opt("logging", "Log to files", "--enable-logging", false, check(args.enable_logging)),
+        opt("show_log", "Show log panel", "l", false, button(Action::ToggleLog)),
+    ])
+}
+
+fn scrape_item() -> MenuCommand {
+    pinned(CommandId::Scrape, "Scrape", 's', vec![
+        opt("mode", "Mode", "--latest / --trending", false, choice(MODE_CHOICES)),
+        opt("nicks", "Nicks", "--nicks (blank: selected nicks)", true, text("")),
+        opt("mentions", "Mentions", "--no-mentions when off", false, check(true)),
+        opt("said_by", "Said by", "--said-by", false, check(false)),
+        opt("profile_feed", "Profile feed", "--profile-feed (default: newest)", false, choice(PROFILE_FEED_CHOICES)),
+        opt("order", "Order", "--order (default: newest)", false, choice(ORDER_CHOICES)),
+        opt("limit", "Post limit", "--limit (blank: whole profile)", false, text("")),
+        opt("crawl_limit", "Crawl limit", "--crawl-limit", false, text(&DEFAULT_CRAWL_LIMIT.to_string())),
+        opt("attachments", "Attachments", "--no-attachments when off", false, check(true)),
+        opt("full", "Full", "--full", false, check(false)),
+        opt("refetch", "Refetch truncated", "--refetch-truncated", false, check(false)),
+        opt("output", "Output file", "--output (blank: database only)  Tab completes", false, text("")),
+        opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
+        opt("start", "Start Scanning", "", false, button(Action::StartScan)),
+    ])
+}
+
+fn export_item() -> MenuCommand {
+    tucked(CommandId::Export, "Export", 'x', vec![
+        opt("path", "Path", "--export  Tab completes", true, text("")),
+        opt("scope", "From", "--nicks / --search", false, choice(SCOPE_CHOICES)),
+        opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
+        opt("name", "Name", "--name", false, text("")),
+        opt("compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
+        opt("run", "Export", "", false, button(Action::RunExport)),
+    ])
+}
+
+fn import_item() -> MenuCommand {
+    tucked(CommandId::Import, "Import", 'i', vec![
+        opt("path", "Path", "--import  Tab completes", true, text("")),
+        opt("compress", "Compressed tar.gz", "--compress --tar-gz", false, check(false)),
+        opt("run", "Import", "", false, button(Action::RunImport)),
+    ])
+}
+
+fn basket_item() -> MenuCommand {
+    tucked(CommandId::Basket, "Basket", 'k', vec![
+        opt("basket_add", "Add current post to basket", "x", false, button(Action::ToggleBasket)),
+        opt("basket_show", "Show basket", "", false, button(Action::ShowBasket)),
+        opt("basket_run", "Export basket", "--post-ids", false, button(Action::ExportBasket)),
+        opt("basket_clear", "Clear basket", "", false, button(Action::ClearBasket)),
+    ])
+}
+
+fn list_item() -> MenuCommand {
+    tucked(CommandId::List, "List", 'j', vec![
+        opt("refresh", "Refresh nicks", "--list-nicks", false, button(Action::RefreshNicks)),
+    ])
+}
+
+fn maintain_item() -> MenuCommand {
+    tucked(CommandId::Maintain, "Maintain", 'a', vec![
+        opt("nicks", "Remove nicks", "--remove-nick (blank: selected nicks)", true, text("")),
+        opt("keep_replies", "Keep replies", "--keep-replies", false, check(false)),
+        opt("dry_run", "Dry run", "--dry-run", false, check(false)),
+        opt("yes", "Skip confirmation", "--yes (dangerous)", false, check(false)),
+        opt("remove", "Remove", "", false, button(Action::RemoveNicks)),
+        opt("clear", "Clear all", "--clear-all", false, button(Action::ClearAll)),
+    ])
+}
+
 /// The whole menu bar, with every option's current value.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Menu {
-    /// Items left to right.
+    /// Items in catalog order. [`Menu::bar_indices`] is what the bar draws.
     pub items: Vec<MenuCommand>,
 }
 
@@ -311,129 +529,45 @@ impl Menu {
     pub fn new(args: &Args) -> Self {
         use CommandId::*;
         let items = vec![
-            MenuCommand { id: Scrape, label: "Scrape", hint: 's', action: None, opts: vec![
-                opt("mode", "Mode", "--latest / --trending", false, choice(MODE_CHOICES)),
-                opt("nicks", "Nicks", "--nicks (blank: selected nicks)", true, text("")),
-                opt("mentions", "Mentions", "--no-mentions when off", false, check(true)),
-                opt("said_by", "Said by", "--said-by", false, check(false)),
-                opt("profile_feed", "Profile feed", "--profile-feed (default: newest)", false, choice(PROFILE_FEED_CHOICES)),
-                opt("order", "Order", "--order (default: newest)", false, choice(ORDER_CHOICES)),
-                opt("limit", "Post limit", "--limit (blank: whole profile)", false, text("")),
-                opt("crawl_limit", "Crawl limit", "--crawl-limit", false, text(&DEFAULT_CRAWL_LIMIT.to_string())),
-                opt("attachments", "Attachments", "--no-attachments when off", false, check(true)),
-                opt("full", "Full", "--full", false, check(false)),
-                opt("refetch", "Refetch truncated", "--refetch-truncated", false, check(false)),
-                opt("output", "Output file", "--output (blank: database only)  Tab completes", false, text("")),
-                opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
-                opt("start", "Start Scanning", "", false, button(Action::StartScan)),
-            ]},
-            MenuCommand { id: Search, label: "Search", hint: 'e', action: None, opts: vec![
-                opt("query", "Query", "--search", true, text("")),
-                opt("nick", "Nick filter", "--nicks", false, text("")),
-                opt_topic("order", "Order", "Newest or oldest for these results. Same window as --order", "search-order", false, choice(ORDER_CHOICES)),
-                opt_topic("limit", "Limit", "Keep this many matches at the chosen end. Blank keeps all. Same as --limit", "search-limit", false, text("")),
-                opt("run", "Search", "", false, button(Action::RunSearch)),
-                opt("advanced", "Advanced…", "Shift-S", false, button(Action::OpenSearchModal)),
-                opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
-            ]},
-            MenuCommand { id: Export, label: "Export", hint: 'x', action: None, opts: vec![
-                opt("path", "Path", "--export  Tab completes", true, text("")),
-                opt("scope", "From", "--nicks / --search", false, choice(SCOPE_CHOICES)),
-                opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
-                opt("name", "Name", "--name", false, text("")),
-                opt("compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
-                opt("run", "Export", "", false, button(Action::RunExport)),
-                opt("basket_add", "Add current post to basket", "x", false, button(Action::ToggleBasket)),
-                opt("basket_show", "Show basket", "", false, button(Action::ShowBasket)),
-                opt("basket_run", "Export basket", "--post-ids", false, button(Action::ExportBasket)),
-                opt("basket_clear", "Clear basket", "", false, button(Action::ClearBasket)),
-            ]},
-            MenuCommand { id: Import, label: "Import", hint: 'i', action: None, opts: vec![
-                opt("path", "Path", "--import  Tab completes", true, text("")),
-                opt("compress", "Compressed tar.gz", "--compress --tar-gz", false, check(false)),
-                opt("run", "Import", "", false, button(Action::RunImport)),
-            ]},
-            MenuCommand { id: List, label: "List", hint: 'l', action: None, opts: vec![
-                opt("refresh", "Refresh nicks", "--list-nicks", false, button(Action::RefreshNicks)),
-            ]},
-            MenuCommand { id: Maintain, label: "Maintain", hint: 'a', action: None, opts: vec![
-                opt("nicks", "Remove nicks", "--remove-nick (blank: selected nicks)", true, text("")),
-                opt("keep_replies", "Keep replies", "--keep-replies", false, check(false)),
-                opt("dry_run", "Dry run", "--dry-run", false, check(false)),
-                opt("yes", "Skip confirmation", "--yes (dangerous)", false, check(false)),
-                opt("remove", "Remove", "", false, button(Action::RemoveNicks)),
-                opt("clear", "Clear all", "--clear-all", false, button(Action::ClearAll)),
-            ]},
-            MenuCommand { id: Research, label: "Research", hint: 'r', action: None, opts: vec![
-                opt("project", "Project", "--research-add / --research-show NAME", false, text("")),
-                opt("projects", "Projects…", "--research-list · pick or create", false, button(Action::ResearchProjects)),
-                opt("show", "Show project", "--research-show", false, button(Action::ShowResearch)),
-                opt("add", "Add current post…", "r · --post-ids", false, button(Action::AddToResearch)),
-                opt("add_view", "Add current view / search…", "--search / --post-ids", false, button(Action::AddViewToResearch)),
-                opt("file", "Local file", "--file  Tab completes", false, text("")),
-                opt("add_file", "Add local file…", "--file", false, button(Action::AddFileToResearch)),
-                opt("url", "Web page URL", "--url", false, text("")),
-                opt("add_url", "Add web page…", "--url", false, button(Action::AddUrlToResearch)),
-                opt("gdrive", "Google Drive (coming later)", "pinned for later", false, button(Action::ComingLater(0))),
-                opt("telegram", "Telegram (coming later)", "pinned for later", false, button(Action::ComingLater(1))),
-                opt("export_path", "Export to", "--export  Tab completes", false, text("")),
-                opt("export_format", "Format", "--format", false, choice(FORMAT_CHOICES)),
-                opt("export_compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
-                opt("export", "Export project", "--research-export", false, button(Action::ExportResearch)),
-            ]},
-            MenuCommand { id: Session, label: "Session", hint: 'n', action: None, opts: vec![
-                opt("login", "Log in", "", false, button(Action::Login)),
-                opt("logout", "Log out", "--logout", false, button(Action::Logout)),
-            ]},
-            MenuCommand { id: Bookmarks, label: "Bookmarks", hint: 'b', action: None, opts: vec![
-                opt("show", "Show bookmarks", "B · --list-bookmarks", false, button(Action::ShowBookmarks)),
-                opt("toggle", "Bookmark current post", "b · --bookmark / --unbookmark", false, button(Action::ToggleBookmark)),
-                opt("sync", "Sync with acp.us", "--sync-bookmarks", false, button(Action::SyncBookmarks)),
-            ]},
-            MenuCommand { id: Sync, label: "Sync", hint: 'y', action: None, opts: vec![
-                opt("auto", "Auto sync", "while the TUI is open", false, check(false)),
-                opt("interval", "Interval (minutes)", "", false, text(&TUI_SYNC_DEFAULT_MINUTES.to_string())),
-                opt("nicks", "Nicks", "--sync --nicks (blank: selected nicks)", false, text("")),
-                opt("mentions", "Mentions", "--no-mentions when off", false, check(false)),
-                opt("bookmarks", "Bookmarks", "--no-bookmarks when off", false, check(true)),
-                opt("now", "Sync now", "--sync", false, button(Action::SyncNow)),
-                opt("save", "Save as default", "~/.acp/preferences.toml [sync]", false, button(Action::SaveSyncPrefs)),
-            ]},
-            MenuCommand { id: View, label: "View", hint: 'v', action: None, opts: vec![
-                opt("nested", "Nested", "v cycles", false, button(Action::SetView(ViewMode::Nested))),
-                opt("stack", "Stack", "", false, button(Action::SetView(ViewMode::Stack))),
-                opt("pane", "Stack + content pane", "", false, button(Action::SetView(ViewMode::Pane))),
-                opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
-                opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
-                opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
-                opt_topic("list_order", "Order", "Newest or oldest for this list. o toggles. Nested orders roots; replies stay in thread order.", "order", false, choice(ORDER_CHOICES)),
-                opt_topic("nick_order", "Nick order", "Newest or oldest nick by latest post. o toggles while Nicks is focused.", "nick-order", false, choice(ORDER_CHOICES)),
-                opt_topic("nick_limit", "Nick limit", "Keep this many nicks at the chosen end. Blank keeps all. The / filter runs first.", "nick-limit", false, text("")),
-                opt_topic("color", "Colour", "auto, always, or never. Same as --color", "color", false, choice(COLOR_CHOICES)),
-                opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
-                opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
-                opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
-                opt("eb_replies", "EB includes replies", "--eb-replies", false, check(false)),
-                opt("eb", "Executive Board", "--eb", false, button(Action::OpenEb)),
-                opt("explore_latest", "Explore latest", "--explore-latest", false, check(false)),
-                opt("explore", "Explore", "--explore", false, button(Action::OpenExplore)),
-                opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
-                opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
-            ]},
-            MenuCommand { id: Debug, label: "Debug", hint: 'd', action: None, opts: vec![
-                opt("verbose", "Verbose", "-v", false, check(args.verbose)),
-                opt("debug", "Debug wire log", "--debug", false, check(args.debug)),
-                opt("logging", "Log to files", "--enable-logging", false, check(args.enable_logging)),
-                opt("show_log", "Show log panel", "l", false, button(Action::ToggleLog)),
-            ]},
-            MenuCommand { id: Help, label: "Help", hint: 'h', opts: vec![], action: Some(Action::Help) },
-            MenuCommand { id: About, label: "About", hint: 't', opts: vec![], action: Some(Action::About) },
-            MenuCommand { id: Quit, label: "Quit", hint: 'q', opts: vec![], action: Some(Action::Quit) },
+            view_item(),
+            search_item(),
+            compose_item(),
+            library_item(),
+            bookmarks_item(),
+            research_item(),
+            sync_item(),
+            discover_item(),
+            account_item(),
+            debug_item(args),
+            shown_action(Help, "Help", 'h', Action::Help),
+            shown_action(About, "About", 't', Action::About),
+            shown_action(Quit, "Quit", 'q', Action::Quit),
+            scrape_item(),
+            export_item(),
+            import_item(),
+            basket_item(),
+            list_item(),
+            maintain_item(),
         ];
         Menu { items }
     }
     /// Item by id.
     pub fn get(&self, id: CommandId) -> &MenuCommand { self.items.iter().find(|c| c.id == id).expect("menu id") }
+    /// Bar items left to right: categories, then anything pinned beside Start Scanning.
+    pub fn bar_indices(&self) -> Vec<usize> {
+        let (mut left, mut right) = (Vec::new(), Vec::new());
+        for (i, c) in self.items.iter().enumerate() {
+            if !c.on_bar { continue; }
+            if c.pin_right { right.push(i); } else { left.push(i); }
+        }
+        left.extend(right);
+        left
+    }
+    /// On-bar item with this hint letter. Tucked menus are not reached from the bar.
+    pub fn bar_by_hint(&self, hint: char) -> Option<usize> {
+        let h = hint.to_ascii_lowercase();
+        self.bar_indices().into_iter().find(|&i| self.items[i].hint == h)
+    }
     /// Option by command and key.
     pub fn opt_mut(&mut self, id: CommandId, key: &str) -> &mut Opt {
         self.items.iter_mut().find(|c| c.id == id).expect("menu id").opts.iter_mut().find(|o| o.key == key).expect("opt key")

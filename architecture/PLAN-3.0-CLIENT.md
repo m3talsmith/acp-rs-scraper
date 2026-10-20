@@ -368,7 +368,7 @@ Uploads, votes, deletes and edits are **not** part of this capture. Each one get
 
 ### 4.2 TUI menu categories (required before 3.x is finished)
 
-The terminal menu bar is reorganized into categories. This must ship before 3.x is finished. It is a later minor of its own, and it is not post-3.x polish. The current bar stays until that minor. This note does not implement the menus, does not assign the minor a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0.
+The terminal menu bar is the categories below. This must ship before 3.x is finished. It is a later minor of its own, and it is not post-3.x polish. This note does not assign the minor a number, and does not move 3.10.0 or any later numbered stage, including 3.22.0. Quit stays the last menu item, immediately left of the pinned cluster. Start Scanning stays pinned on the right, and the Scrape menu sits immediately left of that button so the scrape options stay on that control. About sits beside Help. The About modal in item 10 is still not built here.
 
 Left to right, with Start Scanning pinned on the right:
 

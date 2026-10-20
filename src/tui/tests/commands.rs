@@ -134,6 +134,21 @@ fn debug_menu_seeded_from_args() {
 }
 
 #[test]
+fn bar_categories_pin_scrape_and_tuck_library_children() {
+    use CommandId::*;
+    let m = Menu::new(&no_args());
+    let labels: Vec<_> = m.bar_indices().iter().map(|&i| m.items[i].label).collect();
+    assert_eq!(labels, ["View", "Search", "Compose", "Library", "Bookmarks", "Research", "Sync", "Discover", "Account", "Debug", "Help", "About", "Quit", "Scrape"]);
+    let tucked: Vec<_> = m.items.iter().filter(|c| !c.on_bar).map(|c| c.id).collect();
+    assert_eq!(tucked, [Export, Import, Basket, List, Maintain]);
+    assert!(m.get(Scrape).pin_right);
+    assert_eq!(m.bar_by_hint('x'), None);
+    assert_eq!(m.bar_by_hint('S').map(|i| m.items[i].id), Some(Scrape));
+    assert!(m.get(Export).opts.iter().all(|o| o.key != "basket_add"));
+    assert!(m.get(Basket).opts.iter().any(|o| o.key == "basket_add"));
+}
+
+#[test]
 fn every_menu_item_has_a_hint_and_flags_exist() {
     use clap::CommandFactory;
     let m = Menu::new(&no_args());

@@ -353,7 +353,7 @@ headless scrape is now `--scrape`.
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
 | 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star     v3.5.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
-| Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
+| View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
 | @feistyD 369 | ╔═ Reply @hazaldin · 2026-10-16 … ══════════╗ |  the post you opened
 |▌@hazaldin 223| ║ ╔═ Post @Deco1099 · 2026-10-15 … ═══════╗ ║ |  a linked post, nested
@@ -406,9 +406,10 @@ headless scrape is now `--scrape`.
 - **Search** replaces the Body in place; `<` (or the `< Back` button) returns to the nick view
   as you left it. `Shift-S` opens the full search: keyword, nicks, post id (the post and its
   thread), date range, posts/replies. `Ctrl-S` clears it. (Terminals send Ctrl-Shift-S as Ctrl-S.)
-- **Menu bar.** Every command comes from the CLI flags: Scrape, Search, Export, Import, List,
-  Maintain, Research, Session, Bookmarks, Sync, View, Debug, Help, Quit (on a narrow terminal the
-  scan button shortens to `▶ Scan` so they all fit). Options show as checkboxes `[x]`, dropdowns `‹ … ›`,
+- **Menu bar.** View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account,
+  Debug, Help, About, and Quit. Scrape sits immediately left of Start Scanning (on a narrow terminal the
+  scan button shortens to `▶ Scan` so Quit still fits). Library opens Export, Import, Basket, List, and Maintain.
+  Options show as checkboxes `[x]`, dropdowns `‹ … ›`,
   text fields `[…]` and buttons `< … >`; `*` marks a required one. Keyboard: `m`/`F10` or
   `Alt`+the underlined letter, `↑↓` to pick, `Space`/`Enter` to change, `Esc` to close.
   `Ctrl-Space` (or `Ctrl-P`) opens a command palette. Selecting nicks fills Scrape › Nicks.
@@ -421,7 +422,7 @@ headless scrape is now `--scrape`.
   run the same way; Remove and Clear all ask first (Clear all wants you to type `yes`).
 - **Login.** Browsing needs no login. Start Scanning checks the saved session; when you're logged
   out the Login modal opens (email, then the one-time code or the login link from the email) and
-  the scan starts as soon as you're in. Session › Log in / Log out do the same by hand; logging out
+  the scan starts as soon as you're in. Account › Log in / Log out do the same by hand; logging out
   deletes `~/.acp/session.json` and returns to the Login modal.
 - **Previous / next.** Once a post is open, the nav bar shows **◂ prev** and **next ▸** with your
   position (`2/3`). Prev (`,` or `Alt-←`) steps back through the posts you opened, down to the

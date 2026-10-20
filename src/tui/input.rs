@@ -66,7 +66,7 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         KeyCode::Left if alt => { app.act(Action::StackPrev); return; }
         KeyCode::Right if alt => { app.act(Action::StackNext); return; }
         KeyCode::Char(c) if alt => {
-            if let Some(i) = app.menu.menu.items.iter().position(|it| it.hint == c.to_ascii_lowercase()) { app.open_menu(i); }
+            if let Some(i) = app.menu.menu.bar_by_hint(c) { app.open_menu(i); }
             return;
         }
         KeyCode::Char('/') if app.focus != Focus::Menu => { app.focus_nick_filter(); return; }
@@ -198,26 +198,47 @@ fn body_key(app: &mut App, k: KeyEvent) {
 
 impl App {
     /// Close the dropdown but keep focus where it is.
-    pub fn close_menu_dropdown(&mut self) { self.menu.open = None; self.menu.editing = false; self.needs_redraw = true; }
+    pub fn close_menu_dropdown(&mut self) {
+        self.menu.open = None;
+        self.menu.anchor = None;
+        self.menu.editing = false;
+        self.needs_redraw = true;
+    }
+}
+
+fn step_bar(app: &App, from: usize, delta: i32) -> usize {
+    let bars = app.menu.menu.bar_indices();
+    if bars.is_empty() { return from; }
+    let pos = bars.iter().position(|&i| i == from).unwrap_or(0);
+    bars[cycle(pos, bars.len(), delta)]
 }
 
 fn menu_key(app: &mut App, k: KeyEvent) {
-    let n = app.menu.menu.items.len();
     match app.menu.open {
         None => match k.code {
-            KeyCode::Left => app.menu.item = cycle(app.menu.item, n, -1),
-            KeyCode::Right => app.menu.item = cycle(app.menu.item, n, 1),
+            KeyCode::Left => app.menu.item = step_bar(app, app.menu.item, -1),
+            KeyCode::Right => app.menu.item = step_bar(app, app.menu.item, 1),
             KeyCode::Enter | KeyCode::Down => { let i = app.menu.item; app.open_menu(i); }
             KeyCode::Esc => app.close_menu(),
             KeyCode::Char(c) => {
-                if let Some(i) = app.menu.menu.items.iter().position(|it| it.hint == c.to_ascii_lowercase()) { app.open_menu(i); }
+                if let Some(i) = app.menu.menu.bar_by_hint(c) { app.open_menu(i); }
             }
             _ => {}
         },
         Some(item) => {
             let no = app.menu.menu.items[item].opts.len();
             match k.code {
-                KeyCode::Esc => app.close_menu_dropdown(),
+                KeyCode::Esc => {
+                    if let Some(parent) = app.menu.anchor.take() {
+                        app.menu.open = Some(parent);
+                        app.menu.item = parent;
+                        app.menu.opt = 0;
+                        app.menu.editing = false;
+                        app.needs_redraw = true;
+                    } else {
+                        app.close_menu_dropdown();
+                    }
+                }
                 KeyCode::Up => app.menu.opt = cycle(app.menu.opt, no, -1),
                 KeyCode::Down => app.menu.opt = cycle(app.menu.opt, no, 1),
                 KeyCode::Left | KeyCode::Right => {
@@ -226,8 +247,13 @@ fn menu_key(app: &mut App, k: KeyEvent) {
                     if let Widget::Choice { choices, idx } = &mut o.widget {
                         *idx = cycle(*idx, choices.len(), d);
                         app.apply_open_choice();
+                    } else {
+                        let from = app.menu.anchor.unwrap_or(item);
+                        let next = step_bar(app, from, d);
+                        app.menu.anchor = None;
+                        app.menu.open = None;
+                        app.open_menu(next);
                     }
-                    else { app.menu.item = cycle(item, n, d); let i = app.menu.item; app.menu.open = None; app.open_menu(i); }
                 }
                 KeyCode::Char(' ') => {
                     if let Widget::Check(v) = &mut app.menu.menu.items[item].opts[app.menu.opt].widget { *v = !*v; }
