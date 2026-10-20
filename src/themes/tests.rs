@@ -335,7 +335,7 @@ fn the_download_can_be_turned_off_and_its_notices_say_how_to_fix_things() {
     assert!(off_notice(d).contains("ACP_THEME_DOWNLOAD") && off_notice(d).contains("--theme-init"));
     assert!(THEME_DOWNLOAD_BASE.ends_with(&format!("/v{}/themes/", env!("CARGO_PKG_VERSION"))));
     assert_eq!(DEFAULT_THEME_URL, format!("{THEME_DOWNLOAD_BASE}default.toml"));
-    assert!(THEME_DOWNLOAD_BASE.starts_with("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v"));
+    assert!(THEME_DOWNLOAD_BASE.starts_with("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v"));
     assert!(SHIPPED_THEMES.iter().all(|n| PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("themes").join(format!("{n}.toml")).exists()));
     assert!(!has_themes(Path::new("/nonexistent/acp/themes")));
 }
@@ -373,9 +373,9 @@ fn warnings_of_one_file_are_one_notice() {
 
 /// The shipped default, byte for byte: the old look (ACP red), the header, both variants.
 /// Changing themes/default.toml must change this test too.
-const EXPECTED_DEFAULT: &str = r##"# acp-rs-scraper theme, format v1. See docs/USAGE.md (Themes).
+const EXPECTED_DEFAULT: &str = r##"# acp-red-star theme, format v1. See docs/USAGE.md (Themes).
 #
-# The look acp-rs-scraper always had: ACP red (#dc2626) on the terminal's own
+# The look acp-red-star always had: ACP red (#dc2626) on the terminal's own
 # text and background colours. Copy this file to make your own theme, or use
 # the theme editor (Shift-F5 in the terminal UI).
 #

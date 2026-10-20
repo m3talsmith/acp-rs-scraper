@@ -191,12 +191,14 @@ fn reply_attach_line_accepts_a_pdf_and_drops_it_on_backspace() {
     }
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
-    assert!(m.error.as_deref().unwrap_or("").contains("not an allowed"), "{:?}", m.error);
-    assert_eq!(m.attachments.len(), 1);
-    let n = m.attach_path.chars().count();
-    for _ in 0..n {
-        key(&mut a, KeyCode::Backspace);
-    }
+    assert!(m.error.is_none(), "{:?}", m.error);
+    assert_eq!(m.attachments.len(), 2, "a text file stays attached locally");
+    let plan = crate::site::prepare(&m.draft(0, None, true)).unwrap();
+    assert!(plan.attachments.iter().all(|a| !a.on_site), "pdf and text stay off the site");
+    assert!(m.attach_path.is_empty());
+    key(&mut a, KeyCode::Backspace);
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.attachments.len(), 1, "backspace drops the text file");
     key(&mut a, KeyCode::Backspace);
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert!(m.attachments.is_empty(), "{:?}", m.attachments);

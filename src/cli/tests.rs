@@ -13,6 +13,24 @@ fn nicks_parse() {
 }
 
 #[test]
+fn site_attachments_are_one_based_and_capped_at_four() {
+    let a = Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "1,3,5,6"]).unwrap();
+    assert_eq!(a.site_attachments.as_deref(), Some(&[0usize, 2, 4, 5][..]));
+    let a = Args::try_parse_from(["x", "--reply", "T", "--site-attachments", " 1, 2 "]).unwrap();
+    assert_eq!(a.site_attachments.as_deref(), Some(&[0usize, 1][..]));
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "0"]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "1,2,3,4,5"]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "1,1"]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "no"]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", ""]).is_err());
+    assert!(Args::try_parse_from(["x", "--new-post", "Title", "--site-attachments", "1,,2"]).is_err());
+    let help = Args::command().render_long_help().to_string();
+    assert!(help.contains("--site-attachments"), "{help}");
+    assert!(help.contains("1,3,5,6"), "{help}");
+    assert!(!parse_with_mode(["x", "--site-attachments", "1"]).unwrap().1);
+}
+
+#[test]
 fn post_limit_is_a_positive_nick_scrape_flag() {
     let a = Args::try_parse_from(["x", "--nick", "alice", "--limit", "100"]).unwrap();
     assert_eq!(a.limit, Some(100));
@@ -41,6 +59,36 @@ fn profile_feed_and_order_are_nick_scrape_flags() {
     assert!(Args::try_parse_from(["x", "--import", "f", "--order", "oldest"]).is_err());
     assert!(!parse_with_mode(["x", "--profile-feed", "top"]).unwrap().1);
     assert!(!parse_with_mode(["x", "--order", "oldest"]).unwrap().1);
+}
+
+#[test]
+fn color_flag_parses_and_resolution_follows_the_flag_then_the_preference() {
+    assert_eq!(ColorMode::parse("Always").unwrap(), ColorMode::Always);
+    assert_eq!(ColorMode::parse("NEVER").unwrap(), ColorMode::Never);
+    assert!(ColorMode::parse("on").is_err());
+    let a = Args::try_parse_from(["x", "--color", "always"]).unwrap();
+    assert_eq!(a.color, Some(ColorMode::Always));
+    assert!(parse_with_mode(["x", "--color", "never"]).unwrap().1, "--color alone still opens the terminal UI");
+    assert!(Args::try_parse_from(["x", "--color", "sometimes"]).is_err());
+    assert_eq!(Args::try_parse_from(["x"]).unwrap().color, None);
+    assert_eq!(resolve_color_mode(Some(ColorMode::Never), Some("always")), ColorMode::Never);
+    assert_eq!(resolve_color_mode(None, Some("always")), ColorMode::Always);
+    assert_eq!(resolve_color_mode(None, Some("nope")), ColorMode::Auto);
+    assert_eq!(resolve_color_mode(None, None), ColorMode::Auto);
+    assert!(!colors_suppressed(ColorMode::Always, true));
+    assert!(colors_suppressed(ColorMode::Never, false));
+    assert!(colors_suppressed(ColorMode::Auto, true));
+    assert!(!colors_suppressed(ColorMode::Auto, false));
+    assert_eq!(no_color_hint(ColorMode::Auto, true), Some(NO_COLOR_HINT));
+    assert_eq!(no_color_hint(ColorMode::Always, true), None);
+    assert_eq!(no_color_hint(ColorMode::Never, false), None);
+    assert!(no_color_hint(ColorMode::Never, true).unwrap().contains("--color always"));
+    apply_color_mode(ColorMode::Never);
+    assert!(crossterm::style::Colored::ansi_color_disabled_memoized());
+    apply_color_mode(ColorMode::Always);
+    assert!(!crossterm::style::Colored::ansi_color_disabled_memoized());
+    apply_color_mode(ColorMode::Auto);
+    assert_eq!(current_color_mode(), ColorMode::Auto);
 }
 
 #[test]
@@ -141,6 +189,13 @@ fn generators_render() {
         let mut v = Vec::new();
         generate(g, &mut v).unwrap();
         let t = String::from_utf8(v).unwrap().replace("\\-", "-");
+        assert!(t.contains("remove-nick"), "{g:?}");
+    }
+    for g in [Generate::AcprsMan, Generate::AcprsBash, Generate::AcprsZsh, Generate::AcprsFish] {
+        let mut v = Vec::new();
+        generate(g, &mut v).unwrap();
+        let t = String::from_utf8(v).unwrap().replace("\\-", "-");
+        assert!(t.contains("acprs"), "{g:?}: {t}");
         assert!(t.contains("remove-nick"), "{g:?}");
     }
 }

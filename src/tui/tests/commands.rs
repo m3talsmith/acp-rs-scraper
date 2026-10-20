@@ -24,7 +24,7 @@ fn bare_and_logging_only_open_tui_flags_do_not() {
 fn scrape_defaults_map_to_cli_defaults() {
     let m = Menu::new(&no_args());
     let argv = m.scrape_argv(&["alice".into()]).unwrap();
-    assert_eq!(argv, ["acp-rs-scraper", "--nicks", "alice", "--latest"]);
+    assert_eq!(argv, ["acp-red-star", "--nicks", "alice", "--latest"]);
     let a = parsed(&argv);
     assert_eq!(a.nick_list().unwrap(), ["alice"]);
     assert!(a.mentions && !a.said_by && !a.full && !a.no_attachments && !a.trending);
@@ -147,6 +147,49 @@ fn every_menu_item_has_a_hint_and_flags_exist() {
             }
         }
     }
+}
+
+#[test]
+fn export_import_and_output_paths_expand_a_tilde() {
+    let mut m = Menu::new(&no_args());
+    let home = std::env::var("HOME").expect("HOME");
+    m.set_text(CommandId::Export, "path", "~/out.json");
+    m.set_choice(CommandId::Export, "scope", "Everything");
+    let a = parsed(&m.export_argv(&[], None).unwrap());
+    assert_eq!(a.export.as_deref(), Some(Path::new(&format!("{home}/out.json"))));
+    m.set_text(CommandId::Export, "path", "~/resonance-cosmos.tar.gz");
+    let a = parsed(&m.export_argv(&[], None).unwrap());
+    assert_eq!(a.export.as_deref(), Some(Path::new(&format!("{home}/resonance-cosmos.tar.gz"))));
+    assert!(!a.export.as_deref().unwrap().to_string_lossy().contains("/~/"), "a leading ~ is not a relative directory");
+    m.set_text(CommandId::Import, "path", "~/in.tar.gz");
+    let a = parsed(&m.import_argv().unwrap());
+    assert_eq!(a.import.as_deref(), Some(Path::new(&format!("{home}/in.tar.gz"))));
+    m.set_text(CommandId::Research, "export_path", "~/proj.json");
+    let a = parsed(&m.research_export_argv("strike").unwrap());
+    assert_eq!(a.export.as_deref(), Some(Path::new(&format!("{home}/proj.json"))));
+    m.set_text(CommandId::Scrape, "output", "~/scan.html");
+    let argv = m.scrape_argv(&["alice".into()]).unwrap();
+    assert!(argv.iter().any(|s| s == &format!("{home}/scan.html")), "{argv:?}");
+}
+
+#[test]
+fn tab_completes_an_export_path() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let dir = std::env::temp_dir().join(format!("acp-export-path-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("notes.json"), b"x").unwrap();
+    let mut a = app();
+    let export = a.menu.menu.items.iter().position(|i| i.id == CommandId::Export).unwrap();
+    a.open_menu(export);
+    let path = a.menu.menu.items[export].opts.iter().position(|o| o.key == "path").unwrap();
+    a.menu.opt = path;
+    a.menu.editing = true;
+    a.menu.menu.set_text(CommandId::Export, "path", &format!("{}/n", dir.display()));
+    crate::tui::input::on_key(&mut a, KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+    assert_eq!(a.menu.menu.text(CommandId::Export, "path"), format!("{}/notes.json", dir.display()));
+    assert!(a.menu.editing, "a completed path stays in the field");
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]

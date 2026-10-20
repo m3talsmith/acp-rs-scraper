@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Uninstall acp-rs-scraper AND (by default) purge its per-user data in ~/.acp.
+# Uninstall acp-red-star AND (by default) purge its per-user data in ~/.acp.
 #   scripts/uninstall.sh              remove package + purge data (asks first)
 #   scripts/uninstall.sh --no-purge   remove package, keep ~/.acp intact
 #   -y/--yes skips the prompt (required when stdin is not a terminal)
@@ -7,7 +7,7 @@
 # pacman -R / apt remove / dnf remove alone never touch home directories;
 # this script is the way to purge user data.
 set -euo pipefail
-name=acp-rs-scraper
+name=acp-red-star
 purge=1 yes=0
 for a in "$@"; do
   case $a in

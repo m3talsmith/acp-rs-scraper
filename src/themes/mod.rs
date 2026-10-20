@@ -37,10 +37,10 @@ impl LoadError {
         match self {
             LoadError::BadName(e) => e.clone(),
             LoadError::Missing(p) => format!("theme file {} is missing; using the terminal's colours. Pick a theme with F5, \
-                create one in the theme editor (Shift-F5), or download the default with `acp-rs-scraper --theme-init` \
+                create one in the theme editor (Shift-F5), or download the default with `acp-red-star --theme-init` \
                 (Theme: init in the command palette).", p.display()),
             LoadError::Broken(p, e) => format!("theme file {} can't be used: {e}. Using the terminal's colours; fix the file \
-                (or move it away and run `acp-rs-scraper --theme-init` to download the default again), or pick another theme with F5. It is never overwritten.", p.display()),
+                (or move it away and run `acp-red-star --theme-init` to download the default again), or pick another theme with F5. It is never overwritten.", p.display()),
         }
     }
 }

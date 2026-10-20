@@ -3,10 +3,10 @@
 version = 4
 
 [[package]]
-name = "acp-rs-scraper"
+name = "acp-red-star"
 version = "3.5.0"
 dependencies = [
- "acp_rs_node_core",
+ "acp_red_star_node_core",
  "anyhow",
  "argon2",
  "axum",
@@ -56,7 +56,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "acp_rs_node_core"
+name = "acp_red_star_node_core"
 version = "3.3.0"
 dependencies = [
  "anyhow",

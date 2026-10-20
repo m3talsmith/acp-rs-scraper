@@ -124,6 +124,10 @@ pub async fn run(args: Args) -> Result<()> {
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
         session_path().map(|p| p.exists()).unwrap_or(false));
+    app.no_color = no_color_set();
+    app.color_mode = resolve_color_mode(args.color, prefs.ui.as_ref().and_then(|u| u.color.as_deref()));
+    apply_color_mode(app.color_mode);
+    app.menu.menu.set_choice(crate::tui::commands::CommandId::View, "color", color_choice(app.color_mode));
     if let Ok(Some(node)) = crate::crypto::node_store::PublicNode::load(&home_dir) {
         app.node_chip = node.chip();
     }
@@ -140,6 +144,7 @@ pub async fn run(args: Args) -> Result<()> {
     if show_recovery_help {
         app.modal = Some(modals::Modal::Help(modals::HelpModal::new()));
     }
+    app.note_no_color();
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
     set_log_sink(Some(log_tx));
@@ -192,6 +197,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     if let Err(e) = load_session(&jar) { app.push_status(format!("warning: ignoring saved session: {e:#}")); }
     let http = client(jar.clone())?;
 
+    apply_color_mode(app.color_mode);
     enable_raw_mode()?;
     execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
     let prev = std::panic::take_hook();

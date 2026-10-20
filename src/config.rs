@@ -52,6 +52,81 @@ pub const DB_REL_PATH: &str = ".acp/ai/data/rs.database";
 /// Downloaded attachments, relative to `$HOME`.
 pub const ATTACH_REL_PATH: &str = ".acp/ai/data/attachments";
 
+/// How many files one Red Star post can carry.
+///
+/// This is the site cap, not an app cap. Local compose, the archive, and the
+/// network keep every file. Only a publish to the site uses this number.
+pub const SITE_MAX_ATTACHMENTS: usize = 4;
+
+/// MIME prefixes the Red Star site accepts on a post (`image/*`, `video/*`).
+///
+/// Local compose, the archive, and the network keep every other type. Add a
+/// prefix here when the site starts accepting another kind.
+pub const SITE_ATTACHMENT_MIME_PREFIXES: &[&str] = &["image/", "video/"];
+
+/// `image/* and video/*`, taken from [`SITE_ATTACHMENT_MIME_PREFIXES`].
+pub fn site_attachment_kinds() -> String {
+    let parts: Vec<String> = SITE_ATTACHMENT_MIME_PREFIXES.iter().map(|p| format!("{p}*")).collect();
+    match parts.as_slice() {
+        [] => String::new(),
+        [one] => one.clone(),
+        [a, b] => format!("{a} and {b}"),
+        _ => {
+            let last = parts.last().cloned().unwrap_or_default();
+            let rest = parts[..parts.len() - 1].join(", ");
+            format!("{rest}, and {last}")
+        }
+    }
+}
+
+/// `true` when `mime` is a type the site copy can carry. A parameter after `;` is ignored.
+pub fn site_accepts_mime(mime: &str) -> bool {
+    let mime = mime.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
+    !mime.is_empty() && SITE_ATTACHMENT_MIME_PREFIXES.iter().any(|prefix| mime.starts_with(prefix))
+}
+
+/// MIME type for an attachment extension. Unknown extensions are `application/octet-stream`.
+pub fn mime_for_attachment_ext(ext: &str) -> &'static str {
+    match ext.to_ascii_lowercase().as_str() {
+        "jpg" | "jpeg" => "image/jpeg",
+        "png" => "image/png",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        "avif" => "image/avif",
+        "tif" | "tiff" => "image/tiff",
+        "svg" => "image/svg+xml",
+        "bmp" => "image/bmp",
+        "mp4" | "m4v" => "video/mp4",
+        "webm" => "video/webm",
+        "mov" => "video/quicktime",
+        "mkv" => "video/x-matroska",
+        "mp3" => "audio/mpeg",
+        "ogg" | "oga" => "audio/ogg",
+        "wav" => "audio/wav",
+        "m4a" => "audio/mp4",
+        "flac" => "audio/flac",
+        "pdf" => "application/pdf",
+        "txt" => "text/plain",
+        _ => "application/octet-stream",
+    }
+}
+
+/// `true` when the path's extension is an image or a video the site copy can carry.
+pub fn site_accepts_path(path: &Path) -> bool {
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+    site_accepts_mime(mime_for_attachment_ext(ext))
+}
+
+/// Short reason shown on a picker row that cannot go to the site.
+pub fn site_ineligible_reason() -> String {
+    format!("stays local (site takes {})", site_attachment_kinds())
+}
+
+/// Error for `--site-attachments` (or a picker check) naming a file the site will not take.
+pub fn site_attachment_refusal(name: &str) -> String {
+    format!("{name} cannot go to Red Star. The site accepts {}.", site_attachment_kinds())
+}
+
 /// Default export / archive directory, relative to `$HOME`.
 pub const EXPORTS_REL_PATH: &str = ".acp/ai/data/exports";
 
@@ -184,15 +259,15 @@ pub const HTML_DATA_ID: &str = "acp-data";
 // ---------------------------------------------------------------- terminal UI
 /// Arguments that do not count as "a flag was given" when deciding whether a bare
 /// invocation opens the terminal UI (logging only; they carry over to TUI scans).
-pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log", "theme"];
+pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log", "theme", "color"];
 
 /// Theme files (`<name>.toml`), under `$HOME`. Every theme, the default included, lives here.
 pub const THEMES_REL_DIR: &str = ".acp/themes";
 /// Where themes are downloaded from: the repo's `themes/` at this version's tag
 /// (`<base><name>.toml`). Themes are never installed by packages or built into the binary.
-pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/");
+pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v", env!("CARGO_PKG_VERSION"), "/themes/");
 /// The default theme's download URL (fetched on the first run into an empty themes folder).
-pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
+pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
 /// Overrides [`THEME_DOWNLOAD_BASE`] (a URL ending in `/`), e.g. the mocked tests' server.
 pub const THEME_URL_ENV: &str = "ACP_THEME_URL";
 /// `off` / `0` / `false` / `no` turns the automatic first-run theme download off.
@@ -219,9 +294,9 @@ pub const MIGRATED_THEME: &str = "custom";
 pub const THEME_MIN_CONTRAST: f64 = 3.0;
 
 /// Title shown in the TUI top bar.
-pub const TUI_TITLE: &str = "ACP Red Star Scraper";
+pub const TUI_TITLE: &str = "ACP Red Star";
 /// The header text next to the big "ACP".
-pub const TUI_SUBTITLE: &str = "Red Star Scraper";
+pub const TUI_SUBTITLE: &str = "ACP Red Star";
 /// Deepest stack of nested post details (linked posts opened from a detail).
 pub const MAX_DETAIL_DEPTH: usize = 8;
 /// Width of the nick bar (cells).
@@ -274,6 +349,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("n", "New post. Cancel is the default; Publish does not send until a guided capture"),
     ("Compose · Attach", "Type a path. Tab completes a real segment. Enter adds the file. Backspace on an empty line removes the last file. Nothing is uploaded"),
+    ("Compose · site files", "More than 4 images or videos: check which go to Red Star. Other types stay local, greyed out. Space toggles. Enter confirms. ? site-attachments"),
     ("r", "On an open post: reply (a comment pre-fills the reference). Otherwise add to a research project"),
     ("Q", "On an open post: reply with that post quoted"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),
@@ -288,7 +364,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("F5", "Theme picker (also the ‹theme› ▾ switch in the header)"),
     ("Shift-F5", "Theme editor"),
     ("Shift-S", "Search modal: keyword, nicks, post id, dates, posts/replies, order, limit"),
-    ("? on a menu option", "Help for that option (Order, Limit, Nick order, Nick limit)"),
+    ("? on a menu option", "Help for that option (Order, Limit, Nick order, Nick limit, Colour)"),
     ("Ctrl-S (Ctrl-Shift-S)", "Clear the search"),
     ("Ctrl-Space / Ctrl-P", "Command palette"),
     ("l", "Show / hide the log panel"),
@@ -310,3 +386,32 @@ pub fn bookmarks_url() -> String {
 /// The site's current page sends this. 2.5.0 used the click `toggle-bookmark`;
 /// that name still worked then and may disappear (2.24.1).
 pub const BOOKMARK_EVENT: &str = "bookmark";
+
+/// Where the encrypted database lives under a home directory.
+///
+/// The directory stays `~/.acp`. It is not named after the old binary, so a
+/// rename of the program does not move or copy `rs.database`.
+pub fn database_path(home: &std::path::Path) -> std::path::PathBuf {
+    home.join(DB_REL_PATH)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn an_existing_encrypted_database_is_not_moved() {
+        let home = std::env::temp_dir().join(format!("acp-keep-db-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let db = database_path(&home);
+        std::fs::create_dir_all(db.parent().unwrap()).unwrap();
+        std::fs::write(&db, b"sealed").unwrap();
+        assert_eq!(database_path(&home), db);
+        assert_eq!(std::fs::read(&db).unwrap(), b"sealed");
+        assert!(!home.join(".acp-red-star").exists());
+        assert!(!home.join("acp-rs-scraper").exists());
+        assert_eq!(BASE_URL_ENV, "ACP_BASE_URL");
+        assert_eq!(DB_REL_PATH, ".acp/ai/data/rs.database");
+        let _ = std::fs::remove_dir_all(&home);
+    }
+}

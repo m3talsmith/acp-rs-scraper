@@ -13,7 +13,7 @@ pub struct HelpModal {
     pub scroll: usize,
 }
 
-/// Help text: key bindings, the order and limit topics, then `acp-rs-scraper --help`.
+/// Help text: key bindings, the order and limit topics, then `acp-red-star --help`.
 pub fn help_text() -> Vec<String> {
     use clap::CommandFactory;
     let guide = crate::crypto::recovery::GUIDE.trim();
@@ -94,6 +94,35 @@ fn help_topics() -> Vec<String> {
         "  F2, or Resend code, asks for another code without starting over.",
         "  ? or F1 on the login window opens this topic and leaves the attempt running.",
         "  A finished login is saved in ~/.acp/session.json.",
+        "",
+        "[[site-attachments]]",
+        "Site attachments",
+        "  Red Star takes up to 4 images or videos on a post (image/* and video/*). This app",
+        "  does not have that limit. Local compose, the archive, and the network keep every",
+        "  file. Audio, documents, and anything else stay local. They show in the picker greyed",
+        "  out, with the reason, and they are never sent to the site.",
+        "  When a post or reply has more than 4 images or videos and Publish is chosen, the",
+        "  compose box asks which 4 go to Red Star. The first four images or videos start",
+        "  checked. The line shows n/4 selected for Red Star. Space checks or unchecks the",
+        "  highlighted image or video. Space on a greyed row does not check it. More than 4",
+        "  cannot be checked. Fewer than 4 is allowed, including none. Enter confirms.",
+        "  Esc leaves the picker and does not publish. With 4 or fewer images or videos the",
+        "  picker is skipped, and any other type still stays local.",
+        "  On the command line, --site-attachments takes 1-based indexes, for example",
+        "  --site-attachments 1,3,5,6. At most 4 indexes, and each one has to be an image or",
+        "  a video in the attachment list. Naming an audio file, a pdf, or another type fails",
+        "  and names that file. Omit the flag and the first 4 images or videos are the site",
+        "  copy; other types are skipped. The notice names the files left off the site.",
+        "  The post detail shows On Red Star: 4 of 6. ? on the picker opens this topic.",
+        "",
+        "[[color]]",
+        "Colour",
+        "  --color auto|always|never, and View › Colour. auto (the default) follows NO_COLOR: a",
+        "  non-empty NO_COLOR turns colours off and bold, dim, and underline stay. always forces",
+        "  colours on, which is what a demo needs when the shell exported NO_COLOR. never turns",
+        "  colours off. [ui] color in ~/.acp/preferences.toml is used when the flag is omitted.",
+        "  When NO_COLOR is set and colours are off, the status line, the theme picker, and the",
+        "  theme editor say: NO_COLOR is set, so colours are off (use --color always).",
     ].into_iter().map(str::to_string).collect()
 }
 
