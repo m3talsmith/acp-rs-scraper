@@ -363,21 +363,39 @@ pub struct ScrapeStats {
 pub async fn scrape(
     http: &reqwest::Client, jar: &Jar, nick: &str,
     known: &HashSet<String>, reply_counts: &HashMap<String, usize>, full: bool, said_by: bool,
+    limit: Option<usize>, profile_feed: ProfileFeed, order: ScrapeOrder,
 ) -> Result<(Vec<Post>, String, ScrapeStats)> {
     let nick = nick.trim_start_matches('@');
     let known_opt = if full { None } else { Some(known) };
-    // Profile feed is always Latest (/rs/@nick); Trending does not apply to profiles.
-    let profile_url = profile_url(nick);
-    let mut feed = fetch_feed(http, jar, &profile_url, None, known_opt, true).await?;
-    // Also walk the "Posts and replies" filter (?replies=1) (the nick's replies in other threads).
-    let mut replies_tab_added = 0;
-    match fetch_replies_feed(http, jar, nick, &feed.html, known_opt).await {
-        Ok(extra) => {
-            replies_tab_added = merge_feed_items(&mut feed.items, extra);
-            info!("@{nick}: posts and replies added {replies_tab_added} items");
+    // `--order oldest` with `--limit` has to reach the end of a newest-first list.
+    let tail = order == ScrapeOrder::Oldest && limit.is_some();
+    let page_limit = if tail { None } else { limit };
+    let allow_incremental = profile_feed == ProfileFeed::Newest && !tail;
+    let profile_url = match profile_feed {
+        ProfileFeed::Newest => profile_url(nick),
+        ProfileFeed::Top => profile_top_url(nick),
+    };
+    let mut feed = fetch_feed(http, jar, &profile_url, page_limit, known_opt, allow_incremental).await?;
+    // Posts and replies is the Latest profile's filter. The Top feed has no captured replies URL.
+    let posts_items = std::mem::take(&mut feed.items);
+    let replies = if profile_feed == ProfileFeed::Newest {
+        match fetch_replies_feed(http, jar, nick, &feed.html, known_opt, page_limit, allow_incremental).await {
+            Ok(extra) => Some(extra),
+            Err(e) => { err!("warning: posts and replies feed: {e:#}"); None }
         }
-        Err(e) => err!("warning: posts and replies feed: {e:#}"),
+    } else {
+        None
+    };
+    let (items, replies_tab_added) = window_feed_items(posts_items, replies, limit, order);
+    feed.items = items;
+    if profile_feed != ProfileFeed::Newest || order != ScrapeOrder::Newest {
+        info!("@{nick}: --profile-feed {profile_feed} --order {order}");
     }
+    if let Some(n) = limit {
+        let end = match order { ScrapeOrder::Newest => "start", ScrapeOrder::Oldest => "end" };
+        info!("@{nick}: --limit {n}: keeping the {end} of the feed ({} items)", feed.items.len());
+    }
+    info!("@{nick}: posts and replies added {replies_tab_added} items");
     let mut seen = HashSet::new();
     let mut out = Vec::new();
     let mut roots: Vec<(String, usize)> = Vec::new(); // (id, replies_count from feed)

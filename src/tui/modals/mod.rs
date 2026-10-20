@@ -1,6 +1,7 @@
 //! Modals: floating over the layout (small margin, dimmed background), each
 //! closing with [`ModalResult::ClosedCancelled`] or [`ModalResult::ClosedSubmitted`].
 
+pub mod about;
 pub mod compose;
 pub mod confirm;
 pub mod help;
@@ -15,6 +16,7 @@ pub mod theme_picker;
 
 use crossterm::event::KeyEvent;
 
+pub use about::*;
 pub use compose::*;
 pub use confirm::*;
 pub use help::*;
@@ -34,6 +36,8 @@ pub enum ModalResult {
     ClosedCancelled,
     /// `CLOSED_SUBMITTED`: apply it.
     ClosedSubmitted,
+    /// Close this modal and open Help scrolled to a topic.
+    Help(&'static str),
 }
 
 /// A clickable element inside a modal.
@@ -84,6 +88,8 @@ pub enum Modal {
     Job(JobModal),
     /// New post or reply. Publish does not open a connection.
     Compose(ComposeModal),
+    /// Product name and slogan.
+    About(AboutModal),
 }
 
 impl Modal {
@@ -95,6 +101,7 @@ impl Modal {
             Modal::Post(m) => m,
             Modal::Job(m) => m,
             Modal::Compose(m) => m,
+            Modal::About(m) => m,
         }
     }
 }

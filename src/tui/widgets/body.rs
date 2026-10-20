@@ -1,7 +1,8 @@
 //! Body: navigation bar (with `<` back from search), the post cards, and the
 //! detail stack that slides the list up and nests linked posts.
 
-use crate::config::DETAIL_HEADER_ROWS;
+use crate::branding::{slogan_style, SLOGAN};
+use crate::config::{DETAIL_HEADER_ROWS, TUI_SUBTITLE};
 use crate::tui::layout::{CARD_ROWS, card_height, carousel, detail_split, ellipsize, grid_cells, grid_rows, modal_rect, stack_layout, wrap};
 use crate::tui::state::{AnimKind, App, Focus, Hit, ViewMode};
 use crate::tui::widgets::detail::{badge, detail_layout, header_lines, meta_line, snippet};
@@ -50,11 +51,27 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     if !v.stack.is_empty() {
         spans.push(Span::styled(format!("  · detail {}/{}", v.stack.len(), crate::config::MAX_DETAIL_DEPTH), t.muted()));
     }
+    let shown = v.posts.len();
+    let total = v.source.len();
+    if !v.source.is_empty() && total != shown {
+        spans.push(Span::styled(format!(" of {total}"), t.muted()));
+    }
+    let left: u16 = spans.iter().map(|s| unicode_width::UnicodeWidthStr::width(s.content.as_ref()) as u16).sum();
     f.render_widget(Paragraph::new(Line::from(spans)), nav);
-    // View switch, right-aligned.
+    // Order and view switches, right-aligned. Order sits just left of View when it fits.
+    let edits = v.kind == crate::tui::order::ListKind::Edits;
+    let order_label = if edits { "version".to_string() } else { app.orders.get(v.kind).to_string() };
+    let ol = format!(" [Order: {order_label} ▸] ");
     let vl = format!(" [View: {} ▸] ", app.view_mode.label());
+    let ow = unicode_width::UnicodeWidthStr::width(ol.as_str()) as u16;
     let vw = (unicode_width::UnicodeWidthStr::width(vl.as_str()) as u16).min(nav.width);
     let vr = Rect { x: nav.x + nav.width - vw, width: vw, ..nav };
+    let orx = nav.x + nav.width.saturating_sub(vw).saturating_sub(ow);
+    if ow > 0 && orx >= nav.x.saturating_add(left) && orx + ow <= vr.x {
+        let orr = Rect { x: orx, width: ow, ..nav };
+        f.render_widget(Paragraph::new(Span::styled(ol, t.accent())), orr);
+        if !edits { app.hits.push((orr, Hit::ListOrder)); }
+    }
     f.render_widget(Paragraph::new(Span::styled(vl, t.accent_bold())), vr);
     app.hits.push((vr, Hit::ViewMode));
 
@@ -62,9 +79,20 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
         let msg = if in_search { "No posts match this search. Press < to go back." }
             else if app.nicks.is_empty() { "The database is empty. Open Scrape (or Import) in the menu bar to fill it." }
             else { "Click a nick (Space / Ctrl-click to select several) to read their posts and replies." };
-        f.render_widget(Paragraph::new(msg).style(t.muted()), Rect { y: content.y + 1, height: content.height.saturating_sub(1), ..content });
+        // Welcome puts the title, then the slogan, above the hint. An empty search stays a hint.
+        let (text, anim_pad) = if in_search {
+            (vec![Line::styled(msg, t.muted())], 3)
+        } else {
+            (vec![
+                Line::styled(TUI_SUBTITLE, t.bold()),
+                Line::styled(SLOGAN, slogan_style(app.color_mode, app.no_color, false)),
+                Line::raw(""),
+                Line::styled(msg, t.muted()),
+            ], 6)
+        };
+        f.render_widget(Paragraph::new(text), Rect { y: content.y + 1, height: content.height.saturating_sub(1), ..content });
         // Below the hint, the empty-Body animation (paused when there's no room).
-        let area = Rect { y: content.y + 3, height: content.height.saturating_sub(3), ..content };
+        let area = Rect { y: content.y + anim_pad, height: content.height.saturating_sub(anim_pad), ..content };
         app.empty_anim_frame = None;
         if let Some(fr) = &app.empty_anim {
             let i = fr.index(now.saturating_duration_since(app.empty_anim_start));

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build acp-rs-scraper FROM SOURCE and install it.
+# Build acp-red-star FROM SOURCE and install it.
 #   scripts/install.sh            native package for this distro (pacman/apt/dnf)
 #   scripts/install.sh --user     binary + man page + completions into ~/.local
 #   options: -y/--yes (no prompts), --no-deps (don't install build deps)
@@ -9,7 +9,7 @@ set -euo pipefail
 MSRV=1.88
 root=$(cd "$(dirname "$0")/.." && pwd)
 cd "$root"
-name=acp-rs-scraper
+name=acp-red-star
 user=0 yes=0 deps=1
 for a in "$@"; do
   case $a in
@@ -129,7 +129,11 @@ if [ $user = 1 ] || [ $family = other ]; then
   manifest="$pfx/share/$name/install-manifest"
   $S install -d "$pfx/share/$name"
   (cd "$stage" && find . -type f | sed 's,^\./,,') | while read -r f; do
-    $S install -Dm"$( [ "$f" = bin/$name ] && echo 755 || echo 644)" "$stage/$f" "$pfx/$f"
+    case "$f" in
+      bin/*) mode=755 ;;
+      *) mode=644 ;;
+    esac
+    $S install -Dm"$mode" "$stage/$f" "$pfx/$f"
     echo "$pfx/$f"
   done | $S tee "$manifest" >/dev/null
   echo "$manifest" | $S tee -a "$manifest" >/dev/null

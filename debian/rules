@@ -19,7 +19,7 @@ ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 endif
 
 override_dh_auto_install:
-	scripts/stage.sh $(CURDIR)/debian/acp-rs-scraper target/release/acp-rs-scraper /usr
+	scripts/stage.sh $(CURDIR)/debian/acp-red-star target/release/acp-red-star /usr
 
 override_dh_auto_clean:
 	rm -rf target

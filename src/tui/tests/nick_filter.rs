@@ -21,7 +21,7 @@ fn click(a: &mut App, hit: Hit, mods: KeyModifiers) {
 fn key(a: &mut App, c: KeyCode) { on_key(a, KeyEvent::new(c, KeyModifiers::NONE)); }
 fn typ(a: &mut App, s: &str) { for c in s.chars() { key(a, KeyCode::Char(c)); } }
 fn shown(a: &App) -> Vec<&str> { a.nicks.iter().map(|n| n.nick.as_str()).collect() }
-fn entry(n: &str, d: Option<&str>) -> NickEntry { NickEntry { nick: n.into(), display_name: d.map(String::from), post_count: 1 } }
+fn entry(n: &str, d: Option<&str>) -> NickEntry { NickEntry { nick: n.into(), display_name: d.map(String::from), post_count: 1, latest: None } }
 
 #[test]
 fn matching_is_case_insensitive_substring_first_then_fuzzy() {

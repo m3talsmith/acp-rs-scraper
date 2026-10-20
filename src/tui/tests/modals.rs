@@ -24,6 +24,29 @@ fn login_email_then_code() {
 }
 
 #[test]
+fn login_code_step_resends_and_a_failed_verify_stays_there() {
+    let mut m = LoginModal::new(Some("a@b.c".into()), None);
+    m.need_code();
+    typ(&mut m, "111111");
+    m.on_key(k(KeyCode::F(2)));
+    assert_eq!(m.request.take(), Some(LoginRequest::Resend));
+    assert!(matches!(m.step, LoginStep::Busy(ref s) if s.starts_with("Sending another")));
+    assert!(m.code.value.is_empty());
+    m.need_code();
+    assert_eq!(m.on_click(ModalHit::Button(1)), None);
+    assert_eq!(m.request.take(), Some(LoginRequest::Resend));
+    m.need_code();
+    typ(&mut m, "222222");
+    m.held("websocket closed");
+    assert_eq!(m.step, LoginStep::Code);
+    assert!(m.code.value.is_empty());
+    assert_eq!(m.error.as_deref(), Some("websocket closed"));
+    assert_eq!(m.on_key(k(KeyCode::F(1))), Some(ModalResult::Help("login")));
+    m.need_code();
+    assert_eq!(m.on_click(ModalHit::Button(2)), Some(ModalResult::ClosedCancelled));
+}
+
+#[test]
 fn login_prefills_email_and_clicks() {
     let mut m = LoginModal::new(Some("a@b.c".into()), Some("why".into()));
     assert_eq!(m.email.value, "a@b.c");
@@ -56,6 +79,7 @@ fn help_is_generated_from_clap() {
     let h = HelpModal::new();
     let all = h.lines.join("\n");
     assert!(all.contains("--nicks") && all.contains("--tui") && all.contains("Shift-S"));
+    assert!(all.contains("[[login]]") && all.contains("Resend code"));
     assert!(all.contains("not the master key"));
     assert!(all.contains("--show-phrase"));
     assert!(all.contains("Any 3 of those 5"));

@@ -1,55 +1,63 @@
-![acp-rs-scraper: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
+![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.4.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88
+**Current version: 3.5.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
-# acp-rs-scraper
+# acp-red-star
 
 > **Full usage guide:** [docs/USAGE.md](docs/USAGE.md) · Install/uninstall: [docs/INSTALL.md](docs/INSTALL.md) · API docs: [docs/index.html](docs/index.html)
 
 Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that browses everything you have scraped; with flags it logs in to https://acp.us/rs (Red Star forum) as Firefox, scrapes all posts by a nick plus the comments on them, and stores them in SQLite.
+
+**v3 pre-launch write-up (historical draft, coming soon):** [docs/history/v3/redstar-v3-prelaunch-post.md](docs/history/v3/redstar-v3-prelaunch-post.md)
+
+<!-- TODO(3.0 release): switch the link above from the pre-launch post to docs/history/v3/redstar-v3-launch-post.md. Publish that launch post only when 3.x has fully shipped. -->
 
 ## Breaking changes in 3.0.0
 
 3.0.0 encrypts the local database and requires a password of at least 8 characters that passes a strength check. A 2.x install does not.
 
 - **What breaks.** Startup will not open `~/.acp/ai/data/rs.database` from 2.x. A new database asks for a password before the terminal UI or a headless command uses it. 2.x cannot read a 3.0.0 database, `rs.database.bootstrap`, or a `*.acpbackup`.
-- **Migrate.** Copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp` if you may want 2.x again. Then run `acp-rs-scraper --encrypt-db`. It writes a `*.acpbackup` first, encrypts the file, and removes the plaintext copy only after the encrypted copy matches. The password you set is required the next time the program starts (or set `ACP_PASSWORD` when there is no terminal). A session that has already unlocked the database does not ask again.
-- **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-rs-scraper --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
+- **Migrate.** Copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp` if you may want 2.x again. Then run `acp-red-star --encrypt-db`. It writes a `*.acpbackup` first, encrypts the file, and removes the plaintext copy only after the encrypted copy matches. The password you set is required the next time the program starts (or set `ACP_PASSWORD` when there is no terminal). A session that has already unlocked the database does not ask again.
+- **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.4.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.5.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed publish is not sent until a guided capture of a real reply; attachments wait for a later release. Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
+**3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images or videos on the site copy: more than 4 images or videos opens a picker (or `--site-attachments 1,3,5,6`), other types stay local, and with no choice the first 4 images or videos are the site copy. `--dry-run` lists those files and does not upload them. A confirmed publish still does not send, and the upload channel has not been captured. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
+
+**3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed publish is not sent until a guided capture of a real reply. Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
 
 **3.3.2** signs an authorizer certificate for 30 days and a node certificate for 365 days. 3.3.0 and 3.3.1 had those two lifetimes reversed. A node from those versions keeps the short certificate until `~/.acp/node` is removed and `--node-init` is run again, which creates a new node key.
 
 **3.3.1** stops the elapsed clock in job details once a job finishes, fails, or is cancelled. While the job is running, that line still counts. If the end was not recorded, the line says `unknown`.
 
-**3.3.0** gives this computer a node identity. `acp-rs-scraper --node-init` (after `--identity-init`) creates a key on this machine, has the account master sign it, and prints the peer id and a fingerprint. The header shows `◉` and the node name. `--node-id` prints the same public record. The secret stays in `~/.acp/node/keystore` and is left out of backups.
+**3.3.0** gives this computer a node identity. `acp-red-star --node-init` (after `--identity-init`) creates a key on this machine, has the account master sign it, and prints the peer id and a fingerprint. The header shows `◉` and the node name. `--node-id` prints the same public record. The secret stays in `~/.acp/node/keystore` and is left out of backups.
 
-**3.2.0** moves the account identity, canonical CBOR, and the secret-store interface into the library `acp_rs_node_core`, so a later relay or other app can use them without the terminal UI. Flags, the encrypted database, and a `.acpbackup` file are unchanged. The encoding rules and test vectors are in [docs/PROTOCOL.md](docs/PROTOCOL.md).
+**3.2.0** moves the account identity, canonical CBOR, and the secret-store interface into the library `acp_red_star_node_core`, so a later relay or other app can use them without the terminal UI. Flags, the encrypted database, and a `.acpbackup` file are unchanged. The encoding rules and test vectors are in [docs/PROTOCOL.md](docs/PROTOCOL.md).
 
 **3.1.0** adds a job-details window. Click the status bar or the `⟳` mark in the header, or press Tab until Status is focused and then Enter. It shows the job, what started it, whether it is running, finished, failed or cancelled, when it started, how long it has run, the current stage, and the recent log. Esc closes it. A running job can be cancelled from that window. The password and the database key are not shown. Encrypting the database, backup and restore still use the progress screen that runs before the terminal UI.
 
 ## Install
 
-Every install builds from source. You need Rust 1.88 or newer; the installer offers rustup if it's missing or too old.
+Every install builds from source. You need Rust 1.88 or newer (`rust-toolchain.toml` pins 1.88.0). rustc 1.85 cannot build this crate: edition 2024 is old enough, but a dependency uses let-chains and fails with `E0658`. The installer offers rustup if Rust is missing or too old.
 
 ```sh
 git clone https://github.com/m3talsmith/acp-rs-scraper.git
-cd acp-rs-scraper
+cd acp-red-star
 scripts/install.sh          # native package for Arch, Debian, Fedora and their derivatives (asks before sudo)
 scripts/install.sh --user   # or install into ~/.local without root
 ```
 
 Uninstall with `scripts/uninstall.sh` (add `--no-purge` to keep `~/.acp`). See [docs/INSTALL.md](docs/INSTALL.md) for details.
 
+`cargo install --path .` installs three commands, because cargo cannot add a symlink: `acp-red-star` (the primary binary), `acprs` (the same program), and `acp-rs-scraper` (the old name, through version 3). `acprs --version` prints `acp-red-star` and the version. `acprs --help` uses `acprs` in the usage line, the same way `acp-rs-scraper --help` uses that name.
+
 ## Usage
 
 ```text
 Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
 
-Usage: acp-rs-scraper [OPTIONS]
+Usage: acp-red-star [OPTIONS]
 
 Options:
   -h, --help
@@ -116,10 +124,13 @@ Interface:
           List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit
 
       --theme-init [<NAME>]
-          Download a theme from the acp-rs-scraper repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), or all. Never replaces an existing file
+          Download a theme from the acp-red-star repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), or all. Never replaces an existing file
 
       --theme-starter <NAME>
           Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file
+
+      --color <WHEN>
+          Colour output. auto follows NO_COLOR (a non-empty value turns colours off). always forces colours on, even when NO_COLOR is set. never turns colours off. Omitted: [ui] color in preferences.toml, or auto
 
 Scraping:
       --scrape
@@ -139,6 +150,19 @@ Scraping:
 
       --refetch-truncated
           Complete bodies stored shortened: re-read the thread page (the full text "show more" opens) of every stored row not marked complete — rows saved from a truncated feed item, and rows stored before 1.26.0 — for the given nicks (or every nick when none is given; then nothing else is scraped). New scrapes complete truncated items on their own
+
+      --limit <N>
+          How many profile items to keep from each nick. With --order newest (the default) this is the start of the feed: the newest posts, or the top of --profile-feed top. With --order oldest this is the end of that feed. Omit it to scrape the whole profile. Replies in those threads are still fetched unless --said-by. --crawl-limit still only bounds the mentions scan
+
+      --profile-feed <FEED>
+          Which profile feed a nick scrape reads. newest (default) is /rs/@nick plus Posts and replies (?replies=1). top is the profile Top feed (/rs/@nick/top?t=all) only. Other Top periods were not captured for profiles. This is not --latest / --trending, which still choose the mentions crawl
+          
+          [default: newest]
+
+      --order <ORDER>
+          Which end of that profile feed --limit keeps. newest (default) keeps the start of the site's list. oldest keeps the end, so a limited scrape reads the whole feed first. On newest that is the oldest posts. On top that is the end of the Top ranking. The site has no oldest-first profile URL. The terminal UI uses this same window for each list and for a search
+          
+          [default: newest]
 
       --crawl-limit <CRAWL_LIMIT>
           Max site-feed posts to scan when hunting mentions (default 500)
@@ -282,41 +306,41 @@ Debug:
           Error log file (default ~/.acp/logs/error.log); implies --enable-logging
 
 Examples:
-  acp-rs-scraper                      # terminal UI
-  acp-rs-scraper --tui --nicks @hazaldin -v
-  acp-rs-scraper --theme default      # terminal UI with this theme
-  acp-rs-scraper --list-themes
-  acp-rs-scraper --theme-init all     # download every theme in the repo into ~/.acp/themes
-  acp-rs-scraper --theme-starter mine # a minimal theme to edit (Shift-F5)
-  acp-rs-scraper --scrape             # headless scrape; asks for nicks
-  acp-rs-scraper --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
-  acp-rs-scraper --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
-  acp-rs-scraper --nick alice --no-mentions --crawl-limit 200
-  acp-rs-scraper --search "general strike" --format json
-  acp-rs-scraper --export all.json
-  acp-rs-scraper --export strike.tar.gz --search strike --compress --tar-gz --name strike
-  acp-rs-scraper --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
-  acp-rs-scraper --research-create strike --research-description "1877 and after"
-  acp-rs-scraper --research-add strike --post-ids A1B2C3D4 --note "key source"
-  acp-rs-scraper --research-add strike --url https://example.org/article
-  acp-rs-scraper --research-add strike --file ~/notes/strike.md
-  acp-rs-scraper --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
-  acp-rs-scraper --import strike.tar.gz --compress --tar-gz
-  acp-rs-scraper --import all.json
-  ACP_DEBUG=1 acp-rs-scraper --nick alice --debug
-  acp-rs-scraper --list-nicks
-  acp-rs-scraper --list-nicks --format json
-  acp-rs-scraper --nick alice --full
-  acp-rs-scraper --nick alice --said-by
-  acp-rs-scraper --nick alice -q
-  acp-rs-scraper --nick alice -v
-  acp-rs-scraper --nicks @hazaldin --latest
-  acp-rs-scraper --nicks @hazaldin --trending --crawl-limit 200
+  acp-red-star                      # terminal UI
+  acp-red-star --tui --nicks @hazaldin -v
+  acp-red-star --theme default      # terminal UI with this theme
+  acp-red-star --list-themes
+  acp-red-star --theme-init all     # download every theme in the repo into ~/.acp/themes
+  acp-red-star --theme-starter mine # a minimal theme to edit (Shift-F5)
+  acp-red-star --scrape             # headless scrape; asks for nicks
+  acp-red-star --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
+  acp-red-star --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
+  acp-red-star --nick alice --no-mentions --crawl-limit 200
+  acp-red-star --search "general strike" --format json
+  acp-red-star --export all.json
+  acp-red-star --export strike.tar.gz --search strike --compress --tar-gz --name strike
+  acp-red-star --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
+  acp-red-star --research-create strike --research-description "1877 and after"
+  acp-red-star --research-add strike --post-ids A1B2C3D4 --note "key source"
+  acp-red-star --research-add strike --url https://example.org/article
+  acp-red-star --research-add strike --file ~/notes/strike.md
+  acp-red-star --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
+  acp-red-star --import strike.tar.gz --compress --tar-gz
+  acp-red-star --import all.json
+  ACP_DEBUG=1 acp-red-star --nick alice --debug
+  acp-red-star --list-nicks
+  acp-red-star --list-nicks --format json
+  acp-red-star --nick alice --full
+  acp-red-star --nick alice --said-by
+  acp-red-star --nick alice -q
+  acp-red-star --nick alice -v
+  acp-red-star --nicks @hazaldin --latest
+  acp-red-star --nicks @hazaldin --trending --crawl-limit 200
 ```
 
 ## Terminal UI
 
-`acp-rs-scraper` with no flags (or `--tui`) opens the terminal UI. Logging flags still apply
+`acp-red-star` with no flags (or `--tui`) opens the terminal UI. Logging flags still apply
 (`-v`, `--debug`, `--enable-logging` pre-tick the Debug menu), and `--tui --nicks a,b` opens with
 those nicks selected. Everything else on the command line keeps working headless as before; a bare
 headless scrape is now `--scrape`.
@@ -325,7 +349,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star Scraper  v3.4.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star     v3.5.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | Scrape │ Search │ Export │ Import │ … │ Quit  ▶ Start Scanning|  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -440,7 +464,7 @@ headless scrape is now `--scrape`.
   Export › Show basket lists what you picked, **Export basket** writes exactly those posts with the
   Export menu's Path, Format, Name and Compress (a background `--export PATH --post-ids …` job),
   Clear basket empties it. The basket lasts until you quit. Headless:
-  `acp-rs-scraper --export picked.html --format html --post-ids ID1,ID2`.
+  `acp-red-star --export picked.html --format html --post-ids ID1,ID2`.
 - **Research.** Left of the basket button every card and detail has a `◈` button (or press `r`):
   it opens a picker with what can be added from there, the project list and a "new project" name
   and description. From an open post you can add the post itself, the posts it links, its
@@ -486,7 +510,7 @@ headless scrape is now `--scrape`.
   ```
 
   `ACP_EMPTY_ANIMATION=off|star|on` overrides the setting. Your own clip: `tools/acp-anim`
-  (installed as `/usr/share/acp-rs-scraper/tools/acp-anim`; needs python3 and ffmpeg, plus yt-dlp
+  (installed as `/usr/share/acp-red-star/tools/acp-anim`; needs python3 and ffmpeg, plus yt-dlp
   for URLs) turns the first N seconds of a video into frames at
   `~/.acp/animations/empty-body.acpanim.gz`, which the TUI then plays instead:
 
@@ -511,7 +535,7 @@ Themes are TOML files in `~/.acp/themes/`, one per theme (names: lowercase lette
 and `_`, up to 32). That folder is the only place themes are read from: packages don't install
 any and none is built into the binary. On the first run, when `~/.acp/themes/` is empty, the TUI
 downloads `default.toml` from the repo in the background
-(`https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`;
+(`https://raw.githubusercontent.com/m3talsmith/acp-red-star/v<version>/themes/default.toml`;
 3 s timeout, 64 KiB at most, no cookies sent), checks that it is a valid theme, saves it
 (never replacing a file) and switches to it as soon as it arrives, unless you picked another
 theme meanwhile. Until then, and if the download fails (offline), the TUI uses your terminal's
@@ -520,10 +544,10 @@ download before they answer. `default` is the classic look: ACP red `#dc2626` on
 own colours. `F5` (or the `‹name› ▾` switch in the header) opens the theme picker, which
 previews each theme live as you move through it.
 
-- `acp-rs-scraper --theme-init [NAME|all]` (or *Theme: init* in the command palette, for the
+- `acp-red-star --theme-init [NAME|all]` (or *Theme: init* in the command palette, for the
   default) downloads a theme by hand; an existing file is kept. If the download fails, the notice
   suggests a starter theme instead.
-- `acp-rs-scraper --theme-starter NAME` (or *Theme: starter [name]* in the command palette, e.g.
+- `acp-red-star --theme-starter NAME` (or *Theme: starter [name]* in the command palette, e.g.
   `theme starter mine`; no name: `starter`, `starter-2`, …) writes a minimal starter theme with
   plain terminal colours, without downloading, never over an existing file.
 - While the first-run download runs, the header switch reads `‹default · downloading…› ▾`; a
@@ -589,7 +613,7 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   `~/.acp/preferences.toml`. `[ui] theme_mode = "dark" | "light" | "system"` picks the variant;
   `system` (the default) uses `COLORFGBG` when set, else asks the terminal (`OSC 11`), else
   dark. `--theme NAME` uses a theme for one run without saving it;
-  `--list-themes` prints them all.
+  `--list-themes` prints them all. `--color auto|always|never` follows `NO_COLOR`, forces colour on, or turns it off. `[ui] color` is the default when the flag is omitted.
 - **Editor** (`Shift-F5`): see [Theme editor](#theme-editor) below.
 - **Safety.** A missing or broken theme file never stops the TUI: it falls back to the terminal's
   colours and a notice names the file and how to fix it. Broken files are never overwritten
@@ -633,10 +657,10 @@ Bookmarks live in the database's `bookmarks` table, so they work offline, are vi
 and go away with `--clear-all`.
 
 ```sh
-acp-rs-scraper --bookmark POSTID1,POSTID2   # offline
-acp-rs-scraper --unbookmark POSTID1         # offline; removed on the site at the next sync
-acp-rs-scraper --list-bookmarks             # ★ = also bookmarked on the site; --format json for JSON
-acp-rs-scraper --sync-bookmarks             # log in, pull the site's bookmarks (and their posts), push local changes
+acp-red-star --bookmark POSTID1,POSTID2   # offline
+acp-red-star --unbookmark POSTID1         # offline; removed on the site at the next sync
+acp-red-star --list-bookmarks             # ★ = also bookmarked on the site; --format json for JSON
+acp-red-star --sync-bookmarks             # log in, pull the site's bookmarks (and their posts), push local changes
 ```
 
 A sync merges both sides: site bookmarks you don't have are added (and their posts stored), local
@@ -655,14 +679,14 @@ an optional note, and export them together. They live in the database (`research
 `research_items`); copied files and page snapshots go to `~/.acp/research/<project>/`.
 
 ```sh
-acp-rs-scraper --research-create strike --research-description "1877 and after"
-acp-rs-scraper --research-add strike --post-ids A1B2C3D4,E5F6G7H8 --note "key source"
-acp-rs-scraper --research-add strike --search "general strike" --nicks alice   # every match
-acp-rs-scraper --research-add strike --file ~/notes/strike.md                   # copied (--no-copy: referenced)
-acp-rs-scraper --research-add strike --url https://example.org/article          # title + readable text + snapshot
-acp-rs-scraper --research-list                                                  # --format json for JSON
-acp-rs-scraper --research-show strike
-acp-rs-scraper --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
+acp-red-star --research-create strike --research-description "1877 and after"
+acp-red-star --research-add strike --post-ids A1B2C3D4,E5F6G7H8 --note "key source"
+acp-red-star --research-add strike --search "general strike" --nicks alice   # every match
+acp-red-star --research-add strike --file ~/notes/strike.md                   # copied (--no-copy: referenced)
+acp-red-star --research-add strike --url https://example.org/article          # title + readable text + snapshot
+acp-red-star --research-list                                                  # --format json for JSON
+acp-red-star --research-show strike
+acp-red-star --research-export strike --export strike.tar.gz --format json,html --compress --tar-gz
 ```
 
 `--research-add` creates the project if it is missing (`--research-description` sets its
@@ -680,7 +704,7 @@ is no delete flag yet: `sqlite3` on the two tables works if you need one.
 it prints no export (add `--output` for one) and never prompts for nicks, so it suits cron:
 
 ```sh
-acp-rs-scraper --sync --nicks alice,bob --no-mentions
+acp-red-star --sync --nicks alice,bob --no-mentions
 ```
 
 The TUI's Sync menu runs the same command on a timer.
@@ -816,7 +840,7 @@ Prints nick, display name, post count, latest `posted_at`, whether a profile row
 
 ## Releases
 
-A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.3.1. 3.3.2 and 3.4.0 stay drafts until those versions are merged; publish them by hand after the merge. Releases for 2.16.0 and earlier stay as they were published. Drafts that already exist for versions now on `main` are left for the maintainer to publish.
+A GitHub Release for a version that is not yet on `main` is a draft. `main` includes 3.4.0. 3.5.0 stays a draft until that version is merged; publish it by hand after the merge. Releases for 2.16.0 and earlier stay as they were published. Drafts that already exist for versions now on `main` are left for the maintainer to publish.
 
 `.githooks/post-commit` tags `vX.Y.Z` when the version in `Cargo.toml` changes. It does not create a GitHub Release, and no workflow publishes one. A release is created with `gh release create --draft`, notes from the matching [CHANGELOG.md](CHANGELOG.md) section, and no attached files. See [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -359,6 +359,7 @@ pub fn item_attachments(items: &[ResearchItem]) -> Vec<Attachment> {
         url: if i.kind == ItemKind::WebUrl { i.r#ref.clone() } else { format!("file://{}", i.r#ref) },
         kind: "file".into(), local_path: PathBuf::from(&i.local_path),
         mime_type: i.meta["mime_type"].as_str().or(i.meta["content_type"].as_str()).unwrap_or("application/octet-stream").to_string(),
+        on_site: false,
     }).collect()
 }
 

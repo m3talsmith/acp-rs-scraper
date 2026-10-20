@@ -1,6 +1,6 @@
-//! `acp-rs-scraper` binary: parses the command line and runs [`acp_rs_scraper::app::run`].
+//! `acp-red-star` binary: parses the command line and runs [`acp_red_star::app::run`].
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    acp_rs_scraper::app::run().await
+    acp_red_star::app::run().await
 }

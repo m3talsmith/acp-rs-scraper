@@ -14,10 +14,11 @@
 //! - [`auth`]: email + one-time-code login, saved preferences.
 //! - [`liveview`]: LiveView websocket client and diff renderer.
 //! - [`scrape`]: profile/site feeds, threads, "Posts and replies" filter, mentions.
-//! - [`site`]: New post and Reply (3.4.0). Publish stays gated until a guided capture.
+//! - [`site`]: New post and Reply (3.4.0), with local attachments (3.5.0). Publish and upload stay gated until a guided capture.
 //! - [`media`]: attachment discovery and download.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
+//! - [`branding`]: the slogan shared by the welcome screen, login, About, and the status bar.
 //! - [`bookmarks`]: local bookmarks and `--sync-bookmarks` with the site.
 //! - [`maintenance`]: `--remove-nick` and `--clear-all`.
 //! - [`themes`]: theme files in `~/.acp/themes` (format, loading, first-run download, migration).
@@ -33,6 +34,7 @@
 pub mod logging;
 pub mod app;
 pub mod auth;
+pub mod branding;
 pub mod bookmarks;
 pub mod cli;
 pub mod config;

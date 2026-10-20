@@ -9,6 +9,7 @@ pub mod modal;
 pub mod nicks;
 pub mod text;
 
+use crate::branding::{slogan_in_status, slogan_style, SLOGAN, SLOGAN_COLS};
 use crate::prelude::*;
 use crate::tui::layout::areas;
 use crate::tui::state::{status_line_is_problem, App, Focus, Hit, SessionState};
@@ -132,6 +133,21 @@ fn status(f: &mut Frame, app: &mut App, r: Rect) {
             Line::styled(l.clone(), st)
         }).collect()
     };
+    let bottom = (r.height as usize).saturating_sub(1);
+    let bottom_cols = lines.get(bottom).map(line_cols).unwrap_or(0);
+    let show_slogan = r.height > 0 && slogan_in_status(r.width, bottom_cols);
     f.render_widget(Paragraph::new(lines), r);
+    if show_slogan {
+        let y = r.y + r.height - 1;
+        let x = r.x + r.width - SLOGAN_COLS;
+        f.render_widget(
+            Paragraph::new(Span::styled(SLOGAN, slogan_style(app.color_mode, app.no_color, true))),
+            Rect { x, y, width: SLOGAN_COLS, height: 1 },
+        );
+    }
     app.hits.push((r, Hit::Status));
+}
+
+fn line_cols(line: &Line) -> u16 {
+    line.width().min(u16::MAX as usize) as u16
 }

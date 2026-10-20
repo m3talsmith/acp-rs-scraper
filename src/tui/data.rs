@@ -13,6 +13,8 @@ pub struct NickEntry {
     pub display_name: Option<String>,
     /// Stored posts and replies by this nick.
     pub post_count: i64,
+    /// Newest `posted_at` for this nick, when one is stored.
+    pub latest: Option<String>,
 }
 
 /// Nick-bar filter: case-insensitive match of `q` against the nick and display name.
@@ -60,6 +62,10 @@ pub struct SearchFilter {
     pub to: String,
     /// Posts / replies / both.
     pub kind: KindFilter,
+    /// Which end of the match list to keep. Default newest.
+    pub order: ScrapeOrder,
+    /// How many matches to keep at that end. `None` keeps every match.
+    pub limit: Option<usize>,
 }
 
 impl SearchFilter {
@@ -67,6 +73,7 @@ impl SearchFilter {
     pub fn is_empty(&self) -> bool {
         self.keyword.trim().is_empty() && self.nicks.is_empty() && self.post_id.trim().is_empty()
             && self.from.trim().is_empty() && self.to.trim().is_empty() && self.kind == KindFilter::Any
+            && self.order == ScrapeOrder::Newest && self.limit.is_none()
     }
     /// Whether `p` passes the filter.
     pub fn matches(&self, p: &Post) -> bool {
@@ -129,6 +136,7 @@ pub fn research_attachment(it: &ResearchItem) -> Option<Attachment> {
         local_path: PathBuf::from(&it.local_path),
         mime_type: it.meta["mime_type"].as_str().or(it.meta["content_type"].as_str()).unwrap_or("application/octet-stream")
             .split(';').next().unwrap_or("").trim().to_string(),
+        on_site: false,
     })
 }
 
@@ -178,7 +186,7 @@ impl Store for SqliteStore {
     fn nicks(&self) -> Result<Vec<NickEntry>> {
         let Some(c) = self.conn()? else { return Ok(Vec::new()) };
         let mut v: Vec<NickEntry> = list_nicks_conn(&c)?.into_iter()
-            .map(|i| NickEntry { nick: i.nick, display_name: i.display_name, post_count: i.post_count }).collect();
+            .map(|i| NickEntry { nick: i.nick, display_name: i.display_name, post_count: i.post_count, latest: i.latest }).collect();
         v.sort_by(|a, b| b.post_count.cmp(&a.post_count).then_with(|| a.nick.to_lowercase().cmp(&b.nick.to_lowercase())));
         Ok(v)
     }
@@ -204,7 +212,12 @@ impl Store for SqliteStore {
         self.query(&format!("{col} = ?1 AND post_id <> ?1"), "posted_at", &[&id])
     }
     fn attachments(&self, id: &str) -> Result<Vec<Attachment>> {
-        let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        // Attachment rows are readable before a posts table exists (an older
+        // file, or a database that only has the attachments table). A missing
+        // `on_site` column is treated as on the site. This store never alters.
+        if !self.path.exists() { return Ok(Vec::new()); }
+        let c = crate::storage::db::open_db_flags(&self.path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
         if let Some(n) = id.strip_prefix("research:").and_then(|n| n.parse::<i64>().ok()) {
             if !crate::maintenance::table_exists(&c, "research_items")? { return Ok(Vec::new()); }
             let pid: Option<i64> = c.query_row("SELECT project_id FROM research_items WHERE id = ?1", [n], |r| r.get(0)).optional()?;
@@ -212,13 +225,15 @@ impl Store for SqliteStore {
             return Ok(project_items(&c, pid)?.iter().filter(|i| i.id == n).filter_map(research_attachment).collect());
         }
         if !crate::maintenance::table_exists(&c, "attachments")? { return Ok(Vec::new()); }
-        let mut st = c.prepare("SELECT post_id,url,local_path,mime_type FROM attachments WHERE post_id = ?1 ORDER BY id DESC")?;
+        let sql = if crate::storage::db::attachments_have_on_site(&c) {
+            "SELECT post_id,url,local_path,mime_type,on_site FROM attachments WHERE post_id = ?1 ORDER BY id DESC"
+        } else {
+            "SELECT post_id,url,local_path,mime_type,1 FROM attachments WHERE post_id = ?1 ORDER BY id DESC"
+        };
+        let mut st = c.prepare(sql)?;
         let mut seen = HashSet::new();
         let mut out = Vec::new();
-        for a in st.query_map(params![id], |r| Ok(Attachment {
-            post_id: r.get(0)?, url: r.get(1)?, kind: "file".into(),
-            local_path: PathBuf::from(r.get::<_, String>(2)?), mime_type: r.get(3)?,
-        }))? {
+        for a in st.query_map(params![id], crate::storage::db::attachment_from_row)? {
             let a = a?;
             if seen.insert(crate::media::canonical_url(&a.url).to_string()) { out.push(a); }
         }
@@ -276,8 +291,11 @@ impl Store for MemStore {
         let mut m: Vec<NickEntry> = Vec::new();
         for p in &self.posts {
             match m.iter_mut().find(|e| e.nick.eq_ignore_ascii_case(&p.nick)) {
-                Some(e) => e.post_count += 1,
-                None => m.push(NickEntry { nick: p.nick.clone(), display_name: None, post_count: 1 }),
+                Some(e) => {
+                    e.post_count += 1;
+                    if e.latest.as_deref().is_none_or(|l| p.posted_at.as_str() > l) { e.latest = Some(p.posted_at.clone()); }
+                }
+                None => m.push(NickEntry { nick: p.nick.clone(), display_name: None, post_count: 1, latest: Some(p.posted_at.clone()) }),
             }
         }
         m.sort_by(|a, b| b.post_count.cmp(&a.post_count).then_with(|| a.nick.cmp(&b.nick)));

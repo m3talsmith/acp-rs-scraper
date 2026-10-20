@@ -41,6 +41,79 @@ impl std::fmt::Display for Format {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result { f.write_str(self.ext()) }
 }
 
+/// Where a `.tar.gz` export is written.
+///
+/// No path: `<exports_dir>/<name>.<ext>`. A directory, or a path ending in `/`,
+/// is `<dir>/<slug>.<ext>` (the export name, made into a file name). A name that
+/// already ends in `.tar.gz` or `.tgz` is kept. Any other path gets `.<ext>`
+/// appended, so a bare name is a file and not the staging directory.
+pub fn archive_output(out: Option<&Path>, name: &str, exports_dir: &Path, ext: &str) -> PathBuf {
+    let Some(out) = out.filter(|p| !p.as_os_str().is_empty()) else {
+        return exports_dir.join(format!("{name}.{ext}"));
+    };
+    if is_directory_dest(out) {
+        return out.join(format!("{}.{ext}", export_file_stem(name)));
+    }
+    if has_archive_suffix(out) {
+        return out.to_path_buf();
+    }
+    let mut os = out.as_os_str().to_owned();
+    os.push(".");
+    os.push(ext);
+    PathBuf::from(os)
+}
+
+/// A directory the user named, including a path that ends in `/` and does not exist yet.
+fn is_directory_dest(path: &Path) -> bool {
+    if path.is_dir() {
+        return true;
+    }
+    path.to_str().is_some_and(|s| s.ends_with('/') || s.ends_with('\\'))
+}
+
+/// `.tar.gz` or `.tgz`, ignoring case.
+fn has_archive_suffix(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|n| n.to_str()) else { return false };
+    let lower = name.to_ascii_lowercase();
+    lower.ends_with(".tar.gz") || lower.ends_with(".tgz")
+}
+
+/// Export name as a file stem: letters, digits, and dashes. This is [`slug`] without the length cap,
+/// so a timestamp in the name survives.
+fn export_file_stem(name: &str) -> String {
+    let mut o = String::new();
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            o.push(ch.to_ascii_lowercase());
+        } else if !o.ends_with('-') {
+            o.push('-');
+        }
+    }
+    let o = o.trim_matches('-').to_string();
+    if o.is_empty() { "export".into() } else { o }
+}
+
+/// Stem of an archive file name (`resonance-cosmos.tar.gz` → `resonance-cosmos`).
+/// The staging directory is this stem beside the archive, never the archive path itself.
+fn staging_stem(archive: &Path, fallback: &str) -> String {
+    let Some(name) = archive.file_name().and_then(|n| n.to_str()) else {
+        return export_file_stem(fallback);
+    };
+    let lower = name.to_ascii_lowercase();
+    let cut = if lower.ends_with(".tar.gz") {
+        ".tar.gz".len()
+    } else if lower.ends_with(".tgz") {
+        ".tgz".len()
+    } else {
+        0
+    };
+    if cut == 0 || cut >= name.len() {
+        return export_file_stem(fallback);
+    }
+    let stem = &name[..name.len() - cut];
+    if stem.is_empty() { export_file_stem(fallback) } else { stem.to_string() }
+}
+
 /// Where each format goes for a plain (uncompressed) `--output` path.
 /// One format: the path as given (a directory gets `<name>.<ext>`).
 /// Several: a directory gets `<dir>/<name>.<ext>` each; a file path keeps its
@@ -103,10 +176,10 @@ pub fn export_with(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[
 
     // Export dir: the file plus attachments/ beside it.
     let (dir, files, tar_path) = if let Some(c) = args.compression() {
-        let tp = args.output.clone().unwrap_or_else(|| exports_dir.join(format!("{base}.{}", c.ext())));
-        let stem = tp.file_name().map(|n| n.to_string_lossy().trim_end_matches(".tar.gz").trim_end_matches(".tgz").to_string())
-            .unwrap_or(base.clone());
-        let dir = tp.parent().map(Path::to_path_buf).unwrap_or_default().join(&stem);
+        let tp = archive_output(args.output.as_deref(), &base, exports_dir, c.ext());
+        let stem = staging_stem(&tp, &base);
+        let parent = tp.parent().map(Path::to_path_buf).unwrap_or_default();
+        let dir = if parent.as_os_str().is_empty() { PathBuf::from(&stem) } else { parent.join(&stem) };
         let files: Vec<(Format, PathBuf)> = formats.iter().map(|f| (*f, dir.join(format!("{stem}.{}", f.ext())))).collect();
         (dir, files, Some((tp, stem)))
     } else {
@@ -160,7 +233,8 @@ pub fn export_with(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[
         let mut t = tar::Builder::new(gz);
         t.append_dir_all(&stem, &dir)?;
         t.into_inner()?.finish()?;
-        log_info(format_args!("bundle {}", tp.display()));
+        // Success log (and stderr): the path actually written, after a directory or a bare name is resolved.
+        log_info(format_args!("wrote {}", tp.display()));
         // The archive is complete: remove the uncompressed export folder.
         // (Any error above returns early and leaves the folder in place.)
         remove_export_dir(&dir, &tp)?;
@@ -294,5 +368,60 @@ mod tests {
     fn several_formats_to_stdout_is_an_error() {
         let args = Args::try_parse_from(["x", "--nick", "h", "--format", "json,html"]).unwrap();
         assert!(export(&args, "k", "h", &[post()], &[], &[], &[], Path::new(".")).is_err());
+    }
+
+    #[test]
+    fn archive_output_appends_tar_gz_or_writes_inside_a_directory() {
+        let d = tmp("arch-rules");
+        let ext = "tar.gz";
+        assert_eq!(archive_output(None, "resonance-cosmos", &d, ext), d.join("resonance-cosmos.tar.gz"));
+        assert_eq!(archive_output(Some(&d.join("resonance-cosmos")), "ignored", &d, ext), d.join("resonance-cosmos.tar.gz"));
+        assert_eq!(archive_output(Some(&d.join("resonance-cosmos.tar.gz")), "ignored", &d, ext), d.join("resonance-cosmos.tar.gz"));
+        assert_eq!(archive_output(Some(&d.join("resonance-cosmos.TGZ")), "ignored", &d, ext), d.join("resonance-cosmos.TGZ"));
+        assert_eq!(archive_output(Some(&d), "Resonance Cosmos", &d, ext), d.join("resonance-cosmos.tar.gz"));
+        let fresh = PathBuf::from(format!("{}/fresh/", d.display()));
+        assert_eq!(archive_output(Some(&fresh), "Resonance Cosmos", &d, ext), d.join("fresh/resonance-cosmos.tar.gz"));
+        assert_ne!(staging_stem(Path::new("resonance-cosmos.tar.gz"), "x"), "resonance-cosmos.tar.gz");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn compressed_bare_name_writes_a_tar_gz_and_logs_that_path() {
+        let d = tmp("bare-tgz");
+        let bare = d.join("resonance-cosmos");
+        let args = Args::try_parse_from(["x", "--nick", "hazaldin", "--format", "json",
+            "--compress", "--tar-gz", "--output", bare.to_str().unwrap()]).unwrap();
+        let (tx, rx) = std::sync::mpsc::channel();
+        crate::logging::set_log_sink(Some(tx));
+        struct Restore;
+        impl Drop for Restore { fn drop(&mut self) { crate::logging::set_log_sink(None); } }
+        let _restore = Restore;
+        let previous = crate::logging::log_level();
+        crate::logging::set_log_level(crate::logging::LogLevel::Normal);
+        export(&args, "resonance-cosmos", "@hazaldin", &[post()], &[], &[], &[], &d).unwrap();
+        crate::logging::set_log_level(previous);
+        let final_path = d.join("resonance-cosmos.tar.gz");
+        assert!(final_path.is_file(), "missing {}", final_path.display());
+        assert!(!bare.exists(), "the bare name must not be left as the staging directory");
+        let lines: Vec<String> = rx.try_iter().collect();
+        let shown = final_path.display().to_string();
+        assert!(lines.iter().any(|l| l == &format!("wrote {shown}")), "success log lines: {lines:?}");
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn compressed_directory_writes_the_project_slug_inside_it() {
+        let d = tmp("dir-tgz");
+        let args = Args::try_parse_from(["x", "--nick", "hazaldin", "--format", "json",
+            "--compress", "--tar-gz", "--output", d.to_str().unwrap()]).unwrap();
+        export(&args, "Resonance Cosmos", "@hazaldin", &[post()], &[], &[], &[], &d).unwrap();
+        let final_path = d.join("resonance-cosmos.tar.gz");
+        assert!(final_path.is_file(), "missing {}", final_path.display());
+        assert!(!d.join("resonance-cosmos").exists(), "staging directory is removed after the archive");
+        let gz = flate2::read::GzDecoder::new(std::fs::File::open(&final_path).unwrap());
+        let names: Vec<String> = tar::Archive::new(gz).entries().unwrap()
+            .map(|e| e.unwrap().path().unwrap().to_string_lossy().into_owned()).collect();
+        assert!(names.iter().any(|n| n.ends_with("resonance-cosmos.json")), "{names:?}");
+        std::fs::remove_dir_all(&d).unwrap();
     }
 }

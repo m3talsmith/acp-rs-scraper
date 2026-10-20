@@ -10,7 +10,16 @@ use ratatui::widgets::Paragraph;
 pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
     let count = if app.nick_filter_active() { format!("{}/{}", app.nicks.len(), app.all_nicks.len()) } else { app.nicks.len().to_string() };
-    let title = if app.selected.len() > 1 { format!(" Nicks ({count}) · {} selected ", app.selected.len()) } else { format!(" Nicks ({count}) ") };
+    let window = match (app.nick_order, app.nick_limit) {
+        (crate::prelude::ScrapeOrder::Newest, None) => String::new(),
+        (order, None) => format!(" · {order}"),
+        (order, Some(n)) => format!(" · {order} · {n}"),
+    };
+    let title = if app.selected.len() > 1 {
+        format!(" Nicks ({count}) · {} selected{window} ", app.selected.len())
+    } else {
+        format!(" Nicks ({count}){window} ")
+    };
     let b = crate::tui::theme::frame(&t.pane(app.focus == Focus::Nicks)).title(title);
     let mut inner = b.inner(r);
     f.render_widget(b, r);

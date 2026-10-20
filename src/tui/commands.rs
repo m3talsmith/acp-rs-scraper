@@ -11,7 +11,23 @@ use crate::tui::state::ViewMode;
 use crate::tui::widgets::text::TextField;
 
 /// Program name used as `argv[0]` for validation.
-pub const ARGV0: &str = "acp-rs-scraper";
+pub const ARGV0: &str = "acp-red-star";
+
+/// A menu path the child process will open. `~` and `~/…` expand here because the
+/// TUI does not pass the line through a shell. Other paths are unchanged.
+pub fn expand_menu_path(raw: &str) -> String {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() { return String::new(); }
+    let home = crate::config::home().ok();
+    crate::site::expand_with_home(std::path::Path::new(trimmed), home.as_deref()).to_string_lossy().into_owned()
+}
+
+/// Menu text fields that name a file or directory.
+pub fn is_path_field(id: CommandId, key: &str) -> bool {
+    matches!((id, key),
+        (CommandId::Scrape, "output") | (CommandId::Export, "path") | (CommandId::Import, "path")
+        | (CommandId::Research, "file") | (CommandId::Research, "export_path"))
+}
 
 /// Menu bar items, left to right.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -42,6 +58,8 @@ pub enum CommandId {
     Debug,
     /// Usage modal.
     Help,
+    /// Product name and slogan.
+    About,
     /// Leave the TUI.
     Quit,
 }
@@ -83,6 +101,8 @@ pub enum Action {
     Logout,
     /// Help modal.
     Help,
+    /// About modal.
+    About,
     /// Toggle the log panel.
     ToggleLog,
     /// Quit (detaching a running job).
@@ -227,6 +247,15 @@ pub struct Opt {
     pub required: bool,
     /// Input type.
     pub widget: Widget,
+    /// Help topic this option deep-links to (`?` while it is highlighted). Empty: the general Help.
+    pub help: &'static str,
+}
+
+impl Opt {
+    /// The dropdown's hint line: the flag text, and `? {topic}` when this option has its own Help topic.
+    pub fn hint_line(&self) -> String {
+        if self.help.is_empty() { self.flag.to_string() } else { format!("{}  ? {}", self.flag, self.help) }
+    }
 }
 
 /// One menu bar item.
@@ -245,15 +274,24 @@ pub struct MenuCommand {
 }
 
 fn opt(key: &'static str, label: &'static str, flag: &'static str, required: bool, widget: Widget) -> Opt {
-    Opt { key, label, flag, required, widget }
+    opt_topic(key, label, flag, "", required, widget)
+}
+fn opt_topic(key: &'static str, label: &'static str, flag: &'static str, help: &'static str, required: bool, widget: Widget) -> Opt {
+    Opt { key, label, flag, required, widget, help }
 }
 fn check(v: bool) -> Widget { Widget::Check(v) }
 fn text(v: &str) -> Widget { Widget::Text(TextField::new(v)) }
 fn choice(choices: &'static [&'static str]) -> Widget { Widget::Choice { choices, idx: 0 } }
 fn button(a: Action) -> Widget { Widget::Button(a) }
 
-/// Scrape feed choices.
+/// Scrape feed choices for the mentions crawl (`--latest` / `--trending`).
 pub const MODE_CHOICES: &[&str] = &["Latest", "Trending"];
+/// Profile feed a nick scrape reads (`--profile-feed`).
+pub const PROFILE_FEED_CHOICES: &[&str] = &["Newest", "Top"];
+/// Which end of that feed `--limit` keeps (`--order`).
+pub const ORDER_CHOICES: &[&str] = &["Newest", "Oldest"];
+/// View › Colour.
+pub const COLOR_CHOICES: &[&str] = &["Auto", "Always", "Never"];
 /// Export format choices.
 pub const FORMAT_CHOICES: &[&str] = &["json", "html", "json,html"];
 /// Export scope choices.
@@ -278,23 +316,28 @@ impl Menu {
                 opt("nicks", "Nicks", "--nicks (blank: selected nicks)", true, text("")),
                 opt("mentions", "Mentions", "--no-mentions when off", false, check(true)),
                 opt("said_by", "Said by", "--said-by", false, check(false)),
+                opt("profile_feed", "Profile feed", "--profile-feed (default: newest)", false, choice(PROFILE_FEED_CHOICES)),
+                opt("order", "Order", "--order (default: newest)", false, choice(ORDER_CHOICES)),
+                opt("limit", "Post limit", "--limit (blank: whole profile)", false, text("")),
                 opt("crawl_limit", "Crawl limit", "--crawl-limit", false, text(&DEFAULT_CRAWL_LIMIT.to_string())),
                 opt("attachments", "Attachments", "--no-attachments when off", false, check(true)),
                 opt("full", "Full", "--full", false, check(false)),
                 opt("refetch", "Refetch truncated", "--refetch-truncated", false, check(false)),
-                opt("output", "Output file", "--output (blank: database only)", false, text("")),
+                opt("output", "Output file", "--output (blank: database only)  Tab completes", false, text("")),
                 opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
                 opt("start", "Start Scanning", "", false, button(Action::StartScan)),
             ]},
             MenuCommand { id: Search, label: "Search", hint: 'e', action: None, opts: vec![
                 opt("query", "Query", "--search", true, text("")),
                 opt("nick", "Nick filter", "--nicks", false, text("")),
+                opt_topic("order", "Order", "Newest or oldest for these results. Same window as --order", "search-order", false, choice(ORDER_CHOICES)),
+                opt_topic("limit", "Limit", "Keep this many matches at the chosen end. Blank keeps all. Same as --limit", "search-limit", false, text("")),
                 opt("run", "Search", "", false, button(Action::RunSearch)),
                 opt("advanced", "Advanced…", "Shift-S", false, button(Action::OpenSearchModal)),
                 opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
             ]},
             MenuCommand { id: Export, label: "Export", hint: 'x', action: None, opts: vec![
-                opt("path", "Path", "--export", true, text("")),
+                opt("path", "Path", "--export  Tab completes", true, text("")),
                 opt("scope", "From", "--nicks / --search", false, choice(SCOPE_CHOICES)),
                 opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
                 opt("name", "Name", "--name", false, text("")),
@@ -306,7 +349,7 @@ impl Menu {
                 opt("basket_clear", "Clear basket", "", false, button(Action::ClearBasket)),
             ]},
             MenuCommand { id: Import, label: "Import", hint: 'i', action: None, opts: vec![
-                opt("path", "Path", "--import", true, text("")),
+                opt("path", "Path", "--import  Tab completes", true, text("")),
                 opt("compress", "Compressed tar.gz", "--compress --tar-gz", false, check(false)),
                 opt("run", "Import", "", false, button(Action::RunImport)),
             ]},
@@ -327,13 +370,13 @@ impl Menu {
                 opt("show", "Show project", "--research-show", false, button(Action::ShowResearch)),
                 opt("add", "Add current post…", "r · --post-ids", false, button(Action::AddToResearch)),
                 opt("add_view", "Add current view / search…", "--search / --post-ids", false, button(Action::AddViewToResearch)),
-                opt("file", "Local file", "--file", false, text("")),
+                opt("file", "Local file", "--file  Tab completes", false, text("")),
                 opt("add_file", "Add local file…", "--file", false, button(Action::AddFileToResearch)),
                 opt("url", "Web page URL", "--url", false, text("")),
                 opt("add_url", "Add web page…", "--url", false, button(Action::AddUrlToResearch)),
                 opt("gdrive", "Google Drive (coming later)", "pinned for later", false, button(Action::ComingLater(0))),
                 opt("telegram", "Telegram (coming later)", "pinned for later", false, button(Action::ComingLater(1))),
-                opt("export_path", "Export to", "--export", false, text("")),
+                opt("export_path", "Export to", "--export  Tab completes", false, text("")),
                 opt("export_format", "Format", "--format", false, choice(FORMAT_CHOICES)),
                 opt("export_compress", "Compress tar.gz", "--compress --tar-gz", false, check(false)),
                 opt("export", "Export project", "--research-export", false, button(Action::ExportResearch)),
@@ -363,6 +406,10 @@ impl Menu {
                 opt("carousel_inf", "Carousel (infinite)", "", false, button(Action::SetView(ViewMode::CarouselInfinite))),
                 opt("carousel", "Carousel (fixed)", "", false, button(Action::SetView(ViewMode::CarouselFixed))),
                 opt("grid", "Grid", "", false, button(Action::SetView(ViewMode::Grid))),
+                opt_topic("list_order", "Order", "Newest or oldest for this list. o toggles. Nested orders roots; replies stay in thread order.", "order", false, choice(ORDER_CHOICES)),
+                opt_topic("nick_order", "Nick order", "Newest or oldest nick by latest post. o toggles while Nicks is focused.", "nick-order", false, choice(ORDER_CHOICES)),
+                opt_topic("nick_limit", "Nick limit", "Keep this many nicks at the chosen end. Blank keeps all. The / filter runs first.", "nick-limit", false, text("")),
+                opt_topic("color", "Colour", "auto, always, or never. Same as --color", "color", false, choice(COLOR_CHOICES)),
                 opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
                 opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
                 opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
@@ -380,6 +427,7 @@ impl Menu {
                 opt("show_log", "Show log panel", "l", false, button(Action::ToggleLog)),
             ]},
             MenuCommand { id: Help, label: "Help", hint: 'h', opts: vec![], action: Some(Action::Help) },
+            MenuCommand { id: About, label: "About", hint: 't', opts: vec![], action: Some(Action::About) },
             MenuCommand { id: Quit, label: "Quit", hint: 'q', opts: vec![], action: Some(Action::Quit) },
         ];
         Menu { items }
@@ -438,6 +486,14 @@ impl Menu {
         if self.choice(S, "mode") == "Trending" { v.push("--trending".into()); } else { v.push("--latest".into()); }
         if !self.check(S, "mentions") { v.push("--no-mentions".into()); }
         if self.check(S, "said_by") { v.push("--said-by".into()); }
+        if self.choice(S, "profile_feed") == "Top" { v.extend(["--profile-feed".into(), "top".into()]); }
+        if self.choice(S, "order") == "Oldest" { v.extend(["--order".into(), "oldest".into()]); }
+        let lim = self.text(S, "limit");
+        if !lim.is_empty() {
+            let n: usize = lim.parse().map_err(|_| format!("Post limit must be a number, not {lim:?}"))?;
+            if n == 0 { return Err("Post limit must be at least 1".into()); }
+            v.extend(["--limit".into(), n.to_string()]);
+        }
         let cl = self.text(S, "crawl_limit");
         if !cl.is_empty() {
             let n: usize = cl.parse().map_err(|_| format!("Crawl limit must be a number, not {cl:?}"))?;
@@ -446,7 +502,7 @@ impl Menu {
         if !self.check(S, "attachments") { v.push("--no-attachments".into()); }
         if self.check(S, "full") { v.push("--full".into()); }
         if self.check(S, "refetch") { v.push("--refetch-truncated".into()); }
-        let out = self.text(S, "output");
+        let out = expand_menu_path(&self.text(S, "output"));
         if !out.is_empty() { v.extend(["--format".into(), self.choice(S, "format").into(), "--output".into(), out]); }
         v.extend(self.debug_args());
         validate(v)
@@ -461,7 +517,7 @@ impl Menu {
     pub fn export_argv_with(&self, selected: &[String], view: Option<&SearchFilter>, basket: &[String], scope: Option<&str>)
         -> std::result::Result<Vec<String>, String> {
         use CommandId::Export as E;
-        let path = self.text(E, "path");
+        let path = expand_menu_path(&self.text(E, "path"));
         if path.is_empty() { return Err("Export needs a Path".into()); }
         let mut v = vec![ARGV0.to_string(), "--export".into(), path];
         let nicks_arg = |v: &mut Vec<String>, n: &[String]| if !n.is_empty() { v.extend(["--nicks".into(), n.join(",")]); };
@@ -494,7 +550,7 @@ impl Menu {
     /// argv for Import.
     pub fn import_argv(&self) -> std::result::Result<Vec<String>, String> {
         use CommandId::Import as I;
-        let path = self.text(I, "path");
+        let path = expand_menu_path(&self.text(I, "path"));
         if path.is_empty() { return Err("Import needs a Path".into()); }
         let mut v = vec![ARGV0.to_string(), "--import".into(), path];
         if self.check(I, "compress") { v.extend(["--compress".into(), "--tar-gz".into()]); }
@@ -525,7 +581,7 @@ impl Menu {
     pub fn research_export_argv(&self, name: &str) -> std::result::Result<Vec<String>, String> {
         use CommandId::Research as R;
         if name.trim().is_empty() { return Err("pick a research project first (Research › Projects…)".into()); }
-        let path = self.text(R, "export_path");
+        let path = expand_menu_path(&self.text(R, "export_path"));
         if path.is_empty() { return Err("Research › Export to needs a path".into()); }
         let mut v = vec![ARGV0.to_string(), "--research-export".into(), name.trim().into(), "--export".into(), path,
             "--format".into(), self.choice(R, "export_format").into()];
@@ -664,12 +720,16 @@ impl Menu {
         if let Some(v) = p.bookmarks { self.set_check(Y, "bookmarks", v); }
     }
 
-    /// Search menu fields as a filter.
+    /// Search menu fields as a filter. Order and limit use the same window as `--order` and `--limit`.
     pub fn search_filter(&self) -> std::result::Result<SearchFilter, String> {
         let nick = self.text(CommandId::Search, "nick");
+        let limit_text = self.text(CommandId::Search, "limit");
+        let limit = if limit_text.is_empty() { None } else { Some(parse_post_limit(&limit_text)?) };
         Ok(SearchFilter {
             keyword: self.text(CommandId::Search, "query"),
             nicks: if nick.is_empty() { Vec::new() } else { parse_nicks(&nick)?.0 },
+            order: crate::tui::order::order_from_choice(self.choice(CommandId::Search, "order")),
+            limit,
             ..SearchFilter::default()
         })
     }

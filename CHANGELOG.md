@@ -6,10 +6,14 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`acprs`.** A third binary, next to `acp-red-star` and the `acp-rs-scraper` compatibility name. `cargo install` cannot create a symlink, so `acprs` is its own executable and runs the same program. `--version` still prints `acp-red-star` and the version. The usage line uses the name you typed, as `acp-rs-scraper --help` already does, and `acprs` does not print the deprecation line. Packages and `scripts/install.sh` install it with a man page and bash, zsh, and fish completions. `scripts/uninstall.sh` removes it with the rest of the install. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
+
 ### Documentation
 
 - **Server and relay packaging is parked on the alpha gate.** The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each get a separate install, with its own binary, release artifact, and install path, and each stays available inside the app. No server or relay release is cut until writes and replies with attachments are functional and the decentralized network work is functional. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §7.14.11.
-- **Alpha packaging is parked.** An alpha waits until writes and replies with attachments are sent and the decentralized network work is completed. This note does not tag an alpha or attach release assets. Launch docs name `acp-rs-scraper` and `acp_rs_node_core`, keep `scripts/install.sh`, and point at the repository Releases page for binaries once they are published. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md).
+- **Alpha packaging is parked.** An alpha waits until writes and replies with attachments are sent and the decentralized network work is completed. This note does not tag an alpha or attach release assets. Launch docs name `acp-red-star` and `acp_red_star_node_core`, keep `scripts/install.sh`, and point at the repository Releases page for binaries once they are published. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md).
 - **Attachments stay 3.5.0 (confirmed).** Michael confirmed the three decisions: `.jpeg` is accepted as jpg and `.tif` as tiff; there is no count cap and no size cap; attachments keep 3.5.0. Interactions were numbered 3.5.0–3.9.0 and have not started. 3.10.0 and later, including the locked 3.22.0 re-key, are not shifted. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md).
 - **Draft GitHub Releases.** A version that is not on `main` is a draft release, with the notes from its changelog section and no attached files. The maintainer publishes the draft after that version is merged. Releases for versions already on `main` (2.16.0 and earlier) are left alone. The post-commit hook still only creates the git tag. Nothing in CI publishes a release.
 - **Tombstones, revised.** A signed tombstone keeps the post. The plan no longer drops the body after a grace period. The UI shows a tombstone icon (🪦, or `[RIP]`), the content stays viewable, and a signed restore record or a newer signature of the same post id clears the tombstone. The restore record is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
@@ -18,6 +22,38 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - **Action history.** Before 3.x is finished, a right bar pulls out and collapses with the actions that led to the current view. Clicking an earlier action jumps back, and an export from a search state still includes the query and filters. The left nick bar collapses the same way. This is not the previous and next post controls. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 - **Embedded assistant.** A local model inside the client is a 4.0 roadmap item, not a 3.x requirement and not a heavy interest of 3.0. It answers questions about the local corpus and runs existing actions such as search, filter, and export. An AI button at the bottom center opens a chat strip that pushes the body and side bars up. It is not a modal. The strip keeps the chat, and the actions change the body. The voice is a local persona: a system prompt and optional retrieval first, and a later LoRA-style adaption on a local corpus if wanted. That is not training a model from scratch. Decentralization stays in 3.x. The model is not chosen. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §7.14.12.
 - **Password change / re-key is 3.22.0.** It does not change the master or the `acp-id`. It re-wraps the SQLCipher key, the keystore, the sealed phrase, and the backup-wrapping key in one transaction, with rollback, and it requires the old password. It sits before the daemon and the OS keyring. Stages that were 3.22.0 through 3.28.0 are now 3.23.0 through 3.29.0. The write core stays 3.4.0.
+
+## [3.5.0] - 2026-10-19
+
+### Changed
+
+- **The product name is ACP Red Star.** The binary is `acp-red-star`. `acp-rs-scraper` still runs, prints one deprecation line, and forwards its arguments through version 3. The library crate is `acp_red_star`. The shared core is `acp_red_star_node_core`. The encrypted database stays at `~/.acp/ai/data/rs.database`. `ACP_*` environment variables are unchanged. The GitHub repository URL is unchanged. The terminal UI shows the slogan "The future belongs to the working class" under that title on the welcome screen and the login screen, as the header of About, and at the right of the status bar when the bar is wide enough to leave the status text intact. With `NO_COLOR` or `--color never` the slogan is plain text.
+
+### Added
+
+- **`--color auto|always|never`.** `auto` (the default) follows `NO_COLOR`. `always` forces colours on. `never` turns them off. `[ui] color` in `preferences.toml` is the default when the flag is omitted. When `NO_COLOR` is set and colours are off, the terminal UI says so at start, when a theme is chosen or edited, and in the theme picker and theme editor. View › Colour sets the same choice.
+- **`--limit N` on a nick scrape.** `acp-red-star --nick alice --limit 100` keeps the newest 100 posts from that profile (Posts, and Posts and replies). Omit it to scrape the whole profile. Replies in those threads are still fetched unless `--said-by`. `--crawl-limit` still only bounds the mentions scan. Start Scanning has the same field, Post limit, blank for the whole profile.
+- **Order and limit in the terminal UI.** Every post list has an order, newest or oldest: nick timelines, bookmarks, site lists (Top, EB, Explore, a tag, reposts), search results, research items, and the export basket. `o` toggles it, the nav bar shows `[Order: newest ▸]`, and View › Order sets it. Each list remembers its choice under `[ui.list_order]` in `~/.acp/preferences.toml`. Nested view orders roots and keeps replies under the root, oldest first. Flat layouts order every card. Site lists keep the site's order (oldest reverses it; Top stays a ranking). Edit history stays in version order. Search and the nick filter also take a limit: N items at the chosen end, blank for the whole list, the same window as `--order` and `--limit`. The status line shows the window (`search "strike": 100 of 236 posts · oldest`). `?` on one of these menu options opens its own Help topic.
+- **`--profile-feed` and `--order` on a nick scrape.** `--profile-feed newest` (the default) is the Latest profile. `--profile-feed top` is `/rs/@nick/top?t=all` only; other Top periods were not captured for profiles, and Posts and replies is not read on that feed. `--order newest` (the default) keeps the start of that list. `--order oldest` keeps the end, so `--limit` is the oldest N on the Latest profile, or the end of the Top ranking. `--latest` / `--trending` still only choose the mentions crawl. Start Scanning has Profile feed and Order. The Sync menu does not.
+- **Attachments on New post and Reply.** The compose box has an attach line: type a path and Enter. Tab on a non-empty line completes the next real path segment (`~` becomes `~/`, and `~/…` stays in that form). Several matches are listed; Tab, Up, and Down move through them, and Enter writes the highlighted one without attaching yet. An empty line, or a Tab that changes nothing, moves focus. Backspace on an empty line removes the last file. `--attachment PATH` repeats on `--new-post` and `--reply`; the shell completes that flag. Any file can be attached locally, including audio and documents. `--dry-run` lists each file (kind, name, size, and path) and does not upload it. `~/…` is stored as the expanded path.
+- **Site copy takes up to 4 images or videos.** The app, the local archive, and the network keep every file. Red Star accepts `image/*` and `video/*` only, at most 4, on the site copy. Audio, documents, and other types stay local: the picker shows them greyed out, with the reason, and they are never sent. More than 4 images or videos, with no choice, publish the first 4 of those and print a notice naming the ones left off. `--site-attachments` takes 1-based indexes (`1,3,5,6`). An index that names an ineligible file fails and names that file and the allowed kinds. The compose box opens a picker when there are more than 4 images or videos: Space toggles an eligible file, at most 4, Enter confirms, Esc leaves without publishing. Each stored file has `on_site` (older rows without the column count as on the site). Export JSON adds `"on_site"`. A confirmed publish still does not send.
+- **TUI path fields expand `~` and Tab-complete.** Export › Path, Import › Path, Research › Export to, Research › Local file, and Start Scanning › Output file complete one real path segment on Tab, the same way the compose attach line does. The argv the child runs expands `~` and `~/…`, because that child is not a shell.
+
+### Fixed
+
+- **Terminal UI login.** Entering the emailed code no longer fails with "websocket closed" and then drops the attempt. The login keeps the LiveView socket alive with Phoenix heartbeats while the code is read, reconnects and retries verification if that socket closes, and stays on the code step when the code is wrong. Resend code (F2) asks for another code on the same login. A finished login is written to `~/.acp/session.json`, the same file the command line writes. The command line also heartbeats while it waits at the prompt.
+- **Compressed export paths.** With Compress (tar.gz) on, a path that does not already end in `.tar.gz` or `.tgz` is no longer used as both the archive and the staging directory (that failed with "Is a directory"). A bare name gets `.tar.gz` appended (`resonance-cosmos` becomes `resonance-cosmos.tar.gz`). A directory, or a path ending in `/`, is `<dir>/<export-name>.tar.gz` (`Resonance Cosmos` becomes `resonance-cosmos.tar.gz`). The success log line is `wrote <final path>`. Export › Path still expands a leading `~` / `~/` before that child runs, so `~/resonance-cosmos.tar.gz` is `$HOME/resonance-cosmos.tar.gz` and not `./~/resonance-cosmos.tar.gz`.
+
+### Not sent
+
+- **The upload channel is not captured.** `allow_upload` and `lvu` are not built, so `media_attachments` and `file_attachments` are not encoded and no file bytes are sent. A confirmed publish still stops where 3.4.0 stopped: `validate` and `save` are not sent. Vote, subscribe, delete, edit, and repost are not in this release.
+
+### Confirmed
+
+- **The three attachment decisions.** `.jpeg` is accepted as jpg and `.tif` as tiff. There is no count cap and no size cap on the app, the archive, or the network. The site copy is a separate cap of 4. This release keeps 3.5.0. Interactions stay unstarted, and 3.10.0 and later, including the locked 3.22.0 re-key, are not shifted.
+- **v3 historical posts.** [docs/history/v3/redstar-v3-prelaunch-post.md](docs/history/v3/redstar-v3-prelaunch-post.md) is the coming-soon draft. The README links it. [docs/history/v3/redstar-v3-launch-post.md](docs/history/v3/redstar-v3-launch-post.md) is the launch post, written as if 3.x has fully shipped, and it is published only when 3.x is done. At the 3.0 release, switch the README link to that launch post.
+- **Server and relay packaging is parked on the alpha gate.** The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each get a separate install, with its own binary, release artifact, and install path, and each stays available inside the app. No server or relay release is cut until writes and replies with attachments are functional and the decentralized network work is functional.
+- **Not an alpha.** Alpha packaging waits until writes and replies with attachments are sent and the decentralized network work is completed. This version does not add an alpha tag or release assets.
 
 ## [3.4.0] - 2026-10-19
 
@@ -64,7 +100,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Shared core crate.** `acp_rs_node_core` holds the master secret, the 24-word phrase, the SLIP-39 shares, canonical CBOR, the HPKE wrap of an account key, and a `SecretStore` interface. The terminal app depends on it. A later relay-only package, tray app, or Dart FFI crate can depend on it without the terminal UI. Canonical CBOR is specified in [docs/PROTOCOL.md](docs/PROTOCOL.md), with test vectors. Signing and hashing use that encoding. There is no protobuf.
+- **Shared core crate.** `acp_red_star_node_core` holds the master secret, the 24-word phrase, the SLIP-39 shares, canonical CBOR, the HPKE wrap of an account key, and a `SecretStore` interface. The terminal app depends on it. A later relay-only package, tray app, or Dart FFI crate can depend on it without the terminal UI. Canonical CBOR is specified in [docs/PROTOCOL.md](docs/PROTOCOL.md), with test vectors. Signing and hashing use that encoding. There is no protobuf.
 
 ### Changed
 
@@ -81,7 +117,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### BREAKING CHANGES
 
 - **A password is required to create or open the local database.** 2.x opened `~/.acp/ai/data/rs.database` with no password. 3.0.0 creates that file encrypted and asks for the password at startup, or reads `ACP_PASSWORD` when there is no terminal. The password is at least 8 characters and has to pass a strength check. There is no password reset.
-- **An existing 2.x database is not opened.** Startup stops and tells you to run `acp-rs-scraper --encrypt-db`. That command writes a `*.acpbackup` first, encrypts the database, checks row counts and a content hash, and deletes the plaintext file only after the encrypted copy matches.
+- **An existing 2.x database is not opened.** Startup stops and tells you to run `acp-red-star --encrypt-db`. That command writes a `*.acpbackup` first, encrypts the database, checks row counts and a content hash, and deletes the plaintext file only after the encrypted copy matches.
 - **Rollback.** Until `--encrypt-db` succeeds, a 2.x binary still reads the plaintext file. If the migration fails, that file is left in place. After it succeeds, 2.x cannot read the database, `rs.database.bootstrap`, or a `*.acpbackup`. Copy `rs.database` somewhere outside `~/.acp` before migrating if you may need to go back; that copy is what you put back to return to 2.x. 3.0.0 restores one of its own backups with `--restore`.
 - **New files.** `rs.database.bootstrap` (next to the database) holds the wrapped local key. `~/.acp/acp-id` appears only after `--identity-init`. `~/.acp/recovery.seal` is the encrypted copy of the recovery phrase, written by the same command. `session.json` is unchanged and is still not inside a backup.
 
@@ -244,7 +280,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Added
 - **First-run theme download.** When `~/.acp/themes` is empty, the TUI starts at once with the
   terminal's colours and downloads `default.toml` in the background from
-  `https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`
+  `https://raw.githubusercontent.com/m3talsmith/acp-red-star/v<version>/themes/default.toml`
   with the program's HTTP client and no cookies (3 s timeout, 64 KiB cap). The file must parse as
   a theme, is written atomically with mode 0600 without replacing an existing file, and is applied
   live once it arrives unless you picked another theme meanwhile. Offline or on any failure the
@@ -260,8 +296,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Missing- and broken-theme notices now point to `--theme-init` instead of reinstalling.
 
 ### Removed
-- The system theme folders (`/usr/share/acp-rs-scraper/themes`, `themes/` and
-  `../share/acp-rs-scraper/themes` next to the binary, the source tree's `themes/`) and the
+- The system theme folders (`/usr/share/acp-red-star/themes`, `themes/` and
+  `../share/acp-red-star/themes` next to the binary, the source tree's `themes/`) and the
   first-run copy from them.
 - Packages (debian, Fedora, Arch, `scripts/stage.sh`) no longer install theme files. The repo
   still has `themes/*.toml`; that is where the download comes from.
@@ -275,7 +311,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
   Lissitzky), `cuba` (olive green, red and black), `red-star` (deep crimson with ACP red),
   `chinese-poster` (vermilion and golden yellow) and `plattenbau` (East German concrete greys with
   a red accent). Pick one with F5 or `--theme NAME`. An existing
-  `~/.acp/themes` is left alone; copy the new files from `/usr/share/acp-rs-scraper/themes/` (or
+  `~/.acp/themes` is left alone; copy the new files from `/usr/share/acp-red-star/themes/` (or
   the source tree's `themes/`) to get them there.
 - A test that every shipped theme loads without warnings and stays above 3:1 contrast in both variants.
 
@@ -284,8 +320,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ### Added
 - **Theme files.** Every TUI theme, the default included, is a TOML file in `~/.acp/themes/<name>.toml`
   (names: `a-z`, `0-9`, `-`, `_`, at most 32). Nothing is built into the binary: the default ships
-  as `themes/default.toml` (packages: `/usr/share/acp-rs-scraper/themes/`) and the first run copies the
-  shipped themes into an empty `~/.acp/themes` (looking in `/usr/share/acp-rs-scraper/themes`, then
+  as `themes/default.toml` (packages: `/usr/share/acp-red-star/themes/`) and the first run copies the
+  shipped themes into an empty `~/.acp/themes` (looking in `/usr/share/acp-red-star/themes`, then
   `themes/` next to the executable, then the source tree). It reproduces the old look exactly
   (`#dc2626` accent). Format v1: `version`, `name`, `description`, then `[dark]` and `[light]`, each
   with a `palette` (colours as `0`–`255`, `#rrggbb`/`#rgb`, the 16 ANSI names or `reset`; `"@name"`
@@ -341,7 +377,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
   `[ui] empty_animation_path`, and `ACP_EMPTY_ANIMATION=off|star|on`.
 - `tools/acp-anim`: turns the first N seconds of a local video or a URL (via yt-dlp) into a frames
   file, by default `~/.acp/animations/empty-body.acpanim.gz`, which the TUI plays instead of the
-  built-in clip. Packages install it as `/usr/share/acp-rs-scraper/tools/acp-anim`.
+  built-in clip. Packages install it as `/usr/share/acp-red-star/tools/acp-anim`.
 
 ## [2.10.0] - 2026-10-17
 
@@ -496,7 +532,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [2.0.0] - 2026-10-16
 
-Major release: a bare `acp-rs-scraper` now opens a terminal UI instead of prompting for nicks and
+Major release: a bare `acp-red-star` now opens a terminal UI instead of prompting for nicks and
 scraping. Every flag still works headless; the old bare behaviour is `--scrape`.
 
 ### Added
@@ -787,7 +823,7 @@ Eight changes since 1.4.0 (minor 4 → 12): a cleanup release, plus the real "Po
 - **Packaging, always built from source** (see `docs/INSTALL.md`)
   - Arch: `packaging/arch/PKGBUILD` (`makepkg -si`; remove with `pacman -R`).
   - Debian and derivatives: `debian/` source package (`dpkg-buildpackage`; `apt remove`).
-  - Fedora/RHEL and derivatives: `packaging/fedora/acp-rs-scraper.spec` (`rpmbuild -ba`, SRPM; `dnf remove`).
+  - Fedora/RHEL and derivatives: `packaging/fedora/acp-red-star.spec` (`rpmbuild -ba`, SRPM; `dnf remove`).
   - `scripts/package.sh` builds `.deb`/`.rpm`/`.pkg.tar.zst` into `dist/`, using host tools or a
     debian/fedora/archlinux container (podman/docker).
   - `scripts/install.sh` detects the distro (`ID`/`ID_LIKE`), installs build dependencies,

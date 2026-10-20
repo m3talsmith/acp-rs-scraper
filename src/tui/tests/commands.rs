@@ -24,11 +24,14 @@ fn bare_and_logging_only_open_tui_flags_do_not() {
 fn scrape_defaults_map_to_cli_defaults() {
     let m = Menu::new(&no_args());
     let argv = m.scrape_argv(&["alice".into()]).unwrap();
-    assert_eq!(argv, ["acp-rs-scraper", "--nicks", "alice", "--latest"]);
+    assert_eq!(argv, ["acp-red-star", "--nicks", "alice", "--latest"]);
     let a = parsed(&argv);
     assert_eq!(a.nick_list().unwrap(), ["alice"]);
     assert!(a.mentions && !a.said_by && !a.full && !a.no_attachments && !a.trending);
     assert_eq!(a.crawl_limit, DEFAULT_CRAWL_LIMIT);
+    assert_eq!(a.limit, None);
+    assert_eq!(a.profile_feed, ProfileFeed::Newest);
+    assert_eq!(a.order, ScrapeOrder::Newest);
 }
 
 #[test]
@@ -39,6 +42,9 @@ fn scrape_every_option_maps_to_its_flag() {
     m.set_text(S, "nicks", "@a, b");
     m.set_check(S, "mentions", false);
     m.set_check(S, "said_by", true);
+    m.set_choice(S, "profile_feed", "Top");
+    m.set_choice(S, "order", "Oldest");
+    m.set_text(S, "limit", "100");
     m.set_text(S, "crawl_limit", "200");
     m.set_check(S, "attachments", false);
     m.set_check(S, "full", true);
@@ -52,6 +58,9 @@ fn scrape_every_option_maps_to_its_flag() {
     assert_eq!(a.nick_list().unwrap(), ["a", "b"], "the Nicks field wins over the selection");
     assert!(a.trending && !a.mentions && a.said_by && a.no_attachments && a.full && a.refetch_truncated);
     assert_eq!(a.crawl_limit, 200);
+    assert_eq!(a.limit, Some(100));
+    assert_eq!(a.profile_feed, ProfileFeed::Top);
+    assert_eq!(a.order, ScrapeOrder::Oldest);
     assert_eq!(a.output.as_deref(), Some(Path::new("/tmp/out.json")));
     assert_eq!(a.formats(), [Format::Json, Format::Html]);
     assert!(a.verbose && a.enable_logging && !a.debug);
@@ -64,6 +73,9 @@ fn scrape_errors() {
     m.set_text(CommandId::Scrape, "crawl_limit", "lots");
     assert!(m.scrape_argv(&["a".into()]).unwrap_err().contains("Crawl limit"));
     m.set_text(CommandId::Scrape, "crawl_limit", "");
+    m.set_text(CommandId::Scrape, "limit", "0");
+    assert!(m.scrape_argv(&["a".into()]).unwrap_err().contains("Post limit"));
+    m.set_text(CommandId::Scrape, "limit", "");
     m.set_text(CommandId::Scrape, "nicks", "a b");
     assert!(m.scrape_argv(&[]).is_err());
 }
@@ -135,6 +147,49 @@ fn every_menu_item_has_a_hint_and_flags_exist() {
             }
         }
     }
+}
+
+#[test]
+fn export_import_and_output_paths_expand_a_tilde() {
+    let mut m = Menu::new(&no_args());
+    let home = std::env::var("HOME").expect("HOME");
+    m.set_text(CommandId::Export, "path", "~/out.json");
+    m.set_choice(CommandId::Export, "scope", "Everything");
+    let a = parsed(&m.export_argv(&[], None).unwrap());
+    assert_eq!(a.export.as_deref(), Some(Path::new(&format!("{home}/out.json"))));
+    m.set_text(CommandId::Export, "path", "~/resonance-cosmos.tar.gz");
+    let a = parsed(&m.export_argv(&[], None).unwrap());
+    assert_eq!(a.export.as_deref(), Some(Path::new(&format!("{home}/resonance-cosmos.tar.gz"))));
+    assert!(!a.export.as_deref().unwrap().to_string_lossy().contains("/~/"), "a leading ~ is not a relative directory");
+    m.set_text(CommandId::Import, "path", "~/in.tar.gz");
+    let a = parsed(&m.import_argv().unwrap());
+    assert_eq!(a.import.as_deref(), Some(Path::new(&format!("{home}/in.tar.gz"))));
+    m.set_text(CommandId::Research, "export_path", "~/proj.json");
+    let a = parsed(&m.research_export_argv("strike").unwrap());
+    assert_eq!(a.export.as_deref(), Some(Path::new(&format!("{home}/proj.json"))));
+    m.set_text(CommandId::Scrape, "output", "~/scan.html");
+    let argv = m.scrape_argv(&["alice".into()]).unwrap();
+    assert!(argv.iter().any(|s| s == &format!("{home}/scan.html")), "{argv:?}");
+}
+
+#[test]
+fn tab_completes_an_export_path() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let dir = std::env::temp_dir().join(format!("acp-export-path-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("notes.json"), b"x").unwrap();
+    let mut a = app();
+    let export = a.menu.menu.items.iter().position(|i| i.id == CommandId::Export).unwrap();
+    a.open_menu(export);
+    let path = a.menu.menu.items[export].opts.iter().position(|o| o.key == "path").unwrap();
+    a.menu.opt = path;
+    a.menu.editing = true;
+    a.menu.menu.set_text(CommandId::Export, "path", &format!("{}/n", dir.display()));
+    crate::tui::input::on_key(&mut a, KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+    assert_eq!(a.menu.menu.text(CommandId::Export, "path"), format!("{}/notes.json", dir.display()));
+    assert!(a.menu.editing, "a completed path stays in the field");
+    let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
