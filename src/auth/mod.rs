@@ -2,9 +2,12 @@
 //! `phx-trigger-action` sign-in POST that sets the session cookie.
 //!
 //! The socket stays up while the code is read: Phoenix heartbeats go out on
-//! [`LV_HEARTBEAT`](crate::liveview::LV_HEARTBEAT). A dropped socket reconnects and the same code is tried
-//! again (a fresh join with no code form posts the OTP directly). A wrong code
-//! leaves the attempt open.
+//! [`LV_HEARTBEAT`](crate::liveview::LV_HEARTBEAT). A dropped socket is closed and dropped
+//! before a new one is joined, and the same code is tried again (a fresh join with
+//! no code form posts the OTP directly). If the verify diff already rendered the
+//! `phx-trigger-action` sign-in form and the socket then closes, that form is
+//! posted anyway: that close is the site leaving LiveView, not a failed code.
+//! A wrong code leaves the attempt open.
 
 pub mod prefs;
 pub mod session;
@@ -48,26 +51,32 @@ pub fn detect_code_form(html: &str, reply: &Value) -> (String, String, Option<u6
 pub async fn trigger_action_post(
     http: &reqwest::Client, html: &str, csrf: &str, email: &str, code_field: &str, code: &str,
 ) -> Result<()> {
-    let doc = Html::parse_fragment(html);
-    let form = doc.select(&Selector::parse("form[phx-trigger-action]").unwrap()).next()
-        .ok_or_else(|| anyhow!("no redirect and no phx-trigger-action form after code"))?;
-    let action = form.value().attr("action").unwrap_or(OTP_SIGN_IN_FALLBACK);
-    let mut fields: Vec<(String, String)> = Vec::new();
-    for i in form.select(&Selector::parse("input[name]").unwrap()) {
-        let name = i.value().attr("name").unwrap_or_default().to_string();
-        let mut val = i.value().attr("value").unwrap_or_default().to_string();
-        if val.is_empty() {
-            if name == EMAIL_FIELD { val = email.into(); }
-            else if name == code_field { val = code.into(); }
+    // Own the fields before the POST. A scraper node held across `.await` is
+    // not `Send`, which forced the terminal UI onto a second runtime and closed
+    // the LiveView socket on submit ("websocket closed").
+    let (action, mut fields) = {
+        let doc = Html::parse_fragment(html);
+        let form = doc.select(&Selector::parse("form[phx-trigger-action]").unwrap()).next()
+            .ok_or_else(|| anyhow!("no redirect and no phx-trigger-action form after code"))?;
+        let action = form.value().attr("action").unwrap_or(OTP_SIGN_IN_FALLBACK).to_string();
+        let mut fields: Vec<(String, String)> = Vec::new();
+        for i in form.select(&Selector::parse("input[name]").unwrap()) {
+            let name = i.value().attr("name").unwrap_or_default().to_string();
+            let mut val = i.value().attr("value").unwrap_or_default().to_string();
+            if val.is_empty() {
+                if name == EMAIL_FIELD { val = email.into(); }
+                else if name == code_field { val = code.into(); }
+            }
+            fields.push((name, val));
         }
-        fields.push((name, val));
-    }
+        (action, fields)
+    };
     if !fields.iter().any(|(n, _)| n == "_csrf_token") {
         fields.push(("_csrf_token".into(), csrf.into()));
     }
     let names: Vec<&str> = fields.iter().map(|(n, _)| n.as_str()).collect();
     verbose!("POST {action} with fields {names:?}");
-    let resp = http.post(Url::parse(base_url())?.join(action)?)
+    let resp = http.post(Url::parse(base_url())?.join(&action)?)
         .header("Origin", base_url())
         .header("Referer", format!("{}/auth", base_url()))
         .header("Sec-Fetch-Mode", "navigate")
@@ -107,7 +116,9 @@ pub struct LoginSession {
     jar: Arc<Jar>,
     email: String,
     page: LvPage,
-    lv: Lv,
+    /// `None` only while a reconnect has dropped the old socket and not joined the new one,
+    /// or after the site reported that this jar is already signed in.
+    lv: Option<Lv>,
     email_reply: Value,
     /// `GET /auth` came back already signed in (the socket had died after the cookie was set).
     signed_in: bool,
@@ -133,26 +144,35 @@ impl LoginSession {
         let email_reply = submit_email(&mut lv, &email).await?;
         info!("Login email requested for {email}.");
         Ok(LoginStart::NeedCode(Box::new(LoginSession {
-            http: http.clone(), jar: jar.clone(), email, page, lv, email_reply, signed_in: false,
+            http: http.clone(), jar: jar.clone(), email, page, lv: Some(lv), email_reply, signed_in: false,
         })))
     }
 
     /// Heartbeat interval for this attempt. `0` is treated as 1ms. Tests set a short interval.
     pub fn set_heartbeat(&mut self, every: std::time::Duration) {
-        self.lv.heartbeat = if every.is_zero() { std::time::Duration::from_millis(1) } else { every };
+        if let Some(lv) = self.lv.as_mut() {
+            lv.heartbeat = if every.is_zero() { std::time::Duration::from_millis(1) } else { every };
+        }
     }
 
     /// Poll `fut` while heartbeating. A dropped socket reconnects and `fut` keeps running.
     pub async fn pump_until<T>(&mut self, fut: impl std::future::Future<Output = T>) -> Result<T> {
+        if self.signed_in { return Ok(fut.await); }
+        if self.lv.is_none() {
+            self.reconnect().await?;
+            if self.signed_in { return Ok(fut.await); }
+        }
         let mut fut = std::pin::pin!(fut);
-        let mut beat = tokio::time::interval(self.lv.heartbeat);
+        let every = self.lv.as_ref().map(|l| l.heartbeat).unwrap_or(LV_HEARTBEAT);
+        let mut beat = tokio::time::interval(every);
         beat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         beat.tick().await;
         let mut drops = 0u8;
         loop {
             enum Ev<T> { Done(T), Beat, Frame(Option<Result<Message, tokio_tungstenite::tungstenite::Error>>) }
             let ev = {
-                let ws = &mut self.lv.ws;
+                let lv = self.lv.as_mut().context("login socket is closed")?;
+                let ws = &mut lv.ws;
                 tokio::select! {
                     biased;
                     out = &mut fut => Ev::Done(out),
@@ -163,10 +183,18 @@ impl LoginSession {
             match ev {
                 Ev::Done(out) => return Ok(out),
                 Ev::Beat => {
-                    if let Err(e) = self.lv.send_heartbeat().await { self.recover(e, &mut drops).await?; } else { drops = 0; }
+                    let beat_result = match self.lv.as_mut() {
+                        Some(lv) => lv.send_heartbeat().await,
+                        None => Err(anyhow!("login socket is closed")),
+                    };
+                    if let Err(e) = beat_result { self.recover(e, &mut drops).await?; } else { drops = 0; }
                 }
                 Ev::Frame(msg) => {
-                    if let Err(e) = self.lv.absorb(msg, None).await { self.recover(e, &mut drops).await?; } else { drops = 0; }
+                    let absorbed = match self.lv.as_mut() {
+                        Some(lv) => lv.absorb(msg, None).await,
+                        None => Err(anyhow!("login socket is closed")),
+                    };
+                    if let Err(e) = absorbed { self.recover(e, &mut drops).await?; } else { drops = 0; }
                 }
             }
         }
@@ -215,7 +243,8 @@ impl LoginSession {
     }
 
     async fn submit_email_here(&mut self) -> Result<()> {
-        self.email_reply = submit_email(&mut self.lv, &self.email).await?;
+        let lv = self.lv.as_mut().context("login socket is closed")?;
+        self.email_reply = submit_email(lv, &self.email).await?;
         info!("Login email requested again for {}.", self.email);
         Ok(())
     }
@@ -224,17 +253,35 @@ impl LoginSession {
         if !self.ready_for_code() {
             return self.direct_otp_post(code).await;
         }
-        let (ev, field, cid) = detect_code_form(&self.lv.html(), &self.email_reply);
-        let r2 = self.lv.form(&ev, &field, code, cid).await?;
-        if r2["status"] != "ok" { bail!("code submit failed: {r2}"); }
-        if let Some(to) = find_redirect(&r2) {
+        let html = self.lv.as_ref().context("login socket is closed")?.html();
+        let (ev, field, cid) = detect_code_form(&html, &self.email_reply);
+        let replied = match self.lv.as_mut().context("login socket is closed")?.form(&ev, &field, code, cid).await {
+            Ok(r) => r,
+            Err(e) if socket_closed(&e) && self.html_has_trigger() => {
+                // The diff rendered the sign-in form, then the socket closed.
+                // The browser disconnects and POSTs that form; do the same.
+                return self.finish_trigger(&field, code).await;
+            }
+            Err(e) => return Err(e),
+        };
+        if replied["status"] != "ok" { bail!("code submit failed: {replied}"); }
+        if let Some(to) = find_redirect(&replied) {
             self.http.get(Url::parse(base_url())?.join(&to)?).send().await?.error_for_status()?;
-        } else if self.lv.html().contains("phx-trigger-action") {
-            trigger_action_post(&self.http, &self.lv.html(), &self.page.csrf, &self.email, &field, code).await?;
+        } else if self.html_has_trigger() {
+            self.finish_trigger(&field, code).await?;
         } else {
             self.direct_otp_post(code).await?;
         }
         Ok(())
+    }
+
+    fn html_has_trigger(&self) -> bool {
+        self.lv.as_ref().is_some_and(|lv| lv.html().contains("phx-trigger-action"))
+    }
+
+    async fn finish_trigger(&self, field: &str, code: &str) -> Result<()> {
+        let html = self.lv.as_ref().context("login socket is closed")?.html();
+        trigger_action_post(&self.http, &html, &self.page.csrf, &self.email, field, code).await
     }
 
     /// The fresh join after a reconnect only has the email form. Post the OTP without that form.
@@ -256,7 +303,8 @@ impl LoginSession {
     }
 
     fn ready_for_code(&self) -> bool {
-        let html = self.lv.html();
+        let Some(lv) = self.lv.as_ref() else { return false };
+        let html = lv.html();
         html.contains(CODE_FIELD_FALLBACK) || html.contains("phx-trigger-action")
             || html.contains(&format!("phx-submit=\"{CODE_EVENT_FALLBACK}\""))
     }
@@ -278,7 +326,13 @@ impl LoginSession {
     }
 
     async fn reconnect(&mut self) -> Result<()> {
-        let every = self.lv.heartbeat;
+        let every = self.lv.as_ref().map(|l| l.heartbeat).unwrap_or(LV_HEARTBEAT);
+        // Drop the old socket before dialing. Holding it open while the new
+        // join is in flight makes the server close the new one ("websocket closed").
+        if let Some(mut old) = self.lv.take() {
+            old.close().await;
+            drop(old);
+        }
         let resp = self.http.get(format!("{}/auth", base_url())).send().await.context("reconnecting the login")?;
         let url = resp.url().to_string();
         let html = resp.text().await?;
@@ -287,8 +341,9 @@ impl LoginSession {
             return Ok(());
         }
         self.page = parse_lv(&url, &html)?;
-        self.lv = Lv::connect(&self.page, &self.jar).await?;
-        self.lv.heartbeat = every;
+        let mut lv = Lv::connect(&self.page, &self.jar).await?;
+        lv.heartbeat = every;
+        self.lv = Some(lv);
         Ok(())
     }
 }
@@ -337,5 +392,11 @@ mod tests {
         assert!(socket_closed(&anyhow::anyhow!("broken pipe")));
         assert!(!socket_closed(&anyhow::anyhow!("sign-in POST failed: 403 Forbidden")));
         assert!(!socket_closed(&anyhow::anyhow!("still not logged in after verification")));
+    }
+
+    #[test]
+    fn login_session_can_move_to_the_app_runtime() {
+        fn assert_send<T: Send>() {}
+        assert_send::<super::LoginSession>();
     }
 }

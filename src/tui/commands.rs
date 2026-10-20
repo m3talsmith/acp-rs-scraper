@@ -109,8 +109,10 @@ pub enum Action {
     Logout,
     /// Help modal.
     Help,
-    /// About page.
+    /// About page, on Credits.
     About,
+    /// About, focused on a section: 0 Credits, 1 Why this is necessary, 2 ACP platform.
+    AboutAt(u8),
     /// Toggle the log panel.
     ToggleLog,
     /// Quit (detaching a running job).
@@ -447,6 +449,14 @@ fn account_item() -> MenuCommand {
     ])
 }
 
+fn about_item() -> MenuCommand {
+    shown(CommandId::About, "About", 't', vec![
+        opt("credits", "Credits", "", false, button(Action::AboutAt(0))),
+        opt("why", "Why this is necessary", "", false, button(Action::AboutAt(1))),
+        opt("platform", "ACP platform", "", false, button(Action::AboutAt(2))),
+    ])
+}
+
 fn debug_item(args: &Args) -> MenuCommand {
     shown(CommandId::Debug, "Debug", 'd', vec![
         opt("verbose", "Verbose", "-v", false, check(args.verbose)),
@@ -520,6 +530,48 @@ fn maintain_item() -> MenuCommand {
     ])
 }
 
+/// Help topic for a menu command.
+pub fn command_topic(id: CommandId) -> &'static str {
+    match id {
+        CommandId::Scrape => "scrape",
+        CommandId::Search => "search",
+        CommandId::Compose => "compose",
+        CommandId::Library => "library",
+        CommandId::Discover => "discover",
+        CommandId::Basket => "basket",
+        CommandId::Export => "export",
+        CommandId::Import => "import",
+        CommandId::List => "list",
+        CommandId::Maintain => "maintain",
+        CommandId::Session => "account",
+        CommandId::Bookmarks => "bookmark",
+        CommandId::Research => "research",
+        CommandId::Sync => "sync",
+        CommandId::View => "view",
+        CommandId::Debug => "debug",
+        CommandId::Help => "keys",
+        CommandId::About => "about-credits",
+        CommandId::Quit => "quit",
+    }
+}
+
+/// A more specific Help topic for one option. `None` uses [`command_topic`].
+pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
+    match (id, key) {
+        (CommandId::About, "credits") => Some("about-credits"),
+        (CommandId::About, "why") => Some("about-why"),
+        (CommandId::About, "platform") => Some("about-platform"),
+        (CommandId::Compose, _) => Some("compose"),
+        (CommandId::Bookmarks, _) => Some("bookmark"),
+        (CommandId::Basket, _) => Some("basket"),
+        (CommandId::Session, "login") => Some("login"),
+        (CommandId::Session, "logout") => Some("account"),
+        (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
+        (CommandId::Discover, _) => Some("discover"),
+        _ => None,
+    }
+}
+
 /// The whole menu bar, with every option's current value.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Menu {
@@ -543,7 +595,7 @@ impl Menu {
             account_item(),
             debug_item(args),
             shown_action(Help, "Help", 'h', Action::Help),
-            shown_action(About, "About", 't', Action::About),
+            about_item(),
             shown_action(Quit, "Quit", 'q', Action::Quit),
             scrape_item(),
             export_item(),
@@ -552,7 +604,18 @@ impl Menu {
             list_item(),
             maintain_item(),
         ];
-        Menu { items }
+        let mut menu = Menu { items };
+        menu.fill_help_topics();
+        menu
+    }
+    /// Give every option a Help topic. A topic already set on the option stays.
+    fn fill_help_topics(&mut self) {
+        for c in &mut self.items {
+            let fallback = command_topic(c.id);
+            for o in &mut c.opts {
+                if o.help.is_empty() { o.help = option_topic(c.id, o.key).unwrap_or(fallback); }
+            }
+        }
     }
     /// Item by id.
     pub fn get(&self, id: CommandId) -> &MenuCommand { self.items.iter().find(|c| c.id == id).expect("menu id") }

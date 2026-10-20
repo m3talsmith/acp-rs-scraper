@@ -380,6 +380,26 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         return;
     }
     let hit = hit_at(app, m.column, m.row);
+    if matches!(m.kind, MouseEventKind::Moved) {
+        app.note_hover(hit);
+        return;
+    }
+    if let MouseEventKind::Down(MouseButton::Left) = m.kind {
+        match hit {
+            Some(Hit::Tip) => {
+                let topic = app.tip.as_ref().map(|t| t.topic);
+                app.tip = None;
+                app.open_help(topic);
+                return;
+            }
+            Some(Hit::HelpMark) => {
+                let topic = app.tip.as_ref().map(|t| t.topic);
+                app.open_help(topic);
+                return;
+            }
+            _ => {}
+        }
+    }
     let wheel = match m.kind { MouseEventKind::ScrollDown => 1, MouseEventKind::ScrollUp => -1, _ => 0 };
     if app.modal.is_some() {
         if matches!(app.modal, Some(Modal::Job(_))) { app.refresh_job_modal(); }

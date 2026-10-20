@@ -213,9 +213,9 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
 }
 
 fn draw_about(f: &mut Frame, app: &mut App, area: Rect, m: &AboutModal, t: &Theme) {
-    let lines = if m.credits { crate::eggs::credits_lines() } else { crate::eggs::about_lines() };
-    let h = 18.min(area.height.saturating_sub(2)).max(8);
-    let w = 76.max(SLOGAN_COLS.saturating_add(8));
+    let lines = m.body_lines();
+    let h = area.height.saturating_sub(2).max(8);
+    let w = (area.width.saturating_sub(4)).max(76).max(SLOGAN_COLS.saturating_add(8));
     let r = modal_rect(area, w, h);
     f.render_widget(Clear, r);
     let title = if m.credits {
@@ -289,9 +289,10 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
     match &m {
         Modal::Help(h) => {
             let r = modal_rect(area, area.width, area.height);
-            let inner = frame(f, &t, r, "Help · ↑↓ PgUp PgDn scroll · Esc closes");
+            let inner = frame(f, &t, r, "Help · type to filter · ← → topics · Esc closes");
             let body = Rect { height: inner.height.saturating_sub(1), ..inner };
-            let lines: Vec<Line> = h.lines.iter().skip(h.scroll).take(body.height as usize).map(|l| Line::raw(l.clone())).collect();
+            let shown = h.view_lines();
+            let lines: Vec<Line> = shown.iter().skip(h.scroll).take(body.height as usize).map(|l| Line::raw(l.clone())).collect();
             f.render_widget(Paragraph::new(lines), body);
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
         }
