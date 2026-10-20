@@ -126,7 +126,7 @@ Interface:
           List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit
 
       --theme-init [<NAME>]
-          Download a theme from the acp-red-star repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), or all. Never replaces an existing file
+          Download a theme from the acp-red-star repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau, rs), or all. Never replaces an existing file
 
       --theme-starter <NAME>
           Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file
@@ -578,7 +578,11 @@ Screenshots (dark variants, a 160×45 true-colour terminal):
 </tr>
 <tr>
 <td><img src="docs/screenshots/themes/plattenbau.png" alt="plattenbau theme"><br><b><code>plattenbau</code></b>: East German Plattenbau: concrete greys with a red accent</td>
+<td><img src="docs/screenshots/themes/rs.png" alt="rs theme"><br><b><code>rs</code></b>: Red Star site: near-black zinc with ACP red and vote gold</td>
+</tr>
+<tr>
 <td><img src="docs/screenshots/themes/red-star-picker.png" alt="the F5 theme picker"><br>The <code>F5</code> picker (here with <code>red-star</code>)</td>
+<td></td>
 </tr>
 </table>
 

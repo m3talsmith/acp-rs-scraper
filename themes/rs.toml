@@ -1,0 +1,150 @@
+# acp-red-star theme, format v1. See docs/USAGE.md (Themes).
+# Sampled from acp.us/rs: page #111113, card #0b0b0b, raised #2b2b2e,
+# quote box #39393e, divider #333336, text #d3d3d7, muted #898994,
+# logo red #c01d1c, vote gold #eaa313. Red stays on the logo and links.
+# The site has no light mode. [light] is zinc grey, the same red, and a
+# darkened gold so bold text stays readable.
+version = 1
+name = "rs"
+description = "Red Star site: near-black zinc with ACP red and vote gold"
+
+[dark.palette]
+accent = "#c01d1c"
+muted = "#898994"
+border = "#333336"
+on_accent = "#ffffff"
+fg = "#d3d3d7"
+bg = "#111113"
+yellow = "#eaa313"
+raised = "#2b2b2e"
+chip = "#39393e"
+ink = "#0b0b0b"
+
+[dark.styles.bold]
+fg = "@yellow"
+
+[dark.styles.accent_bold]
+fg = "@fg"
+
+[dark.styles.bar]
+fg = "@fg"
+bg = "@ink"
+
+[dark.styles.button]
+fg = "@fg"
+bg = "@raised"
+bold = true
+
+[dark.styles.dialog]
+bg = "@raised"
+border = "@muted"
+
+[dark.styles.selected]
+fg = "@fg"
+bg = "@raised"
+
+[dark.styles.post_tag]
+fg = "@fg"
+bg = "@chip"
+bold = true
+
+[dark.styles.reply_tag]
+fg = "@fg"
+bg = "@chip"
+bold = true
+
+[dark.styles.pane_focused]
+border = "@muted"
+
+[dark.styles.border_focused]
+fg = "@muted"
+
+[dark.styles.card_selected]
+border = "@chip"
+
+[dark.styles.card_focused]
+border = "@muted"
+
+[dark.styles.detail_focused]
+border = "@muted"
+
+# Markdown in post bodies ([light] uses these too unless it sets its own)
+[dark.styles.h1]
+fg = "@fg"
+bg = "@bg"
+bold = true
+
+[dark.styles.h2]
+bold = true
+
+[dark.styles.h3]
+fg = "@yellow"
+bold = true
+
+[dark.styles.h4]
+bold = true
+italic = true
+
+[dark.styles.h5]
+fg = "@muted"
+bold = true
+
+[dark.styles.h6]
+fg = "@muted"
+italic = true
+
+[dark.styles.quote]
+fg = "@muted"
+border = "@border"
+italic = true
+
+[dark.styles.code_block]
+border = "@border"
+
+[dark.styles.list_marker]
+fg = "@accent"
+
+[dark.styles.task]
+fg = "@accent"
+bold = true
+
+[dark.styles.table]
+border = "@border"
+
+[dark.styles.table_header]
+fg = "@yellow"
+bold = true
+
+[dark.styles.rule]
+fg = "@muted"
+
+[dark.styles.footnote]
+fg = "@muted"
+
+[light.palette]
+accent = "#c01d1c"
+muted = "#52525b"
+border = "#d4d4d8"
+on_accent = "#ffffff"
+fg = "#18181b"
+bg = "#f4f4f5"
+yellow = "#8c620b"
+raised = "#e4e4e7"
+chip = "#d4d4d8"
+ink = "#ffffff"
+
+[light.styles.bold]
+fg = "@yellow"
+
+[light.styles.bar]
+fg = "@fg"
+bg = "@ink"
+
+[light.styles.dialog]
+bg = "@raised"
+border = "@muted"
+
+[light.styles.post_tag]
+fg = "@fg"
+bg = "@chip"
+bold = true

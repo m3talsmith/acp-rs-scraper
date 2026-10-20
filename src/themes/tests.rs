@@ -239,10 +239,69 @@ fn red_star_is_the_banner_palette_and_body_text_meets_aa() {
 }
 
 #[test]
+fn rs_is_the_site_palette_and_body_text_meets_aa() {
+    use ratatui::style::Color;
+    let src = include_str!("../../themes/rs.toml");
+    let (f, w) = parse(src, "rs").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    assert_eq!(f.name, "rs");
+    assert_eq!(f.description, "Red Star site: near-black zinc with ACP red and vote gold");
+    assert!(SHIPPED_THEMES.contains(&"rs"));
+    let poster = parse(include_str!("../../themes/chinese-poster.toml"), "chinese-poster").unwrap().0;
+    for side in ["dark", "light"] {
+        let want = if side == "dark" { &poster.dark.styles } else { &poster.light.as_ref().unwrap().styles };
+        let got = if side == "dark" { &f.dark.styles } else { &f.light.as_ref().unwrap().styles };
+        for (name, _) in want {
+            assert!(got.iter().any(|(n, _)| n == name), "{side} is missing [{name}]");
+        }
+    }
+    let quote = f.dark.styles.iter().find(|(n, _)| n == "quote").unwrap();
+    assert_eq!(quote.1.fg, Some(ColorSpec::Ref("muted".into())));
+    assert_eq!(quote.1.border, Some(ColorSpec::Ref("border".into())));
+    let ratio = |a, b| contrast(a, b).unwrap();
+    let dark = crate::tui::theme::Theme::from_file(&f, Variant::Dark);
+    let light = crate::tui::theme::Theme::from_file(&f, Variant::Light);
+    assert_eq!(dark.bg, Color::Rgb(0x11, 0x11, 0x13));
+    assert_eq!(dark.fg, Color::Rgb(0xd3, 0xd3, 0xd7));
+    assert_eq!(dark.muted, Color::Rgb(0x89, 0x89, 0x94));
+    assert_eq!(dark.border, Color::Rgb(0x33, 0x33, 0x36));
+    assert_eq!(dark.accent, Color::Rgb(0xc0, 0x1d, 0x1c));
+    assert_eq!(dark.on_accent, Color::Rgb(0xff, 0xff, 0xff));
+    assert_eq!(light.bg, Color::Rgb(0xf4, 0xf4, 0xf5));
+    assert_eq!(light.fg, Color::Rgb(0x18, 0x18, 0x1b));
+    assert_eq!(light.accent, Color::Rgb(0xc0, 0x1d, 0x1c));
+    let sel = ratatui::style::Style::from(&dark.selected());
+    assert_eq!(sel.bg, Some(Color::Rgb(0x2b, 0x2b, 0x2e)), "selection is the raised grey, not the logo red");
+    assert_eq!(sel.fg, Some(dark.fg));
+    let light_sel = ratatui::style::Style::from(&light.selected());
+    assert_eq!(light_sel.bg, Some(Color::Rgb(0xe4, 0xe4, 0xe7)));
+    let body = [
+        ("dark fg/bg", ratio(dark.fg, dark.bg)),
+        ("dark muted/bg", ratio(dark.muted, dark.bg)),
+        ("light fg/bg", ratio(light.fg, light.bg)),
+        ("light muted/bg", ratio(light.muted, light.bg)),
+        ("light accent/bg", ratio(light.accent, light.bg)),
+        ("selected", ratio(sel.fg.unwrap(), sel.bg.unwrap())),
+        ("light selected", ratio(light_sel.fg.unwrap(), light_sel.bg.unwrap())),
+    ];
+    for (name, r) in body {
+        assert!(r >= 4.5, "{name} is {r:.2}:1");
+    }
+    let accent = ratio(dark.accent, dark.bg);
+    assert!(accent >= 3.0, "dark accent/bg is {accent:.2}:1");
+    assert!(ratio(dark.on_accent, dark.accent) >= 4.5, "white on the logo red");
+    let gold = ratatui::style::Style::from(&dark.bold()).fg.unwrap();
+    assert_eq!(gold, Color::Rgb(0xea, 0xa3, 0x13));
+    assert!(ratio(gold, dark.bg) >= 4.5, "vote gold on the page");
+    let light_gold = ratatui::style::Style::from(&light.bold()).fg.unwrap();
+    assert!(ratio(light_gold, light.bg) >= 4.5, "darkened gold on zinc");
+}
+
+#[test]
 fn every_shipped_theme_loads_cleanly_with_both_variants_and_readable_text() {
     let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("themes");
     let files = toml_files(&dir);
-    assert!(files.len() >= 7, "{files:?}");
+    assert!(files.len() >= 8, "{files:?}");
     for f in files {
         let l = load_path(&f).unwrap_or_else(|e| panic!("{}", e.notice()));
         assert!(l.warnings.is_empty(), "{}: {:?}", f.display(), l.warnings);

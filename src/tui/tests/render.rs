@@ -43,6 +43,27 @@ fn red_star_theme_paints_the_welcome_screen() {
 }
 
 #[test]
+fn rs_theme_paints_the_welcome_screen() {
+    let (f, w) = crate::themes::parse(include_str!("../../../themes/rs.toml"), "rs").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    let theme = Theme::from_file(&f, crate::themes::Variant::Dark);
+    let mut a = app();
+    a.theme = theme;
+    a.theme_name = "rs".into();
+    let (w, h) = (160u16, 45u16);
+    let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+    let now = Instant::now() + std::time::Duration::from_secs(5);
+    t.draw(|frame| crate::tui::widgets::draw(frame, &mut a, now)).unwrap();
+    let buf = t.backend().buffer().clone();
+    let s = (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n");
+    assert!(s.contains("‹rs› ▾"), "{s}");
+    assert!(s.contains("@alice"), "{s}");
+    assert_eq!(buf[(40, 0)].bg, ratatui::style::Color::Rgb(0x0b, 0x0b, 0x0b), "header is the card black, not the logo red");
+    assert_eq!(buf[(2, 1)].bg, ratatui::style::Color::Rgb(0xc0, 0x1d, 0x1c), "the logo stays ACP red");
+    assert_eq!(buf[(80, 20)].bg, ratatui::style::Color::Rgb(0x11, 0x11, 0x13), "page background");
+}
+
+#[test]
 fn base_layout_renders_title_menu_nicks_and_empty_state() {
     let mut a = app();
     let s = render(&mut a, 110, 30);
