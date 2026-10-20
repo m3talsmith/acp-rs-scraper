@@ -22,6 +22,8 @@ scripts/install.sh          # native package for your distro (asks before using 
 scripts/install.sh --user   # or: into ~/.local, no root needed
 ```
 
+The install puts three commands on `PATH`: `acp-red-star`, `acprs`, and `acp-rs-scraper`. `acprs` is the same program. `cargo install --path .` installs that short command too, because cargo cannot create a symlink. `acprs --version` prints `acp-red-star` and the version. `acprs --help` uses `acprs` in the usage line, the same way `acp-rs-scraper --help` uses that name. `acp-rs-scraper` prints one deprecation line through version 3. `acprs` does not.
+
 `install.sh` detects the distro from `ID` and then `ID_LIKE` in `/etc/os-release`:
 
 | Family | IDs | Package manager | Built with |
@@ -108,9 +110,9 @@ scripts/install.sh --user
 ```
 
 This builds with `cargo build --release --locked` and installs:
-- `~/.local/bin/acp-red-star`
-- the man page under `~/.local/share/man/man1/`
-- shell completions under `~/.local/share/{bash-completion,zsh,fish}`
+- `~/.local/bin/acp-red-star`, `~/.local/bin/acprs`, and `~/.local/bin/acp-rs-scraper`
+- man pages for `acp-red-star` and `acprs` under `~/.local/share/man/man1/`
+- shell completions for both commands under `~/.local/share/{bash-completion,zsh,fish}`
 - the docs under `~/.local/share/doc/acp-red-star/`
 
 It records every installed file in `~/.local/share/acp-red-star/install-manifest`, which `uninstall.sh` uses. Make sure `~/.local/bin` is on your `PATH`. On distros the script doesn't recognise, an install without `--user` goes to `/usr/local` the same way.
@@ -137,7 +139,7 @@ scripts/uninstall.sh --yes        # no prompt (required when stdin isn't a termi
 ```
 
 **Purging is the default.** The script finds how the tool was installed: a pacman, apt or dnf package, or a `--user`/`/usr/local` manifest. It then shows **one confirmation listing everything it will delete**, with sizes, and requires typing `yes`:
-- the package, or the files listed in the manifest;
+- the package, or the files listed in the manifest, including `acp-red-star`, `acprs`, `acp-rs-scraper`, and the `acprs` man page and completions;
 - `~/.acp/ai/data/rs.database` (plus `rs.database.bootstrap` and `-wal`/`-shm`/`-journal` sidecar files);
 - `~/.acp/ai/data/attachments/`;
 - `~/.acp/ai/data/exports/`;
@@ -159,11 +161,17 @@ Empty `~/.acp/ai/data`, `~/.acp/ai` and `~/.acp` directories are removed afterwa
 | Path | Contents |
 |---|---|
 | `/usr/bin/acp-red-star` | the binary |
+| `/usr/bin/acprs` | the same program, short command |
+| `/usr/bin/acp-rs-scraper` | the old name, through version 3 |
 | `/usr/share/man/man1/acp-red-star.1` | man page (`man acp-red-star`) |
+| `/usr/share/man/man1/acprs.1` | man page for the short command (`man acprs`) |
 | `/usr/share/bash-completion/completions/acp-red-star` | bash completion |
+| `/usr/share/bash-completion/completions/acprs` | bash completion for `acprs` |
 | `/usr/share/zsh/site-functions/_acp-red-star` | zsh completion |
+| `/usr/share/zsh/site-functions/_acprs` | zsh completion for `acprs` |
 | `/usr/share/fish/vendor_completions.d/acp-red-star.fish` | fish completion |
+| `/usr/share/fish/vendor_completions.d/acprs.fish` | fish completion for `acprs` |
 | `/usr/share/doc/acp-red-star/` | README.md, USAGE.md, INSTALL.md, CHANGELOG.md (Debian gzips them and installs the changelog as `changelog.gz`) |
 | `/usr/share/licenses/acp-red-star/LICENSE` | GPL-3.0-or-later (Debian also ships `copyright` in the doc dir) |
 
-The man page and completions come from the binary itself (a hidden `--generate man|bash|zsh|fish` flag), via `scripts/stage.sh`, which all three package builds share.
+The man pages and completions come from the binary itself (a hidden `--generate man|bash|zsh|fish` flag, and the same values prefixed `acprs-`), via `scripts/stage.sh`, which all three package builds share. Uninstall removes `acprs` with the rest of those files.

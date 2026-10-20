@@ -43,11 +43,17 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %license %{_datadir}/licenses/%{name}/LICENSE
 %doc %{_docdir}/%{name}/
 %{_bindir}/%{name}
+%{_bindir}/acp-rs-scraper
+%{_bindir}/acprs
 %{_datadir}/%{name}/
 %{_mandir}/man1/%{name}.1*
+%{_mandir}/man1/acprs.1*
 %{_datadir}/bash-completion/completions/%{name}
+%{_datadir}/bash-completion/completions/acprs
 %{_datadir}/zsh/site-functions/_%{name}
+%{_datadir}/zsh/site-functions/_acprs
 %{_datadir}/fish/vendor_completions.d/%{name}.fish
+%{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
 * Mon Oct 19 2026 m3talsmith <m3talsmith@gmail.com> - 3.5.0-1
