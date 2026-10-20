@@ -29,6 +29,7 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     if area.width < TUI_MIN_SIZE.0 || area.height < TUI_MIN_SIZE.1 {
         f.render_widget(Paragraph::new(format!("Terminal too small: {}×{} (need {}×{}). q quits.",
             area.width, area.height, TUI_MIN_SIZE.0, TUI_MIN_SIZE.1)), area);
+        if app.egg.is_some() { draw_egg(f, app, area, now); }
         return;
     }
     // The whole screen in the theme's base colours (the terminal's when unset).
@@ -37,6 +38,7 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
         editor::draw(f, app, &mut ed, now);
         app.theme_editor = Some(ed);
         if app.modal.is_some() { modal::draw(f, app, area); }
+        if app.egg.is_some() { draw_egg(f, app, area, now); }
         return;
     }
     let log_rows = if app.show_log { 10 } else { 1 };
@@ -48,6 +50,32 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     status(f, app, a.status);
     menu::draw_dropdown(f, app, area);
     if app.modal.is_some() { modal::draw(f, app, area); }
+    if app.egg.is_some() { draw_egg(f, app, area, now); }
+}
+
+/// A short full-screen clip. A small area is one asterisk (and the burst's line).
+fn draw_egg(f: &mut Frame, app: &App, area: Rect, now: Instant) {
+    let Some(play) = app.egg else { return };
+    let lines = crate::eggs::frame_lines(play.kind, now.saturating_duration_since(play.start), area.width, area.height);
+    let st = if play.plain { ratatui::style::Style::default() } else { ratatui::style::Style::from(&app.theme.accent()) };
+    f.render_widget(ratatui::widgets::Clear, area);
+    let block_w = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0) as u16;
+    let x0 = area.x + area.width.saturating_sub(block_w.min(area.width)) / 2;
+    let y0 = area.y + area.height.saturating_sub(lines.len() as u16) / 2;
+    let buf = f.buffer_mut();
+    for (i, line) in lines.iter().enumerate() {
+        let y = y0 + i as u16;
+        if y >= area.y + area.height { break; }
+        let mut x = x0;
+        for ch in line.chars() {
+            if x >= area.x + area.width { break; }
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.set_symbol(&ch.to_string());
+                cell.set_style(st);
+            }
+            x += 1;
+        }
+    }
 }
 
 /// The header: the red star logo, a big "ACP", the title and the session, all
@@ -66,6 +94,7 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let logo = Rect { x: r.x + 1, y: r.y, width: (r.height * 2).min(r.width.saturating_sub(1)), height: r.height };
     let drawn = app.images.as_mut().is_some_and(|im| im.draw_logo(f.buffer_mut(), logo));
     if !drawn { crate::tui::images::draw_logo_text(f.buffer_mut(), logo, t.on_accent, t.accent); }
+    app.hits.push((logo, Hit::Logo));
     let mut x = logo.x + logo.width + 1;
     let big_w = 3 * 8;
     if r.height >= 3 && x + big_w + 2 < r.width {

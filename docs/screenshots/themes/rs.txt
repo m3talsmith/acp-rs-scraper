@@ -1,0 +1,45 @@
+  🬵🬍🬂🬂🬌🬱                                                                                                                                                        
+ 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                                                                                                                               
+ 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star  v3.5.0                                                                                   ‹rs› ▾  ○ logged out 
+  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                                                                                                                  
+ Scrape │ Search │ Export │ Import │ List │ Maintain │ Research │ Session │ Bookmarks │ Sync │ View │ Debug │ Help │ About │ Quit │            ▶ Start Scanning 
+┌ Nicks (2) ───────────────┐┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ ★ Bookmarks (1)          ││Select a nick on the left  0 posts                                                            [Order: newest ▸]  [View: Nested ▸] │
+│ EB                       ││                                                                                                                                  │
+│ Explore                  ││ACP Red Star                                                                                                                      │
+│ / filter nicks (/)       ││The future belongs to the working class                                                                                           │
+│ @alice                 3 ││                                                                                                                                  │
+│ @bob                   2 ││Click a nick (Space / Ctrl-click to select several) to read their posts and replies.                                              │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+│                          ││                                                                                                                                  │
+└──────────────────────────┘└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit             The future belongs to the working class

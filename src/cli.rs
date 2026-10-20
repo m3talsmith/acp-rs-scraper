@@ -197,6 +197,9 @@ pub struct Args {
     /// Guided capture of one reply. Documented in architecture/PLAN-3.0-CLIENT.md. Does not publish.
     #[arg(long, value_name = "THREAD", hide = true)]
     pub capture_reply: Option<String>,
+    /// Hidden.
+    #[arg(long, hide = true)]
+    pub roar: bool,
 
     /// Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it.
     #[arg(long, help_heading = "Interface")]
@@ -207,7 +210,7 @@ pub struct Args {
     /// List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit.
     #[arg(long, help_heading = "Interface")]
     pub list_themes: bool,
-    /// Download a theme from the acp-red-star repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau, acp), or all. Never replaces an existing file.
+    /// Download a theme from the acp-red-star repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau, rs, acp), or all. Never replaces an existing file.
     #[arg(long, value_name = "NAME", num_args = 0..=1, default_missing_value = "default", help_heading = "Interface")]
     pub theme_init: Option<String>,
     /// Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file.

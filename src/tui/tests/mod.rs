@@ -30,6 +30,7 @@ mod reads;
 mod session;
 mod theming;
 mod editor;
+mod eggs;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

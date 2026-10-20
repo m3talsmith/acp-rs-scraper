@@ -257,6 +257,9 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         if app.empty_anim_frame.is_some() && let Some(fr) = &app.empty_anim {
             wait = wait.min(fr.until_next(Instant::now().saturating_duration_since(app.empty_anim_start)));
         }
+        if let Some(play) = &app.egg {
+            wait = wait.min(play.until_next(Instant::now()));
+        }
         tokio::select! {
             Some(ev) = ev_rx.recv() => {
                 if matches!(ev, crossterm::event::Event::Resize(..)) && let Some(im) = app.images.as_mut() { im.invalidate(); }

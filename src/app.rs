@@ -182,6 +182,11 @@ pub async fn run() -> Result<()> {
         Err(e) => e.exit(),
     };
     apply_color_mode(resolve_color_mode(args.color, load_prefs().ui.as_ref().and_then(|u| u.color.as_deref())));
+    // Before the database, the home directory, and the terminal UI. `--roar --tui` still exits here.
+    if args.roar {
+        println!("{}", crate::eggs::roar_text(crate::eggs::roar_index(), crate::eggs::colors_off(), crate::eggs::columns()));
+        return Ok(());
+    }
     if let Some(what) = args.generate {
         return generate(what, &mut io::stdout().lock());
     }

@@ -88,7 +88,7 @@ pub enum Modal {
     Job(JobModal),
     /// New post or reply. Publish does not open a connection.
     Compose(ComposeModal),
-    /// Product name and slogan.
+    /// Name, slogan, and a star. The credits stay hidden.
     About(AboutModal),
 }
 

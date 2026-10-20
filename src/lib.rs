@@ -26,6 +26,7 @@
 //!   drive scrape/search/export/import/maintenance from a menu bar.
 //! - [`crypto`]: master secret, recovery phrase and shares, `acp-id`, encryption
 //!   at rest, and encrypted backups.
+//! - [`eggs`]: a few surprises for the curious (`docs/.secrets/EASTER_EGGS.md`).
 //! - [`app`]: wires the above into the command-line program.
 
 #![warn(missing_docs)]
@@ -39,6 +40,7 @@ pub mod bookmarks;
 pub mod cli;
 pub mod config;
 pub mod crypto;
+pub mod eggs;
 pub mod export;
 pub mod http;
 pub mod import;
