@@ -16,6 +16,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Clippy is clean.** `scrape` takes a `ScrapeOptions` value and `read_view` takes a `ViewRequest`, instead of a long argument list. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
 - **`red-star` theme.** The shipped theme matches the brand banner: ink `#0e0404`, cream `#f6e8c8`, vermilion `#c8102e`, gold `#e8b648`, with a light variant on cream. It replaces the old deep-crimson palette. The name stays `red-star`, so `--theme red-star` still selects it and the theme picker shows the new description. A copy already saved in `~/.acp/themes` is not overwritten. Delete `~/.acp/themes/red-star.toml` and run `--theme-init red-star` (or copy `themes/red-star.toml`) to take the new look. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
 
 ### Documentation

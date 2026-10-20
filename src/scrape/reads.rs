@@ -201,16 +201,14 @@ pub async fn read_top(
     replies: bool,
 ) -> Result<usize> {
     let fields = top_fields(period, replies);
-    read_view(
-        http,
-        jar,
-        &feed_top_url(period, replies),
-        &feed_top_page_url(),
-        PROFILE_FILTER_EVENT,
-        &fields,
-        &top_key(period, replies),
-        &top_title(period, replies),
-    )
+    read_view(http, jar, &ViewRequest {
+        direct: &feed_top_url(period, replies),
+        page: &feed_top_page_url(),
+        event: PROFILE_FILTER_EVENT,
+        fields: &fields,
+        key: &top_key(period, replies),
+        title: &top_title(period, replies),
+    })
     .await
     .with_context(|| format!("reading Top ({})", period.as_str()))
 }
@@ -247,27 +245,32 @@ pub fn eb_title(replies: bool) -> String {
 /// `--eb`: read the Executive Board feed and store it.
 pub async fn read_eb(http: &reqwest::Client, jar: &Jar, replies: bool) -> Result<usize> {
     let fields = eb_fields(replies);
-    read_view(
-        http, jar, &feed_eb_url(replies), &feed_eb_page_url(), PROFILE_FILTER_EVENT, &fields,
-        &eb_key(replies), &eb_title(replies),
-    )
+    read_view(http, jar, &ViewRequest {
+        direct: &feed_eb_url(replies),
+        page: &feed_eb_page_url(),
+        event: PROFILE_FILTER_EVENT,
+        fields: &fields,
+        key: &eb_key(replies),
+        title: &eb_title(replies),
+    })
         .await
         .context("reading the Executive Board feed")
 }
 
+/// One configured feed: where to read it, and the key and title it is stored under.
+struct ViewRequest<'a> {
+    direct: &'a str,
+    page: &'a str,
+    event: &'a str,
+    fields: &'a [(&'a str, &'a str)],
+    key: &'a str,
+    title: &'a str,
+}
+
 /// Fetch one configured feed and store it under `key`.
-async fn read_view(
-    http: &reqwest::Client,
-    jar: &Jar,
-    direct: &str,
-    page: &str,
-    event: &str,
-    fields: &[(&str, &str)],
-    key: &str,
-    title: &str,
-) -> Result<usize> {
-    let fetched = fetch_configured(http, jar, direct, page, event, fields).await?;
-    remember_feed(&fetched.items, key, title)
+async fn read_view(http: &reqwest::Client, jar: &Jar, view: &ViewRequest<'_>) -> Result<usize> {
+    let fetched = fetch_configured(http, jar, view.direct, view.page, view.event, view.fields).await?;
+    remember_feed(&fetched.items, view.key, view.title)
 }
 
 /// Explore (`/rs/explore`) or its Latest tab (`/rs/explore/latest`).
@@ -288,7 +291,10 @@ pub fn explore_title(latest: bool) -> String {
 /// `--explore` / `--explore-latest`.
 pub async fn read_explore(http: &reqwest::Client, jar: &Jar, latest: bool) -> Result<usize> {
     let url = feed_explore_url(latest);
-    read_view(http, jar, &url, &url, PROFILE_FILTER_EVENT, &[], &explore_key(latest), &explore_title(latest))
+    read_view(http, jar, &ViewRequest {
+        direct: &url, page: &url, event: PROFILE_FILTER_EVENT, fields: &[],
+        key: &explore_key(latest), title: &explore_title(latest),
+    })
         .await
         .context("reading Explore")
 }
@@ -324,7 +330,10 @@ pub async fn read_reposts(http: &reqwest::Client, jar: &Jar, id: &str) -> Result
     let id = id.trim();
     if id.is_empty() { bail!("reposts need a post id"); }
     let url = feed_reposts_url(id);
-    read_view(http, jar, &url, &url, PROFILE_FILTER_EVENT, &[], &reposts_key(id), &reposts_title(id))
+    read_view(http, jar, &ViewRequest {
+        direct: &url, page: &url, event: PROFILE_FILTER_EVENT, fields: &[],
+        key: &reposts_key(id), title: &reposts_title(id),
+    })
         .await
         .with_context(|| format!("reading reposts of {id}"))
 }
@@ -354,7 +363,10 @@ pub async fn read_tag(http: &reqwest::Client, jar: &Jar, tag: &str) -> Result<us
     let name = tag_name(tag);
     if name.is_empty() { bail!("a tag needs a name"); }
     let url = feed_tag_url(&name);
-    read_view(http, jar, &url, &url, PROFILE_FILTER_EVENT, &[], &tag_key(&name), &tag_title(&name))
+    read_view(http, jar, &ViewRequest {
+        direct: &url, page: &url, event: PROFILE_FILTER_EVENT, fields: &[],
+        key: &tag_key(&name), title: &tag_title(&name),
+    })
         .await
         .with_context(|| format!("reading #{name}"))
 }
@@ -471,7 +483,10 @@ pub async fn read_site_search(http: &reqwest::Client, jar: &Jar, query: &str) ->
     let url = site_search_url(q);
     let page = feed_explore_url(false);
     let fields = [("q", q)];
-    read_view(http, jar, &url, &page, SEARCH_EVENT, &fields, &search_key(q), &search_title(q))
+    read_view(http, jar, &ViewRequest {
+        direct: &url, page: &page, event: SEARCH_EVENT, fields: &fields,
+        key: &search_key(q), title: &search_title(q),
+    })
         .await
         .with_context(|| format!("searching the site for {q:?}"))
 }

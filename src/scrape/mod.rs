@@ -359,12 +359,33 @@ pub struct ScrapeStats {
     pub truncated_completed: usize,
 }
 
+/// What one nick scrape should keep. The feed window and the thread crawl read these together.
+#[derive(Clone, Copy)]
+pub struct ScrapeOptions<'a> {
+    /// Post ids already stored. Ignored for skipping when `full` is set.
+    pub known: &'a HashSet<String>,
+    /// Stored reply counts by thread id, used to skip unchanged threads.
+    pub reply_counts: &'a HashMap<String, usize>,
+    /// Refetch everything instead of stopping at known posts.
+    pub full: bool,
+    /// Keep only posts this nick wrote, and skip the thread crawl.
+    pub said_by: bool,
+    /// How many feed items to keep. `None` keeps the feed the crawl reached.
+    pub limit: Option<usize>,
+    /// Which profile tab to read.
+    pub profile_feed: ProfileFeed,
+    /// Which end of the feed `limit` keeps.
+    pub order: ScrapeOrder,
+}
+
 /// Scrape a nick: the Posts feed and the "Posts and replies" filter (merged by id), then replies in every thread the nick started that changed since the last run. Returns the posts, the profile HTML and counts.
 pub async fn scrape(
-    http: &reqwest::Client, jar: &Jar, nick: &str,
-    known: &HashSet<String>, reply_counts: &HashMap<String, usize>, full: bool, said_by: bool,
-    limit: Option<usize>, profile_feed: ProfileFeed, order: ScrapeOrder,
+    http: &reqwest::Client,
+    jar: &Jar,
+    nick: &str,
+    opts: &ScrapeOptions<'_>,
 ) -> Result<(Vec<Post>, String, ScrapeStats)> {
+    let &ScrapeOptions { known, reply_counts, full, said_by, limit, profile_feed, order } = opts;
     let nick = nick.trim_start_matches('@');
     let known_opt = if full { None } else { Some(known) };
     // `--order oldest` with `--limit` has to reach the end of a newest-first list.
@@ -393,7 +414,7 @@ pub async fn scrape(
     }
     if let Some(n) = limit {
         let end = match order { ScrapeOrder::Newest => "start", ScrapeOrder::Oldest => "end" };
-        info!("@{nick}: --limit {n}: keeping the {end} of the feed ({} items)", feed.items.len());
+        info!("@{nick}: --limit {n}: keeping the {end} of the feed ({len} items)", len = feed.items.len());
     }
     info!("@{nick}: posts and replies added {replies_tab_added} items");
     let mut seen = HashSet::new();
