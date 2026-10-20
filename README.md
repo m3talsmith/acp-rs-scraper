@@ -1,4 +1,4 @@
-![acp-red-star: archive, search and share Red Star posts from acp.us/rs](assets/social-red-star.png)
+![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
 **Current version: 3.5.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
