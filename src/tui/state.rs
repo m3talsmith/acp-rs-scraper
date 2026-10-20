@@ -753,7 +753,7 @@ impl App {
         let v = self.view();
         v.posts.get(v.cursor).cloned()
     }
-    /// `r` on an open post: reply. A comment pre-fills `postRef`.
+    /// `r` on an open post: reply. The body starts with `postRef`. A comment uses that comment's id.
     pub fn open_reply(&mut self) {
         if !self.writes_are_on() { self.show_writes_off(); return; }
         let Some(post) = self.current_post() else { self.push_status("no post: open one to reply"); return; };
