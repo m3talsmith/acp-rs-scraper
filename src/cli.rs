@@ -197,6 +197,9 @@ pub struct Args {
     /// Guided capture of one reply. Documented in architecture/PLAN-3.0-CLIENT.md. Does not publish.
     #[arg(long, value_name = "THREAD", hide = true)]
     pub capture_reply: Option<String>,
+    /// Hidden.
+    #[arg(long, hide = true)]
+    pub roar: bool,
 
     /// Open the terminal UI (also the default when no other flag is given). Other flags pre-fill it: --nick/--nicks select those nicks, -v/--debug/--enable-logging apply to scans started from it.
     #[arg(long, help_heading = "Interface")]
