@@ -1,8 +1,11 @@
 # Installing acp-red-star
 
-Every install method **builds from source** on your machine (`cargo build --release --locked`). No prebuilt binaries are shipped or installed.
+Source install builds on your machine with [`scripts/install.sh`](../scripts/install.sh) (`cargo build --release --locked`).
+
+Published binaries and alphas, once a release includes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page for this repository. Docs link that page. An asset URL is written only after the file is published. Alpha packaging waits until writes and replies with attachments are done and the decentralized network work is completed. The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each get a separate install and also stay available inside the app. Those packages wait for the same gate. That gate, and the checklist, are in [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.5. This document does not publish an alpha, a server package, or a relay package.
 
 - [Quick install](#quick-install)
+- [Workspace crates](#workspace-crates)
 - [Rust toolchain](#rust-toolchain)
 - [Build dependencies](#build-dependencies)
 - [Arch / Manjaro / EndeavourOS](#arch--manjaro--endeavouros)
@@ -39,6 +42,17 @@ The install puts three commands on `PATH`: `acp-red-star`, `acprs`, and `acp-rs-
 - `--no-deps`: don't install build dependencies.
 
 Every package-manager or download step is confirmed first.
+
+## Workspace crates
+
+The root `Cargo.toml` workspace members are `"."` and `"crates/acp_red_star_node_core"`. These are the crates in the tree. Later names in the plan (`acp-rs-relay`, `acp-rs-tray`, `acp_rs_node_ffi`) are not members yet.
+
+| Package | Path | Version in this tree | What it is |
+|---|---|---|---|
+| `acp-red-star` | repository root (`Cargo.toml`) | 3.5.0 | Terminal client and CLI. The binaries are `acp-red-star`, `acprs`, and `acp-rs-scraper` (the compatibility name through version 3). The Cargo description is "ACP Red Star, a local client for the Red Star forum". Edition 2024, `rust-version` 1.88. |
+| `acp_red_star_node_core` | `crates/acp_red_star_node_core` | 3.3.0 | Shared identity, canonical CBOR, and sealed secrets. `publish = false`. The root package depends on it with `path = "crates/acp_red_star_node_core"`. It does not open the SQLite database, draw the terminal, or talk to the network. |
+
+Public modules of `acp_red_star_node_core`: `cbor`, `hpke`, `master`, `node`, `password`, `slip39`, `stage`, `store`. The encoding rules are in [PROTOCOL.md](PROTOCOL.md).
 
 ## Rust toolchain
 
