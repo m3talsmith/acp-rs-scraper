@@ -8,27 +8,56 @@ use crate::eggs;
 use crossterm::event::KeyCode;
 use std::time::Instant;
 
-/// The About page. `credits` is the hidden page.
+/// The About page. `credits` is the hidden page. `section` is 0, 1, or 2.
 #[derive(Debug)]
 pub struct AboutModal {
-    /// The credits are showing.
+    /// The hidden credits are showing.
     pub credits: bool,
+    /// 0 Credits, 1 Why this is necessary, 2 ACP platform.
+    pub section: u8,
     /// Star presses on this page.
     pub taps: u8,
     /// When the star on this page was last pressed.
     pub last_tap: Option<Instant>,
-    /// First visible credits line.
+    /// First visible line.
     pub scroll: usize,
 }
 
+const PROGRAM: &str = include_str!("../../../docs/acp-program-2024.md");
+const JOIN: &str = "https://acp.us/join";
+const PROGRAM_URL: &str = "https://acp.us/program";
+const PROGRAM_PDF: &str = "https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf";
+
 impl AboutModal {
-    /// The public page.
-    pub fn page() -> Self {
-        Self { credits: false, taps: 0, last_tap: None, scroll: 0 }
+    /// The public page, on Credits.
+    pub fn page() -> Self { Self::section(0) }
+    /// The same modal, focused on `section` (0, 1, or 2).
+    pub fn section(section: u8) -> Self {
+        Self { credits: false, section: section.min(2), taps: 0, last_tap: None, scroll: 0 }
     }
-    /// The credits, already open.
+    /// The hidden credits, already open.
     pub fn credits() -> Self {
-        Self { credits: true, taps: 0, last_tap: None, scroll: 0 }
+        Self { credits: true, section: 0, taps: 0, last_tap: None, scroll: 0 }
+    }
+    /// Lines for the open page. The public page is exactly three sections.
+    pub fn body_lines(&self) -> Vec<String> {
+        if self.credits { return crate::eggs::credits_lines(); }
+        let mut lines = vec![
+            crate::config::TUI_SUBTITLE.into(),
+            format!("v{}", env!("CARGO_PKG_VERSION")),
+            String::new(),
+            "1 Credits    2 Why this is necessary    3 ACP platform".into(),
+            String::new(),
+        ];
+        match self.section {
+            0 => lines.extend(public_credits()),
+            1 => lines.extend(why_lines()),
+            _ => lines.extend(platform_lines()),
+        }
+        lines.push(String::new());
+        lines.push("★".into());
+        lines.push("Esc closes. ← → moves sections.".into());
+        lines
     }
     /// One press on this page's star.
     pub fn tap(&mut self, now: Instant) -> bool {
@@ -42,6 +71,38 @@ impl AboutModal {
     }
 }
 
+fn public_credits() -> Vec<String> {
+    vec![
+        "Credits".into(),
+        "The people who built this client.".into(),
+        "The repository is m3talsmith/acp-rs-scraper.".into(),
+    ]
+}
+
+fn why_lines() -> Vec<String> {
+    vec![
+        "Why this is necessary".into(),
+        "ACP Red Star keeps a copy of the Red Star forum on this machine.".into(),
+        "Reading, search, and export work from that copy when the site is slow or gone.".into(),
+        "The database is encrypted. The password stays on this computer.".into(),
+        "Publishing a post still waits on a confirmed capture. This window does not send one.".into(),
+    ]
+}
+
+fn platform_lines() -> Vec<String> {
+    let mut lines = vec![
+        "ACP platform".into(),
+        JOIN.into(),
+        format!("Program: {PROGRAM_URL}"),
+        format!("PDF: {PROGRAM_PDF}"),
+        String::new(),
+    ];
+    lines.extend(PROGRAM.lines().map(str::to_string));
+    lines.push(String::new());
+    lines.push(JOIN.into());
+    lines
+}
+
 impl ModalState for AboutModal {
     fn title(&self) -> String {
         if self.credits { "Credits".into() } else { SLOGAN.to_string() }
@@ -52,8 +113,15 @@ impl ModalState for AboutModal {
             KeyCode::Char('~') => { self.credits = true; self.scroll = 0; None }
             KeyCode::Enter | KeyCode::Char(' ') if !self.credits => { self.tap(Instant::now()); None }
             KeyCode::Enter => Some(ModalResult::ClosedSubmitted),
+            KeyCode::Char('1') if !self.credits => { self.section = 0; self.scroll = 0; None }
+            KeyCode::Char('2') if !self.credits => { self.section = 1; self.scroll = 0; None }
+            KeyCode::Char('3') if !self.credits => { self.section = 2; self.scroll = 0; None }
+            KeyCode::Left if !self.credits => { self.section = self.section.saturating_sub(1); self.scroll = 0; None }
+            KeyCode::Right if !self.credits => { self.section = (self.section + 1).min(2); self.scroll = 0; None }
             KeyCode::Up | KeyCode::Char('k') => { self.scroll = self.scroll.saturating_sub(1); None }
             KeyCode::Down | KeyCode::Char('j') => { self.scroll = self.scroll.saturating_add(1); None }
+            KeyCode::PageUp => { self.scroll = self.scroll.saturating_sub(15); None }
+            KeyCode::PageDown => { self.scroll = self.scroll.saturating_add(15); None }
             _ => None,
         }
     }

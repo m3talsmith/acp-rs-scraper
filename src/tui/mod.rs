@@ -26,6 +26,7 @@ pub mod sample;
 pub mod state;
 pub mod theme;
 pub mod theming;
+pub mod tooltip;
 pub mod widgets;
 
 use crate::prelude::*;

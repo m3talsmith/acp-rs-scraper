@@ -321,6 +321,10 @@ pub enum Hit {
     Status,
     /// The header's red star.
     Logo,
+    /// The `?` in the header corner.
+    HelpMark,
+    /// The `? topic` line of the hover tooltip.
+    Tip,
 }
 
 /// Menu bar state.
@@ -475,6 +479,10 @@ pub struct App {
     pub logo_taps: u8,
     /// When the header star was last pressed.
     pub logo_tap_at: Option<Instant>,
+    /// Hover tooltip for the control under the pointer.
+    pub tip: Option<crate::tui::tooltip::Tip>,
+    /// Where that control was drawn.
+    pub tip_at: Rect,
 }
 
 fn nick_label(q: &str) -> String {
@@ -519,6 +527,7 @@ impl App {
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
             konami: crate::eggs::Konami::new(), egg: None, logo_taps: 0, logo_tap_at: None,
+            tip: None, tip_at: Rect::default(),
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -1532,6 +1541,7 @@ impl App {
             Some(Modal::Compose(c)) => matches!(c.focus, ComposeFocus::Title | ComposeFocus::Body | ComposeFocus::Attach | ComposeFocus::Complete),
             Some(Modal::Research(r)) => matches!(r.focus, RField::Name | RField::Desc | RField::Note),
             Some(Modal::Confirm(c)) if c.strict => true,
+            Some(Modal::Help(_)) => true,
             _ => false,
         }
     }
@@ -1549,10 +1559,19 @@ impl App {
     pub fn tap_logo(&mut self, now: Instant) {
         if crate::eggs::note_tap(&mut self.logo_taps, &mut self.logo_tap_at, now) { self.open_credits(); }
     }
-    /// The public About page.
-    pub fn open_about(&mut self) {
+    /// The public About page, on Credits.
+    pub fn open_about(&mut self) { self.open_about_at(0); }
+    /// The same About modal, focused on section 0, 1, or 2.
+    pub fn open_about_at(&mut self, section: u8) {
         self.close_menu();
-        self.modal = Some(Modal::About(AboutModal::page()));
+        self.modal = Some(Modal::About(AboutModal::section(section)));
+    }
+    /// Remember the control under the pointer. The tooltip link does not replace itself.
+    pub fn note_hover(&mut self, hit: Option<Hit>) {
+        if matches!(hit, Some(Hit::Tip)) { return; }
+        let at = hit.and_then(|h| self.hits.iter().rev().find(|(_, got)| *got == h).map(|(r, _)| *r));
+        self.tip = hit.and_then(|h| crate::tui::tooltip::tip_for(self, h));
+        if let Some(r) = at { self.tip_at = r; }
     }
     /// The hidden credits.
     pub fn open_credits(&mut self) {
@@ -1630,6 +1649,7 @@ impl App {
             Action::Logout => { self.close_menu(); self.effects.push(Effect::Logout); }
             Action::Help => self.open_help(None),
             Action::About => self.open_about(),
+            Action::AboutAt(section) => self.open_about_at(section),
             Action::ToggleLog => { self.show_log = !self.show_log; }
             Action::StackPrev => { if !self.stack_prev() { self.push_status("no previous post: this is the list"); } }
             Action::StackNext => { if !self.stack_next() { self.push_status("no next post: open one, or go back with prev first"); } }
