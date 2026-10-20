@@ -332,6 +332,8 @@ pub struct MenuState {
     pub item: usize,
     /// Item whose dropdown is open.
     pub open: Option<usize>,
+    /// Bar item that opened a tucked menu (Library, while Export is showing). Esc returns here.
+    pub anchor: Option<usize>,
     /// Highlighted option in the dropdown.
     pub opt: usize,
     /// Typing into the highlighted text option.
@@ -507,7 +509,7 @@ impl App {
         let mut app = App {
             store, nicks: Vec::new(), all_nicks: Vec::new(), nick_filter: Default::default(), filter_editing: false, nick_cursor: 0, nick_offset: 0, selected: Vec::new(),
             base: BodyView::default(), search: None, focus: Focus::Nicks,
-            menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false, path_matches: Vec::new(), path_at: 0 },
+            menu: MenuState { menu: Menu::new(args), item: 0, open: None, anchor: None, opt: 0, editing: false, path_matches: Vec::new(), path_at: 0 },
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
@@ -1074,7 +1076,7 @@ impl App {
         };
         self.sync_next = Some(now + every);
         if self.job.is_some() { self.push_status("auto sync skipped: a job is running"); return; }
-        if self.session == SessionState::LoggedOut { self.push_status("auto sync skipped: logged out (Session › Log in)"); return; }
+        if self.session == SessionState::LoggedOut { self.push_status("auto sync skipped: logged out (Account › Log in)"); return; }
         match self.menu.menu.sync_argv(&self.selected.clone()) {
             Ok(argv) => { self.push_status("auto sync…"); self.effects.push(Effect::AutoSync(argv)); }
             Err(e) => self.push_status(format!("auto sync skipped: {e}")),
@@ -1085,7 +1087,7 @@ impl App {
         match r {
             Ok(true) if self.job.is_none() => { self.session = SessionState::Valid; self.auto_running = true; self.effects.push(Effect::RunJob(JobKind::Sync, argv)); }
             Ok(true) => self.push_status("auto sync skipped: a job is running"),
-            Ok(false) => { self.session = SessionState::LoggedOut; self.push_status("auto sync skipped: logged out (Session › Log in)"); }
+            Ok(false) => { self.session = SessionState::LoggedOut; self.push_status("auto sync skipped: logged out (Account › Log in)"); }
             Err(e) => self.push_status(format!("auto sync skipped: offline ({})", e.lines().next().unwrap_or(""))),
         }
     }
@@ -1678,6 +1680,35 @@ impl App {
             Action::ThemeExport => self.export_theme(),
             Action::ThemeInit => self.init_theme(),
             Action::ThemeStarter => self.theme_starter(None),
+            Action::NewPost => { self.close_menu(); self.open_new_post(); }
+            Action::Reply => { self.close_menu(); self.open_reply(); }
+            Action::Quote => { self.close_menu(); self.open_quote(); }
+            Action::RunSiteSearch => {
+                let q = self.menu.menu.text(CommandId::Search, "query");
+                let nick = self.menu.menu.text(CommandId::Search, "nick");
+                let limit = self.menu.menu.text(CommandId::Search, "limit");
+                let order = self.menu.menu.choice(CommandId::Search, "order");
+                if !nick.is_empty() || !limit.is_empty() || order != "Newest" {
+                    self.push_status("nick, order and limit stay local; searching the site for the keyword");
+                }
+                match self.menu.menu.site_search_argv(&q) {
+                    Ok(argv) => { self.close_menu(); self.open_site_read(&search_key(&q), argv); }
+                    Err(e) => self.error("Site search", &e),
+                }
+            }
+            Action::OpenMenu(id) => {
+                let Some(i) = self.menu.menu.items.iter().position(|c| c.id == id) else { return };
+                if let Some(parent) = self.menu.open
+                    && self.menu.menu.items.get(parent).is_some_and(|c| c.on_bar)
+                {
+                    self.menu.anchor = Some(parent);
+                }
+                self.open_menu(i);
+            }
+            Action::DiscoverLater => {
+                self.close_menu();
+                self.push_status("people, nodes, and rooms arrive with the network node");
+            }
             Action::ExportResearch => match self.research_name().ok_or_else(|| "pick a research project first (Research › Projects…)".to_string())
                 .and_then(|n| self.menu.menu.research_export_argv(&n)) {
                 Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
@@ -1842,26 +1873,45 @@ impl App {
     /// Close the dropdown and leave the menu.
     pub fn close_menu(&mut self) {
         self.menu.open = None;
+        self.menu.anchor = None;
         self.menu.editing = false;
         self.needs_redraw = true;
         if self.focus == Focus::Menu { self.focus = if self.view().posts.is_empty() { Focus::Nicks } else { Focus::Body }; }
     }
     /// Highlight / open the n-th menu item (option-less items run at once).
+    ///
+    /// A bar item clears [`MenuState::anchor`]. A tucked item keeps the anchor set by
+    /// [`Action::OpenMenu`], so Esc can return to Library.
     pub fn open_menu(&mut self, i: usize) {
         let Some(c) = self.menu.menu.items.get(i) else { return };
         let id = c.id;
         let action = c.action;
+        let on_bar = c.on_bar;
         self.needs_redraw = true;
         self.focus = Focus::Menu;
-        self.menu.item = i;
         self.menu.editing = false;
-        if let Some(a) = action { self.menu.open = None; self.act(a); return; }
-        if self.menu.open == Some(i) { self.menu.open = None; }
-        else {
-            self.menu.open = Some(i);
-            self.menu.opt = 0;
-            if id == CommandId::View || id == CommandId::Search { self.sync_order_menus(); }
+        if let Some(a) = action {
+            self.menu.item = i;
+            self.menu.open = None;
+            self.menu.anchor = None;
+            self.act(a);
+            return;
         }
+        if self.menu.open == Some(i) {
+            self.menu.open = None;
+            self.menu.anchor = None;
+            if on_bar { self.menu.item = i; }
+            return;
+        }
+        if on_bar {
+            self.menu.anchor = None;
+            self.menu.item = i;
+        } else if let Some(parent) = self.menu.anchor {
+            self.menu.item = parent;
+        }
+        self.menu.open = Some(i);
+        self.menu.opt = 0;
+        if id == CommandId::View || id == CommandId::Search { self.sync_order_menus(); }
     }
     /// Activate the highlighted option of the open dropdown (Enter / click).
     pub fn activate_opt(&mut self, i: usize) {

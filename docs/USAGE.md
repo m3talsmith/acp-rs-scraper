@@ -42,8 +42,9 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
 
 - **Layout:** a 4-row header on the red bar (the red star logo in white over all four rows, a big
   "ACP" drawn with tui-big-text on rows 2–4 so it has a row of room above, then name, version,
-  session and running job on the middle row of the "ACP") · menu bar (one item per group of CLI
-  flags, Start Scanning pinned right) · nick bar on the left (`@nick` and post count) · Body · status
+  session and running job on the middle row of the "ACP") · menu bar (View, Search, Compose,
+  Library, Bookmarks, Research, Sync, Discover, Account, Debug, Help, About, Quit; Scrape and
+  Start Scanning pinned on the right) · nick bar on the left (`@nick` and post count) · Body · status
   line (`l` expands it to a log panel). Click that line, or the header's `⟳ kind running (pid)` mark, or press Tab until Status is focused and then Enter, to open job details: the name, what started it, the state, the start time and elapsed time, the stage and a spinner, and a scrollable log. Elapsed counts only while the job is running. After it finishes, fails, or is cancelled, that line stays at the total run time. If the end was not recorded, it says `unknown`. Several jobs are a list; the elapsed line is the selected job. Esc closes the window. `c` or Cancel stops a job that is still running. The password and the database key are not shown. The header mark and the status bar do not show a duration, and a later start of the terminal UI does not reload jobs from log files.
 - **Side bars, not built yet.** Before 3.x is finished the nick bar on the left collapses, and a right bar pulls out with the actions that led to the current view (a search, a filter change, a view). Clicking an earlier action jumps back to that state, and an export from a search state still includes the query and the filters. Both bars collapse to give the Body the width. This is not the previous and next post walk. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.5.
 - **Embedded assistant, not in 3.x.** A local model inside the client is a 4.0 roadmap item. It is not a heavy interest of 3.0. It answers questions about the posts already stored here, and it can run a search, a filter, or an export from plain language. An AI button at the bottom center opens a chat strip that pushes the body and the side bars up. It is not a modal. The strip keeps the prompts and replies, and the actions change the Body. The voice is a local persona: a system prompt and optional retrieval first, and a later fine-tune on local material if wanted. The model is not chosen. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §7.14.12.
@@ -321,7 +322,7 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
 5. The tool submits the code, completes the sign-in form the site sends back, and checks that `/rs` no longer redirects to `/auth`.
 6. With `--scrape` and no `--nick`/`--nicks`, it asks for a nick; a comma-separated list is accepted.
 
-The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip the code until the site expires it; `--logout` (or Session › Log out) deletes it. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
+The session is saved to `~/.acp/session.json` (mode `0600`), so later runs skip the code until the site expires it; `--logout` (or Account › Log out) deletes it. Search, export, import, `--list-nicks`, `--remove-nick` and `--clear-all` never log in.
 
 ## Upgrading from 2.x
 

@@ -319,20 +319,44 @@ fn palette_lists_and_runs_commands() {
 #[test]
 fn menu_open_activate_options() {
     let mut a = app();
-    a.open_menu(0);
-    assert_eq!(a.menu.open, Some(0));
-    let mentions = a.menu.menu.items[0].opts.iter().position(|o| o.key == "mentions").unwrap();
+    let scrape = a.menu.menu.items.iter().position(|c| c.id == CommandId::Scrape).unwrap();
+    a.open_menu(scrape);
+    assert_eq!(a.menu.open, Some(scrape));
+    let mentions = a.menu.menu.items[scrape].opts.iter().position(|o| o.key == "mentions").unwrap();
     a.activate_opt(mentions);
     assert!(!a.menu.menu.check(CommandId::Scrape, "mentions"));
     a.activate_opt(0);
     assert_eq!(a.menu.menu.choice(CommandId::Scrape, "mode"), "Trending");
-    let nicks = a.menu.menu.items[0].opts.iter().position(|o| o.key == "nicks").unwrap();
+    let nicks = a.menu.menu.items[scrape].opts.iter().position(|o| o.key == "nicks").unwrap();
     a.activate_opt(nicks);
     assert!(a.menu.editing);
     // Help has no options: opening runs it.
     let h = a.menu.menu.items.iter().position(|i| i.label == "Help").unwrap();
     a.open_menu(h);
     assert!(matches!(a.modal, Some(Modal::Help(_))));
+}
+
+#[test]
+fn library_opens_export_and_escape_returns() {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut a = app();
+    a.focus = Focus::Menu;
+    let library = a.menu.menu.items.iter().position(|c| c.id == CommandId::Library).unwrap();
+    a.open_menu(library);
+    a.activate_opt(0);
+    let export = a.menu.menu.items.iter().position(|c| c.id == CommandId::Export).unwrap();
+    assert_eq!(a.menu.open, Some(export));
+    assert_eq!(a.menu.anchor, Some(library));
+    crate::tui::input::on_key(&mut a, KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
+    assert_eq!(a.menu.open, Some(library));
+    assert_eq!(a.menu.anchor, None);
+    a.act(Action::DiscoverLater);
+    assert!(a.status.back().unwrap().contains("network node"));
+    a.menu.menu.set_text(CommandId::Search, "query", "strike");
+    a.act(Action::RunSiteSearch);
+    assert!(a.effects.iter().any(|e| matches!(e, Effect::CheckSessionThen(_, _) | Effect::RunJob(_, _))));
+    a.act(Action::NewPost);
+    assert!(matches!(a.modal, Some(Modal::Message(_)) | Some(Modal::Compose(_))));
 }
 
 #[test]

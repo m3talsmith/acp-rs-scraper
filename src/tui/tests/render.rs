@@ -94,7 +94,18 @@ fn base_layout_renders_title_menu_nicks_and_empty_state() {
     let s = render(&mut a, 110, 30);
     assert!(s.contains(TUI_SUBTITLE));
     assert!(s.contains(env!("CARGO_PKG_VERSION")));
-    for item in ["Scrape", "Search", "Export", "Import", "Maintain", "Session", "Research", "Help", "About", "Quit", "▶ Scan"] { assert!(s.contains(item), "{item}\n{s}"); }
+    let menu = s.lines().find(|l| l.contains("▶ Scan")).unwrap_or("");
+    for item in ["View", "Search", "Compose", "Library", "Bookmarks", "Research", "Sync", "Discover", "Account", "Debug", "Help", "About", "Quit", "Scrape", "▶ Scan"] {
+        assert!(menu.contains(item), "{item}\n{menu}");
+    }
+    let help = menu.find("Help").unwrap();
+    let about = menu.find("About").unwrap();
+    let quit = menu.find("Quit").unwrap();
+    let scrape = menu.find("Scrape").unwrap();
+    assert!(help < about && about < quit && quit < scrape, "{menu}");
+    for tucked in ["Export", "Import", "Maintain", "Session"] {
+        assert!(!menu.contains(tucked), "{tucked} stays off the bar\n{menu}");
+    }
     assert!(render(&mut a, 140, 30).contains("▶ Start Scanning"), "the full label when there is room");
     assert!(s.contains("@alice") && s.contains("@bob"));
     assert!(s.contains("Click a nick"));
@@ -159,7 +170,8 @@ fn ctrl_click_multi_selects() {
 fn menu_dropdown_shows_typed_options_and_required_marker() {
     let mut a = app();
     render(&mut a, 120, 34);
-    click(&mut a, Hit::MenuItem(0), KeyModifiers::NONE);
+    let scrape = a.menu.menu.items.iter().position(|c| c.id == crate::tui::commands::CommandId::Scrape).unwrap();
+    click(&mut a, Hit::MenuItem(scrape), KeyModifiers::NONE);
     let s = render(&mut a, 120, 34);
     assert!(s.contains("[x] Mentions"), "checkbox");
     assert!(s.contains("‹ Latest ›"), "dropdown");
@@ -228,7 +240,9 @@ fn keyboard_only_flow() {
     key(&mut a, KeyCode::Tab);
     assert_eq!(a.focus, Focus::Menu);
     key(&mut a, KeyCode::Char('x'));
-    assert_eq!(a.menu.open, Some(2), "letter hint opens Export");
+    assert!(a.menu.open.is_none(), "Export is under Library, not a bar letter");
+    key(&mut a, KeyCode::Char('v'));
+    assert_eq!(a.menu.open, Some(0), "letter hint opens View");
     key(&mut a, KeyCode::Esc);
     key(&mut a, KeyCode::Esc);
     assert_ne!(a.focus, Focus::Menu);
