@@ -68,7 +68,7 @@ Docs: `docs/INSTALL.md`, `docs/USAGE.md`, and the 3.0 plan under `architecture/P
 When 3.0 launches, we’ll pack a few things so comrades can *see* the client, not only read about it:
 
 - **Elevator pitch**: the short version of why ACP Red Star exists
-- **Demo movie**: short screen capture of CLI and TUI usage
+- **Demo movie**: short screen capture of CLI and TUI usage (attach with this post when ready)
 - **Cutscene**: infrared-style footage cut with historical communist action scenes, in **two forms**: a normal video, and an **ASCII** version you can play in a terminal (same cut, different skin)
 
 Stickers (graphical + CLI-ethos) and ethos backgrounds will follow as end-of-3.0 promo; the pitch, demo, and cutscene will ride with the 3.0 launch post.
