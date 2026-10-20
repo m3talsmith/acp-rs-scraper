@@ -10,7 +10,7 @@ use cucumber::{World, given, then, when};
 use std::path::PathBuf;
 use support::mock::{CODE, Mock};
 use tokio::io::AsyncWriteExt;
-use acp_rs_scraper::tui::commands::{CommandId, Menu};
+use acp_red_star::tui::commands::{CommandId, Menu};
 
 const E2E_PASSWORD: &str = "correct horse battery staple";
 
@@ -49,13 +49,13 @@ impl E2e {
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
     fn att(&self) -> PathBuf { self.home.join(".acp/ai/data/attachments") }
-    fn conn(&self) -> acp_rs_scraper::prelude::Connection {
+    fn conn(&self) -> acp_red_star::prelude::Connection {
         let db = self.db();
-        if acp_rs_scraper::crypto::atrest::bootstrap_path(&db).is_file() {
-            acp_rs_scraper::crypto::atrest::unlock(&db, E2E_PASSWORD)
+        if acp_red_star::crypto::atrest::bootstrap_path(&db).is_file() {
+            acp_red_star::crypto::atrest::unlock(&db, E2E_PASSWORD)
                 .expect("e2e password opens the encrypted database");
         }
-        acp_rs_scraper::storage::db::open_db(&db).expect("open database")
+        acp_red_star::storage::db::open_db(&db).expect("open database")
     }
     fn q(&self, sql: &str) -> i64 {
         self.conn().query_row(sql, [], |r| r.get(0)).unwrap()
@@ -68,13 +68,18 @@ impl E2e {
     async fn run_argv(&mut self, args: &[String]) {
         let base = self.mock.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "http://127.0.0.1:9".into());
         let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &self.home.to_string_lossy()).replace("$SITE", &base)).collect();
-        let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_acp-rs-scraper"))
+        let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_acp-red-star"))
             .args(&args).env("HOME", &self.home).env("ACP_THEME_URL", self.theme_url.clone().unwrap_or_else(|| format!("{base}/themes/")))
             .env("ACP_BASE_URL", base).env("ACP_PASSWORD", E2E_PASSWORD).env("ACP_ARGON_FAST", "1").env_remove("ACP_DEBUG").env_remove("ACP_THEME_DOWNLOAD").envs(self.env.iter().cloned())
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
             .spawn().unwrap();
         let mut stdin = child.stdin.take().unwrap();
-        stdin.write_all(format!("{}\n", self.code).as_bytes()).await.unwrap();
+        // A clap error exits before this code is read. That closes the pipe.
+        if let Err(e) = stdin.write_all(format!("{}\n", self.code).as_bytes()).await
+            && e.kind() != std::io::ErrorKind::BrokenPipe
+        {
+            panic!("writing the e2e code to the child: {e}");
+        }
         drop(stdin);
         let out = child.wait_with_output().await.unwrap();
         self.last = Run { code: out.status.code().unwrap_or(-1),
@@ -105,7 +110,7 @@ async fn run(w: &mut E2e, args: String) {
 impl E2e {
     fn menu(&mut self) -> &mut Menu {
         use clap::Parser;
-        self.menu.get_or_insert_with(|| Menu::new(&acp_rs_scraper::cli::Args::parse_from(["acp-rs-scraper"])))
+        self.menu.get_or_insert_with(|| Menu::new(&acp_red_star::cli::Args::parse_from(["acp-red-star"])))
     }
 }
 
@@ -387,7 +392,7 @@ async fn web_no_cookies(w: &mut E2e) {
 
 #[when(expr = "I add {string} to research project {string} from the TUI")]
 async fn tui_research_add(w: &mut E2e, id: String, name: String) {
-    let argv = acp_rs_scraper::tui::commands::research_add_argv(&name, "", &acp_rs_scraper::tui::commands::ResearchSource::Posts(vec![id]), "").unwrap();
+    let argv = acp_red_star::tui::commands::research_add_argv(&name, "", &acp_red_star::tui::commands::ResearchSource::Posts(vec![id]), "").unwrap();
     w.run_argv(&argv[1..]).await;
 }
 

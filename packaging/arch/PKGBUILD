@@ -1,9 +1,9 @@
 # Maintainer: m3talsmith <m3talsmith@gmail.com>
 # Builds from the source tree this PKGBUILD lives in (packaging/arch/../..).
-# Install: cd packaging/arch && makepkg -si      Uninstall: sudo pacman -R acp-rs-scraper
+# Install: cd packaging/arch && makepkg -si      Uninstall: sudo pacman -R acp-red-star
 # (scripts/install.sh does this for you, scripts/uninstall.sh also purges ~/.acp.)
-pkgname=acp-rs-scraper
-pkgver=3.4.0
+pkgname=acp-red-star
+pkgver=3.5.0
 pkgrel=1
 pkgdesc="Scrape Red Star (acp.us/rs) posts into SQLite and export them"
 arch=('x86_64' 'aarch64')

@@ -29,7 +29,7 @@ fn base_layout_renders_title_menu_nicks_and_empty_state() {
     let s = render(&mut a, 110, 30);
     assert!(s.contains(TUI_SUBTITLE));
     assert!(s.contains(env!("CARGO_PKG_VERSION")));
-    for item in ["Scrape", "Search", "Export", "Import", "Maintain", "Session", "Research", "Help", "Quit", "▶ Scan"] { assert!(s.contains(item), "{item}\n{s}"); }
+    for item in ["Scrape", "Search", "Export", "Import", "Maintain", "Session", "Research", "Help", "About", "Quit", "▶ Scan"] { assert!(s.contains(item), "{item}\n{s}"); }
     assert!(render(&mut a, 140, 30).contains("▶ Start Scanning"), "the full label when there is room");
     assert!(s.contains("@alice") && s.contains("@bob"));
     assert!(s.contains("Click a nick"));

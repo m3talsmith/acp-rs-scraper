@@ -111,6 +111,12 @@ pub struct BodyView {
     pub site_key: Option<String>,
     /// Frames closed with prev / Esc, nearest last: `next` reopens them.
     pub forward: Vec<DetailFrame>,
+    /// The full list, before order and limit. Empty means `posts` was filled by a test and is left as it is.
+    pub source: Vec<Post>,
+    /// Which list this is. Decides which remembered order applies.
+    pub kind: crate::tui::order::ListKind,
+    /// Keep `source`'s order instead of sorting by time. Site lists do this.
+    pub site_order: bool,
 }
 
 /// Which animation runs.
@@ -225,6 +231,8 @@ pub enum Effect {
     LoginEmail(String),
     /// Submit the code to the running login.
     LoginCode(String),
+    /// Ask for another code on the running login.
+    LoginResend,
     /// Abandon the running login.
     LoginCancel,
     /// Forget the session.
@@ -269,6 +277,8 @@ pub enum Hit {
     DetailPane,
     /// The nav bar's `[View: …]` switch.
     ViewMode,
+    /// The nav bar's `[Order: …]` switch.
+    ListOrder,
     /// The nav bar's `◂ prev`.
     StackPrev,
     /// The nav bar's `next ▸`.
@@ -324,6 +334,10 @@ pub struct MenuState {
     pub opt: usize,
     /// Typing into the highlighted text option.
     pub editing: bool,
+    /// Other path completions for the field being typed. Empty when there is one match or none.
+    pub path_matches: Vec<String>,
+    /// Which [`MenuState::path_matches`] entry is highlighted.
+    pub path_at: usize,
 }
 
 /// Everything the TUI shows.
@@ -409,6 +423,9 @@ pub struct App {
     pub page_rows: usize,
     /// Login email pre-fill.
     pub email: Option<String>,
+    /// Login modal hidden while Help is open (`?` / F1). Restored when Help closes.
+    /// The login attempt keeps running.
+    pub paused_login: Option<LoginModal>,
     /// `~/.acp/themes` (None: theme files are off, e.g. in tests and previews).
     pub themes_dir: Option<PathBuf>,
     /// The selected theme's name.
@@ -436,6 +453,42 @@ pub struct App {
     /// Unix seconds of the last confirmed post or reply in this session.
     /// The capture gate still applies; the stamp only feeds the rate limit.
     pub last_write_unix: Option<i64>,
+    /// Newest or oldest for each list.
+    pub orders: crate::tui::order::ListOrders,
+    /// Newest or oldest for the nick bar, by each nick's latest post.
+    pub nick_order: ScrapeOrder,
+    /// How many nicks to keep after the filter. `None` keeps all of them.
+    pub nick_limit: Option<usize>,
+    /// Colour output for this run. `always` ignores NO_COLOR.
+    pub color_mode: ColorMode,
+    /// NO_COLOR was set when the terminal UI started.
+    pub no_color: bool,
+}
+
+fn nick_label(q: &str) -> String {
+    let q = q.trim();
+    if q.is_empty() { "nicks".into() } else { format!("nicks \"{q}\"") }
+}
+
+/// Lay `v` out again from its source. An empty source means the posts were set directly.
+fn reflow_in(v: &mut BodyView, mode: ViewMode, orders: crate::tui::order::ListOrders) {
+    if v.source.is_empty() { return; }
+    let keep = v.posts.get(v.cursor).map(|p| p.post_id.clone());
+    let (order, limit) = if v.kind == crate::tui::order::ListKind::Search {
+        (v.filter.as_ref().map(|f| f.order).unwrap_or(orders.search), v.filter.as_ref().and_then(|f| f.limit))
+    } else {
+        (orders.get(v.kind), None)
+    };
+    v.posts = crate::tui::order::arrange_posts(&v.source, order, limit, mode == ViewMode::Nested, v.site_order, v.kind == crate::tui::order::ListKind::Edits);
+    if let Some(id) = keep && let Some(i) = v.posts.iter().position(|p| p.post_id == id) {
+        v.cursor = i;
+    } else if v.posts.is_empty() {
+        v.cursor = 0;
+    } else {
+        v.cursor = v.cursor.min(v.posts.len() - 1);
+    }
+    if v.posts.is_empty() { v.offset = 0; }
+    else if v.offset > v.cursor { v.offset = v.cursor; }
 }
 
 impl App {
@@ -444,13 +497,15 @@ impl App {
         let mut app = App {
             store, nicks: Vec::new(), all_nicks: Vec::new(), nick_filter: Default::default(), filter_editing: false, nick_cursor: 0, nick_offset: 0, selected: Vec::new(),
             base: BodyView::default(), search: None, focus: Focus::Nicks,
-            menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false },
+            menu: MenuState { menu: Menu::new(args), item: 0, open: None, opt: 0, editing: false, path_matches: Vec::new(), path_at: 0 },
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
-            page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
+            page_rows: 5, email: None, paused_login: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None,
+            orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
+            color_mode: ColorMode::Auto, no_color: false,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -492,16 +547,22 @@ impl App {
             .filter_map(|s| self.all_nicks.iter().find(|n| n.nick.eq_ignore_ascii_case(s)).map(|n| n.nick.clone())).collect();
         self.selected = keep;
         let cur = self.nicks.get(self.nick_cursor).map(|n| n.nick.clone());
-        self.nicks = crate::tui::data::filter_nicks(&self.all_nicks, &self.nick_filter.value);
+        self.nicks = self.arrange_shown_nicks();
         self.nick_cursor = cur.and_then(|c| self.nicks.iter().position(|n| n.nick == c))
             .unwrap_or(self.nick_cursor).min(self.nicks.len().saturating_sub(1));
     }
     /// Re-apply the filter after it changed: the cursor stays on its nick when still shown, else the first match.
     pub fn apply_nick_filter(&mut self) {
         let cur = self.nicks.get(self.nick_cursor).map(|n| n.nick.clone());
-        self.nicks = crate::tui::data::filter_nicks(&self.all_nicks, &self.nick_filter.value);
+        self.nicks = self.arrange_shown_nicks();
         self.nick_cursor = cur.and_then(|c| self.nicks.iter().position(|n| n.nick == c)).unwrap_or(0);
         self.nick_offset = 0;
+    }
+    fn arrange_shown_nicks(&self) -> Vec<crate::tui::data::NickEntry> {
+        crate::tui::order::arrange_nicks(
+            crate::tui::data::filter_nicks(&self.all_nicks, &self.nick_filter.value),
+            self.nick_order, self.nick_limit,
+        )
     }
     /// Start typing into the nick filter (`/` or a click).
     pub fn focus_nick_filter(&mut self) {
@@ -564,7 +625,7 @@ impl App {
             Err(e) => { self.push_status(format!("error: reading posts: {e:#}")); Vec::new() }
         };
         let who = self.selected.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
-        self.base = BodyView { title: who, posts, ..BodyView::default() };
+        self.base = self.prepared(BodyView { title: who, posts, kind: crate::tui::order::ListKind::Timeline, ..BodyView::default() });
         self.anim = None;
     }
 
@@ -584,9 +645,8 @@ impl App {
         posts.sort_by(|a, b| b.posted_at.cmp(&a.posted_at));
         let missing = self.marks.len() - posts.len();
         if missing > 0 { self.push_status(format!("{missing} bookmarked posts are not in the database (Bookmarks › Sync stores them)")); }
-        self.search = Some(BodyView { title: "★ Bookmarks".into(), posts, bookmarks: true, ..BodyView::default() });
+        self.place_search(BodyView { title: "★ Bookmarks".into(), posts, bookmarks: true, kind: crate::tui::order::ListKind::Bookmarks, ..BodyView::default() });
         self.focus = Focus::Body;
-        self.anim = None;
     }
     /// Show a saved site read, in the site's order. Returns whether it was stored.
     pub fn show_site_feed(&mut self, key: &str) -> bool {
@@ -595,9 +655,8 @@ impl App {
                 let posts: Vec<Post> = f.post_ids.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
                 let missing = f.post_ids.len() - posts.len();
                 if missing > 0 { self.push_status(format!("{missing} posts from {} are not in the database", f.title)); }
-                self.search = Some(BodyView { title: f.title, posts, site_key: Some(key.into()), ..BodyView::default() });
+                self.place_search(BodyView { title: f.title, posts, site_key: Some(key.into()), kind: crate::tui::order::ListKind::Site, site_order: true, ..BodyView::default() });
                 self.focus = Focus::Body;
-                self.anim = None;
                 true
             }
             Ok(None) => false,
@@ -710,12 +769,12 @@ impl App {
         match self.store.post_versions(post_id) {
             Ok(vs) if !vs.is_empty() => {
                 let posts = edits_as_posts(&vs, thread_id);
-                self.search = Some(BodyView {
+                self.place_search(BodyView {
                     title: format!("Edits · {post_id}"), posts,
-                    site_key: Some(edits_key(thread_id, post_id)), ..BodyView::default()
+                    site_key: Some(edits_key(thread_id, post_id)),
+                    kind: crate::tui::order::ListKind::Edits, ..BodyView::default()
                 });
                 self.focus = Focus::Body;
-                self.anim = None;
                 true
             }
             Ok(_) => false,
@@ -797,9 +856,10 @@ impl App {
     /// Search modal › Where: Site. Other fields stay local and are named in the status line.
     pub fn open_site_search(&mut self, s: &crate::tui::modals::SearchModal) {
         let q = s.fields[0].value.trim();
-        let local = s.fields.iter().skip(1).any(|f| !f.value.trim().is_empty()) || s.kind != crate::tui::data::KindFilter::Any;
+        let local = s.fields.iter().skip(1).any(|f| !f.value.trim().is_empty()) || s.kind != crate::tui::data::KindFilter::Any
+            || s.order != ScrapeOrder::Newest;
         if local {
-            self.push_status("nicks, dates, post id and kind stay local; searching the site for the keyword");
+            self.push_status("nicks, dates, post id, kind, order and limit stay local; searching the site for the keyword");
         }
         match self.menu.menu.site_search_argv(q) {
             Ok(argv) => self.open_site_read(&search_key(q), argv),
@@ -839,9 +899,8 @@ impl App {
     /// Show the basket's posts (replaces the Body like a search; `<` goes back).
     pub fn open_basket(&mut self) {
         let posts: Vec<Post> = self.basket.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
-        self.search = Some(BodyView { title: format!("+ Export basket ({})", self.basket.len()), posts, ..BodyView::default() });
+        self.place_search(BodyView { title: format!("+ Export basket ({})", self.basket.len()), posts, kind: crate::tui::order::ListKind::Basket, ..BodyView::default() });
         self.focus = Focus::Body;
-        self.anim = None;
     }
     // ------------------------------------------------------------ research
     /// Projects for the modal: (name, items, description).
@@ -932,11 +991,15 @@ impl App {
             if it.kind.is_post() && let Ok(Some(p)) = self.store.post(&it.r#ref) { posts.push(p); continue; }
             posts.push(research_post(it));
         }
-        let (cursor, offset) = self.search.as_ref().filter(|v| v.research.as_deref() == Some(name))
-            .map(|v| (v.cursor.min(posts.len().saturating_sub(1)), v.offset.min(posts.len().saturating_sub(1)))).unwrap_or((0, 0));
+        let keep = self.search.as_ref().filter(|v| v.research.as_deref() == Some(name))
+            .and_then(|v| v.posts.get(v.cursor).map(|p| p.post_id.clone()));
         let stack = self.search.as_mut().filter(|v| v.research.as_deref() == Some(name)).map(|v| std::mem::take(&mut v.stack)).unwrap_or_default();
-        self.search = Some(BodyView { title: format!("◈ Research: {name} ({} items)", items.len()), posts, cursor, offset, stack,
-            research: Some(name.to_string()), ..BodyView::default() });
+        self.place_search(BodyView { title: format!("◈ Research: {name} ({} items)", items.len()), posts, stack,
+            research: Some(name.to_string()), kind: crate::tui::order::ListKind::Research, ..BodyView::default() });
+        if let Some(id) = keep && let Some(v) = self.search.as_mut() && let Some(i) = v.posts.iter().position(|p| p.post_id == id) {
+            v.cursor = i;
+            if v.offset > i { v.offset = i; }
+        }
         self.research_current = Some(name.to_string());
     }
     /// A research modal closed with a choice.
@@ -1020,6 +1083,7 @@ impl App {
     /// Switch the Body layout (keeps the selection and any open detail).
     pub fn set_view_mode(&mut self, m: ViewMode) {
         self.view_mode = m;
+        self.reflow_lists();
         self.anim = None;
         self.push_status(format!("view: {}", m.label()));
     }
@@ -1058,10 +1122,20 @@ impl App {
         if f.is_empty() { self.clear_search(); return; }
         match self.store.search(&f) {
             Ok(posts) => {
-                self.push_status(format!("search {}: {} posts", f.describe(), posts.len()));
-                self.search = Some(BodyView { title: format!("Search: {}", f.describe()), posts, filter: Some(f), ..BodyView::default() });
+                let total = posts.len();
+                let order = f.order;
+                let limited = f.limit.is_some();
+                let label = format!("search {}", f.describe());
+                self.orders.set(crate::tui::order::ListKind::Search, order);
+                self.sync_search_menu(&f);
+                self.place_search(BodyView {
+                    title: format!("Search: {}", f.describe()), posts, filter: Some(f),
+                    kind: crate::tui::order::ListKind::Search, ..BodyView::default()
+                });
                 self.focus = Focus::Body;
-                self.anim = None;
+                let shown = self.view().posts.len();
+                self.push_status(crate::tui::order::result_status(&label, shown, total, order, limited));
+                self.persist_list_order();
             }
             Err(e) => self.error("Search failed", &format!("{e:#}")),
         }
@@ -1073,9 +1147,225 @@ impl App {
         self.search = None;
         self.menu.menu.set_text(CommandId::Search, "query", "");
         self.menu.menu.set_text(CommandId::Search, "nick", "");
+        self.menu.menu.set_text(CommandId::Search, "limit", "");
+        self.menu.menu.set_choice(CommandId::Search, "order", crate::tui::order::order_choice(self.orders.search));
     }
-    /// Current search filter (for pre-filling the modal).
-    pub fn current_filter(&self) -> SearchFilter { self.search.as_ref().and_then(|v| v.filter.clone()).unwrap_or_default() }
+    /// Current search filter (for pre-filling the modal). Order comes from the search list when no search is open.
+    pub fn current_filter(&self) -> SearchFilter {
+        self.search.as_ref().and_then(|v| v.filter.clone()).unwrap_or(SearchFilter { order: self.orders.search, ..SearchFilter::default() })
+    }
+
+    /// Move `posts` into `source` and lay the view out. A view with an empty source is left unchanged.
+    fn prepared(&self, mut view: BodyView) -> BodyView {
+        if view.source.is_empty() { view.source = std::mem::take(&mut view.posts); }
+        reflow_in(&mut view, self.view_mode, self.orders);
+        view
+    }
+    /// Show `view` in place of the Body.
+    fn place_search(&mut self, view: BodyView) {
+        self.search = Some(self.prepared(view));
+        self.anim = None;
+    }
+    /// Re-lay every list whose source is set. Nested and flat group posts differently.
+    fn reflow_lists(&mut self) {
+        let mode = self.view_mode;
+        let orders = self.orders;
+        reflow_in(&mut self.base, mode, orders);
+        if let Some(v) = self.search.as_mut() { reflow_in(v, mode, orders); }
+    }
+    /// Copy the search filter's order and limit into the Search menu.
+    fn sync_search_menu(&mut self, f: &SearchFilter) {
+        self.menu.menu.set_choice(CommandId::Search, "order", crate::tui::order::order_choice(f.order));
+        self.menu.menu.set_text(CommandId::Search, "limit", &f.limit.map(|n| n.to_string()).unwrap_or_default());
+    }
+    /// Apply `[ui.list_order]` and re-read the nick bar (and the open nick timeline).
+    pub fn apply_list_prefs(&mut self, p: Option<&crate::auth::prefs::ListOrderPrefs>) {
+        let Some(p) = p else { return };
+        self.orders.apply_prefs(p);
+        self.nick_order = p.nicks.as_deref().and_then(|s| ScrapeOrder::parse(s).ok()).unwrap_or_default();
+        self.nick_limit = p.nick_limit.and_then(|n| usize::try_from(n).ok());
+        self.sync_order_menus();
+        self.refresh_nicks();
+        if !self.selected.is_empty() { self.load_base(); }
+        self.reflow_lists();
+    }
+    fn sync_order_menus(&mut self) {
+        self.menu.menu.set_choice(CommandId::View, "nick_order", crate::tui::order::order_choice(self.nick_order));
+        self.menu.menu.set_text(CommandId::View, "nick_limit", &self.nick_limit.map(|n| n.to_string()).unwrap_or_default());
+        self.menu.menu.set_choice(CommandId::Search, "order", crate::tui::order::order_choice(self.orders.search));
+        self.menu.menu.set_choice(CommandId::View, "color", color_choice(self.color_mode));
+        let kind = self.view().kind;
+        if kind != crate::tui::order::ListKind::Edits {
+            self.menu.menu.set_choice(CommandId::View, "list_order", crate::tui::order::order_choice(self.orders.get(kind)));
+        }
+    }
+    /// Write `[ui.list_order]` when the TUI has a real preferences file (not a unit test).
+    fn persist_list_order(&mut self) {
+        if self.themes_dir.is_none() { return; }
+        let prefs = self.orders.to_prefs(self.nick_order, self.nick_limit.map(|n| n as u64));
+        if let Err(e) = crate::auth::prefs::save_list_order(&prefs) {
+            self.push_status(format!("error: could not save list order: {e:#}"));
+        }
+    }
+    /// Toggle the nick bar's order.
+    pub fn toggle_nick_order(&mut self) {
+        self.nick_order = match self.nick_order { ScrapeOrder::Newest => ScrapeOrder::Oldest, ScrapeOrder::Oldest => ScrapeOrder::Newest };
+        self.menu.menu.set_choice(CommandId::View, "nick_order", crate::tui::order::order_choice(self.nick_order));
+        self.apply_nick_filter();
+        self.persist_list_order();
+        let shown = self.nicks.len();
+        let total = crate::tui::data::filter_nicks(&self.all_nicks, &self.nick_filter.value).len();
+        self.push_status(format!("{}. Help: nick-order", crate::tui::order::result_status(&nick_label(&self.nick_filter.value), shown, total, self.nick_order, self.nick_limit.is_some())));
+    }
+    /// Toggle the list on screen. Edit history stays in version order.
+    pub fn toggle_list_order(&mut self) {
+        let kind = self.view().kind;
+        if kind == crate::tui::order::ListKind::Edits {
+            self.push_status("edit history stays in version order. Help: thread-order");
+            return;
+        }
+        let next = match self.orders.get(kind) { ScrapeOrder::Newest => ScrapeOrder::Oldest, ScrapeOrder::Oldest => ScrapeOrder::Newest };
+        self.set_list_order(kind, next);
+    }
+    fn set_list_order(&mut self, kind: crate::tui::order::ListKind, order: ScrapeOrder) {
+        if kind == crate::tui::order::ListKind::Edits {
+            self.push_status("edit history stays in version order. Help: thread-order");
+            return;
+        }
+        self.orders.set(kind, order);
+        if kind == crate::tui::order::ListKind::Search && let Some(f) = self.search.as_mut().and_then(|v| v.filter.as_mut()) { f.order = order; }
+        self.menu.menu.set_choice(CommandId::View, "list_order", crate::tui::order::order_choice(order));
+        if kind == crate::tui::order::ListKind::Search {
+            self.menu.menu.set_choice(CommandId::Search, "order", crate::tui::order::order_choice(order));
+        }
+        self.reflow_lists();
+        self.persist_list_order();
+        let site = self.view().site_order;
+        let meaning = crate::tui::order::order_meaning(self.view_mode == ViewMode::Nested, site, false);
+        let topic = if kind == crate::tui::order::ListKind::Search { "search-order" } else { "order" };
+        self.push_status(format!("order: {order} ({meaning}). Help: {topic}"));
+    }
+    /// Apply the highlighted menu choice when it is an order control.
+    pub fn apply_open_choice(&mut self) {
+        use CommandId::{Search, View};
+        let Some(item) = self.menu.open else { return };
+        let id = self.menu.menu.items[item].id;
+        let Some(key) = self.menu.menu.items[item].opts.get(self.menu.opt).map(|o| o.key) else { return };
+        match (id, key) {
+            (View, "list_order") => {
+                let order = crate::tui::order::order_from_choice(self.menu.menu.choice(View, "list_order"));
+                let kind = self.view().kind;
+                self.set_list_order(kind, order);
+            }
+            (View, "nick_order") => {
+                let order = crate::tui::order::order_from_choice(self.menu.menu.choice(View, "nick_order"));
+                if self.nick_order != order {
+                    self.nick_order = order;
+                    self.apply_nick_filter();
+                    self.persist_list_order();
+                    let shown = self.nicks.len();
+                    let total = crate::tui::data::filter_nicks(&self.all_nicks, &self.nick_filter.value).len();
+                    self.push_status(format!("{}. Help: nick-order", crate::tui::order::result_status(&nick_label(&self.nick_filter.value), shown, total, self.nick_order, self.nick_limit.is_some())));
+                }
+            }
+            (View, "color") => {
+                let mode = color_from_choice(self.menu.menu.choice(View, "color"));
+                if self.color_mode != mode {
+                    self.color_mode = mode;
+                    apply_color_mode(mode);
+                    self.persist_color_mode();
+                    if self.color_hint().is_some() { self.note_no_color(); }
+                    else { self.push_status(format!("colour: {mode}. Help: color")); }
+                }
+            }
+            (Search, "order") => {
+                let order = crate::tui::order::order_from_choice(self.menu.menu.choice(Search, "order"));
+                if self.view().kind == crate::tui::order::ListKind::Search {
+                    self.set_list_order(crate::tui::order::ListKind::Search, order);
+                } else {
+                    self.orders.set(crate::tui::order::ListKind::Search, order);
+                    self.persist_list_order();
+                    self.push_status(format!("search order: {order}. Help: search-order"));
+                }
+            }
+            _ => {}
+        }
+    }
+    /// Apply a menu text field when editing ends (nick limit, search limit).
+    pub fn finish_menu_text(&mut self) {
+        use CommandId::{Search, View};
+        let Some(item) = self.menu.open else { return };
+        let id = self.menu.menu.items[item].id;
+        let Some(key) = self.menu.menu.items[item].opts.get(self.menu.opt).map(|o| o.key) else { return };
+        match (id, key) {
+            (View, "nick_limit") => self.apply_nick_limit_text(),
+            (Search, "limit") => self.apply_search_limit_text(),
+            _ => {}
+        }
+    }
+    fn apply_nick_limit_text(&mut self) {
+        let text = self.menu.menu.text(CommandId::View, "nick_limit");
+        let limit = if text.is_empty() { None } else {
+            match parse_post_limit(&text) { Ok(n) => Some(n), Err(e) => { self.error("Nick limit", &e); return; } }
+        };
+        self.nick_limit = limit;
+        self.apply_nick_filter();
+        self.persist_list_order();
+        let shown = self.nicks.len();
+        let total = crate::tui::data::filter_nicks(&self.all_nicks, &self.nick_filter.value).len();
+        self.push_status(format!("{}. Help: nick-limit", crate::tui::order::result_status(&nick_label(&self.nick_filter.value), shown, total, self.nick_order, limit.is_some())));
+    }
+    fn apply_search_limit_text(&mut self) {
+        let text = self.menu.menu.text(CommandId::Search, "limit");
+        let limit = if text.is_empty() { None } else {
+            match parse_post_limit(&text) { Ok(n) => Some(n), Err(e) => { self.error("Limit", &e); return; } }
+        };
+        let (order, describe) = {
+            let Some(f) = self.search.as_mut().and_then(|v| v.filter.as_mut()) else {
+                self.push_status(match limit { Some(n) => format!("search limit: {n}. Help: search-limit"), None => "search limit: none. Help: search-limit".into() });
+                return;
+            };
+            f.limit = limit;
+            (f.order, f.describe())
+        };
+        let total = self.search.as_ref().map(|v| v.source.len()).unwrap_or(0);
+        self.reflow_lists();
+        let shown = self.view().posts.len();
+        self.push_status(format!("{}. Help: search-limit", crate::tui::order::result_status(&format!("search {describe}"), shown, total, order, limit.is_some())));
+    }
+    /// Help scrolled to `topic`, or the general Help.
+    pub fn open_help(&mut self, topic: Option<&str>) {
+        self.close_menu();
+        let h = match topic { Some(t) if !t.is_empty() => crate::tui::modals::HelpModal::topic(t), _ => crate::tui::modals::HelpModal::new() };
+        self.modal = Some(Modal::Help(h));
+    }
+    /// About, with the slogan as its header.
+    pub fn open_about(&mut self) {
+        self.close_menu();
+        self.modal = Some(Modal::About(crate::tui::modals::AboutModal));
+    }
+    /// Write `[ui] color` when the TUI has a real preferences file (not a unit test).
+    fn persist_color_mode(&mut self) {
+        if self.themes_dir.is_none() { return; }
+        if let Err(e) = crate::auth::prefs::save_ui_color(self.color_mode.as_str()) {
+            self.push_status(format!("error: could not save colour: {e:#}"));
+        }
+    }
+    /// The NO_COLOR hint, when colours are off because of it.
+    pub fn color_hint(&self) -> Option<&'static str> { no_color_hint(self.color_mode, self.no_color) }
+    /// Say so on the status line. Skips a repeat of the same line.
+    pub fn note_no_color(&mut self) {
+        let Some(h) = self.color_hint() else { return };
+        if self.status.back().is_some_and(|s| s == h) { return; }
+        self.push_status(h);
+    }
+
+    /// The highlighted menu option's Help topic, when it has one.
+    pub fn menu_help_topic(&self) -> Option<&'static str> {
+        let i = self.menu.open?;
+        let help = self.menu.menu.items.get(i)?.opts.get(self.menu.opt)?.help;
+        if help.is_empty() { None } else { Some(help) }
+    }
 
     /// Move the post cursor by `d` (detail closed).
     pub fn move_post_cursor(&mut self, d: i32) {
@@ -1287,7 +1577,8 @@ impl App {
             },
             Action::Login => { self.close_menu(); self.open_login(None); }
             Action::Logout => { self.close_menu(); self.effects.push(Effect::Logout); }
-            Action::Help => { self.close_menu(); self.modal = Some(Modal::Help(HelpModal::new())); }
+            Action::Help => self.open_help(None),
+            Action::About => self.open_about(),
             Action::ToggleLog => { self.show_log = !self.show_log; }
             Action::StackPrev => { if !self.stack_prev() { self.push_status("no previous post: this is the list"); } }
             Action::StackNext => { if !self.stack_next() { self.push_status("no next post: open one, or go back with prev first"); } }
@@ -1391,7 +1682,13 @@ impl App {
     pub fn open_login(&mut self, then: Option<(JobKind, Vec<String>)>) {
         let reason = then.as_ref().map(|(k, _)| format!("Log in to start the {}.", k.name()));
         self.pending_job = then;
+        self.paused_login = None;
         self.modal = Some(Modal::Login(LoginModal::new(self.email.clone(), reason)));
+    }
+    /// The open login modal, including one parked under Help.
+    fn with_login<R>(&mut self, f: impl FnOnce(&mut LoginModal) -> R) -> Option<R> {
+        if let Some(Modal::Login(m)) = &mut self.modal { return Some(f(m)); }
+        self.paused_login.as_mut().map(f)
     }
     /// The session check before a scan / sync came back.
     pub fn session_checked(&mut self, r: std::result::Result<bool, String>, kind: JobKind, argv: Vec<String>) {
@@ -1403,18 +1700,35 @@ impl App {
     }
     /// The site sent the login code.
     pub fn login_need_code(&mut self) {
-        if let Some(Modal::Login(m)) = &mut self.modal { m.need_code(); }
+        self.with_login(|m| m.need_code());
     }
-    /// The login finished.
+    /// Verification failed and the attempt is still open. Stay on the code step.
+    pub fn login_hold(&mut self, e: &str) {
+        let _ = self.with_login(|m| m.held(e));
+    }
+    /// The running attempt is gone. Back to the email step.
+    pub fn login_expired(&mut self) {
+        let _ = self.with_login(|m| m.failed("the login expired; send a new code"));
+    }
+    /// The login finished. A login parked under Help still counts.
     pub fn login_done(&mut self, r: std::result::Result<(), String>) {
-        let Some(Modal::Login(m)) = &mut self.modal else { return };
+        let present = matches!(self.modal, Some(Modal::Login(_))) || self.paused_login.is_some();
+        if !present { return; }
         match r {
             Ok(()) => {
+                let email = self.with_login(|m| m.email.value.trim().to_string());
                 self.session = SessionState::Valid;
-                self.email = Some(m.email.value.trim().to_string()).filter(|e| !e.is_empty()).or(self.email.take());
-                self.close_modal(ModalResult::ClosedSubmitted);
+                self.email = email.filter(|e| !e.is_empty()).or(self.email.take());
+                self.paused_login = None;
+                if matches!(self.modal, Some(Modal::Login(_))) {
+                    self.close_modal(ModalResult::ClosedSubmitted);
+                } else {
+                    self.modal = None;
+                    self.push_status("logged in");
+                    if let Some((k, argv)) = self.pending_job.take() { self.effects.push(Effect::RunJob(k, argv)); }
+                }
             }
-            Err(e) => m.failed(&e),
+            Err(e) => { let _ = self.with_login(|m| m.failed(&e)); }
         }
     }
     /// Logged out.
@@ -1486,12 +1800,19 @@ impl App {
     /// Highlight / open the n-th menu item (option-less items run at once).
     pub fn open_menu(&mut self, i: usize) {
         let Some(c) = self.menu.menu.items.get(i) else { return };
+        let id = c.id;
+        let action = c.action;
         self.needs_redraw = true;
         self.focus = Focus::Menu;
         self.menu.item = i;
         self.menu.editing = false;
-        if let Some(a) = c.action { self.menu.open = None; self.act(a); return; }
-        if self.menu.open == Some(i) { self.menu.open = None; } else { self.menu.open = Some(i); self.menu.opt = 0; }
+        if let Some(a) = action { self.menu.open = None; self.act(a); return; }
+        if self.menu.open == Some(i) { self.menu.open = None; }
+        else {
+            self.menu.open = Some(i);
+            self.menu.opt = 0;
+            if id == CommandId::View || id == CommandId::Search { self.sync_order_menus(); }
+        }
     }
     /// Activate the highlighted option of the open dropdown (Enter / click).
     pub fn activate_opt(&mut self, i: usize) {
@@ -1499,12 +1820,14 @@ impl App {
         let Some(item) = self.menu.open else { return };
         self.menu.opt = i;
         let Some(o) = self.menu.menu.items[item].opts.get_mut(i) else { return };
+        let choice = matches!(o.widget, Widget::Choice { .. });
         match &mut o.widget {
             Widget::Check(v) => *v = !*v,
             Widget::Choice { choices, idx } => *idx = (*idx + 1) % choices.len(),
             Widget::Text(_) => self.menu.editing = !self.menu.editing,
             Widget::Button(a) => { let a = *a; self.act(a); }
         }
+        if choice { self.apply_open_choice(); }
     }
     /// Close the modal with `r` and apply it.
     pub fn close_modal(&mut self, r: ModalResult) {
@@ -1518,9 +1841,17 @@ impl App {
                 self.pending_job = None;
                 self.pending_feed = None;
                 self.pending_sort = None;
+                self.paused_login = None;
                 if self.session == SessionState::Checking { self.session = SessionState::LoggedOut; }
                 let _ = m;
                 self.effects.push(Effect::LoginCancel);
+            }
+            (Modal::Login(m), ModalResult::Help(topic)) => {
+                self.paused_login = Some(m);
+                self.open_help(Some(topic));
+            }
+            (Modal::Help(_), _) => {
+                if let Some(login) = self.paused_login.take() { self.modal = Some(Modal::Login(login)); }
             }
             (Modal::Confirm(c), ModalResult::ClosedSubmitted) => match c.action {
                 ConfirmAction::Job(k, argv) => self.start_job(k, argv),
@@ -1550,6 +1881,7 @@ impl App {
                 else if s.site { self.open_site_search(&s); }
                 else if let Ok(f) = s.filter() { self.run_search(f); }
             }
+            (_, ModalResult::Help(topic)) => self.open_help(Some(topic)),
             (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),
             (Modal::ThemePicker(p), r) => self.theme_picked(*p, r),
             (Modal::Palette(p), ModalResult::ClosedSubmitted) => match p.chosen() {

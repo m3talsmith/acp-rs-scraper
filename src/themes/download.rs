@@ -86,15 +86,15 @@ pub async fn download(dir: &Path, name: &str) -> Result<Fetched> {
 /// What the user sees when theme `name` could not be downloaded, and how to fix it.
 pub fn failure_notice(dir: &Path, name: &str, err: &str) -> String {
     format!("could not download the {name} theme: {err}. The terminal UI uses your terminal's own colours until a theme \
-        is there. To fix it, check the connection and run `acp-rs-scraper --theme-init` (or Theme: init in the command \
-        palette), save {} as {}, or write a minimal starter theme instead with `acp-rs-scraper --theme-starter NAME` \
+        is there. To fix it, check the connection and run `acp-red-star --theme-init` (or Theme: init in the command \
+        palette), save {} as {}, or write a minimal starter theme instead with `acp-red-star --theme-starter NAME` \
         (Theme: starter in the palette, or Create starter theme in the F5 list).", theme_download_url(name), dir.join(format!("{name}.toml")).display())
 }
 
 /// What the user sees when the first run did not download the default because it is turned off.
 pub fn off_notice(dir: &Path) -> String {
     format!("no theme files in {} and the automatic theme download is off ({THEME_DOWNLOAD_ENV}=off or [ui] theme_download = false); \
-        using the terminal's own colours. Run `acp-rs-scraper --theme-init` to download the default theme, or create one with Shift-F5.",
+        using the terminal's own colours. Run `acp-red-star --theme-init` to download the default theme, or create one with Shift-F5.",
         dir.display())
 }
 

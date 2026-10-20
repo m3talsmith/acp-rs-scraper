@@ -1,209 +1,215 @@
-acp-rs-scraper (3.4.0) unstable; urgency=medium
+acp-red-star (3.5.0) unstable; urgency=medium
+
+  * Attach local media and pdf files on New post and Reply. Dry-run lists them. A confirmed publish still does not upload.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 23:40:00 +0000
+
+acp-red-star (3.4.0) unstable; urgency=medium
 
   * New post and Reply. A confirmed publish is not sent until a guided capture. Attachments wait.
   * Includes the 3.3.2 certificate lifetimes: authorizer 30 days, node 365 days.
 
  -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 22:00:00 +0000
 
-acp-rs-scraper (3.3.2) unstable; urgency=medium
+acp-red-star (3.3.2) unstable; urgency=medium
 
   * Authorizer certificates last 30 days and node certificates last 365 days. A node from 3.3.0 or 3.3.1 needs ~/.acp/node removed and --node-init run again.
 
  -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 23:00:00 +0000
 
-acp-rs-scraper (3.3.1) unstable; urgency=medium
+acp-red-star (3.3.1) unstable; urgency=medium
 
   * Job details: elapsed time stops when the job finishes, fails, or is cancelled.
 
  -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 21:00:00 +0000
 
-acp-rs-scraper (3.3.0) unstable; urgency=medium
+acp-red-star (3.3.0) unstable; urgency=medium
 
   * Node identity on this computer: --node-init, --node-id, and a header chip. The node secret is not in a backup.
 
  -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 18:00:00 +0000
 
-acp-rs-scraper (3.2.0) unstable; urgency=medium
+acp-red-star (3.2.0) unstable; urgency=medium
 
   * Shared core crate: identity, canonical CBOR, and a secret-store interface. CLI flags and the encrypted database are unchanged.
 
  -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 15:00:00 +0000
 
-acp-rs-scraper (3.1.0) unstable; urgency=medium
+acp-red-star (3.1.0) unstable; urgency=medium
 
   * Job details: click the status bar or the header running mark to see state, elapsed time and the log.
 
  -- m3talsmith <m3talsmith@gmail.com>  Mon, 19 Oct 2026 12:00:00 +0000
 
-acp-rs-scraper (3.0.0) unstable; urgency=medium
+acp-red-star (3.0.0) unstable; urgency=medium
 
   * Breaking: the local database is encrypted and needs a password. A 2.x plaintext database is not opened; migrate with --encrypt-db (writes a backup first).
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 23:45:00 +0000
 
-acp-rs-scraper (2.24.1) unstable; urgency=medium
+acp-red-star (2.24.1) unstable; urgency=medium
 
   * Bookmark sync sends the hook bookmark {id, state} instead of toggle-bookmark.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 21:30:00 +0000
 
-acp-rs-scraper (2.24.0) unstable; urgency=medium
+acp-red-star (2.24.0) unstable; urgency=medium
 
   * Edit history (/rs/post/THREAD/POST/edits): --edits, p › View edits as a diff, post_versions.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 21:00:00 +0000
 
-acp-rs-scraper (2.23.0) unstable; urgency=medium
+acp-red-star (2.23.0) unstable; urgency=medium
 
   * Reposts list (/rs/post/ID/reposts): --reposts, and p › View reposts in the TUI.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 20:30:00 +0000
 
-acp-rs-scraper (2.22.0) unstable; urgency=medium
+acp-red-star (2.22.0) unstable; urgency=medium
 
   * Thread sort: s cycles newest, oldest and top; --sort-thread stores scores.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 20:00:00 +0000
 
-acp-rs-scraper (2.21.0) unstable; urgency=medium
+acp-red-star (2.21.0) unstable; urgency=medium
 
   * Tag feeds (/rs/tag/TAG): --tag, clickable #tags, body_json and post_tags, --backfill-tags.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 19:30:00 +0000
 
-acp-rs-scraper (2.20.0) unstable; urgency=medium
+acp-red-star (2.20.0) unstable; urgency=medium
 
   * Explore (/rs/explore and /rs/explore/latest) and site search (--site-search, Search modal Where: Site).
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 19:00:00 +0000
 
-acp-rs-scraper (2.19.0) unstable; urgency=medium
+acp-red-star (2.19.0) unstable; urgency=medium
 
   * Executive Board feed (/rs/eb): --eb and --eb-replies, opened from the EB row of the nick bar.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 18:40:00 +0000
 
-acp-rs-scraper (2.18.0) unstable; urgency=medium
+acp-red-star (2.18.0) unstable; urgency=medium
 
   * Site-wide Top feed (/rs/top): --top period (day, week, month, year, all) and --top-replies, saved locally and opened from View › Site Top.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 18:10:00 +0000
 
-acp-rs-scraper (2.17.0) unstable; urgency=medium
+acp-red-star (2.17.0) unstable; urgency=medium
 
   * Post bodies render full Markdown (headings, code blocks, quotes, lists, task lists, tables, footnotes, links with OSC 8) with new theme elements; list items always show their bullet or number.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 01:20:48 -0400
 
-acp-rs-scraper (2.16.0) unstable; urgency=medium
+acp-red-star (2.16.0) unstable; urgency=medium
 
   * Theme editor sample dialog, per-row revert, changed-on-disk and broken-file save prompts, truecolor note; header missing/broken marker; grouped theme warnings.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 00:15:48 -0400
 
-acp-rs-scraper (2.15.0) unstable; urgency=medium
+acp-red-star (2.15.0) unstable; urgency=medium
 
   * Theme editor preview highlight, starter themes (--theme-starter), Download/Starter entries in the empty F5 list, downloading in the header.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sun, 18 Oct 2026 00:06:10 -0400
 
-acp-rs-scraper (2.14.0) unstable; urgency=medium
+acp-red-star (2.14.0) unstable; urgency=medium
 
   * Themes are read only from ~/.acp/themes; the first run downloads the default theme in the background; --theme-init; packages no longer install themes.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 23:56:33 -0400
 
-acp-rs-scraper (2.13.0) unstable; urgency=medium
+acp-red-star (2.13.0) unstable; urgency=medium
 
   * Six communist themes (soviet, constructivist, cuba, red-star, chinese-poster, plattenbau), dark and light.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 23:15:40 -0400
 
-acp-rs-scraper (2.12.0) unstable; urgency=medium
+acp-red-star (2.12.0) unstable; urgency=medium
 
-  * File-based TUI themes (~/.acp/themes, shipped in /usr/share/acp-rs-scraper/themes), a theme picker and editor, --theme and --list-themes.
+  * File-based TUI themes (~/.acp/themes, shipped in /usr/share/acp-red-star/themes), a theme picker and editor, --theme and --list-themes.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 23:13:30 -0400
 
-acp-rs-scraper (2.11.1) unstable; urgency=medium
+acp-red-star (2.11.1) unstable; urgency=medium
 
   * Taller TUI header and a recognisable red-star logo.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 10:15:51 -0400
 
-acp-rs-scraper (2.11.0) unstable; urgency=medium
+acp-red-star (2.11.0) unstable; urgency=medium
 
   * Empty-Body animation in the TUI (built-in clip used with permission of the ACP, red-star fallback) and tools/acp-anim.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 09:15:04 -0400
 
-acp-rs-scraper (2.10.0) unstable; urgency=medium
+acp-red-star (2.10.0) unstable; urgency=medium
 
   * TUI styling moved to ratatui-lipgloss (look unchanged).
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 08:43:52 -0400
 
-acp-rs-scraper (2.9.0) unstable; urgency=medium
+acp-red-star (2.9.0) unstable; urgency=medium
 
   * Research projects: posts, search results, local files and web pages (--research-*), TUI picker and Research menu.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 07:59:27 -0400
 
-acp-rs-scraper (2.8.0) unstable; urgency=medium
+acp-red-star (2.8.0) unstable; urgency=medium
 
   * TUI export basket (+ button / x) and --post-ids exports.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 07:43:11 -0400
 
-acp-rs-scraper (2.7.0) unstable; urgency=medium
+acp-red-star (2.7.0) unstable; urgency=medium
 
   * TUI: inline post pictures (kitty/sixel/iTerm2 or half
    blocks) and a 3-row header with the red star logo and a big ACP.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 07:29:15 -0400
 
-acp-rs-scraper (2.6.0) unstable; urgency=medium
+acp-red-star (2.6.0) unstable; urgency=medium
 
   * TUI: Markdown post bodies, padding, attachments open with xdg-open
    (and OSC 8 hyperlinks).
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 07:22:43 -0400
 
-acp-rs-scraper (2.5.0) unstable; urgency=medium
+acp-red-star (2.5.0) unstable; urgency=medium
 
   * TUI nick filter (/): case-insensitive, fuzzy, with a matched/total count.
   * Bookmark sync confirmed against the live site.
 
  -- m3talsmith <m3talsmith@gmail.com>  Sat, 17 Oct 2026 06:56:27 -0400
 
-acp-rs-scraper (2.4.0) unstable; urgency=medium
+acp-red-star (2.4.0) unstable; urgency=medium
 
   * TUI previous / next through the opened posts (nav bar, , . and Alt-arrows).
 
  -- m3talsmith <m3talsmith@gmail.com>  Fri, 16 Oct 2026 11:45:50 -0400
 
-acp-rs-scraper (2.3.0) unstable; urgency=medium
+acp-red-star (2.3.0) unstable; urgency=medium
 
   * TUI view modes: nested, stack, stack with content pane, infinite and
    fixed carousels, grid with a post modal.
 
  -- m3talsmith <m3talsmith@gmail.com>  Fri, 16 Oct 2026 11:43:53 -0400
 
-acp-rs-scraper (2.2.0) unstable; urgency=medium
+acp-red-star (2.2.0) unstable; urgency=medium
 
   * --sync: bookmarks both ways plus an incremental scrape, no export.
   * TUI Sync menu with automatic sync on a timer.
 
  -- m3talsmith <m3talsmith@gmail.com>  Fri, 16 Oct 2026 11:39:51 -0400
 
-acp-rs-scraper (2.1.0) unstable; urgency=medium
+acp-red-star (2.1.0) unstable; urgency=medium
 
   * Bookmarks: --bookmark, --unbookmark, --list-bookmarks (offline) and
    --sync-bookmarks with the site; TUI stars, a bookmarks view and menu.
 
  -- m3talsmith <m3talsmith@gmail.com>  Fri, 16 Oct 2026 11:36:47 -0400
 
-acp-rs-scraper (2.0.0) unstable; urgency=medium
+acp-red-star (2.0.0) unstable; urgency=medium
 
   * Terminal UI by default (no flags or --tui): browse nicks and posts
     offline, nested post details, in-place search, menu-driven scrape,
@@ -212,7 +218,7 @@ acp-rs-scraper (2.0.0) unstable; urgency=medium
 
  -- m3talsmith <m3talsmith@gmail.com>  Fri, 16 Oct 2026 12:00:00 -0400
 
-acp-rs-scraper (1.26.1) unstable; urgency=medium
+acp-red-star (1.26.1) unstable; urgency=medium
 
   * Key downloaded media by URL without the presigned query; no duplicate
     attachments across scrapes or in DB exports (1.26.1).
@@ -226,13 +232,13 @@ acp-rs-scraper (1.26.1) unstable; urgency=medium
 
  -- m3talsmith <m3talsmith@gmail.com>  Thu, 15 Oct 2026 23:00:00 -0400
 
-acp-rs-scraper (1.16.0) unstable; urgency=medium
+acp-red-star (1.16.0) unstable; urgency=medium
 
   * Find profile photos for reply-only members (nested/wrapped author objects); never use the site banner.
 
  -- m3talsmith <m3talsmith@gmail.com>  Thu, 15 Oct 2026 20:00:00 -0400
 
-acp-rs-scraper (1.15.0) unstable; urgency=medium
+acp-red-star (1.15.0) unstable; urgency=medium
 
   * Store post bodies sent as HTML/plain strings; read missing bodies from the thread; repair blank rows.
   * Download profile images to attachments/profiles/ and show them in HTML exports.
@@ -240,14 +246,14 @@ acp-rs-scraper (1.15.0) unstable; urgency=medium
 
  -- m3talsmith <m3talsmith@gmail.com>  Thu, 15 Oct 2026 16:30:00 -0400
 
-acp-rs-scraper (1.12.0) unstable; urgency=medium
+acp-red-star (1.12.0) unstable; urgency=medium
 
   * Cleanup: domain modules, shared config, external tests, Gherkin e2e suite.
   * "Posts and replies" via the profile filter (?replies=1); fresh-HOME DB fix.
 
  -- m3talsmith <m3talsmith@gmail.com>  Thu, 15 Oct 2026 06:15:00 -0400
 
-acp-rs-scraper (1.4.0) unstable; urgency=medium
+acp-red-star (1.4.0) unstable; urgency=medium
 
   * First package: build from source, man page and shell completions.
   * Maintenance flags (--remove-nick, --clear-all) and the profile "Posts & replies" tab.

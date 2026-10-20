@@ -87,7 +87,7 @@ pub fn draw_dropdown(f: &mut Frame, app: &mut App, screen: Rect) {
         };
         (line, cur)
     }).collect();
-    let hint = c.opts.get(app.menu.opt).map(|o| o.flag).unwrap_or("");
+    let hint = c.opts.get(app.menu.opt).map(crate::tui::commands::Opt::hint_line).unwrap_or_default();
     let w = rows.iter().map(|(l, _)| l.width()).max().unwrap_or(10).max(hint.chars().count() + 2).max(c.label.len() + 4) as u16 + 4;
     let h = rows.len() as u16 + 3;
     let w = w.min(screen.width);

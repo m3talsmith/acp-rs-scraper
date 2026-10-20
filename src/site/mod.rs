@@ -1,14 +1,20 @@
-//! Write core (3.4.0): New post and Reply.
+//! Write core (3.4.0) and attachments (3.5.0): New post and Reply.
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the documented
 //! form frames live here. Publishing does not open a connection. The P0
-//! guided capture has not confirmed the submit payload, so validate and save
-//! stay behind [`write::CAPTURE_BLOCK`]. Attachments wait for 3.5.0. Vote,
-//! subscribe, delete, edit, and repost are later minors and are not built.
+//! guided capture has not confirmed the submit payload or the upload channel,
+//! so validate, save, and `allow_upload` / `lvu` stay behind
+//! [`write::CAPTURE_BLOCK`]. Vote, subscribe, delete, edit, and repost are
+//! later minors and are not built.
 
+mod attach;
 mod prosemirror;
 mod write;
 
+pub use attach::{
+    AttachmentKind, PathCompletion, PlannedAttachment, SiteSplit, complete_path, expand_with_home, plan_attachment, plan_attachments,
+    split_for_site,
+};
 pub use prosemirror::{BODY_CHAR_LIMIT, assemble, markdown_to_doc, plain_blocks, post_ref};
 pub use write::{
     CAPTURE_BLOCK, Completion, Draft, Kind, NickHint, Probe, WriteError, WritePlan, bundle_changed, capture_stub_message,
@@ -31,6 +37,7 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.quote.is_some()
         || args.quote_post.is_some()
         || args.accept_site_update
+        || args.site_attachments.is_some()
 }
 
 /// Run a write command. Cancel prints `nothing sent` and returns Ok.
@@ -55,7 +62,8 @@ pub fn run_cli(args: &Args) -> Result<()> {
         in_reply_to: args.in_reply_to.clone(),
         quote: args.quote.clone(),
         quote_post: args.quote_post.clone(),
-        attachments: args.attachment.len(),
+        attachments: args.attachment.clone(),
+        site_attachments: args.site_attachments.as_ref().map(|list| list.0.clone()),
         html: None,
         accept_bundle: args.accept_site_update,
         stored_bundle: None,
@@ -97,7 +105,8 @@ mod tests {
             in_reply_to: None,
             quote: None,
             quote_post: None,
-            attachments: 0,
+            attachments: Vec::new(),
+            site_attachments: None,
             html: None,
             accept_bundle: false,
             stored_bundle: None,
@@ -221,9 +230,6 @@ mod tests {
         d.writes_on = false;
         assert!(prepare(&d).unwrap_err().message.contains("writes are off"));
         d.writes_on = true;
-        d.attachments = 1;
-        assert!(prepare(&d).unwrap_err().message.contains("3.5.0"));
-        d.attachments = 0;
         d.html = Some(FORM.into());
         d.stored_bundle = Some("/assets/app-old.js".into());
         let err = decide(&d, true, false).unwrap_err();
@@ -321,6 +327,147 @@ mod tests {
         let a = Args::try_parse_from(["x", "--new-post", "Title", "--dry-run"]).unwrap();
         assert!(cli_requested(&a));
         assert!(Args::try_parse_from(["x", "--new-post", "Title", "--remove-nick", "ada"]).is_err());
+    }
+
+    #[test]
+    fn attachments_are_listed_in_dry_run_and_not_encoded() {
+        let dir = std::env::temp_dir().join(format!("acp-attach-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let jpg = dir.join("photo.jpg");
+        let pdf = dir.join("notes.pdf");
+        let bad = dir.join("notes.txt");
+        std::fs::write(&jpg, b"jpeg-bytes").unwrap();
+        std::fs::write(&pdf, b"pdf").unwrap();
+        std::fs::write(&bad, b"nope").unwrap();
+        let mut d = draft();
+        d.attachments = vec![jpg.clone(), pdf.clone()];
+        let plan = prepare(&d).unwrap();
+        assert_eq!(plan.attachments.len(), 2);
+        assert!(plan.attachments[0].on_site);
+        assert!(!plan.attachments[1].on_site, "a pdf stays on the local copy");
+        assert!(plan.site_notice.is_none());
+        assert_eq!(plan.attachments[0].kind, AttachmentKind::Media);
+        assert_eq!(plan.attachments[0].kind.input_name(), "media_attachments");
+        assert_eq!(plan.attachments[1].kind, AttachmentKind::File);
+        assert_eq!(plan.attachments[1].bytes, 3);
+        let frames = serde_json::to_string(&liveview_frames(&plan)).unwrap();
+        assert!(!frames.contains("photo.jpg"), "{frames}");
+        assert!(!frames.contains("allow_upload"), "{frames}");
+        assert!(!frames.contains("jpeg-bytes"), "{frames}");
+        assert!(plan.fields.iter().all(|(k, _)| !k.contains("attachment")), "{:?}", plan.fields);
+        let text = decide(&d, false, true).unwrap();
+        assert!(text.contains("the site copy is a subset"), "{text}");
+        assert!(text.contains("site media photo.jpg"), "{text}");
+        assert!(text.contains("local-only file notes.pdf"), "{text}");
+        assert!(text.contains("allow_upload"), "{text}");
+        assert!(text.contains("no file bytes are sent"), "{text}");
+        assert!(!text.contains("nothing was published"), "{text}");
+        let err = decide(&d, true, false).unwrap_err();
+        assert!(err.message.contains("nothing was published"), "{}", err.message);
+        assert!(err.message.contains("photo.jpg"), "{}", err.message);
+        assert!(err.message.contains("allow_upload"), "{}", err.message);
+        d.attachments = vec![bad.clone()];
+        let notes = prepare(&d).unwrap();
+        assert!(!notes.attachments[0].on_site, "a text file stays local");
+        assert_eq!(notes.attachments[0].kind, AttachmentKind::File);
+        d.site_attachments = Some(vec![0]);
+        let refused = prepare(&d).unwrap_err().message;
+        assert!(refused.contains("notes.txt"), "{refused}");
+        assert!(refused.contains("image/*") && refused.contains("video/*"), "{refused}");
+        d.site_attachments = None;
+        d.attachments = vec![dir.join("missing.png")];
+        assert!(prepare(&d).unwrap_err().message.contains("not found"));
+        d.attachments = vec![dir.clone()];
+        assert!(prepare(&d).unwrap_err().message.contains("not a file"));
+        for ext in ["avif", "gif", "jpg", "jpeg", "png", "tif", "tiff", "webp", "mkv", "mov", "mp4", "webm"] {
+            let path = dir.join(format!("sample.{ext}"));
+            std::fs::write(&path, b"x").unwrap();
+            assert_eq!(plan_attachment(&path).unwrap().kind, AttachmentKind::Media, "{ext}");
+        }
+        let upper = dir.join("PHOTO.JPG");
+        std::fs::write(&upper, b"j").unwrap();
+        assert_eq!(plan_attachment(&upper).unwrap().kind, AttachmentKind::Media);
+        use clap::Parser;
+        let parsed = Args::try_parse_from(["x", "--new-post", "Title", "--attachment", jpg.to_str().unwrap(), "--dry-run"]).unwrap();
+        assert!(cli_requested(&parsed));
+        assert_eq!(parsed.attachment.len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn more_than_four_files_default_to_the_first_four_on_the_site_copy() {
+        let dir = std::env::temp_dir().join(format!("acp-site-cap-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let names = ["one.jpg", "two.png", "three.gif", "four.webp", "notes.pdf", "extra.png"];
+        let paths: Vec<PathBuf> = names.iter().map(|n| {
+            let p = dir.join(n);
+            std::fs::write(&p, b"x").unwrap();
+            p
+        }).collect();
+        let mut d = draft();
+        d.attachments = paths.clone();
+        let plan = prepare(&d).unwrap();
+        assert!(plan.attachments.iter().take(4).all(|a| a.on_site));
+        assert!(plan.attachments.iter().skip(4).all(|a| !a.on_site));
+        let note = plan.site_notice.clone().unwrap();
+        assert_eq!(note, "site copy keeps the first 4 of 5 images or videos (Red Star allows 4: image/* and video/*). Left off the site: 5 notes.pdf, 6 extra.png");
+        let text = decide(&d, false, true).unwrap();
+        assert!(text.contains(&note), "{text}");
+        assert!(text.contains("local-only file notes.pdf"), "{text}");
+        assert!(text.contains("site media one.jpg"), "{text}");
+        assert!(!text.contains("nothing was published"), "{text}");
+        let err = decide(&d, true, false).unwrap_err();
+        assert!(err.message.contains("nothing was published"), "{}", err.message);
+        assert!(err.message.contains("5 notes.pdf"), "{}", err.message);
+        assert!(err.message.contains("allow_upload"), "{}", err.message);
+        let frames = serde_json::to_string(&liveview_frames(&plan)).unwrap();
+        assert!(!frames.contains("notes.pdf"), "{frames}");
+        d.attachments.truncate(4);
+        let few = prepare(&d).unwrap();
+        assert!(few.attachments.iter().all(|a| a.on_site));
+        assert!(few.site_notice.is_none());
+        assert!(decide(&d, false, true).unwrap().contains("attachments (local only, not uploaded)"));
+        d.attachments = paths.clone();
+        d.site_attachments = Some(vec![0, 2, 4, 5]);
+        let refused = prepare(&d).unwrap_err().message;
+        assert!(refused.contains("notes.pdf"), "{refused}");
+        assert!(refused.contains("image/*") && refused.contains("video/*"), "{refused}");
+        d.site_attachments = Some(vec![0, 2, 3, 5]);
+        let chosen = prepare(&d).unwrap();
+        assert!(chosen.site_notice.is_none());
+        assert_eq!(chosen.attachments.iter().map(|a| a.on_site).collect::<Vec<_>>(), vec![true, false, true, true, false, true]);
+        d.site_attachments = Some(vec![9]);
+        assert!(prepare(&d).unwrap_err().message.contains("not in the list"));
+        use clap::Parser;
+        let parsed = Args::try_parse_from([
+            "x", "--new-post", "Title", "--dry-run", "--site-attachments", "1,3,5,6",
+            "--attachment", paths[0].to_str().unwrap(),
+        ]).unwrap();
+        assert_eq!(parsed.site_attachments.as_deref(), Some(&[0usize, 2, 4, 5][..]));
+        assert!(cli_requested(&parsed));
+        let audio = dir.join("talk.mp3");
+        std::fs::write(&audio, b"id3").unwrap();
+        let cli = Args::try_parse_from([
+            "x", "--new-post", "Title", "--dry-run",
+            "--attachment", paths[0].to_str().unwrap(),
+            "--attachment", audio.to_str().unwrap(),
+            "--site-attachments", "2",
+        ]).unwrap();
+        d.attachments = cli.attachment.clone();
+        d.site_attachments = cli.site_attachments.as_ref().map(|list| list.0.clone());
+        let err = prepare(&d).unwrap_err().message;
+        assert!(err.contains("talk.mp3"), "{err}");
+        assert!(err.contains("image/*") && err.contains("video/*"), "{err}");
+        d.site_attachments = None;
+        let mut mixed = vec![audio];
+        mixed.extend(paths.iter().filter(|p| p.extension().is_some_and(|e| e != "pdf")).cloned());
+        d.attachments = mixed;
+        let auto = prepare(&d).unwrap();
+        assert!(!auto.attachments[0].on_site, "audio is not auto-selected");
+        assert!(auto.attachments.iter().skip(1).take(4).all(|a| a.on_site));
+        assert!(auto.attachments.iter().skip(5).all(|a| !a.on_site));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

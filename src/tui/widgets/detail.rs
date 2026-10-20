@@ -128,6 +128,10 @@ pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
     if !atts.is_empty() {
         lines.push(Line::raw(""));
         lines.push(Line::styled(format!("Attachments ({}) · Enter / click opens", atts.len()), t.bold()));
+        if !f.post.post_id.starts_with("research:") {
+            let on = f.attachments.iter().filter(|a| a.on_site).count();
+            lines.push(Line::styled(format!("On Red Star: {on} of {}", f.attachments.len()), t.muted()));
+        }
         for i in atts { link_line(i, &mut lines, &mut links); }
     }
     let others: Vec<usize> = (0..f.links.len()).filter(|i| matches!(f.links[*i].kind, LinkKind::Mentioned)).collect();

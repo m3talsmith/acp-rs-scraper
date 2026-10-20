@@ -1,6 +1,6 @@
 # ACP node protocol
 
-This document is the wire format for signing and hashing. The terminal client (`acp-rs-scraper`, repository root) and `acp_rs_node_core` (`crates/acp_rs_node_core`) both follow it. There is no protobuf. A field that is added later gets a new version number; old readers ignore an unknown key only after that version says they may.
+This document is the wire format for signing and hashing. The terminal client (`acp-red-star`, repository root) and `acp_red_star_node_core` (`crates/acp_red_star_node_core`) both follow it. There is no protobuf. A field that is added later gets a new version number; old readers ignore an unknown key only after that version says they may.
 
 The `.acpbackup` file is not this format. Its header is format version 1: the bytes `ACPBACKUP`, a length, and one definite CBOR array used as additional data for XChaCha20-Poly1305. That array is not a map, and this document does not change it.
 
@@ -18,7 +18,7 @@ Encoding follows RFC 8949 section 4.2.1.
 
 `record_hash` is blake3 of those bytes.
 
-The vectors below are what `acp_rs_node_core::cbor` encodes and accepts. A non-canonical input in the last table is rejected.
+The vectors below are what `acp_red_star_node_core::cbor` encodes and accepts. A non-canonical input in the last table is rejected.
 
 ### Integers and simple values
 

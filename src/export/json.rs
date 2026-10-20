@@ -7,7 +7,7 @@ pub fn build_json(nick: &str, posts: &[Post], atts: &[Attachment], profiles: &[P
     let mut by_post: HashMap<&str, Vec<Value>> = HashMap::new();
     for a in atts {
         by_post.entry(a.post_id.as_str()).or_default().push(json!({
-            "url": a.url, "kind": a.kind, "mime_type": a.mime_type, "local_path": rel(a),
+            "url": a.url, "kind": a.kind, "mime_type": a.mime_type, "local_path": rel(a), "on_site": a.on_site,
         }));
     }
     let ids: HashSet<&str> = posts.iter().map(|p| p.post_id.as_str()).collect();

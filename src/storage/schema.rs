@@ -85,14 +85,20 @@ pub const MENTIONS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS mentions (
         CREATE UNIQUE INDEX IF NOT EXISTS mentions_uq ON mentions(post_id, mentioned_nick, match_type);";
 
 /// `attachments` table: downloaded media per post, unique per (post_id, url).
+/// `on_site` is 1 when that file is part of the Red Star copy. Scraped files
+/// came from the site, so the default is 1. A local publish can set it to 0.
 pub const ATTACHMENTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS attachments (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             post_id TEXT NOT NULL,
             url TEXT NOT NULL,
             local_path TEXT NOT NULL,
-            mime_type TEXT NOT NULL
+            mime_type TEXT NOT NULL,
+            on_site INTEGER NOT NULL DEFAULT 1
         );
         CREATE UNIQUE INDEX IF NOT EXISTS attachments_post_url_uq ON attachments(post_id, url);";
+
+/// Older `attachments` tables gain `on_site` (default 1: the file came from the site).
+pub const ATTACHMENTS_ADD_ON_SITE: &str = "ALTER TABLE attachments ADD COLUMN on_site INTEGER NOT NULL DEFAULT 1;";
 
 /// `bookmarks` table (2.1.0). One row per bookmarked post:
 /// - `remote`: the site has it bookmarked too (seen in its bookmarks feed, or pushed).

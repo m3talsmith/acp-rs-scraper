@@ -1,6 +1,6 @@
 //! Keyboard and mouse → state transitions (every action has both).
 
-use crate::tui::commands::{Action, Widget};
+use crate::tui::commands::{is_path_field, Action, Widget};
 use crate::tui::layout::contains;
 use crate::tui::modals::*;
 use crate::tui::state::{App, Effect, Focus, Hit, ViewMode};
@@ -18,7 +18,11 @@ pub fn on_event(app: &mut App, ev: Event) {
 fn after_modal(app: &mut App, r: Option<ModalResult>) {
     if let Some(Modal::Login(m)) = &mut app.modal
         && let Some(req) = m.request.take() {
-            app.effects.push(match req { LoginRequest::SendEmail(e) => Effect::LoginEmail(e), LoginRequest::SubmitCode(c) => Effect::LoginCode(c) });
+            app.effects.push(match req {
+                LoginRequest::SendEmail(e) => Effect::LoginEmail(e),
+                LoginRequest::SubmitCode(c) => Effect::LoginCode(c),
+                LoginRequest::Resend => Effect::LoginResend,
+            });
         }
     if let Some(pid) = app.take_job_cancel() { app.cancel_tracked(pid); }
     if let Some(r) = r { app.close_modal(r); }
@@ -60,7 +64,7 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         KeyCode::Char('/') if app.focus != Focus::Menu => { app.focus_nick_filter(); return; }
         KeyCode::Char('S') => { app.act(Action::OpenSearchModal); return; }
         KeyCode::Char('B') => { app.act(Action::ShowBookmarks); return; }
-        KeyCode::Char('?') | KeyCode::F(1) => { app.act(Action::Help); return; }
+        KeyCode::Char('?') | KeyCode::F(1) => { let topic = app.menu_help_topic(); app.open_help(topic); return; }
         KeyCode::F(5) if k.modifiers.contains(KeyModifiers::SHIFT) => { app.act(Action::ThemeEditor); return; }
         KeyCode::F(17) => { app.act(Action::ThemeEditor); return; }
         KeyCode::F(5) => { app.act(Action::ThemePicker); return; }
@@ -103,6 +107,7 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('n') => app.open_new_post(),
         KeyCode::Char('r') => app.act(Action::AddToResearch),
         KeyCode::Char('v') => app.act(Action::CycleView),
+        KeyCode::Char('o') => { if app.focus == Focus::Nicks { app.toggle_nick_order(); } else { app.toggle_list_order(); } }
         KeyCode::Char(',') => app.act(Action::StackPrev),
         KeyCode::Char('.') => app.act(Action::StackNext),
         KeyCode::Char('V') => { let m = app.view_mode.cycle(-1); app.set_view_mode(m); }
@@ -210,7 +215,10 @@ fn menu_key(app: &mut App, k: KeyEvent) {
                 KeyCode::Left | KeyCode::Right => {
                     let d = if k.code == KeyCode::Left { -1 } else { 1 };
                     let o = &mut app.menu.menu.items[item].opts[app.menu.opt];
-                    if let Widget::Choice { choices, idx } = &mut o.widget { *idx = cycle(*idx, choices.len(), d); }
+                    if let Widget::Choice { choices, idx } = &mut o.widget {
+                        *idx = cycle(*idx, choices.len(), d);
+                        app.apply_open_choice();
+                    }
                     else { app.menu.item = cycle(item, n, d); let i = app.menu.item; app.menu.open = None; app.open_menu(i); }
                 }
                 KeyCode::Char(' ') => {
@@ -236,11 +244,85 @@ fn filter_key(app: &mut App, k: KeyEvent) {
     }
 }
 
+fn menu_path_field(app: &App) -> bool {
+    let Some(item) = app.menu.open else { return false };
+    let id = app.menu.menu.items[item].id;
+    let key = app.menu.menu.items[item].opts.get(app.menu.opt).map(|o| o.key).unwrap_or("");
+    is_path_field(id, key)
+}
+
+fn open_text(app: &App) -> String {
+    let Some(item) = app.menu.open else { return String::new() };
+    match &app.menu.menu.items[item].opts.get(app.menu.opt).map(|o| &o.widget) {
+        Some(Widget::Text(t)) => t.value.clone(),
+        _ => String::new(),
+    }
+}
+
+fn set_open_text(app: &mut App, text: &str) {
+    let Some(item) = app.menu.open else { return };
+    if let Some(Widget::Text(t)) = app.menu.menu.items[item].opts.get_mut(app.menu.opt).map(|o| &mut o.widget) {
+        t.set(text);
+    }
+}
+
+/// Tab on a path field completes one real segment, the same way Compose does.
+/// An empty field, or a Tab that changes nothing, leaves the field.
+fn complete_open_path(app: &mut App) {
+    if !app.menu.path_matches.is_empty() {
+        let n = app.menu.path_matches.len();
+        app.menu.path_at = cycle(app.menu.path_at, n, 1);
+        let text = app.menu.path_matches[app.menu.path_at].clone();
+        set_open_text(app, &text);
+        app.push_status(format!("{} of {n}: {text}", app.menu.path_at + 1));
+        return;
+    }
+    let current = open_text(app);
+    if current.trim().is_empty() {
+        app.menu.editing = false;
+        app.finish_menu_text();
+        return;
+    }
+    let home = crate::config::home().ok();
+    let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let done = crate::site::complete_path(&current, home.as_deref(), &cwd);
+    if done.matches.is_empty() && done.text == current {
+        app.menu.editing = false;
+        app.finish_menu_text();
+        return;
+    }
+    set_open_text(app, &done.text);
+    app.menu.path_matches = done.matches;
+    app.menu.path_at = 0;
+    if let Some(first) = app.menu.path_matches.first() {
+        let n = app.menu.path_matches.len();
+        app.push_status(format!("1 of {n}: {first}"));
+    }
+}
+
 fn menu_edit_key(app: &mut App, k: KeyEvent) {
     let Some(item) = app.menu.open else { app.menu.editing = false; return };
+    let path = menu_path_field(app);
     match k.code {
-        KeyCode::Enter | KeyCode::Esc | KeyCode::Tab => app.menu.editing = false,
+        KeyCode::Esc if path && !app.menu.path_matches.is_empty() => {
+            app.menu.path_matches.clear();
+            app.menu.path_at = 0;
+        }
+        KeyCode::Up | KeyCode::Down if path && !app.menu.path_matches.is_empty() => {
+            let n = app.menu.path_matches.len();
+            let d = if k.code == KeyCode::Up { -1 } else { 1 };
+            app.menu.path_at = cycle(app.menu.path_at, n, d);
+            let text = app.menu.path_matches[app.menu.path_at].clone();
+            set_open_text(app, &text);
+        }
+        KeyCode::Tab | KeyCode::BackTab if path => complete_open_path(app),
+        KeyCode::Enter | KeyCode::Esc | KeyCode::Tab => {
+            app.menu.path_matches.clear();
+            app.menu.editing = false;
+            app.finish_menu_text();
+        }
         _ => {
+            app.menu.path_matches.clear();
             if let Widget::Text(t) = &mut app.menu.menu.items[item].opts[app.menu.opt].widget { t.on_key(k); }
         }
     }
@@ -292,6 +374,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::NickFilter) => app.focus_nick_filter(),
         Some(Hit::NickFilterClear) => app.clear_nick_filter(),
         Some(Hit::ViewMode) => app.act(Action::CycleView),
+        Some(Hit::ListOrder) => { app.focus = Focus::Body; app.toggle_list_order(); }
         Some(Hit::StackPrev) => { app.focus = Focus::Body; app.act(Action::StackPrev); }
         Some(Hit::StackNext) => { app.focus = Focus::Body; app.act(Action::StackNext); }
         Some(Hit::CloseDetail) => app.close_details(),

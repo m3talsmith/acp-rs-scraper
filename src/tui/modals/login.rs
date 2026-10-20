@@ -23,6 +23,8 @@ pub enum LoginRequest {
     SendEmail(String),
     /// Submit this code / link.
     SubmitCode(String),
+    /// Ask for another code without leaving this attempt.
+    Resend,
 }
 
 /// Login state.
@@ -50,11 +52,32 @@ impl LoginModal {
     }
     /// The site sent the code: ask for it.
     pub fn need_code(&mut self) { self.step = LoginStep::Code; self.error = None; }
-    /// The login failed: back to the step that can retry.
+    /// Verification failed and the attempt is still open. Stay here and clear the code.
+    pub fn held(&mut self, e: &str) {
+        self.error = Some(e.to_string());
+        self.code.set("");
+        self.step = LoginStep::Code;
+    }
+    /// The login failed: back to the email step.
     pub fn failed(&mut self, e: &str) {
         self.error = Some(e.to_string());
         self.code.set("");
         self.step = LoginStep::Email;
+    }
+    /// Code step, including the busy states that belong to it (verify, resend).
+    pub fn on_code_step(&self) -> bool {
+        match &self.step {
+            LoginStep::Code => true,
+            LoginStep::Busy(s) => s.starts_with("Verifying") || s.starts_with("Sending another"),
+            LoginStep::Email => false,
+        }
+    }
+    fn resend(&mut self) {
+        if !self.on_code_step() { return; }
+        self.error = None;
+        self.code.set("");
+        self.step = LoginStep::Busy("Sending another code…".into());
+        self.request = Some(LoginRequest::Resend);
     }
     fn submit(&mut self) {
         match self.step {
@@ -83,6 +106,8 @@ impl ModalState for LoginModal {
         match k.code {
             KeyCode::Esc => return Some(ModalResult::ClosedCancelled),
             KeyCode::Enter => self.submit(),
+            KeyCode::F(2) => self.resend(),
+            KeyCode::F(1) | KeyCode::Char('?') => return Some(ModalResult::Help("login")),
             _ => match self.step {
                 LoginStep::Email => { self.email.on_key(k); }
                 LoginStep::Code => { self.code.on_key(k); }
@@ -94,6 +119,7 @@ impl ModalState for LoginModal {
     fn on_click(&mut self, h: ModalHit) -> Option<ModalResult> {
         match h {
             ModalHit::Button(0) => { self.submit(); None }
+            ModalHit::Button(1) if self.on_code_step() => { self.resend(); None }
             ModalHit::Button(_) => Some(ModalResult::ClosedCancelled),
             _ => None,
         }

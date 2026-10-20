@@ -160,7 +160,7 @@ fn start_scan_with_valid_session_runs_and_cancel_while_running() {
     a.act(Action::StartScan);
     assert!(matches!(a.effects.as_slice(), [Effect::RunJob(JobKind::Scan, _)]));
     a.effects.clear();
-    a.job_started(JobView { kind: JobKind::Scan, pid: 42, log: "/tmp/x.log".into() }, "acp-rs-scraper --nicks zed");
+    a.job_started(JobView { kind: JobKind::Scan, pid: 42, log: "/tmp/x.log".into() }, "acp-red-star --nicks zed");
     a.act(Action::StartScan);
     assert_eq!(a.effects, [Effect::CancelJob]);
     a.effects.clear();
@@ -175,6 +175,31 @@ fn login_cancel_drops_pending_scan() {
     a.close_modal(ModalResult::ClosedCancelled);
     assert!(a.pending_job.is_none());
     assert_eq!(a.effects, [Effect::LoginCancel]);
+}
+
+#[test]
+fn login_hold_keeps_the_code_step_and_help_does_not_drop_the_attempt() {
+    let mut a = app();
+    a.open_login(Some((JobKind::Scan, vec!["x".into()])));
+    a.login_need_code();
+    a.login_hold("websocket closed");
+    let Some(Modal::Login(m)) = &a.modal else { panic!() };
+    assert_eq!(m.step, LoginStep::Code);
+    assert_eq!(m.error.as_deref(), Some("websocket closed"));
+    assert!(a.pending_job.is_some());
+    crate::tui::input::on_event(&mut a, crossterm::event::Event::Key(
+        crossterm::event::KeyEvent::new(crossterm::event::KeyCode::F(2), crossterm::event::KeyModifiers::NONE)));
+    assert_eq!(a.effects, [Effect::LoginResend]);
+    a.effects.clear();
+    crate::tui::input::on_event(&mut a, crossterm::event::Event::Key(
+        crossterm::event::KeyEvent::new(crossterm::event::KeyCode::F(1), crossterm::event::KeyModifiers::NONE)));
+    assert!(matches!(a.modal, Some(Modal::Help(_))));
+    assert!(a.paused_login.as_ref().is_some_and(|m| m.on_code_step()));
+    assert!(a.effects.is_empty());
+    a.close_modal(ModalResult::ClosedCancelled);
+    let Some(Modal::Login(m)) = &a.modal else { panic!("login should return after help") };
+    assert!(m.on_code_step());
+    assert!(a.pending_job.is_some());
 }
 
 #[test]
@@ -313,7 +338,7 @@ fn menu_open_activate_options() {
 #[test]
 fn args_nicks_preselect() {
     use clap::Parser;
-    let args = Args::parse_from(["acp-rs-scraper", "--tui", "--nicks", "bob,ghost"]);
+    let args = Args::parse_from(["acp-red-star", "--tui", "--nicks", "bob,ghost"]);
     let a = App::new(Box::new(fixture()), &args, Theme::acp(), true);
     assert_eq!(a.selected, ["bob"]);
     assert_eq!(a.session, SessionState::Saved);

@@ -185,9 +185,11 @@ fn projects_browse_opens_a_project_view() {
     let v = a.view();
     assert_eq!(v.research.as_deref(), Some("Strikes"));
     assert!(v.title.contains("Research: Strikes (2 items)"));
-    assert_eq!(v.posts[0].post_id, "ALICE0002", "posts come from the database");
-    assert_eq!(v.posts[1].post_id, "research:6");
-    assert!(v.posts[1].content.starts_with("> key source"));
+    assert_eq!(v.posts[0].post_id, "research:6", "newest first: the page was added after the post");
+    let post = v.posts.iter().find(|p| p.post_id == "ALICE0002").expect("the post");
+    assert!(!post.content.contains("not in the database"), "posts come from the database");
+    assert_eq!(v.posts[1].post_id, "ALICE0002");
+    assert!(v.posts[0].content.starts_with("> key source"));
     assert!(a.effects.is_empty(), "opening an existing project writes nothing");
     let out = render(&mut a);
     assert!(out.contains("Research: Strikes"), "{out}");

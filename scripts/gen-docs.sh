@@ -6,11 +6,11 @@ cargo doc --no-deps --document-private-items
 rm -rf docs/api
 mkdir -p docs
 cp -r target/doc docs/api
-crate=acp_rs_scraper
+crate=acp_red_star
 cat > docs/index.html <<HTML
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8">
-<title>acp-rs-scraper docs</title>
+<title>acp-red-star docs</title>
 <meta http-equiv="refresh" content="0; url=api/${crate}/index.html">
 <link rel="canonical" href="api/${crate}/index.html">
 </head><body>
