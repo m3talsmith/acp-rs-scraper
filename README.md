@@ -409,6 +409,7 @@ headless scrape is now `--scrape`.
 - **Menu bar.** View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account,
   Debug, Help, About, and Quit. Scrape sits immediately left of Start Scanning (on a narrow terminal the
   scan button shortens to `▶ Scan` so Quit still fits). Library opens Export, Import, Basket, List, and Maintain.
+  Hover shows a short tip; the `?` on that tip opens the Help topic for that action. `?` in the header corner opens Help (`?` and F1 do the same).
   Options show as checkboxes `[x]`, dropdowns `‹ … ›`,
   text fields `[…]` and buttons `< … >`; `*` marks a required one. Keyboard: `m`/`F10` or
   `Alt`+the underlined letter, `↑↓` to pick, `Space`/`Enter` to change, `Esc` to close.

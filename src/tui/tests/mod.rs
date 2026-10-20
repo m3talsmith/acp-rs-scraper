@@ -32,6 +32,7 @@ mod session;
 mod theming;
 mod editor;
 mod eggs;
+mod help_about;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

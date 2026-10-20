@@ -227,8 +227,17 @@ pub const PROFILE_SHOW_INFO_EVENT: &str = "show-info";
 /// Default `--crawl-limit`: site-feed posts scanned for mentions.
 pub const DEFAULT_CRAWL_LIMIT: usize = 500;
 
-/// The user's home directory (`$HOME`); every data path is relative to it.
+/// Root of every data path (`~/.acp` is under this directory).
+///
+/// `ACP_HOME` when it is set and not empty, otherwise `$HOME`. A live login
+/// test sets `ACP_HOME` to a fresh directory so the real `~/.acp` is not read
+/// or written.
 pub fn home() -> Result<PathBuf> {
+    if let Some(p) = std::env::var_os("ACP_HOME")
+        && !p.is_empty()
+    {
+        return Ok(PathBuf::from(p));
+    }
     std::env::var_os("HOME").map(PathBuf::from).ok_or_else(|| anyhow!("HOME not set"))
 }
 

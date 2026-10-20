@@ -69,7 +69,7 @@ impl E2e {
         let base = self.mock.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "http://127.0.0.1:9".into());
         let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &self.home.to_string_lossy()).replace("$SITE", &base)).collect();
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_acp-red-star"))
-            .args(&args).env("HOME", &self.home).env("ACP_THEME_URL", self.theme_url.clone().unwrap_or_else(|| format!("{base}/themes/")))
+            .args(&args).env("HOME", &self.home).env("ACP_HOME", &self.home).env("ACP_THEME_URL", self.theme_url.clone().unwrap_or_else(|| format!("{base}/themes/")))
             .env("ACP_BASE_URL", base).env("ACP_PASSWORD", E2E_PASSWORD).env("ACP_ARGON_FAST", "1").env_remove("ACP_DEBUG").env_remove("ACP_THEME_DOWNLOAD").envs(self.env.iter().cloned())
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
             .spawn().unwrap();
