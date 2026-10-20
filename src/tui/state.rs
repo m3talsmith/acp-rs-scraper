@@ -1955,10 +1955,31 @@ impl App {
             (Modal::Confirm(c), ModalResult::ClosedSubmitted) => match c.action {
                 ConfirmAction::Job(k, argv) => self.start_job(k, argv),
                 ConfirmAction::Quit => self.effects.push(Effect::Quit { cancel_job: c.chosen == 1 }),
+                ConfirmAction::Delete(id) => match crate::site::delete::present(&id, true, false) {
+                    Ok(text) => self.push_status(text),
+                    Err(e) => self.error("Delete", &e.message),
+                },
             },
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
                 PostAction::Edits => self.open_edits(&m.post_id, &m.thread_id),
+                PostAction::Delete => {
+                    if !self.writes_are_on() {
+                        self.show_writes_off();
+                    } else {
+                        let mut confirm = ConfirmModal::new(
+                            "Delete post",
+                            vec![
+                                format!("Delete {}?", m.post_id),
+                                "The site's confirm dialog has not been captured. Type yes. Nothing is sent.".into(),
+                            ],
+                            "Delete",
+                            ConfirmAction::Delete(m.post_id),
+                        );
+                        confirm.strict = true;
+                        self.modal = Some(Modal::Confirm(confirm));
+                    }
+                }
             },
             (Modal::Compose(c), ModalResult::ClosedCancelled) => {
                 self.push_status("nothing sent");

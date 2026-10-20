@@ -11,6 +11,8 @@ pub enum ConfirmAction {
     Job(crate::tui::jobs::JobKind, Vec<String>),
     /// Quit; button 0 detaches the job, button 1 cancels it first.
     Quit,
+    /// Delete a post. The send stays gated.
+    Delete(String),
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.
