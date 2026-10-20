@@ -31,6 +31,8 @@ Update 2026-10-19 (decisions): an authorizer certificate lasts **30 days**, a no
 
 Update 2026-10-19 (tombstones and password): a signed tombstone **keeps** the post. The UI shows it as deleted with a tombstone icon, and the body stays viewable. A later signed post or a signed restore record for that post id clears the tombstone. A password change does **not** change the master or the `acp-id`. **3.22.0** is that re-key, inserted before the daemon and keyring work, so every stage that was 3.22.0 or later moves up one minor. There is still no 4.0.
 
+Update 2026-10-20 (notices, the rule engine, alert templates): three new minors, one feature each, after the stages already planned. **3.30.0** is already the surprises minor on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16) and is not restated here, so these start at **3.31.0**. Nothing from 3.6.0–3.9.0 or 3.10.0–3.29.0 is renumbered, including the locked 3.22.0 re-key. **3.31.0** is local notifications (in-terminal toasts and OS desktop notifications). **3.32.0** is the rule engine and its if-this-then-that editor, including the system rules the app itself runs. **3.33.0** is alert presets, which are templates on that engine. There is no separate alert subsystem. §7.14.12 and §4.0 are already claimed, for different subjects, by [draft PR #10](https://github.com/m3talsmith/acp-rs-scraper/pull/10) (embedded assistant) and [draft PR #15](https://github.com/m3talsmith/acp-rs-scraper/pull/15) (post source and the Haz stream corpus). This note does not take those numbers. The write-up is §7.14.13.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -276,6 +278,10 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | 3.22.0: Password change / re-key | **3.22.0** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. |
 | P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
+| 3.30.0: Surprises | **3.30.0** | Assigned on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16). This file does not restate it. The next minors are 3.31.0–3.33.0 so that assignment is not a silent skip. |
+| 3.31.0: Notifications | **3.31.0** | In-terminal toasts and OS desktop notifications. Per-type toggles, do-not-disturb, a notice log, and the same notices on stderr. Replaces ad-hoc status-line notices. Not the site Notifications pane (P4). Respects `NO_COLOR` / `--color never` (§7.14.13). |
+| 3.32.0: Rule engine | **3.32.0** | A triggers / conditions / actions engine in the library, evaluated on sync. Built-in system rules ship read-only and cloneable. The user's rules sit beside them in the editor and in `rules`. Stored encrypted (§7.14.13). |
+| 3.33.0: Alert templates | **3.33.0** | One-click rule templates on the 3.32.0 engine: watch a user, saved-search matches, replies to me. The user can open and edit them. No separate alert subsystem (§7.14.13). |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -697,6 +703,10 @@ cookies or tokens. Peers only carry signed *intents*.
 | 3.27.0 | Opt-in feed and research sharing |
 | 3.28.0 | Draft review: links, comments, suggestions (§7.14.8) |
 | 3.29.0 | `acp_rs_node_ffi` and the first Dart SDK release (§7.14.7) |
+| **3.30.0** | Surprises. Assigned on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16). Not specified in this file. |
+| **3.31.0** | Local notifications: stacked toasts, an OS notification, a notice log, per-type toggles, do-not-disturb, and stderr for the command line (§7.14.13). |
+| **3.32.0** | Rule engine: library triggers / conditions / actions, evaluated on sync. System rules are read-only and cloneable. User rules sit beside them (§7.14.13). |
+| **3.33.0** | Alert templates on that engine: watch `@user`, saved-search matches, replies to me. Editable. No second alert subsystem (§7.14.13). |
 
 ### 7.12 Privacy and security risks
 - A node reveals its IP to peers, and gossip reveals who has which posts.
@@ -1077,6 +1087,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **3.23.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, authorizer and node certificates, and OS keyring unlock for the daemon.
 - **3.28.0:** draft review links, comments and suggestions.
 - **3.29.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
+- **3.30.0** is the surprises minor on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16). This file does not restate it. **3.31.0** is local notifications, **3.32.0** is the rule engine, and **3.33.0** is alert templates on that engine (§7.14.13). Those three do not move 3.10.0–3.29.0.
 - **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.23.0 together with the service install. The TUI header already shows `v<version>` from 3.0.0.
 
 #### 7.14.10 Version display and desktop trays
@@ -1085,7 +1096,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
   - the header, an About screen (version, build date and commit, protocol version, whether the `p2p` feature is built in), `--version` and `--node-status`
   - the node chip in the header, the Nodes list for every node (§7.14.5, which also warns about lagging versions), the relay binary's `--version`, and the tray menu header
   - every window title of the tray apps
-  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and 3.5.0 is attachments (confirmed). Interactions were numbered 3.5.0–3.9.0 before that and have not started; Michael confirmed that this note does not shift them or the later stages. Live stays 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). There is no 4.0 in this plan. Inserting 3.22.0 moved each later stage up one minor.
+  - **Versioning (revised 2026-10-19):** **3.0.0 is the major release.** It is identity, encryption at rest, and backup/restore, and it breaks a 2.x plaintext database. The whole plan stays in the 3.x line. Following the rule in §4, 3.1.0 is the job-details window, 3.2.0 is the shared core, 3.3.0 is local node identity, 3.4.0 is the first write feature, and 3.5.0 is attachments (confirmed). Interactions were numbered 3.5.0–3.9.0 before that and have not started; Michael confirmed that this note does not shift them or the later stages. Live stays 3.10.0–3.11.0, account 3.12.0–3.15.0, outbox 3.16.0, feeds 3.17.0–3.20.0, spaces 3.21.0, password change / re-key 3.22.0, the network node 3.23.0–3.27.0, review 3.28.0, the Dart SDK 3.29.0 (§7.11). There is no 4.0 in this plan. **3.30.0** is assigned on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16). **3.31.0–3.33.0** are local notifications, the rule engine, and alert templates (§7.14.13). §7.14.12 and §4.0 are already claimed by open pull requests #10 and #15, so this note does not use them. Inserting 3.22.0 moved each later stage up one minor.
 - **Tray apps** to control the node and the relay without a terminal: a small separate binary, `acp-rs-tray`, in its own crate, that talks to the node and relay over the local control socket (§7.2).
   - **Menu:** status (running, stopped, locked, peers online, sync state, version), Start, Stop and Restart for the node and for the relay, **Unlock** (prompts for the passphrase when the node started locked), Open TUI, Nearby nodes and pending enrollments (approve from the tray), Pause syncing, Copy `acp-id`, Open logs, Quit.
   - **Notifications** for a pairing request, a new node enrolled, a certificate close to expiry, a revocation received, and a sync error. Each is optional.
@@ -1117,6 +1128,98 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
   - The package version is the release version (§7.14.10), shown by `acp-rs-relay --version`.
 - **Publishing (decided 2026-10-19, §8 Q14).** APT, Fedora COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing (3.25.0), replies (3.4.0), review (3.28.0), the node crates (through 3.27.0), and the Dart package (3.29.0). Until that set has shipped, packaging in this repository stays unpublished. Someone can still build a package by hand from the tree.
 - **Roadmap:** the relay crate lands in 3.23.0 (§7.14.9). It is not published to APT, COPR, AUR, or Homebrew in that release. Those repositories wait for the full set above.
+
+#### 7.14.13 Notifications, the rule engine, and alert templates (3.31.0 → 3.33.0)
+
+**Section number.** The next free subsection on `main` would have been 7.14.12. That number, and a new §4.0, are already taken by two open pull requests that disagree with each other. [Draft PR #10](https://github.com/m3talsmith/acp-rs-scraper/pull/10) uses §4.0 and §7.14.12 for an embedded assistant. [Draft PR #15](https://github.com/m3talsmith/acp-rs-scraper/pull/15) uses the same two numbers for post source and the Haz stream corpus, and adds `architecture/PLAN-4.0.md` on that branch. This note does not copy either write-up and does not take §4.0 or §7.14.12. **3.30.0** is already assigned on [draft PR #16](https://github.com/m3talsmith/acp-rs-scraper/pull/16), so the three features below are 3.31.0, 3.32.0, and 3.33.0. One minor each. 3.6.0–3.9.0 stay unassigned. 3.10.0–3.29.0, including the locked 3.22.0 re-key, are not renumbered.
+
+The order is notifications, then the rule engine, then alert templates. Alerts work better as rules, and the app should run on rule sets too, so the engine comes before the presets that sit on it.
+
+##### 3.31.0 Notifications
+
+Local notices. This is not the site Notifications pane (P4, 3.10.0–3.11.0, `/rs/notifications`, §1a item 15, §8 Q4).
+
+- **In the terminal UI:** toasts, stacked, that dismiss on their own. A notice log keeps the ones that already dismissed, so a missed toast can still be read.
+- **On the desktop:** an OS notification. Linux uses the freedesktop notification spec over D-Bus. macOS and Windows use the platform notification API.
+- **Controls:** each notice type can be turned off. Do-not-disturb silences toasts and OS notifications together. The notice log still records them.
+- **Command line:** the same notices print on stderr. `NO_COLOR` and `--color never` leave them plain.
+- **What it replaces:** ad-hoc status-line notices. The status line keeps job and list state. A notice that the user should see becomes a toast, an OS notification, and a log row.
+
+##### 3.32.0 Rule engine and editor
+
+A core engine in the library (`acp_red_star`, and the shared core if a later node needs the same evaluation). It is triggers, conditions, and actions. It runs when a sync commits new rows. By default it sees only data that sync just wrote. A dry-run previews the same rules against data already stored and applies nothing.
+
+**System rules and user rules.** The app ships a read-only set of system rules. The user can clone one. The clone is an ordinary user rule and can be edited, disabled, or deleted. The shipped original stays. User rules sit in the same list as the system rules, in the terminal editor and in `rules` on the command line. The app uses this set for its own notices instead of keeping a second, private path.
+
+**Triggers:** a post that just synced, the author, a saved-search match, a keyword or a regular expression, the source (the site, a node, and later a YouTube transcript), and a tag.
+
+**Actions:** notify (the 3.31.0 toast and OS notification), bookmark, tag, add to a research project, and export.
+
+**Editor and command line.** The terminal editor is if-this-then-that: pick a trigger, add conditions, pick actions. Every control has a tooltip, and that tooltip links to its own Help topic, the same rule as the rest of the terminal UI. `rules` lists, shows, enables, disables, clones a system rule, reorders by priority, imports, and exports. Import and export are TOML and JSON.
+
+**Stored encrypted**, in the SQLCipher database, with the rest of the account data. An export file is plaintext because the user asked for a file. The database copy stays encrypted.
+
+```sql
+CREATE TABLE rules (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  origin TEXT NOT NULL CHECK (origin IN ('system','user')),
+  enabled INTEGER NOT NULL DEFAULT 1,
+  priority INTEGER NOT NULL DEFAULT 100,       -- lower runs first
+  system_key TEXT,                             -- stable id for a shipped rule; null on a user rule
+  cloned_from TEXT,                            -- system_key of the rule this clone came from
+  template_key TEXT,                           -- set when a 3.33.0 preset created this rule
+  trigger TEXT NOT NULL,                       -- canonical JSON: kind plus its fields
+  conditions TEXT NOT NULL,                    -- canonical JSON array
+  actions TEXT NOT NULL,                       -- canonical JSON array
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE UNIQUE INDEX rules_system_key ON rules(system_key) WHERE system_key IS NOT NULL;
+CREATE TABLE rule_firings (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  rule_id INTEGER NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
+  post_id TEXT,
+  source TEXT NOT NULL,                        -- site | node | later transcript sources
+  action TEXT NOT NULL,
+  outcome TEXT NOT NULL,                       -- fired | skipped | error
+  detail TEXT NOT NULL DEFAULT '',
+  fired_at TEXT NOT NULL
+);
+```
+
+A system row is not updated by the editor. Clone inserts a `user` row with `cloned_from` set. Disable, delete, and edit apply to user rows. Priority orders every enabled row, system and user, when a sync is evaluated. The audit table is the log of what fired.
+
+**What should move onto the engine.** 3.31.0 may ship its toasts before the engine exists. Once 3.32.0 exists, those notices become system rules whose action is notify, and the app stops raising them from a private path.
+
+- The app's own notices, including the status-line notices 3.31.0 replaces.
+- Sync-complete and sync-error notices.
+- The tray notices already listed in §7.14.10 (a pairing request, a new node enrolled, a certificate close to expiry, a revocation, a sync error) when that tray exists. They stay in 3.23.0 until then. This note does not move that stage. They become system rules rather than a second notifier.
+- Automatic tagging, if the app grows it. Nothing in the current plan tags posts by itself. A tagger should be a system rule the user can clone, not a private pass. The feed include/exclude rules in §6 stay a view compiler. Whether a feed later runs as an action on this engine is open (§8 Q15).
+- The alert presets in 3.33.0 are the first user-facing templates. They are not a second product.
+
+##### 3.33.0 Alert templates
+
+Presets on the 3.32.0 engine. There is no alert table, no alert runner, and no alert screen of its own. Each preset is a one-click rule the user can open and edit:
+
+- **Watch a user.** `@someone` posted. The notice names the author and links the post.
+- **Saved-search matches.** A saved search hit in the sync that just finished.
+- **Replies to me.** Someone replied to one of my posts.
+
+Evaluation is the engine's sync pass. Today that sync is Red Star. After peer and node sync (P9, 3.23.0 and later) the same rules run on those rows, and each firing records its source. A post fires at most once per rule. Notices are rate-limited. The toast and the log deep-link to the post in the terminal UI and carry the site URL.
+
+A saved search is a pinned query plus its filters, stored in the encrypted database, including order and limit. That storage is the search-history work on [draft PR #10](https://github.com/m3talsmith/acp-rs-scraper/pull/10). The minor for search history is deliberately unnumbered on that pull request.
+
+##### Dependencies
+
+- **3.31.0 before a notify action.** The engine can be built beside notifications, but a rule that notifies needs the toast, the OS notification, and the log.
+- **Search history ([draft PR #10](https://github.com/m3talsmith/acp-rs-scraper/pull/10)).** The saved-search trigger and the saved-search template need a saved or pinned search in the encrypted database (query, filters, order, and limit). That minor is unnumbered on #10.
+- **P9, 3.23.0 and later.** Node and peer sync are a later trigger source. Until they exist, rules run on the Red Star sync only, and `source` is the site.
+- **Post source ([draft PR #15](https://github.com/m3talsmith/acp-rs-scraper/pull/15)).** A source condition (Red Star, a YouTube transcript, later others) waits on the post-source columns in that pull request (`architecture/PLAN-4.0.md` on its branch). Until those columns exist, source conditions match Red Star only.
+
+##### Tests
+
+Unit tests for trigger, condition, and action matching, for system-rule immutability and clone, for priority, and for "new rows only" versus dry-run. A terminal test opens a template, edits it, and checks the tooltip Help link. A command-line test imports and exports TOML and JSON. Notification tests cover stacking, do-not-disturb, stderr, and plain text when colour is off. No test posts to the site or talks to a real notification daemon. The OS backend is an interface with a fake in tests.
 
 ---
 
@@ -1196,7 +1299,17 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
-13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap on the app, the archive, or the network (the site copy is capped at 4). Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0.
+13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap on the app, the archive, or the network (the site copy is capped at 4). Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0. **3.30.0** is the surprises minor on draft PR #16. **3.31.0** notifications, **3.32.0** the rule engine, and **3.33.0** alert templates follow it (§7.14.13) and do not renumber earlier stages.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later. **Confirmed 2026-10-19:** the server (`acp-rs`, `--serve`) is also its own install, and both the server and the relay stay available embedded in the app. That packaging waits for the alpha gate. No server or relay release is cut on this note.
     **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.29.0, §7.14.11). Until then, packaging stays unpublished.
+15. **Notifications, the rule engine, and alert templates (§7.14.13).** The order is 3.31.0, then 3.32.0, then 3.33.0. Alerts are templates on the engine. Dependencies stay as written: search history on draft PR #10 (unnumbered there), node and peer sync in P9 (3.23.0+), and post source on draft PR #15 for source conditions.
+    Still open:
+    - May the user disable a shipped system rule in place, or only by cloning it and disabling the clone? The shipped row stays read-only either way.
+    - What is the rate limit, and how long does "already fired for this post" last?
+    - Does a dry-run ever write, or is it preview only? Proposed: preview only.
+    - Is a saved search a pinned row in the #10 history table, or its own table that references that history?
+    - Do the feed rules in §6 eventually become actions on this engine, or do they stay a separate view compiler?
+    - How long is `rule_firings` kept, and does backup include it?
+    - Import: may an imported file contain a `system` origin, or only user rules? Proposed: user rules only, and `system_key` in a file is rejected.
+    - When the OS notification service refuses permission, is the toast and the log enough, and does the app say so once?
