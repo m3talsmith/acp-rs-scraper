@@ -319,6 +319,8 @@ pub enum Hit {
     Job,
     /// The status bar.
     Status,
+    /// The header's red star.
+    Logo,
 }
 
 /// Menu bar state.
@@ -463,6 +465,14 @@ pub struct App {
     pub color_mode: ColorMode,
     /// NO_COLOR was set when the terminal UI started.
     pub no_color: bool,
+    /// Progress through the star-burst sequence. Cleared while a text field has focus.
+    pub konami: crate::eggs::Konami,
+    /// A full-screen clip, when one is playing.
+    pub egg: Option<crate::eggs::EggPlay>,
+    /// Header-star presses toward the credits.
+    pub logo_taps: u8,
+    /// When the header star was last pressed.
+    pub logo_tap_at: Option<Instant>,
 }
 
 fn nick_label(q: &str) -> String {
@@ -506,6 +516,7 @@ impl App {
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None,
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
+            konami: crate::eggs::Konami::new(), egg: None, logo_taps: 0, logo_tap_at: None,
         };
         app.refresh_nicks();
         app.reload_marks();
@@ -1118,7 +1129,13 @@ impl App {
     /// Mutable [`App::view`].
     pub fn view_mut(&mut self) -> &mut BodyView { self.search.as_mut().unwrap_or(&mut self.base) }
     /// Replace the Body with the results of `f`.
+    ///
+    /// The exact cosmos phrase flashes a short starfield first. The results are already in place underneath it.
     pub fn run_search(&mut self, f: SearchFilter) {
+        if crate::eggs::is_cosmos_query(&f.keyword) { self.show_egg(crate::eggs::EggKind::Cosmos); }
+        self.show_search(f);
+    }
+    fn show_search(&mut self, f: SearchFilter) {
         if f.is_empty() { self.clear_search(); return; }
         match self.store.search(&f) {
             Ok(posts) => {
@@ -1339,11 +1356,6 @@ impl App {
         let h = match topic { Some(t) if !t.is_empty() => crate::tui::modals::HelpModal::topic(t), _ => crate::tui::modals::HelpModal::new() };
         self.modal = Some(Modal::Help(h));
     }
-    /// About, with the slogan as its header.
-    pub fn open_about(&mut self) {
-        self.close_menu();
-        self.modal = Some(Modal::About(crate::tui::modals::AboutModal));
-    }
     /// Write `[ui] color` when the TUI has a real preferences file (not a unit test).
     fn persist_color_mode(&mut self) {
         if self.themes_dir.is_none() { return; }
@@ -1507,6 +1519,43 @@ impl App {
     /// Advance / finish the animation.
     pub fn tick(&mut self, now: Instant) {
         if self.anim.is_some_and(|a| a.done(now)) { self.anim = None; }
+        if self.egg.as_ref().is_some_and(|e| e.finished(now)) { self.egg = None; }
+    }
+    /// A text field is taking keys, so the star burst must not start.
+    pub fn text_input_focused(&self) -> bool {
+        if self.filter_editing || self.menu.editing || self.theme_editor.is_some() { return true; }
+        match &self.modal {
+            Some(Modal::Login(_)) | Some(Modal::Palette(_)) => true,
+            Some(Modal::Search(s)) => SearchModal::text_index(s.focus).is_some(),
+            Some(Modal::Compose(c)) => matches!(c.focus, ComposeFocus::Title | ComposeFocus::Body | ComposeFocus::Attach | ComposeFocus::Complete),
+            Some(Modal::Research(r)) => matches!(r.focus, RField::Name | RField::Desc | RField::Note),
+            Some(Modal::Confirm(c)) if c.strict => true,
+            _ => false,
+        }
+    }
+    /// Start a clip. A clip already playing is left as it is.
+    pub fn show_egg(&mut self, kind: crate::eggs::EggKind) {
+        if self.egg.is_none() {
+            let mut play = crate::eggs::EggPlay::start(kind);
+            play.plain = colors_suppressed(self.color_mode, self.no_color);
+            self.egg = Some(play);
+        }
+    }
+    /// Drop the clip. The key or click that skips it is not used for anything else.
+    pub fn dismiss_egg(&mut self) { self.egg = None; }
+    /// One press on the header star.
+    pub fn tap_logo(&mut self, now: Instant) {
+        if crate::eggs::note_tap(&mut self.logo_taps, &mut self.logo_tap_at, now) { self.open_credits(); }
+    }
+    /// The public About page.
+    pub fn open_about(&mut self) {
+        self.close_menu();
+        self.modal = Some(Modal::About(AboutModal::page()));
+    }
+    /// The hidden credits.
+    pub fn open_credits(&mut self) {
+        self.close_menu();
+        self.modal = Some(Modal::About(AboutModal::credits()));
     }
     /// Animation progress (1.0 when none runs).
     pub fn anim_progress(&self, now: Instant) -> (Option<AnimKind>, f32) {

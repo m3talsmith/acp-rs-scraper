@@ -286,6 +286,11 @@ fn write_flags_are_headless_and_exclusive() {
     let help = Args::command().render_long_help().to_string();
     assert!(help.contains("--new-post") && help.contains("--dry-run"));
     assert!(!help.contains("--capture-reply"), "the capture flag stays in the architecture notes");
+    assert!(!help.contains("--roar"));
+    let (args, tui) = parse_with_mode(["x", "--roar"]).unwrap();
+    assert!(args.roar && !tui);
+    let (args, tui) = parse_with_mode(["x", "--roar", "--tui"]).unwrap();
+    assert!(args.roar && tui);
 }
 
 #[test]

@@ -5,6 +5,7 @@ use crate::tui::layout::contains;
 use crate::tui::modals::*;
 use crate::tui::state::{App, Effect, Focus, Hit, ViewMode};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use std::time::Instant;
 
 /// Handle one terminal event.
 pub fn on_event(app: &mut App, ev: Event) {
@@ -36,8 +37,15 @@ fn editor_key(app: &mut App, k: KeyEvent) {
 
 /// Handle a key.
 pub fn on_key(app: &mut App, k: KeyEvent) {
+    if app.egg.is_some() { app.dismiss_egg(); return; }
     let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
+    if k.code == KeyCode::Char('~') && !ctrl && !app.text_input_focused() { app.open_credits(); return; }
     if ctrl && k.code == KeyCode::Char('c') && app.modal.is_none() && app.theme_editor.is_none() { app.act(Action::Quit); return; }
+    if !app.text_input_focused() {
+        if app.konami.feed(k.code) { app.show_egg(crate::eggs::EggKind::Burst); return; }
+    } else {
+        app.konami.reset();
+    }
     if matches!(app.modal, Some(Modal::Job(_))) { app.refresh_job_modal(); }
     if let Some(m) = &mut app.modal {
         let r = m.state().on_key(k);
@@ -335,6 +343,12 @@ pub fn hit_at(app: &App, x: u16, y: u16) -> Option<Hit> {
 
 /// Handle a mouse event.
 pub fn on_mouse(app: &mut App, m: MouseEvent) {
+    if app.egg.is_some() {
+        if matches!(m.kind, MouseEventKind::Down(_) | MouseEventKind::ScrollDown | MouseEventKind::ScrollUp) {
+            app.dismiss_egg();
+        }
+        return;
+    }
     let hit = hit_at(app, m.column, m.row);
     let wheel = match m.kind { MouseEventKind::ScrollDown => 1, MouseEventKind::ScrollUp => -1, _ => 0 };
     if app.modal.is_some() {
@@ -396,6 +410,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::NickPane) => app.focus = Focus::Nicks,
         Some(Hit::ListPane | Hit::DetailPane) => app.focus = Focus::Body,
         Some(Hit::Status | Hit::Job) => { app.focus = Focus::Status; app.open_jobs(); }
+        Some(Hit::Logo) => app.tap_logo(Instant::now()),
         _ => {}
     }
 }

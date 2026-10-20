@@ -58,7 +58,7 @@ pub enum CommandId {
     Debug,
     /// Usage modal.
     Help,
-    /// Product name and slogan.
+    /// Product name, slogan, and a star. The credits stay hidden.
     About,
     /// Leave the TUI.
     Quit,
@@ -101,7 +101,7 @@ pub enum Action {
     Logout,
     /// Help modal.
     Help,
-    /// About modal.
+    /// About page.
     About,
     /// Toggle the log panel.
     ToggleLog,
