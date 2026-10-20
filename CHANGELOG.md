@@ -14,6 +14,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - A few surprises for the curious.
 - If you go looking, there is art in the dark of the tree.
 
+### Fixed
+
+- **Default theme download.** The first-run download and `--theme-init` fetch `themes/default.toml` from `m3talsmith/acp-rs-scraper`, the repository that holds the file. The old URL used `m3talsmith/acp-red-star`, which is not the repository, so the download failed. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
+
 ### Changed
 
 - **Menu bar categories.** The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, Debug, Help, About, and Quit. Scrape is pinned immediately left of Start Scanning, and its options stay on that control. Library opens Export, Import, Basket, List, and Maintain; those stay off the bar. Quit stays the last menu item. About stays beside Help. Discover says people, nodes, and rooms arrive with the network node. Search › Search the site runs `--site-search` with the Search query. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.

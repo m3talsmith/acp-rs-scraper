@@ -193,7 +193,7 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   installed by the packages, nothing built in.
 - **First run: downloading the default.** When `~/.acp/themes` is empty the TUI starts at once with
   the terminal's colours and downloads `default.toml` in the background from
-  `https://raw.githubusercontent.com/m3talsmith/acp-red-star/v<version>/themes/default.toml`
+  `https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`
   (`ACP_THEME_URL` replaces everything before `default.toml`, for tests). The download uses the
   program's HTTP client with an empty cookie jar (no cookies), gives up after 3 seconds, refuses
   more than 64 KiB, must parse as a theme file, and is written atomically with mode 0600, never
