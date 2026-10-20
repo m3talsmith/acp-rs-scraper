@@ -152,7 +152,7 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 28 | Delete post | hook `delete-post {id}` after `confirm()` (`actions.delete`) | C | ✗ | Post menu › Delete, typed confirmation. A tombstoned post stays in the list with a tombstone icon and its body still readable (§7.5). |
 | 29 | Up/down vote | hook `vote {id, state:"1"\|"0"\|"-1"}`. The post has `score`, `vote` and `upvote_percentage`. | C | ✗ | `+` / `-` keys and a score column |
 | 30 | Bookmark | hook `bookmark {id, state}` (current), or the click `toggle-bookmark {id}` (what we use) | C | ✅ | Existing; move to the new event |
-| 31 | Subscribe to a thread | hook `subscribe {id, state:"1"\|"0"}` (field `subscribed`) | C | ✗ | Post menu › Subscribe |
+| 31 | Subscribe to a thread | hook `subscribe {id, state:"1"\|"0"}` (field `subscribed`) | C (JS) / missing live frame | ◐ | Post menu › Subscribe and `--subscribe` build the hook. The send stays behind `CAPTURE_BLOCK`. `tests/fixtures/site/subscribe.json` lists the capture still needed |
 | 32 | Share / copy link | Client-side only (`navigator.share` / clipboard) | C | ◐ | `y` copies the URL (OSC 52) |
 | 33 | Report post | `pushEventTo('#js-reportPostActions', 'show-actions', {post_id, thread_id})`, then form `js-reportPostActions-form` `save` (fields loaded on open; probably `form[reason]`) | C/U | ✗ | Post menu › Report, then a reason picker |
 | 34 | Report user | `js-reportUserActions-form` (cid 3), `save`, `form[reason]` ∈ {constitution, illegal_obscene, spam, uncomradely} | C | ✗ | Profile › Report |
