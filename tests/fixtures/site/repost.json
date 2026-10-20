@@ -1,0 +1,12 @@
+{
+  "capture_status": "missing",
+  "source": "architecture/PLAN-3.0-CLIENT.md row 26. The route /rs/post/new?repost={id} is from the JS survey. The form was not captured.",
+  "payload": null,
+  "route": "/rs/post/new?repost={id}",
+  "needed": [
+    "The LiveView join for /rs/post/new?repost={id}, including the form id, phx-submit, phx-change, and cid",
+    "How quoted_post is encoded in the body",
+    "The validate and save fields, and whether a title is required",
+    "The phx_reply and the id of the new post"
+  ]
+}

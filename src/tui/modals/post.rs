@@ -10,6 +10,8 @@ pub enum PostAction {
     Reposts,
     /// `/rs/post/{thread}/{id}/edits`, shown as a diff.
     Edits,
+    /// Prepare a repost. The form is not built, and nothing is sent.
+    Repost,
 }
 
 impl PostAction {
@@ -18,6 +20,7 @@ impl PostAction {
         match self {
             PostAction::Reposts => "View reposts",
             PostAction::Edits => "View edits",
+            PostAction::Repost => "Repost",
         }
     }
 }
@@ -38,7 +41,7 @@ pub struct PostMenu {
 impl PostMenu {
     /// Menu for `post_id` in thread `thread_id`.
     pub fn new(post_id: &str, thread_id: &str) -> Self {
-        PostMenu { post_id: post_id.into(), thread_id: thread_id.into(), items: vec![PostAction::Reposts, PostAction::Edits], cursor: 0 }
+        PostMenu { post_id: post_id.into(), thread_id: thread_id.into(), items: vec![PostAction::Reposts, PostAction::Edits, PostAction::Repost], cursor: 0 }
     }
     /// The selected action.
     pub fn action(&self) -> PostAction { self.items[self.cursor.min(self.items.len().saturating_sub(1))] }
