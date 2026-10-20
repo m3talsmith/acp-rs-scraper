@@ -23,4 +23,23 @@ Peek at `contact-sheet.jpg` for the desktop set before you pick.
 
 The poster variants are made with code, not painted: a little numpy, some Gaussian blur, and a lot of red. Nebula and eclipse are painted.
 
+## Poster series
+
+ACP Red Star wallpapers in the styles of Soviet, Korean, Chinese, and Vietnamese poster art.
+These come in **3440×1440** (ultrawide 21:9) and **2560×1440** and **1920×1080** (16:9) only. There is no **5160×2160**.
+Peek at `poster-contact-sheet.jpg`.
+
+| variant | vibe |
+|---|---|
+| `poster-ussr-constructivist/` | Red wedge, black planet, hard diagonals. El Lissitzky would recognise the move. |
+| `poster-ussr-cosmos/` | Space-age: a red planet, gold orbits, and a rocket climbing past the star. |
+| `poster-ussr-orbit/` | Klutsis searchlight beams, a red sun, a little satellite, smokestacks below. |
+| `poster-dprk-dawn/` | Painted boulevard to the sunrise, silk banners overhead, rays everywhere. |
+| `poster-dprk-banners/` | A sea of red flags under a pink-gold sky, ribbons sweeping in from the corners. |
+| `poster-china-sunburst/` | Red and gold rays, a glowing star, sunflowers turned to face it. |
+| `poster-china-woodcut/` | Carved-line linocut: hills, furrows, wheat, a red sun. Two inks and a knife. |
+| `poster-china-satellite/` | Crimson cosmos, gold orbit rings, a faceted satellite, the earth rising. |
+| `poster-vietnam-silkscreen/` | Flat silkscreen: teal sky, yellow sun, factory smoke, palms, off-register inks. |
+| `poster-vietnam-harvest/` | Karst peaks, rice terraces, planters in conical hats, a red sky. |
+
 Art and code by [@m3talsmith](https://github.com/m3talsmith). For the working class. ★
