@@ -6,6 +6,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- A few surprises for the curious.
+
 ### Documentation
 
 - **Draft GitHub Releases.** A version that is not on `main` is a draft release, with the notes from its changelog section and no attached files. The maintainer publishes the draft after that version is merged. Releases for versions already on `main` (2.16.0 and earlier) are left alone. The post-commit hook still only creates the git tag. Nothing in CI publishes a release.

@@ -1,6 +1,7 @@
 //! Modal rendering: dims the layout, then draws the modal with a small margin.
 
 use crate::branding::{slogan_style, SLOGAN, SLOGAN_COLS};
+use crate::cli::colors_suppressed;
 use crate::config::TUI_SUBTITLE;
 use crate::tui::layout::{modal_rect, wrap};
 use crate::tui::modals::*;
@@ -211,6 +212,32 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Cancel".into(), "Publish".into()], focus);
 }
 
+fn draw_about(f: &mut Frame, app: &mut App, area: Rect, m: &AboutModal, t: &Theme) {
+    let lines = if m.credits { crate::eggs::credits_lines() } else { crate::eggs::about_lines() };
+    let h = 18.min(area.height.saturating_sub(2)).max(8);
+    let w = 76.max(SLOGAN_COLS.saturating_add(8));
+    let r = modal_rect(area, w, h);
+    f.render_widget(Clear, r);
+    let title = if m.credits {
+        Line::from(format!(" {} ", m.title()))
+    } else {
+        Line::from(Span::styled(format!(" {} ", m.title()), slogan_style(app.color_mode, app.no_color, false)))
+    };
+    let b = boxed(&t.dialog()).title(title);
+    let inner = b.inner(r);
+    f.render_widget(b, r);
+    let body_h = inner.height.saturating_sub(1);
+    let start = m.scroll.min(lines.len().saturating_sub(body_h as usize));
+    for (i, line) in lines.iter().skip(start).take(body_h as usize).enumerate() {
+        let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+        let star = !m.credits && line.contains('★');
+        let st = if star && !colors_suppressed(app.color_mode, app.no_color) { t.accent_bold() } else { t.plain() };
+        f.render_widget(Paragraph::new(Span::styled(line.clone(), st)), rr);
+        if star { app.hits.push((rr, Hit::Modal(ModalHit::Item(0)))); }
+    }
+    buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
+}
+
 /// Draw the open modal over `area`, or nothing when none is open.
 pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
     let theme = app.theme;
@@ -410,22 +437,9 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
             }
         }
-        Modal::About(m) => {
-            let r = modal_rect(area, SLOGAN_COLS.saturating_add(8).max(52), 8);
-            f.render_widget(Clear, r);
-            let title = Line::from(Span::styled(format!(" {} ", m.title()), slogan_style(app.color_mode, app.no_color, false)));
-            let b = boxed(&t.dialog()).title(title);
-            let inner = b.inner(r);
-            f.render_widget(b, r);
-            let body = vec![
-                Line::styled(TUI_SUBTITLE, t.bold()),
-                Line::styled(format!("v{}", env!("CARGO_PKG_VERSION")), t.muted()),
-            ];
-            f.render_widget(Paragraph::new(body), Rect { height: inner.height.saturating_sub(2), ..inner });
-            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
-        }
         Modal::Job(m) => draw_job(f, app, area, m, &t),
         Modal::Compose(m) => draw_compose(f, app, area, m, &t),
+        Modal::About(m) => draw_about(f, app, area, m, &t),
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

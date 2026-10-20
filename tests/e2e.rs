@@ -404,6 +404,11 @@ async fn theme_server(w: &mut E2e, mode: String) {
 #[given(expr = "the environment has {string} set to {string}")]
 async fn env_set(w: &mut E2e, k: String, v: String) { w.env.push((k, v)); }
 
+#[when(expr = "I run {string} with {string}")]
+async fn run_with(w: &mut E2e, flag: String, value: String) {
+    w.run_argv(&[flag, value]).await;
+}
+
 #[then(expr = "the theme server was asked {int} times")]
 async fn theme_gets(w: &mut E2e, n: usize) { assert_eq!(w.mock().inner.lock().unwrap().theme_gets, n); }
 

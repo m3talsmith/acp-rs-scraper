@@ -276,6 +276,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | 3.22.0: Password change / re-key | **3.22.0** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. |
 | P9: Decentralization | 3.23.0 → 3.27.0 | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. Password change / re-key is 3.22.0, before this phase. It stays inside 3.x (§7.14.10). |
 | P10: Review and Dart SDK | 3.28.0 → 3.29.0 | Draft review links, comments and suggestions (3.28.0). `acp_rs_node_ffi` and the Dart SDK (3.29.0). See §7.14. |
+| 3.30.0: A few surprises | **3.30.0** | One minor after 3.29.0. A few surprises for the curious. The notes are in `docs/.secrets/EASTER_EGGS.md`. Not in the README, usage, or Help. 3.6.0–3.9.0 stay unassigned, and nothing from 3.10.0 through 3.29.0 moves. |
 
 ### 4.1 P0 guided capture procedure (resolved 2026-10-18)
 
@@ -697,6 +698,7 @@ cookies or tokens. Peers only carry signed *intents*.
 | 3.27.0 | Opt-in feed and research sharing |
 | 3.28.0 | Draft review: links, comments, suggestions (§7.14.8) |
 | 3.29.0 | `acp_rs_node_ffi` and the first Dart SDK release (§7.14.7) |
+| **3.30.0** | A few surprises for the curious. Noted in `docs/.secrets/EASTER_EGGS.md`, not in the README, usage, or Help. Added 2026-10-20 after 3.29.0; earlier stages are not renumbered. |
 
 ### 7.12 Privacy and security risks
 - A node reveals its IP to peers, and gossip reveals who has which posts.
@@ -1077,6 +1079,7 @@ They extend §7.13. Where this section and an earlier section disagree, **this s
 - **3.23.0** adds, beyond what 3.0.0 already shipped: the relay crate and `acp-rs-relay`, mDNS on by default with Nearby nodes, the pairing code and `--join`, peer management, the cross-platform service install, the node roles, authorizer and node certificates, and OS keyring unlock for the daemon.
 - **3.28.0:** draft review links, comments and suggestions.
 - **3.29.0:** `acp_rs_node_ffi` and the first Dart SDK release, followed by Dart-only releases.
+- **3.30.0 (2026-10-20):** one minor after 3.29.0. A few surprises for the curious. The notes are in `docs/.secrets/EASTER_EGGS.md`. 3.6.0–3.9.0 stay unassigned. Nothing from 3.10.0 through 3.29.0, including the locked 3.22.0 re-key, moves.
 - **Trays and version display** (§7.14.10): the version display is complete from the first release that has the node. `acp-rs-tray` ships with 3.23.0 together with the service install. The TUI header already shows `v<version>` from 3.0.0.
 
 #### 7.14.10 Version display and desktop trays
@@ -1196,7 +1199,7 @@ The repository already packages the app for Debian (`debian/`), Arch (`packaging
     - Review links: view-only and comment-and-suggest only, or also a per-link expiry by default?
     - How are the Dart SDK's prebuilt binaries built and distributed (a CI matrix, and pub.dev with native assets)?
     - Does a libp2p-only user with no publisher ever get a way to post to the site (for example by pairing with a friend's publisher)? Proposed answer: no.
-13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap on the app, the archive, or the network (the site copy is capped at 4). Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0.
+13. **Versions (§7.14.10). Revised 2026-10-19.** 3.0.0 is the major release: identity, encryption at rest, and backup/restore. 3.1.0 is the job-details window. 3.2.0 is the shared core. 3.3.0 is local node identity. The plan stays in 3.x. The write core is 3.4.0. Attachments are 3.5.0, confirmed: `.jpeg` is jpg, `.tif` is tiff, and there is no count cap and no size cap on the app, the archive, or the network (the site copy is capped at 4). Interactions were numbered 3.5.0–3.9.0 and have not started; that shift is not applied. Password change / re-key stays 3.22.0. The network node and trays are 3.23.0 and later. Review is 3.28.0. The Dart SDK is 3.29.0. There is no 4.0. **2026-10-20:** 3.30.0 follows 3.29.0 (a few surprises for the curious; `docs/.secrets/EASTER_EGGS.md`). Earlier stages are not renumbered.
     The version is shown everywhere in the UI, and the trays cover KDE, Hyprland, GNOME, Windows 11 and macOS.
 14. **Relay packages (§7.14.11).** Decided: `acp-rs-relay` ships as its own package for Debian, Arch, Fedora, macOS and Windows 11 and later. **Confirmed 2026-10-19:** the server (`acp-rs`, `--serve`) is also its own install, and both the server and the relay stay available embedded in the app. That packaging waits for the alpha gate. No server or relay release is cut on this note.
     **Publishing decided 2026-10-19.** APT, COPR, the AUR, and the macOS Homebrew formula are published only once the full set exists: decentralized publishing, replies, review, the crates, and the Dart package (3.4.0 through 3.29.0, §7.14.11). Until then, packaging stays unpublished.
