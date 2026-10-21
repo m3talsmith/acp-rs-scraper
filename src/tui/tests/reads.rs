@@ -110,6 +110,21 @@ fn eb_replies_checkbox_is_a_flag() {
 }
 
 #[test]
+fn live_follows_the_open_thread_without_a_new_key() {
+    let mut a = app();
+    a.toggle_nick(nick_idx(&a, "alice"));
+    a.act(Action::OpenLive);
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1], "--live");
+    assert!(argv[2].starts_with("ALICE"), "{argv:?}");
+    assert!(!argv.iter().any(|s| s.starts_with("ctrl-")));
+    a.effects.clear();
+    a.act(Action::OpenSiteNotifications);
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--site-notifications"]);
+}
+
+#[test]
 fn explore_latest_is_its_own_flag() {
     let mut a = app();
     a.menu.menu.set_check(CommandId::View, "explore_latest", true);

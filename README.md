@@ -23,9 +23,13 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.33.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.35.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
 **3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.32.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
+
+**3.34.0** follows a thread or the home feed on the LiveView socket. `--live THREAD` and `--live-feed` store a new reply, patch an update, drop a delete, and raise a new-posts chip. `refresh-posts` runs at most once every 30 seconds. Each insert is a Sync notice, and the rule engine sees it. View › Live and View › Live feed open the same watches. There is no new key.
+
+**3.35.0** reads the site Notifications pane. `--site-notifications` and View › Site notifications store `/rs/notifications`. Opening it may mark items read. Each new item is a Sync notice. This is not View › Notifications, which is the local list.
 
 **3.33.0** edits a reply. `--edit REPLY --body TEXT` sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel. `--dry-run` prints the frames and does not connect. The one-hour window still applies. A top-level post edit, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.
 
@@ -118,6 +122,18 @@ Reading:
 
       --edits <THREAD/POST>
           Edit history (`/rs/post/THREAD/POST/edits`). THREAD/POST, or a post id already stored. The post menu (`p`) › View edits does this
+
+      --live <THREAD>
+          Follow a thread on the LiveView socket. New replies are stored. A refresh chip is a Sync notice. Rules run on each inserted reply. View › Live opens the thread of the open post. No new key
+
+      --live-feed
+          Follow the home feed (`/rs`) on the LiveView socket. `feed:refresh` shows new posts. View › Live feed
+
+      --live-for <SECS>
+          Seconds to watch a live socket. Used with `--live`, `--live-feed`, or `--site-notifications`. Default 1. `refresh-posts` still waits 30 seconds between polls
+
+      --site-notifications
+          Site Notifications pane (`/rs/notifications`), read-only. Opening it may mark items read. Each new item is a Sync notice. View › Site notifications. This is not View › Notifications
 
 Writing:
       --new-post <TITLE>
@@ -568,6 +584,9 @@ Examples:
   acp-red-star --sort-thread THREAD --thread-sort top
   acp-red-star --reposts POST
   acp-red-star --edits THREAD/POST
+  acp-red-star --live THREAD
+  acp-red-star --live-feed
+  acp-red-star --site-notifications
   acp-red-star --identity-init
   acp-red-star --show-phrase
   acp-red-star --acp-id
@@ -589,7 +608,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.33.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.35.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |

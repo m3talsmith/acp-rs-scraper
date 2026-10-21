@@ -379,6 +379,28 @@ pub async fn run() -> Result<()> {
         info!("== edits {thread}/{post}: {n} versions");
         return Ok(());
     }
+    let live_wait = std::time::Duration::from_secs(args.live_for.unwrap_or(1));
+    if args.live.is_none() && !args.live_feed && !args.site_notifications && args.live_for.is_some() {
+        bail!("--live-for needs --live, --live-feed, or --site-notifications");
+    }
+    if let Some(id) = &args.live {
+        let lines = crate::livefeed::watch_thread(&http, &jar, id, live_wait).await?;
+        for line in &lines { println!("{line}"); }
+        info!("== live {id}: {} events", lines.len());
+        return Ok(());
+    }
+    if args.live_feed {
+        let lines = crate::livefeed::watch_feed(&http, &jar, live_wait).await?;
+        for line in &lines { println!("{line}"); }
+        info!("== live feed: {} events", lines.len());
+        return Ok(());
+    }
+    if args.site_notifications {
+        let lines = crate::livefeed::read_site_notifications(&http, &jar, live_wait).await?;
+        for line in &lines { println!("{line}"); }
+        info!("== site notifications: {} lines", lines.len());
+        return Ok(());
+    }
     if let Some(id) = &args.sort_thread {
         let order = args.thread_sort.as_deref().unwrap_or("oldest");
         let n = read_sorted_thread(&http, &jar, id, order).await?;

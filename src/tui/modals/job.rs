@@ -135,6 +135,9 @@ pub fn job_source(kind: JobKind, cmd: &str) -> String {
     if has("--restore") { return "Restore".into(); }
     if has("--eb") { return "View › Executive Board".into(); }
     if has("--explore") || has("--explore-latest") { return "Explore".into(); }
+    if has("--live") { return "View › Live".into(); }
+    if has("--live-feed") { return "View › Live feed".into(); }
+    if has("--site-notifications") { return "View › Site notifications".into(); }
     if has("--top") { return "Site Top".into(); }
     if has("--sync") || has("--sync-bookmarks") { return "Sync".into(); }
     if has("--research") || has("--research-add") || has("--research-create") { return "Research".into(); }

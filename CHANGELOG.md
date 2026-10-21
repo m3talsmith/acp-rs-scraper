@@ -6,6 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.0] - 2026-10-21
+
+### Added
+
+- **Site notifications.** `--site-notifications` and View › Site notifications read `/rs/notifications`. Items are stored. Opening the page may mark them read when the socket sends `clear-app-badge`. Each new item is a Sync notice. A stored post is handed to the rule engine. Nothing is sent as a write.
+
+## [3.34.0] - 2026-10-21
+
+### Added
+
+- **Live updates.** `--live THREAD` follows that thread on the LiveView socket. `--live-feed` follows the home feed. A new reply is stored. An update patches the row. A delete removes it. A refresh raises a new-posts chip. `refresh-posts` runs at most once every 30 seconds. Each insert is a Sync notice and is handed to the rule engine. View › Live and View › Live feed open the same watches. There is no new key.
+
 ## [3.33.0] - 2026-10-21
 
 ### Added

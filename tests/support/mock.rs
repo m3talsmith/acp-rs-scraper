@@ -189,6 +189,11 @@ fn bookmark_feed(m: &Mock) -> Vec<Value> {
     v
 }
 
+async fn notifications_page(h: HeaderMap) -> Response {
+    if !logged_in(&h) { return to_auth("/rs/notifications"); }
+    html(lv_page(&notifications_html()))
+}
+
 async fn bookmarks_page(State(m): State<Mock>, h: HeaderMap) -> Response {
     if !logged_in(&h) { return to_auth("/rs/bookmarks"); }
     let props = page_of(&bookmark_feed(&m), 0);
@@ -327,6 +332,31 @@ fn reply(msg: &Value, response: Value) -> Message {
     Message::Text(json!([msg[0], msg[1], msg[2], "phx_reply", {"status": "ok", "response": response}]).to_string().into())
 }
 
+fn diff_events(msg: &Value, events: Value) -> Message {
+    Message::Text(json!([msg[0], Value::Null, msg[2], "diff", {"e": events}]).to_string().into())
+}
+
+fn home_feed(url: &str) -> bool {
+    let path = url.split('?').next().unwrap_or(url).trim_end_matches('/');
+    path.ends_with("/rs") || path.ends_with("/rs/latest")
+}
+
+fn live_insert() -> Value {
+    json!({
+        "id": "LIVE1",
+        "thread_id": "A1",
+        "author": {"username": "bob", "user_id": "u-bob"},
+        "title": "",
+        "body": body("a reply arrived live"),
+        "inserted_at": "2026-10-21T20:00:00Z"
+    })
+}
+
+fn notifications_html() -> String {
+    r#"<span class="js-notification-count">1</span>
+<div class="js-notification" data-id="N1" data-thread="A1" data-kind="reply" data-actor="ada" data-post="A1">ada replied on the strike thread</div>"#.into()
+}
+
 async fn lv_conn(m: Mock, mut ws: WebSocket) {
     let mut c = Conn { nick: None, replies: false, auth: false, bookmarks: false, edit_id: None, edit_thread: None };
     while let Some(Ok(Message::Text(t))) = ws.next().await {
@@ -347,7 +377,15 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                     c.bookmarks = url.contains("/rs/bookmarks");
                     c.nick = url.split("/rs/@").nth(1).map(|r| r.split(['?', '/']).next().unwrap_or("").to_string());
                     let s = if c.auth { r#"<form phx-submit="send-login-email" phx-target="1"><input type="email" name="user[email]"></form>"# } else { "<div></div>" };
-                    vec![reply(&msg, json!({"rendered": {"s": [s]}}))]
+                    let mut outs = vec![reply(&msg, json!({"rendered": {"s": [s]}}))];
+                    if url.contains("/rs/post/") {
+                        outs.push(diff_events(&msg, json!([["thread:insert", live_insert()]])));
+                    } else if home_feed(url) {
+                        outs.push(diff_events(&msg, json!([["feed:refresh", {}], ["feed:delete", {"id": "GONE1"}]])));
+                    } else if url.contains("/rs/notifications") {
+                        outs.push(diff_events(&msg, json!([["clear-app-badge", {}]])));
+                    }
+                    outs
                 }
             }
             "event" => match (payload["type"].as_str(), payload["event"].as_str()) {
@@ -392,6 +430,14 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                     let items = if c.bookmarks { bookmark_feed(&m) } else { feed(&m.base, c.nick.as_deref(), c.replies) };
                     vec![reply(&msg, json!({"diff": {"r": page_of(&items, from)}}))]
                 }
+                (Some("hook"), Some("refresh-posts")) => {
+                    let ids = payload["value"]["ids"].as_array().map(|a| a.iter().any(|v| v.as_str() == Some("A1"))).unwrap_or(false);
+                    if ids {
+                        vec![reply(&msg, json!({"diff": {"e": [["thread:update-post", {"id": "A1", "score": 9}]]}}))]
+                    } else {
+                        vec![reply(&msg, json!({"diff": {}}))]
+                    }
+                }
                 (Some("hook"), Some("bookmark")) => {
                     let id = payload["value"]["id"].as_str().unwrap_or("").to_string();
                     let state = payload["value"]["state"].as_str().unwrap_or("");
@@ -424,6 +470,7 @@ impl Mock {
             .route("/rs", get(site_feed))
             .route("/rs/latest", get(site_feed))
             .route("/rs/bookmarks", get(bookmarks_page))
+            .route("/rs/notifications", get(notifications_page))
             .route("/rs/{at}", get(profile))
             .route("/rs/post/{id}", get(thread))
             .route("/auth", get(auth_page))

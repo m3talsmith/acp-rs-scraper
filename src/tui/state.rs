@@ -939,6 +939,34 @@ impl App {
             Err(e) => self.error("Executive Board", &e),
         }
     }
+    /// View › Live. The open post's thread. No new key.
+    pub fn open_live(&mut self) {
+        let Some(id) = self.current_post_id() else {
+            self.push_status("Live follows the open post. Open a thread first.");
+            return;
+        };
+        let thread = self.top().map(|f| f.post.clone())
+            .or_else(|| self.view().posts.iter().find(|p| p.post_id == id).cloned());
+        let thread_id = thread.map(|p| if p.parent_post_id.is_empty() { p.post_id } else { p.parent_post_id }).unwrap_or(id);
+        match self.menu.menu.live_argv(&thread_id) {
+            Ok(argv) => self.start_online_job(JobKind::Read, argv),
+            Err(e) => self.error("Live", &e),
+        }
+    }
+    /// View › Live feed.
+    pub fn open_live_feed(&mut self) {
+        match self.menu.menu.live_feed_argv() {
+            Ok(argv) => self.start_online_job(JobKind::Read, argv),
+            Err(e) => self.error("Live feed", &e),
+        }
+    }
+    /// View › Site notifications. Read-only.
+    pub fn open_site_notifications(&mut self) {
+        match self.menu.menu.site_notifications_argv() {
+            Ok(argv) => self.start_online_job(JobKind::Read, argv),
+            Err(e) => self.error("Site notifications", &e),
+        }
+    }
     /// The Explore row / View › Explore. Latest follows the View checkbox.
     pub fn open_explore(&mut self) {
         let latest = self.menu.menu.check(crate::tui::commands::CommandId::View, "explore_latest");
@@ -2155,6 +2183,9 @@ impl App {
             Action::OpenTop => self.open_top(),
             Action::OpenEb => self.open_eb(),
             Action::OpenExplore => self.open_explore(),
+            Action::OpenLive => self.open_live(),
+            Action::OpenLiveFeed => self.open_live_feed(),
+            Action::OpenSiteNotifications => self.open_site_notifications(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }

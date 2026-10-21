@@ -65,6 +65,8 @@ Update 2026-10-21 (interaction audit): **3.37.0** follows 3.36.0. Vote, subscrib
 
 Update 2026-10-21 (reply edit): crate **3.33.0** sends a reply-body edit. Validate, then save, once. The open is the captured redirect join to `/rs/post/{id}/edit`. The only field is `form[body_input]`. A top-level post edit, vote, subscribe, delete, and repost stay prepared, gated. The site does not support changing attachments on an edit; that is not prepared, gated. This follows crate 3.32.0 and does not renumber earlier releases.
 
+Update 2026-10-21 (live): crate **3.34.0** follows the open thread or the home feed on the LiveView socket. `thread:insert` stores a reply, `thread:update-post` patches a row, `feed:delete` removes one, and `feed:refresh` / `trending-*` raise a new-posts chip. `refresh-posts` runs at most once every 30 seconds. Each insert is a Sync notice and is handed to the rule engine with source `live`. Crate **3.35.0** reads `/rs/notifications` and may mark items read when the socket sends `clear-app-badge`. New items are Sync notices. A stored post is handed to the rules with source `site-notification`. These are Red Star capabilities `live` and `site_notifications`. View › Live, View › Live feed, and View › Site notifications open them. Action ids, for when the keymap plan lands: `view.live`, `view.live_feed`, `view.site_notifications`. No new key. The plan-stage digits 3.10.0–3.11.0 are not crate versions. Historical paragraphs above that say 3.34.0 and 3.35.0 are the whole-site scrape and text publish as plan stages; those shipped as crate 3.30.0 and 3.31.0. Unmerged interaction work also uses numbers through 3.39.0, and the unmerged Spaces list uses 3.34.0. Whichever merges first keeps the number.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -145,11 +147,11 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 12 | Bookmarks list | `/rs/bookmarks` | C | ✅ | Existing |
 | 13 | Reposts of a post | `/rs/post/{id}/reposts` returns a `forum/Feed` | C | ✗ | Post menu › View reposts |
 | 14 | Edit history | `/rs/post/{thread}/{id}/edits` with a `forum/Edits` component (`edits`, `post`) | C | ✗ | Post menu › View edits, as a diff |
-| 15 | Notifications | `/rs/notifications` (`ForumNotificationsList` hook; items `.js-notification` with `data-thread`/`data-id`). The header shows an unread count. `clear-app-badge` is pushed. | I/U | ✗ | Notifications pane (bell in header) |
+| 15 | Notifications | `/rs/notifications` (`ForumNotificationsList` hook; items `.js-notification` with `data-thread`/`data-id`). The header shows an unread count. `clear-app-badge` is pushed. | I/U | ✅ read | Site pane is crate 3.35.0 (`--site-notifications`, View › Site notifications). Opening may mark items read. Local notices stay View › Notifications. |
 | 16 | Show more (truncated) | hook `show-more {id}` / thread page | C | ✅ (refetch) | Existing |
 | 17 | Rules page | `/rs/rules` (static) | C | ✗ | Help › Forum rules |
 | 18 | Sustainer page | `/rs/sustainer` (list + identicons) | C | ✗ | Low priority, read-only |
-| 19 | Live updates | Pushed events `thread:insert`, `thread:update-post`, `feed:delete`, `feed:refresh`, `trending-current`, `trending-latest`. The client polls `refresh-posts {ids}` for visible posts. | C | ✗ | Live badge; new replies appear in place |
+| 19 | Live updates | Pushed events `thread:insert`, `thread:update-post`, `feed:delete`, `feed:refresh`, `trending-current`, `trending-latest`. The client polls `refresh-posts {ids}` for visible posts. | C | ✅ | Crate 3.34.0. `--live` / `--live-feed`. View › Live and View › Live feed. New replies are stored. A refresh is a new-posts chip. |
 | 20 | View counting | hook `view-post {dom_id}` (`trackPostViews`) | C | ✗ (on purpose) | Off by default. **Open question.** |
 
 ### 1b. Writing and interacting
@@ -304,7 +306,7 @@ Crate versions after 3.5.0 are the sequence in [CHANGELOG.md](../CHANGELOG.md), 
 | P2: Write core | **3.4.0** | `src/site` layer, safety layer, Markdown→ProseMirror, compose **New post** + **Reply** (incl. reply-to-comment, quote, mention/tag completion). Attachments are 3.5.0. |
 | 3.5.0: Attachments | **3.5.0** | Local media and pdf files on New post and Reply. Confirmed 2026-10-19: `.jpeg` is accepted as jpg and `.tif` as tiff; no count cap and no size cap on the app, the archive, or the network. The site copy cap of 4 is crate 3.10.0. The upload of that site copy is crate 3.32.0. |
 | P3: Interactions | **3.33.0** reply edit; the rest prepared, gated | A reply edit sends validate, then save, once. Top-level post edits (title-only and body-only), vote, subscribe, delete, and repost stay prepared, gated until their captures arrive. The site does not support changing attachments on an edit. The stubs were recorded in crate 3.27.0. Reply edit is usable in 3.33.0. A deleted post shows a tombstone icon (🪦, or `[RIP]` when the terminal cannot draw that glyph) and the retained body stays openable (§6.6, §7.5). |
-| P4: Live | plan 3.10.0–3.11.0, not shipped | Live updates; Notifications pane. Those digits are plan stages. Crate 3.10.0 is the site-copy cap. |
+| P4: Live | **3.34.0** live updates; **3.35.0** site Notifications pane | Live updates follow the open thread or the home feed. The site pane is read-only. Plan stages were 3.10.0–3.11.0. Crate 3.10.0 is the site-copy cap. |
 | P5: Account | plan 3.12.0–3.15.0, not shipped | Edit profile, Site settings, Report post, Report user. Those digits are plan stages. |
 | P6: Outbox | plan 3.16.0, not shipped | Offline drafts and queue, plus **local-first posts, drafts and `post_versions`** (§7.14.8). Crate 3.16.0 is the restyled `red-star` theme. |
 | P7: Feeds | plan 3.17.0–3.20.0, not shipped | Feeds core + view; editor + add-to-feed modal; export; share/import (§6). Those digits are plan stages. |

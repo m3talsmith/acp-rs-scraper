@@ -440,6 +440,10 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--thread-sort ORDER` | With `--sort-thread`: `oldest` or `top`. Newest is the page default and sends no hook. |
 | `--reposts ID` | Reposts of that post (`/rs/post/ID/reposts`). `p` › View reposts does the same. |
 | `--edits THREAD/POST` | Edit history (`/rs/post/THREAD/POST/edits`). A post id already in the database works too (the thread is its parent, or itself when it is a root). `p` › View edits shows each version as a line diff against the previous one. |
+| `--live THREAD` | Follow that thread on the LiveView socket. A new reply is stored. An update patches the row. View › Live does this for the open post. No new key. |
+| `--live-feed` | Follow the home feed (`/rs`). A refresh raises a new-posts chip. View › Live feed. |
+| `--live-for SECS` | How long to watch. Default 1 second. Used with `--live`, `--live-feed`, or `--site-notifications`. `refresh-posts` still waits 30 seconds between polls. |
+| `--site-notifications` | Read `/rs/notifications`. Items are stored. Opening the page may mark them read. Each new item is a Sync notice. View › Site notifications. Not View › Notifications. |
 
 ### Scraping
 

@@ -87,6 +87,12 @@ acp-red-star --reposts POST
   \
 acp-red-star --edits THREAD/POST
   \
+acp-red-star --live THREAD
+  \
+acp-red-star --live-feed
+  \
+acp-red-star --site-notifications
+  \
 acp-red-star --identity-init
   \
 acp-red-star --show-phrase
@@ -114,7 +120,7 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost"]).multiple(false).conflicts_with_all([
     "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
 ])))]
-#[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
+#[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
     "nick", "nicks", "scrape", "scrape_all", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
     "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
@@ -166,6 +172,18 @@ pub struct Args {
     /// Edit history (`/rs/post/THREAD/POST/edits`). THREAD/POST, or a post id already stored. The post menu (`p`) › View edits does this.
     #[arg(long, value_name = "THREAD/POST", help_heading = "Reading")]
     pub edits: Option<String>,
+    /// Follow a thread on the LiveView socket. New replies are stored. A refresh chip is a Sync notice. Rules run on each inserted reply. View › Live opens the thread of the open post. No new key.
+    #[arg(long, value_name = "THREAD", help_heading = "Reading")]
+    pub live: Option<String>,
+    /// Follow the home feed (`/rs`) on the LiveView socket. `feed:refresh` shows new posts. View › Live feed.
+    #[arg(long, help_heading = "Reading")]
+    pub live_feed: bool,
+    /// Seconds to watch a live socket. Used with `--live`, `--live-feed`, or `--site-notifications`. Default 1. `refresh-posts` still waits 30 seconds between polls.
+    #[arg(long, value_name = "SECS", help_heading = "Reading")]
+    pub live_for: Option<u64>,
+    /// Site Notifications pane (`/rs/notifications`), read-only. Opening it may mark items read. Each new item is a Sync notice. View › Site notifications. This is not View › Notifications.
+    #[arg(long, help_heading = "Reading")]
+    pub site_notifications: bool,
 
     /// New post. The body is `--body` or `--body-file`. A confirmed post uploads the site copy, then sends validate and save once. `--dry-run` prints the frames and the upload plan and does not connect.
     #[arg(long, value_name = "TITLE", help_heading = "Writing")]
@@ -478,7 +496,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "acp_id", "shares_print", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
@@ -489,7 +507,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "shares_print", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
@@ -501,7 +519,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
@@ -512,7 +530,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
@@ -527,7 +545,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "restore", "backup_schedule", "change_password", "show_phrase",
@@ -538,7 +556,7 @@ pub struct Args {
     #[arg(long, value_name = "FILE", help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "backup_schedule", "change_password", "show_phrase",
@@ -549,7 +567,7 @@ pub struct Args {
     #[arg(long, value_name = "WHEN", value_parser = ["daily", "weekly"], requires_all = ["backup_keep", "backup_dest"], help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "change_password", "show_phrase",
@@ -566,7 +584,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "change_password", "show_phrase",
@@ -578,7 +596,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "show_phrase",
@@ -590,7 +608,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
@@ -603,7 +621,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
@@ -617,7 +635,7 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",

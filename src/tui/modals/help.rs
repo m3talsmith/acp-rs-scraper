@@ -256,8 +256,22 @@ fn area_topics() -> Vec<String> {
         "  https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf",
         "  https://acp.us/join is at the top and the bottom of that section only.",
     ]);
+    push_topic(&mut v, "live", "Live", &[
+        "  View › Live follows the open thread on the LiveView socket.",
+        "  A new reply is stored. A refresh shows new posts. Rules run on each inserted reply.",
+        "  View › Live feed listens on the home feed.",
+        "  refresh-posts runs at most once every 30 seconds for the posts on screen.",
+        "  The menu opens it. There is no new key.",
+    ]);
+    push_topic(&mut v, "site-notifications", "Site notifications", &[
+        "  View › Site notifications reads /rs/notifications. It does not send a write.",
+        "  Opening the page may mark items read.",
+        "  Each new item is stored and raised as a Sync notice. Rules run when that post is stored.",
+        "  View › Notifications is the local list. This topic is the site pane.",
+    ]);
     push_topic(&mut v, "notifications", "Notifications", &[
         "  View › Notifications opens the saved list. It is not the site Notifications pane.",
+        "  A live reply and a site notification also land here as a Sync notice.",
         "  Toasts stack with no cap. When they would use more than a quarter of the screen,",
         "  as many as fit stay up and View all opens this same page.",
         "  Newest first. o switches to oldest. f filters by kind. / searches the title and the text.",

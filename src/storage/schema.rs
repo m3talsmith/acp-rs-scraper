@@ -192,6 +192,20 @@ pub const QUARANTINE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS quarantine (
             body BLOB NOT NULL
         );";
 
+/// Site Notifications pane (`/rs/notifications`). Not the local `notices` table.
+/// `raw` stays empty: the page text is in `body`, and a token is not stored.
+pub const SITE_NOTIFICATIONS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_notifications (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL DEFAULT '',
+            actor TEXT NOT NULL DEFAULT '',
+            post_id TEXT NOT NULL DEFAULT '',
+            thread_id TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT '',
+            read INTEGER NOT NULL DEFAULT 0,
+            body TEXT NOT NULL DEFAULT '',
+            raw TEXT NOT NULL DEFAULT ''
+        );";
+
 /// Verified site bundle and the last protocol check (3.4.0). The writes switch
 /// lives in preferences, not here. Nothing stores a bundle until a capture
 /// confirms one.

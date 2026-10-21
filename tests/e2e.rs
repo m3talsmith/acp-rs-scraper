@@ -241,6 +241,18 @@ async fn parent(w: &mut E2e, id: String, p: String) {
     assert_eq!(got, p);
 }
 
+#[then(expr = "post {string} has score {int}")]
+async fn post_score(w: &mut E2e, id: String, score: i64) {
+    let got: i64 = w.conn().query_row("SELECT score FROM posts WHERE post_id=?1", [&id], |r| r.get(0)).unwrap();
+    assert_eq!(got, score);
+}
+
+#[then(expr = "the database has a notice titled {string}")]
+async fn notice_titled(w: &mut E2e, title: String) {
+    let n = w.q(&format!("SELECT count(*) FROM notices WHERE title='{title}'"));
+    assert!(n > 0, "no notice titled {title}");
+}
+
 #[then(expr = "post {string} is stored once")]
 async fn once(w: &mut E2e, id: String) { assert_eq!(w.q(&format!("SELECT count(*) FROM posts WHERE post_id='{id}'")), 1); }
 
