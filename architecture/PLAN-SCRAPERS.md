@@ -1,8 +1,8 @@
 # Plan: modular services for ACP Red Star
 
-Status: **design, revised with Michael's 2026-10-21 answers.** Nothing in this file is implemented.
+Status: **design, revised with Michael's 2026-10-21 answers.** A second pass the same day settled captions, comments, live chat, combined views, global actions, notifications, plugins, and the one confirm for a mixed write. Three plugin questions stay open (§15). Nothing in this file is implemented.
 Target path in the repo: `architecture/PLAN-SCRAPERS.md`.
-Base: `main` at `8eb6b802` (crate `3.5.0`). Version numbers in this plan are relative labels until the versioning cleanup settles the crate version.
+Base: `main` at `b1a8222c` (crate `3.5.0`, pull request #45 merged). Version numbers in this plan are relative labels until the versioning cleanup settles the crate version.
 Companion docs: [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) (§6 Feeds, §7.5 records, §7.14.13 rules and alerts, §7.14.14 post source) and [PLAN-4.0.md](./PLAN-4.0.md) (the research corpus).
 
 Facts about the X API, the YouTube Data API and yt-dlp were checked on **2026-10-21** against docs.x.com, developers.google.com and the yt-dlp README (release `2026.08.19`). They change often. Re-check them before each phase: the X pricing and rate-limit pages, which X GraphQL operations are gated, the yt-dlp release notes (`max_comments` order, `live_chat`, EJS and JS runtime, PO tokens), and the YouTube quota calculator.
@@ -18,6 +18,14 @@ Red Star, X and YouTube are **independent services**. They are separate crates, 
 Decisions from 2026-10-21, which override any older sentence in this file:
 
 - **Separate crates.** One crate per service, including Red Star. Parsers and network clients do not live only as modules of the root crate.
+- **Plugins.** Each service crate registers through one registrar, the shape in Michael F. Bryan's *Plugins in Rust*: a plugin declaration, a registrar, a `declare_plugin!` macro, dynamic loading with `libloading`, and a rustc / core-version check. Rust has no stable ABI, so a mismatch is refused. Built-ins, including Red Star, are linked statically and still register that way, without `dlopen`. An external service is a `cdylib` the user places in `~/.acp/plugins/`. A plugin runs with the app's privileges, so the user enables it explicitly and the app never downloads one (§2.1).
+- **Captions.** The user lists the locales they want. The default list is English first. Every available caption track in those locales is scraped. A locale the video does not have is skipped quietly, and the locales that were available are recorded (§3.3, §5.1).
+- **Comments.** The full depth is scraped by default. Optional settings cap the depth and the count (§5.1).
+- **Live chat replays** are in scope: `kind = chat` rows, shown on the Chat tab (§5.1, §14).
+- **Combined views.** Mixed and grouped are both offered. The default is mixed, sorted by time: the updated time when the item has one, otherwise the posted time (§10).
+- **Keys.** The source-switcher binding waits on a later modal-input design. It will be a Ctrl global key. This plan does not pick the chord (§10.1).
+- **Global actions.** Bookmarks, site search, and edit history are app actions. They are not capability traits (§2.3).
+- **Notification.** Every action that notifies implements `Notification`, local toasts included. Phase A refactors the existing notices, rule engine, and alert-template code onto that trait if the split needs it (§2.3, §9).
 - **What the user turns on.** Red Star (the party's web app at acp.us) is enabled by default. Every other service starts off. The user turns one on in the Services preferences screen, or with the CLI and config equivalents, and fills in that service's details only then.
 - **Same settings shape everywhere.** Every service exposes its fields in the TUI and in the CLI or config. A `ConfigSchema` describes the fields. The TUI and the CLI render that schema, so a new service does not grow a hand-built settings form.
 - **Secrets and config are split.** Keys, tokens, cookies and credentials are sealed in the encrypted database and are never written to a file and never printed. Other settings live in `~/.acp/services/<service>.toml`.
@@ -27,6 +35,7 @@ Decisions from 2026-10-21, which override any older sentence in this file:
 - **Who to follow.** Nicks are per service, the same idea as Red Star. The user picks a nick that is valid on that service. `--nick`, `--said-by`, alerts and the other reader flags apply per service, with namespaced ids.
 - **Media.** Video, audio and transcripts are all available. A storage cap bounds what is kept on disk.
 - **Writes.** As a service makes a write possible, it gets the same set Red Star is growing: post, reply, upload, vote or like, subscribe or follow, edit, delete, repost. Reads ship before writes. Every write follows `AGENTS.md`: a mocked test, a preview, a confirmation whose default is Cancel, and a `--dry-run` that prints exactly what would be sent.
+- **One confirm.** A write that spans services uses a single confirm. It sends to every service where that write is Ready. The others are skipped. The preview and `--dry-run` name each skipped service and why: not captured, not logged in, or disabled. Cancel stays the default (§2.4).
 - **X cookies** are sealed in the encrypted database. There is no `~/.acp/x-session.json`.
 - **Backups strip secrets.** A `.acpbackup` snapshot drops `source_secrets` before it is packed, so a restore asks for tokens and cookies again.
 - **Peer sync.** X and YouTube records stay out of P9 replication by default.
@@ -66,19 +75,57 @@ The core crate still does not open SQLite, draw the terminal, or talk to the net
 
 ## 2. Traits, capabilities, registry, scheduler
 
-### 2.1 Crates
+### 2.1 Crates and plugins
 
 | Crate | Role |
 |---|---|
-| `acp_red_star_node_core::service` | Traits, ids, records, `ConfigSchema`, capability ids. No I/O. |
-| `crates/acp_red_star_service_redstar` | Today's Red Star client, behind the traits. |
-| `crates/acp_red_star_service_x` | X session route and X API route. |
-| `crates/acp_red_star_service_youtube` | yt-dlp session route and Data API route. |
-| Root crate | Registry, scheduler, SQLite, TUI, CLI. Maps records into `Post` and `Profile`. |
+| `acp_red_star_node_core::service` | Traits, ids, records, `ConfigSchema`, capability ids, and the plugin ABI (`PluginDeclaration`, `PluginRegistrar`, `declare_plugin!`). No I/O. |
+| `crates/acp_red_star_service_redstar` | Today's Red Star client, behind the traits. Linked into the binary. |
+| `crates/acp_red_star_service_x` | X session route and X API route. Linked into the binary. |
+| `crates/acp_red_star_service_youtube` | yt-dlp session route and Data API route. Linked into the binary. |
+| Root crate | Registry, plugin loader, scheduler, SQLite, TUI, CLI. Maps records into `Post` and `Profile`. |
 
-A new service is a new workspace crate registered in the root crate. This plan does not load dynamic libraries. Whether a later runtime plugin loader is wanted is open (§15).
+Every service lives in its own crate, including Red Star. The host loads them through one registrar. The shape is the one in Michael F. Bryan's *Plugins in Rust*: a `PluginDeclaration` the plugin exports, a registrar the host implements, a macro that fills the declaration, `libloading` to open a `cdylib`, and a check of the rustc version and the core crate version. Rust has no stable ABI. A plugin built with another compiler, or against another version of the crate that defines these traits, is not safe to call, so the host refuses it.
 
-Async functions in traits are not `dyn`-compatible. The registry holds concrete service values and dispatches with an enum (`AnyService`) that the root crate constructs. That is enough while every service is a workspace crate.
+**Declaration.** The core crate owns the ABI.
+
+```rust
+pub struct PluginDeclaration {
+    pub rustc_version: &'static str,
+    pub core_version: &'static str,
+    pub register: unsafe extern "C" fn(&mut dyn PluginRegistrar),
+}
+
+pub trait PluginRegistrar {
+    fn register_service(&mut self, service: Box<dyn DynService>);
+}
+```
+
+`declare_plugin!` does the job of that article's `export_plugin!`. It emits `#[no_mangle] pub static plugin_declaration`. `rustc_version` comes from the core crate's build script (`RUSTC_VERSION`, read with the `rustc_version` crate). `core_version` is that crate's `CARGO_PKG_VERSION`: the crate that defines the traits, not the root crate's version. One plugin may call `register_service` more than once.
+
+**Object-safe boundary.** Authors still implement `Service`, `Reader`, `Post`, and the other traits in §2.3, including their `async fn` methods. Those async methods are not object-safe, and a Rust trait object cannot cross a `cdylib` unless the methods are. `DynService` is the object-safe adapter the host stores. Each async capability on it returns `Pin<Box<dyn Future<Output = Result<…>> + Send + '_>>`. `declare_plugin!` generates the adapter and boxes the futures. `implemented()` and `CapabilityId` stay the same ids, so §2.4 does not learn a second vocabulary. The host does not call a capability the service left off `implemented()`. A call that arrives anyway returns a not-implemented error.
+
+The object file has no type for the `plugin_declaration` symbol. The host's cast is `unsafe`. The version check is what makes that cast honest, and it runs before `register`.
+
+**Built-ins.** Red Star, X, and YouTube are workspace crates linked into the binary. Startup calls each crate's `plugin_declaration.register` on this same registrar. There is no `dlopen` for a built-in, and no version compare against itself: that code was just compiled with the app. Built-ins still enter only through `register_service`, so the registry has one list.
+
+**External plugins.** An out-of-tree service crate is built as a `cdylib`. The user places the library in `~/.acp/plugins/` (`*.so`, `*.dylib`, or `*.dll`). The app does not download plugins and does not copy them into that directory. At startup the root crate:
+
+1. Opens each library with `libloading`.
+2. Reads the `plugin_declaration` symbol.
+3. Refuses the plugin when `rustc_version` or `core_version` differs from this binary. It does not call `register`. The Services screen lists the path, the versions the plugin declared, and the versions this binary required. The rest of the app starts.
+4. Otherwise calls `register`. Each service is stored in a proxy that holds `Arc<Library>`, the same idea as that article's proxy: the library has to outlive every service object that came out of it. Dropping the service must not unload the library.
+5. Leaves the library mapped until the process exits. This plan does not unload or reload a plugin while the app is running. A file replaced on disk is picked up on the next launch. Unloading under a live object would call into unmapped code.
+
+A plugin's crate depends on the core crate only. The supported interface does not hand it a SQLite connection, the database key, or the root crate. Built-ins register before any file is opened. A later `id()` that collides with one already registered is refused, and the first registration stays. A plugin cannot replace Red Star, X, or YouTube, and two plugins cannot share an id.
+
+**Config, secrets, and TOML.** Once a service is on the registrar, built-in or plugin, `schema()` is the same `ConfigSchema` as §2.2 and §4. Fields marked `Config` live in `~/.acp/services/<id>.toml`. Fields marked `Secret` seal into `source_secrets` as `<id>.<field>`. The host reads the file and unseals the secrets, then passes the values in `RuntimeCtx`. A plugin does not get a second config format. A discovered plugin stays **off** until the user enables it, the same rule as X and YouTube. Red Star stays the built-in that is on when its file is missing.
+
+**Allocator.** Freeing memory with a different allocator is undefined. Both sides use Rust's system allocator, and the rustc check is what makes that the same allocator. The host drops `Box<dyn DynService>` itself. It does not take a separate `free_plugin` function from the library. A mismatched plugin never reaches `register`, so the host never frees that library's boxes.
+
+**Security.** A loaded plugin is native code inside this process. It runs with the app's full privileges: the unlocked database, any secret the host has already opened, the network, the filesystem, and the memory of the other services. This design has no sandbox. The gates are the ones above. The user places the file, the version check passes, and the user enables that service by an explicit action. A file sitting in `~/.acp/plugins/` is not enabled. The app never auto-downloads a plugin. No signature check is in this plan; whether one should be is open (§15).
+
+Phase A does not scan `~/.acp/plugins/`, so today's runs do not load extra code. The loader arrives in Phase B with the Services screen.
 
 ### 2.2 Service and the shared types
 
@@ -121,16 +168,21 @@ A feature is a capability trait. A service implements it or it does not. Red Sta
 | `Authenticator` | Routes (`Session`, and `Api` when the service has one), each with its own fields in the schema | Session only. No route picker. |
 | `Reader` | Incremental, resumable scrape of accounts, searches, threads | The scraper, including whole-site |
 | `Live` | Updates for the open view without a full scrape | The LiveView socket |
-| `Notifications` | That service's own notice stream | Not the local toast stack. Toasts stay in the app (§15). |
+| `Notification` | Every action that notifies, including local toasts | The app's toasts implement it. Phase A moves notices, the rule engine, and alert templates onto it when that split needs a refactor (§9). |
 | `Post`, `Reply`, `Upload` | Compose and attachments | Implemented, send still gated where `CAPTURE_BLOCK` gates it |
 | `Vote`, `Subscribe`, `Edit`, `Delete`, `Repost` | The interaction set | Stubs, gated until a capture exists |
-| `Bookmarks` | Local save, and a remote push when the service has one | Local save works. Remote push is the current bookmark hook. |
 | `Research` | Add the current item to a research project | App research store, keyed by namespaced id |
 | `Feeds` | This service can refresh a feed rule | Red Star feeds when P7 exists. X and YouTube join then. |
 | `MediaFetcher` | Video, audio, transcripts, thumbnails | Red Star attachments. YouTube and X in Phase D. |
 | `CostMeter` | Estimate, ledger, monthly cap, per-run cap | Unused on Red Star. Required on a paid or quota API route. |
 
 `Publisher` is not a separate grab-bag. Each write is its own trait, so the UI can hide Vote on a service that will never vote and still show Reply.
+
+Bookmarks, site search, and edit history are **global actions**. They are not capability traits, and they are not facets of `Reader`. Their menus and flags stay available no matter which service is focused.
+
+- A bookmark is a local save of any namespaced id. The Bookmarks menu that already exists (Show, Bookmark current, Sync with acp.us) stays that menu. When the remote push sends, it is still this same action, aimed at the item's own service, and it follows the write rules in `AGENTS.md`. It does not grow a `Bookmarks` trait, and §2.4 does not hide it.
+- Site search reads the local database across the rows that are stored. A service's own remote search (X search, YouTube search) stays a `Reader` target (§5.6).
+- Edit history is the `post_versions` view of the focused item. It is not a trait.
 
 `Reader` page shape (one page, newest first, stop early for incremental sync):
 
@@ -176,20 +228,21 @@ Rules for the active or selected service:
 - The trait is absent: the menu item, keybinding and flag are **hidden**. There is nothing to hover, so there is no tooltip. `--help` for that service does not list the flag.
 - The trait is present but not `Ready`: the control is **shown and disabled**, with a tooltip that says why.
 
-Rules for a mixed list or an All view (the layout of that view is still open, §15; these rules apply to both a date-mixed list and a grouped list):
+Rules for a combined view. Both layouts exist (§10): mixed by time, which is the default, and grouped by service. These rules apply to both.
 
 - A control is shown when **any service currently in the view** implements the trait.
 - It is enabled when the highlighted item's service is `Ready` for that trait, or when a multi-selection contains at least one `Ready` item.
 - The tooltip names the services that will be skipped and why ("X does not implement edit", "YouTube vote is gated until captured").
 - The action never crosses services. An X id is not sent to Red Star's vote hook.
-- The preview, and `--dry-run`, print one block per selected item: the payload that would be sent, or the skip reason. Nothing is sent for a skip.
-- Confirm defaults to Cancel and repeats the skips. `--yes` confirms the `Ready` items only.
+- The preview, and `--dry-run`, print one block per selected item: the payload that would be sent, or the skip reason. Nothing is sent for a skip. `--dry-run` does not ask and does not connect.
+- One confirm covers every service where that write is `Ready`. Cancel is the default. `--yes` affirms that one confirm. It does not ask again per service.
+- Every service that is not `Ready` is skipped, and nothing is sent for it. The preview, `--dry-run`, and the confirm name each skipped service and why, in these words: **not captured** (`Gated`), **not logged in** (`NeedsAuth`), or **disabled** (the service is off). A service that does not implement the trait is named too ("X does not implement edit"). A service over a cap is not `Ready` either; the line names the cap.
 
 A shared flag (`--nick`, `--said-by`, `--limit`, `--sync`) runs on every **enabled** service that implements `Reader`, using that service's namespaced ids. A flag for a capability only some services implement (`--vote`) follows the All-view rule above.
 
 ### 2.5 Registry and scheduler
 
-The registry is the list of compiled-in services plus the user's enabled set.
+The registry is the list of services that registered at startup (built-ins, then any external plugin that passed the version check) plus the user's enabled set. A refused plugin is listed and is not in this set (§2.1).
 
 - Missing `~/.acp/services/redstar.toml` means Red Star is **on**.
 - Missing `x.toml` or `youtube.toml` means that service is **off**. Creating the file with `enabled = false` is the same as off.
@@ -252,7 +305,9 @@ One transcript turn is one `posts` row, as PLAN-4.0 describes:
 
 Cues merge into turns on sentence boundaries, at most about 30 seconds and about 600 characters. The merge is deterministic, so a re-run dedupes on `post_id`. The raw subtitle file is an attachment (`text/vtt` or `application/json`) so a later re-segmentation can start from the original.
 
-The video's `metrics_json` records `transcript_kind`: `manual`, `auto` or `none`. Which languages are fetched, and whether automatic captions count, is open (§15).
+The user lists caption locales in the service file. The default list is English first (`caption_locales = ["en"]`). Every available caption track in those locales is scraped, manual and automatic. A requested locale the video does not offer is skipped quietly: not an error, not a notice, and not a failed stage.
+
+The video's `metrics_json` records `transcript_kind` (`manual`, `auto`, or `none`) for what was stored, plus `caption_locales_available` (every locale the source offered) and the locales that were actually stored. When none of the requested locales were available, the stage still finishes, `transcript_kind` is `none`, and the available list is still recorded.
 
 ### 3.4 New tables
 
@@ -359,13 +414,12 @@ playlists = []
 transcripts = true
 audio = true
 video = true
-sub_langs = ["en.*"]         # open: which languages ship as the default
-auto_subs = true             # open: whether auto captions count
+caption_locales = ["en"]     # English first. Every available track in each locale.
 comments = true
-max_comments = 500           # open: cap and depth
-comment_depth = 1
+max_comments = 0             # 0 = no count cap. A positive value caps the count.
+comment_depth = 0            # 0 = full depth. A positive value caps the depth.
 comment_sort = "top"
-live_chat = false            # open
+live_chat = true
 max_storage_gb = 20
 sleep_requests = 1.0
 api_daily_quota = 10000
@@ -379,7 +433,7 @@ Unknown keys warn, the same way theme files do. A service with one route rejects
 `preferences.toml` remains the **app** file. After Phase B it keeps:
 
 - `[ui]`: theme, theme mode, theme download, colour, list order, search-history limit, empty-body animation, the app-wide `writes` switch (`ACP_WRITES` still wins).
-- `[ui.notify]`: do-not-disturb and per-kind toast switches. These are the local notifier, not a service.
+- `[ui.notify]`: do-not-disturb and per-kind switches for the app's `Notification` implementation (local toasts).
 - `[theme]`: the legacy colour keys, still ignored after the one-time conversion.
 - `[sync] auto` and `[sync] interval_minutes`: when the scheduler runs. The nicks it used to store move out.
 
@@ -443,9 +497,9 @@ yt-dlp is a subprocess: `Command::args` only, a timeout, masked stderr, JSON on 
 | Channel, newest first | `yt-dlp --flat-playlist --dump-json --lazy-playlist https://www.youtube.com/@H/videos` (also `/streams` and `/shorts` when those options are on) | ids, titles, dates. Stops at the first known id |
 | Playlist | `yt-dlp --flat-playlist --dump-json URL` | the same, playlist order |
 | Video metadata | `yt-dlp -J --skip-download --no-write-playlist-metafiles URL` | `kind=video`, channel profile, tags, thumbnail URL |
-| Transcript | `--write-subs --write-auto-subs --sub-langs "en.*,-live_chat" --sub-format "json3/vtt/best" --skip-download` | subtitle attachment and segment rows. Languages and auto captions are open (§15) |
-| Comments | `--write-comments` with `max_comments`, depth and `comment_sort`. Depth and the cap are open (§15) | `kind=comment` |
-| Live chat replay | only if the open question is answered yes: `--sub-langs live_chat` | `kind=chat` |
+| Transcript | `--write-subs --write-auto-subs --sub-langs` built from `caption_locales`, with `live_chat` excluded, `--sub-format "json3/vtt/best" --skip-download`. A bare `en` asks this route for `en.*` so every English track matches. Manual and automatic tracks in the listed locales are both stored. A missing locale is skipped quietly (§3.3) | subtitle attachment and segment rows |
+| Comments | `--write-comments`. Full depth by default. `max_comments` and `comment_depth` are passed through only when the value is greater than 0. `comment_sort` selects top or new | `kind=comment` |
+| Live chat replay | on by default: `--sub-langs live_chat`, separate from the caption locales | `kind=chat`, shown on the Chat tab |
 
 Pacing: `--sleep-requests` from the service file, `--sleep-subtitles 5`, one yt-dlp process at a time. Recent yt-dlp needs a JS runtime (deno, node, bun or QuickJS). The app does not bundle one. `--doctor` reports which runtime it found. `--cookies-from-browser` is not used. The archive is the `posts` table, not `--download-archive`.
 
@@ -490,7 +544,7 @@ Reposts, when `include_reposts` is on, are a link row plus the original when the
 - Pacing comes from the service file: one request at a time, `web_delay_ms` plus 0–50% jitter, at most one page per request, and `web_daily_post_cap`. A 429, a rate-limit body, a login challenge or a locked account stops the X job for the day and raises a notice.
 - The first enable still requires the §13 acknowledgement (§4.5), even though this route is the default once the service is on.
 
-### 5.5 Defaults that are not still open
+### 5.5 Defaults
 
 | | Default |
 |---|---|
@@ -501,8 +555,9 @@ Reposts, when `include_reposts` is on, are a link row plus the original when the
 | YouTube: uploads | on |
 | YouTube: shorts and livestream VODs as metadata | on for uploads and shorts, streams tab off until the user turns it on |
 | YouTube file and transcript availability | video, audio and transcripts are all available, bounded by `max_storage_gb` (§8) |
-
-Comment depth, the comment cap, caption languages, automatic captions, and live chat replay stay open (§15).
+| YouTube captions | `caption_locales = ["en"]`. Every available track in each listed locale. A missing locale is skipped quietly, and the locales that were available are recorded |
+| YouTube comments | full depth. `max_comments = 0` and `comment_depth = 0` mean no cap |
+| YouTube live chat replay | on. Rows are `kind=chat` and the detail shows a Chat tab |
 
 ### 5.6 Search
 
@@ -564,7 +619,8 @@ Video, audio and transcripts are available on every service that implements `Med
 - `Author` matches namespaced nicks. The editor offers a service picker.
 - New condition fields when the columns exist: `kind`, `transcript_kind`.
 - "Watch a user" takes a service and a nick that is valid there. "Replies to me" uses that service's configured own nick. "Saved search" spans enabled services unless the rule names one.
-- Finish, budget stop, 429, a challenge, and a missing yt-dlp raise the **app** notifier. That is not the `Notifications` capability.
+- Finish, budget stop, 429, a challenge, and a missing yt-dlp notify through `Notification`. Local toasts are that trait, implemented by the app. A service implements the same trait when it has its own notice stream.
+- Phase A refactors the existing notices, rule engine, and alert-template code onto `Notification` if the split needs it. The versioning-cleanup draft labels those features 3.32.0 (notices), 3.33.0 (the rule engine), and 3.34.0 (alert templates). Those numbers are that draft's labels. This plan does not retag them and does not wait on that draft.
 - Feeds (P7, not built yet) gain an optional `sources` list. The share string still has no tokens and no cookies.
 - Research items can point at any namespaced id. Research › Add current view follows §2.4.
 - This plan is what gives PLAN-4.0 its post-source columns and YouTube transcripts. Diarization and `transcript_corrections` stay in 4.0. The channel list for a corpus is the user's `channels` in `youtube.toml`, not a hard-coded set.
@@ -590,14 +646,24 @@ Flags are generated from the capability set and the schema as far as clap allows
 TUI:
 
 - **Services** preferences screen (§4.5).
-- **Source switcher** for which service's rows are on screen: one service, or All. The key is open (§15). The choice is remembered in `[ui]`, because it is a view, not a service secret. View › Source and a palette entry exist either way.
+- **Source switcher** for which service's rows are on screen: one service, or All. The choice is remembered in `[ui]`, because it is a view, not a service secret. View › Source and a palette entry exist either way. The key is a Ctrl global under the modal-input design (§10.1). This plan does not pick the chord.
 - **Nick bar** sections per enabled service, prefix hidden, badge shown.
-- **Cards.** Badge, permalink, and a video detail with the tabs that service's capabilities allow (Description, Transcript, Comments, Chat). A missing capability omits the tab.
-- **Actions** follow §2.4. Local bookmarks still work when `Bookmarks` is implemented even if the remote push is gated.
+- **Cards.** Badge, permalink, and a video detail with the tabs that service's capabilities allow (Description, Transcript, Comments, Chat). A missing capability omits the tab. YouTube's Chat tab shows `kind=chat` rows.
+- **Actions** follow §2.4. Bookmarks, site search, and edit history stay global actions (§2.3). One confirm sends a write to every selected service where it is Ready and skips the others.
 - **Start Scanning** shows the selected service's schema fields (nicks, channels, caps).
 - **Help** has one topic per service plus a topic for capabilities and gates. Getting Started gains a short section. Every flag has a description.
 
-All-view layout (mixed by time, or grouped by service) is open. Capability behaviour is not (§2.4).
+Both combined layouts are offered. **Mixed** is the default: one list, newest first. The sort key is the item's updated time when it has one, and `posted_at` otherwise. For a Red Star post the updated time is the latest `post_versions.edited_at` that is a real timestamp. A `~NNNN` placeholder is not a time, and a row with no edit uses `posted_at`. **Grouped** keeps a section per service, and each section uses that same key. The choice is remembered in `[ui]`. Capability rules for both layouts are in §2.4.
+
+### 10.1 Future: modal input
+
+After the service features have landed, input becomes modal, in the way Neovim modes are modal. This section records the shape. It is not a keymap, and it is not part of phases A–E.
+
+The app enters a mode for what is focused. Viewing a post enters post mode, and that mode's keys become valid. In post mode, `r` replies. Global keys stay, and they move behind a Ctrl-<key> pattern. Every other key is a mode hotkey.
+
+A mode's keys are the capabilities of the focused object's service. Post mode on a Red Star post offers the Red Star capabilities that are `Ready`. The same mode on an X post offers X's capabilities. A capability the service does not implement has no key in that mode.
+
+The source switcher is one of the Ctrl global keys. The exact chord belongs to that design.
 
 ---
 
@@ -608,7 +674,7 @@ Tests never talk to acp.us, x.com, api.x.com, twitter.com, youtube.com, googleap
 - Under `cfg(test)` and in cucumber, a service HTTP client **panics** if the host is one of those. The yt-dlp runner refuses a real `yt-dlp` when `ACP_TEST` is set.
 - **Phase A.** The existing suite passes unchanged. New tests only assert that Red Star's `implemented()` set matches today's features and that a missing trait is not offered. No snapshot of user-visible copy changes.
 - **Later phases.** Axum mocks for the X API, the X web operations (including search and replies), and the YouTube Data API. A `fake-yt-dlp` binary selected with `ACP_YTDLP` checks argv, rejects a secret in argv, and prints fixtures. Fixtures are synthetic. A real capture is redacted first, then scanned, the same rule as the Red Star fixtures.
-- Gherkin covers: scrape, export v3, import into a throwaway `HOME`, incremental stop, resume after 429 or a cap, `--said-by` per service, deterministic transcript turns, a gated write that `--dry-run` prints as gated and does not send, an All-view selection that skips a service without that trait, the masker, and the backup snapshot containing no `source_secrets` plaintext and no sealed rows.
+- Gherkin covers: scrape, export v3, import into a throwaway `HOME`, incremental stop, resume after 429 or a cap, `--said-by` per service, deterministic transcript turns, a missing caption locale that is skipped quietly with the available locales recorded, a mixed write whose preview and `--dry-run` name each skipped service (not captured, not logged in, or disabled) and whose one confirm sends only the Ready services, an All-view selection that skips a service without that trait, the masker, and the backup snapshot containing no `source_secrets` plaintext and no sealed rows.
 - Manual live checks, if Michael runs them, go in a checklist like `docs/LIVE-PUBLISH-TEST.md`: throwaway `HOME`, `--dry-run` first, one small target. Never from CI and never from an agent VM.
 
 ---
@@ -639,6 +705,7 @@ Packaging stays on the alpha gate in §4.5 of the 3.0 plan. This plan does not c
 7. **Mixed ids.** Namespaced ids avoid collisions. The phase that adds them also refuses a Red Star write aimed at a namespaced id. A unit test calls every Red Star write with an `x:` id and expects a refusal before a frame.
 8. **Disk.** Video, audio and transcripts are available. `max_storage_gb` is the bound. The run skips new files at the cap instead of filling the disk.
 9. **Credentials.** Tokens and cookies are long-lived. They are sealed, masked, absent from argv and from backups, and the yt-dlp cookie file is 0600 and deleted in `Drop`. Tests assert each of those.
+10. **Plugins are native code.** A `cdylib` that passes the version check runs with the app's privileges: the unlocked database, opened secrets, the network, the filesystem, and other services' memory. There is no sandbox. The mitigations are the ones in §2.1: nothing is auto-downloaded, a file in `~/.acp/plugins/` stays off until the user enables it, a rustc or core-version mismatch is refused before `register`, and a duplicate id cannot replace a built-in.
 
 ---
 
@@ -648,34 +715,27 @@ Labels are relative. They are not crate versions. One feature is one minor when 
 
 | Label | Phase | What ships | Depends on |
 |---|---|---|---|
-| **A** | Red Star modularization | Extract today's Red Star behaviour behind the traits and into `acp_red_star_service_redstar`. Registry contains only Red Star. No new flags, no settings migration, no schema change for other services. The existing test suite passes with no behaviour change. | — |
-| **B** | Registry and Services | Services screen, schema-driven CLI, `~/.acp/services/*.toml`, sealed secrets, Red Star migration off `preferences.toml` and `session.json` (§4.2). Red Star on by default. X and YouTube present and off. Enabling X's session shows the §13 acknowledgement and does not yet scrape. | A |
-| **C-yt** | YouTube reads | Session route (yt-dlp metadata, channels, playlists, incremental and backfill, thumbnails) and the API route (quota meter and confirm). Comments if the open cap is decided; otherwise comments wait on §15. Parallel with C-x. | B |
+| **A** | Red Star modularization | Extract today's Red Star behaviour behind the traits and into `acp_red_star_service_redstar`. Red Star registers through the registrar. No plugin-directory scan. If the trait split needs it, refactor notices, the rule engine, and alert templates onto `Notification` (versioning-cleanup labels 3.32.0, 3.33.0, and 3.34.0). No new flags, no settings migration, no schema change for other services. The existing test suite passes with no behaviour change. | — |
+| **B** | Registry and Services | Services screen, schema-driven CLI, `~/.acp/services/*.toml`, sealed secrets, Red Star migration off `preferences.toml` and `session.json` (§4.2). The loader scans `~/.acp/plugins/`, refuses a rustc or core-version mismatch, and lists refused plugins. Red Star on by default. X and YouTube register statically and stay off. Enabling X's session shows the §13 acknowledgement and does not yet scrape. | A |
+| **C-yt** | YouTube reads | Session route (yt-dlp metadata, channels, playlists, incremental and backfill, thumbnails) and the API route (quota meter and confirm). Comments at full depth, with optional depth and count caps. Live chat replays stored as `kind=chat` and shown on the Chat tab. Parallel with C-x. | B |
 | **C-x** | X reads | Session route, including search and replies, with pacing, daily cap and the acknowledgement. API route with the spend confirm and ledger. Parallel with C-yt. | B |
-| **D** | Media | Video, audio and transcripts for the services that implement `MediaFetcher`, plus the storage cap. Transcript languages still follow §15. | C-yt for YouTube files. C-x for X video files. Either may land first for its own service. |
-| **E** | Writes, per service | One minor per write capability per service, and only after that service's reads have shipped. Each stays `Gated` until its captured frames are in the tree. Mock, preview, Cancel-default confirm, exact `--dry-run`. | That service's read phase |
+| **D** | Media | Video, audio and transcripts for the services that implement `MediaFetcher`, plus the storage cap. Transcripts use `caption_locales` (English first). A missing locale is skipped quietly and the available locales are recorded. | C-yt for YouTube files. C-x for X video files. Either may land first for its own service. |
+| **E** | Writes, per service | One minor per write capability per service, and only after that service's reads have shipped. Each stays `Gated` until its captured frames are in the tree. Mock, preview, one Cancel-default confirm for every Ready service, exact `--dry-run` that names each skip (§2.4). | That service's read phase |
 
 YouTube and X reads are parallel tracks. Either may merge first. Writes do not start for a service before its reads. Red Star writes that are already gated stay gated in Phase A. Turning one on later is its own minor under E, still waiting on a capture, and is not required to unblock X or YouTube reads.
 
-Optional, not scheduled: YouTube live chat replay (if §15 says yes), X Spaces or Communities metadata, Feeds `sources` filters once P7 exists.
+Not scheduled: X Spaces or Communities metadata, and Feeds `sources` filters once P7 exists.
 
 ---
 
 ## 15. Open questions
 
-Resolved, and not re-opened: separate crates; X cookies sealed in the encrypted database; backups strip `source_secrets`; X and YouTube stay out of P9 peer sync by default; Red Star on and other services off; session route as the default; search and replies included on the X session; video, audio and transcripts available under a storage cap; reads before writes.
+Resolved, and not re-opened: separate crates; X cookies sealed in the encrypted database; backups strip `source_secrets`; X and YouTube stay out of P9 peer sync by default; Red Star on and other services off; session route as the default; search and replies included on the X session; video, audio and transcripts available under a storage cap; reads before writes; caption locales (English first, every available track, a missing locale skipped quietly and the available locales recorded); comments at full depth with optional depth and count caps; live chat replays (`kind = chat`, Chat tab); both combined views, mixed by default, sorted by the updated time when the item has one and otherwise the posted time; the source-switcher key deferred to modal input, where it will be a Ctrl global; bookmarks, site search, and edit history as global actions; `Notification` on every notifying action, local toasts included; services registered through the plugin registrar; one confirm for a mixed write.
 
-Still open:
+**One confirm.** A write selection uses a single confirm. It sends to every service where that write is Ready. Every other selected service is skipped. The preview and `--dry-run` name each skipped service and why: not captured, not logged in, or disabled. Cancel is the default. `--yes` affirms that one confirm. Nothing is sent for a skip (§2.4).
 
-1. **Captions.** Which languages does the YouTube transcript stage request, and do automatic captions count as stored text, as `transcript_kind = auto` only, or not at all?
-2. **Comments.** What depth (top-level only, or one level of replies) and what cap per video?
-3. **Live chat replay.** Include it as `kind = chat`, or leave it out?
-4. **All view.** When more than one service is on screen, are rows mixed by time or grouped by service? Capability hiding and skipping are already decided either way (§2.4).
-5. **Source-switcher key.** Which key opens the switcher? F5, F6 and F7 are taken or planned. F8 is only a candidate.
+Still open, from the plugin design:
 
-Raised by the trait split:
-
-6. **Bookmarks, site search, and edit history.** Should each be its own capability trait, or a facet of `Reader`? This plan lists `Bookmarks` on its own because Red Star already pushes a bookmark, and leaves site search and edit history unnamed.
-7. **Notifications.** Local toasts stay in the app. Is the `Notifications` trait only a service's own stream (a site notifications pane), and is that in scope for X or YouTube at all?
-8. **Plugins.** New services are workspace crates registered at compile time. Is a runtime plugin loader wanted later, or is the enum registry the long-term shape?
-9. **One confirm for a mixed write.** An All-view selection can contain a `Ready` item and a `Gated` item for the same capability. This plan uses one confirm that lists the skips and sends only the `Ready` items. Should a gated service instead force its own acknowledgement and send nothing in that run?
+1. **Signatures.** Explicit enable and no auto-download are decided. Is a signature, or a hash the user pins, required before `dlopen`, or is placing the file and enabling the service the whole gate?
+2. **Where authors read the pin.** A plugin must be built with the same rustc and the same core-crate version as the binary. Should `--doctor` print that pair, should a file ship beside the binary, or both?
+3. **Reload.** Plugins load at startup and stay mapped until the process exits, because a service object must not outlive its library. Is the next launch the permanent rule, or is an in-process reload in scope later?
