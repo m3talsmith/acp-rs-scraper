@@ -250,6 +250,8 @@ fn seed_links(origin: &str) -> Vec<Link> {
             v.push(Link { url: format!("{origin}{path}"), kind: "feed", chronological: false, priority: 1 });
         }
     }
+    // Last priority-1 feed. A short time budget still stops on robots and the first two feeds.
+    v.push(Link { url: format!("{origin}/rs/spaces"), kind: "feed", chronological: true, priority: 1 });
     v
 }
 
@@ -313,6 +315,8 @@ fn absorb(
             report.posts.push(post.clone());
             report.new_posts += 1;
         }
+        // A known post can still change live → ended. Secrets are dropped before the write.
+        store_from_posts(c, std::slice::from_ref(raw))?;
         remember_links(c, opts, policy, task, post, raw, all_known, &stamp)?;
     }
     if !hit_limit {
@@ -743,6 +747,7 @@ mod tests {
         add(&mut m, "/rs/@ada", include_str!("../../tests/fixtures/site/crawl/profile.json"));
         add(&mut m, "/rs/tag/strike", include_str!("../../tests/fixtures/site/crawl/tag.json"));
         add(&mut m, "/rs/space/forum", include_str!("../../tests/fixtures/site/crawl/space.json"));
+        add(&mut m, "/rs/spaces", include_str!("../../tests/fixtures/site/crawl/spaces.json"));
         add(&mut m, "/rs/community/local", include_str!("../../tests/fixtures/site/crawl/community.json"));
         add(&mut m, "/rs/post/POST0001/reposts", include_str!("../../tests/fixtures/site/crawl/reposts.json"));
         m.insert(
@@ -892,6 +897,42 @@ mod tests {
         assert!(!notes.is_empty(), "{fired:?}");
         assert!(notes.iter().all(|f| f.detail != "rate limit"));
         assert!(report.posts.iter().any(|p| p.nick == "ada" && notes.iter().any(|f| f.post_id == p.post_id)));
+    }
+
+    #[tokio::test]
+    async fn spaces_are_stored_and_the_livekit_token_is_dropped() {
+        let db = temp("spaces");
+        let mut first = env();
+        let report = run_crawl(&db, &mut first, opts(false, None, None)).await.unwrap();
+        assert!(report.finished, "{report:?}");
+        assert!(first.fetched.iter().any(|u| u.ends_with("/rs/spaces")));
+        let c = open_db(&db).unwrap();
+        let live: i64 = c.query_row("SELECT live FROM spaces WHERE slug = 'strike-meeting'", [], |r| r.get(0)).unwrap();
+        assert_eq!(live, 1);
+        let rec: String = c.query_row("SELECT recording_url FROM spaces WHERE slug = 'strike-meeting'", [], |r| r.get(0)).unwrap();
+        assert_eq!(rec, "https://example.test/recordings/strike");
+        let sched: String = c.query_row("SELECT state FROM spaces WHERE slug = 'later-forum'", [], |r| r.get(0)).unwrap();
+        assert_eq!(sched, "scheduled");
+        let ended: String = c.query_row("SELECT state FROM spaces WHERE slug = 'old-forum'", [], |r| r.get(0)).unwrap();
+        assert_eq!(ended, "ended");
+        let bytes = std::fs::read(&db).unwrap();
+        assert!(!bytes.windows(b"lk-secret-token-do-not-keep".len()).any(|w| w == b"lk-secret-token-do-not-keep"), "livekit token was written");
+        assert!(!bytes.windows(b"wss://livekit".len()).any(|w| w == b"wss://livekit"), "livekit url was written");
+        drop(c);
+
+        let mut second = env();
+        let mut v: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/crawl/spaces.json")).unwrap();
+        v["posts"][0]["space"]["state"] = json!("ended");
+        v["posts"][0]["space"]["live"] = json!(false);
+        v["posts"][0]["space"]["ended_at"] = json!("2026-10-21T19:00:00Z");
+        second.pages.insert(format!("{ORIGIN}/rs/spaces"), page_from_fixture(ORIGIN, &v));
+        let again = run_crawl(&db, &mut second, opts(true, None, None)).await.unwrap();
+        assert!(again.finished, "{again:?}");
+        let c = open_db(&db).unwrap();
+        let live: i64 = c.query_row("SELECT live FROM spaces WHERE slug = 'strike-meeting'", [], |r| r.get(0)).unwrap();
+        assert_eq!(live, 0, "a known space post can leave live");
+        let state: String = c.query_row("SELECT state FROM spaces WHERE slug = 'strike-meeting'", [], |r| r.get(0)).unwrap();
+        assert_eq!(state, "ended");
     }
 
     #[test]

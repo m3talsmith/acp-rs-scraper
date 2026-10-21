@@ -4,6 +4,7 @@ use super::*;
 use crate::tui::commands::{Action, CommandId};
 use crate::tui::jobs::JobKind;
 use crate::tui::state::Effect;
+use ratatui::{Terminal, backend::TestBackend};
 
 #[test]
 fn site_top_opens_the_saved_order_and_asks_the_site() {
@@ -107,6 +108,43 @@ fn eb_replies_checkbox_is_a_flag() {
     assert_eq!(a.pending_feed.as_deref(), Some("eb:replies"));
     let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
     assert_eq!(argv[1..], ["--eb", "--eb-replies"]);
+}
+
+#[test]
+fn spaces_opens_the_saved_list_and_shows_a_live_badge() {
+    let mut store = fixture();
+    store.feeds.push(SiteFeed {
+        key: "spaces".into(),
+        title: "Spaces".into(),
+        fetched_at: "t".into(),
+        post_ids: vec!["ALICE0001".into()],
+    });
+    store.spaces.push(SpaceRow {
+        slug: "strike-meeting".into(),
+        post_id: "ALICE0001".into(),
+        title: "Strike meeting".into(),
+        state: "live".into(),
+        live: true,
+        scheduled_at: String::new(),
+        ended_at: String::new(),
+        recording_url: "https://example.test/recordings/strike".into(),
+        fetched_at: "t".into(),
+    });
+    let mut a = App::new(Box::new(store), &no_args(), Theme::acp(), false);
+    a.act(Action::OpenSpaces);
+    assert_eq!(a.view().posts.iter().map(|p| p.post_id.as_str()).collect::<Vec<_>>(), ["ALICE0001"]);
+    assert_eq!(a.view().site_key.as_deref(), Some("spaces"));
+    assert_eq!(a.pending_feed.as_deref(), Some("spaces"));
+    assert!(a.spaces.get("ALICE0001").is_some_and(|r| r.live));
+    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
+    assert_eq!(argv[1..], ["--spaces"]);
+    let mut t = Terminal::new(TestBackend::new(160, 32)).unwrap();
+    t.draw(|f| crate::tui::widgets::draw(f, &mut a, std::time::Instant::now())).unwrap();
+    let buf = t.backend().buffer().clone();
+    let text: String = buf.content.iter().map(|c| c.symbol()).collect();
+    assert!(text.contains("LIVE"), "{text}");
+    assert!(text.contains("https://example.test/recordings/strike"), "{text}");
+    assert!(!text.contains("wss://"), "a livekit url was drawn");
 }
 
 #[test]

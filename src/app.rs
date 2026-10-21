@@ -358,6 +358,11 @@ pub async fn run() -> Result<()> {
         info!("== explore: {n} posts");
         return Ok(());
     }
+    if args.spaces {
+        let n = read_spaces(&http, &jar).await?;
+        info!("== spaces: {n}");
+        return Ok(());
+    }
     if let Some(q) = &args.site_search {
         let n = read_site_search(&http, &jar, q).await?;
         info!("== site search {q:?}: {n} posts");
@@ -393,13 +398,18 @@ pub async fn run() -> Result<()> {
         return Ok(());
     }
     let mut nicks = args.nick_list()?;
-    if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
+    let did_bookmarks = args.sync_bookmarks || (args.sync && !args.no_bookmarks);
+    if did_bookmarks {
         let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;
         info!("== bookmarks: {} on the site, {} new posts stored, {} pulled, {} added and {} removed on the site, {} dropped{}",
             st.site, st.posts_saved, st.pulled, st.pushed.0, st.pushed.1, st.dropped,
             if st.failed > 0 { format!(", {} refused", st.failed) } else { String::new() });
-        if nicks.is_empty() && !args.refetch_truncated && !args.scrape_all { return Ok(()); }
     }
+    if args.sync && !args.scrape_all {
+        let n = read_spaces(&http, &jar).await?;
+        info!("== spaces: {n}");
+    }
+    if did_bookmarks && nicks.is_empty() && !args.refetch_truncated && !args.scrape_all { return Ok(()); }
     if args.scrape_all {
         let db = home()?.join(DB_REL_PATH);
         let report = match crate::scrape::sitewide::scrape_site(&http, &jar, &db, crate::scrape::sitewide::CrawlOpts {

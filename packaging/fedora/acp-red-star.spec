@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.33.0
+Version:        3.34.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.34.0-1
+- Package 3.34.0. A read-only Spaces list, with a live badge and a recording link. A LiveKit token is dropped.
+
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.33.0-1
 - Package 3.33.0. A reply edit sends validate, then save, once. The site does not support changing attachments on an edit.
 

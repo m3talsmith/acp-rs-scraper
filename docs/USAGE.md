@@ -433,6 +433,7 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--eb-replies` | With `--eb`: the feed's replies filter (View › EB includes replies). |
 | `--explore` | Explore (`/rs/explore`). The **Explore** row of the nick bar, or View › Explore. |
 | `--explore-latest` | Explore's Latest tab (`/rs/explore/latest`). View › Explore latest. |
+| `--spaces` | Spaces list (`/rs/spaces`). View › Spaces. A live room shows a live badge. Scheduled and ended are the states the page exposes. A recording link is printed when the page has one. Stored in the encrypted database. A LiveKit token is dropped and is not stored. Joining a room is not built. |
 | `--site-search TEXT` | Search the site (`/rs/explore?q=`, form `search`, field `q`). The Search modal's **Where: Site** does the same and uses only the keyword; nicks, dates, post id and kind stay local. |
 | `--tag TAG` | Tag feed (`/rs/tag/TAG`). A `#tag` in a post body, or the Tags row on the detail, opens the same view. `#post-…` anchors, `##` headings and tags inside code are not links. |
 | `--backfill-tags` | Rewrite `post_tags` from stored bodies, then re-read threads whose `body_json` is still empty (one page per thread, with a pause). `--nick` / `--nicks` limit the rows. Stored post text is not replaced. |
@@ -454,7 +455,7 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--order <ORDER>` | Which end of that profile feed `--limit` keeps. `newest` (default) keeps the start of the site's list. `oldest` keeps the end, so a limited scrape reads the whole feed first. On `newest` that is the oldest posts. On `top` that is the end of the Top ranking. The site has no oldest-first profile URL. |
 | `--limit <N>` | How many profile items to keep from each nick. With `--order newest` this is the start of the feed (the newest posts, or the top of `--profile-feed top`). With `--order oldest` this is the end of that feed. Omit it to scrape the whole profile. Replies in those threads are still fetched, unless `--said-by`. This is not `--crawl-limit`. |
 | `--crawl-limit <N>` | The most site-feed posts to scan when looking for mentions (default 500). |
-| `--scrape-all` | Read every reachable page of the Red Star site (`acprs --scrape-all`): newest and top feeds, threads and replies, profiles, tags, spaces and communities when they are linked, reposts, and attachment URLs and types. The file bytes are not downloaded. The frontier is stored in the encrypted database, so a stopped run resumes. After a finished run the next one is incremental unless `--full`: newest feeds stop at a page of known posts, and recent threads are read again for new replies. Pages wait between requests, back off after a refusal, and honor `robots.txt`. `--limit` caps how many new posts this run stores. The status line counts pages, posts, and what is left. Finish and failure raise a notice. Nothing is sent to the site. |
+| `--scrape-all` | Read every reachable page of the Red Star site (`acprs --scrape-all`): newest and top feeds, threads and replies, profiles, tags, `/rs/spaces`, communities when they are linked, reposts, and attachment URLs and types. Space rows are stored with the posts. A LiveKit token is dropped. The file bytes are not downloaded. The frontier is stored in the encrypted database, so a stopped run resumes. After a finished run the next one is incremental unless `--full`: newest feeds stop at a page of known posts, and recent threads are read again for new replies. Pages wait between requests, back off after a refusal, and honor `robots.txt`. `--limit` caps how many new posts this run stores. The status line counts pages, posts, and what is left. Finish and failure raise a notice. Nothing is sent to the site. |
 | `--scrape-budget <SECS>` | With `--scrape-all`: stop after this many seconds and leave the frontier for the next run. At least 1. |
 | `--no-attachments` | Don't download media, avatars or banners. Profile images are otherwise saved to `~/.acp/ai/data/attachments/profiles/<nick>.<ext>` and shown in HTML exports. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
@@ -541,7 +542,7 @@ with `state` `"1"` or `"0"`, which is what the current page sends.
 
 | Flag | What it does |
 |---|---|
-| `--sync` | Log in, sync bookmarks, then incrementally scrape `--nick`/`--nicks` if given. With `--scrape-all` (`acprs --sync --scrape-all`) it also runs the incremental whole-site update. No export unless `--output`; never prompts. After the new rows are saved, enabled rules run on those rows only. |
+| `--sync` | Log in, sync bookmarks, refresh the Spaces list, then incrementally scrape `--nick`/`--nicks` if given. With `--scrape-all` (`acprs --sync --scrape-all`) the Spaces list comes from the whole-site update instead of a second fetch. No export unless `--output`; never prompts. After the new rows are saved, enabled rules run on those rows only. A LiveKit token is dropped. |
 | `--no-bookmarks` | With `--sync`: skip the bookmark sync. |
 
 ### Rules (offline)

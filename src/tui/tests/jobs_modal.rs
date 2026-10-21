@@ -58,6 +58,7 @@ fn redact_hides_the_key_and_a_password_assignment() {
 fn source_names_the_command_including_backup_flags() {
     assert_eq!(job_source(JobKind::Read, "acp-red-star --eb"), "View › Executive Board");
     assert_eq!(job_source(JobKind::Read, "acp-red-star --explore-latest"), "Explore");
+    assert_eq!(job_source(JobKind::Read, "acp-red-star --spaces"), "View › Spaces");
     assert_eq!(job_source(JobKind::Read, "acp-red-star --top week"), "Site Top");
     assert_eq!(job_source(JobKind::Sync, "acp-red-star --sync"), "Sync");
     assert_eq!(job_source(JobKind::Scan, "acp-red-star --encrypt-db"), "Encrypt database");

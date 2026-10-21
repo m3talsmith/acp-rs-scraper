@@ -169,6 +169,8 @@ pub enum Action {
     OpenEb,
     /// Open Explore (the Explore row, or View › Explore).
     OpenExplore,
+    /// Open the Spaces list (View › Spaces). Read-only. No join.
+    OpenSpaces,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
     /// Compose › New post.
@@ -369,6 +371,7 @@ fn view_item() -> MenuCommand {
         opt("eb", "Executive Board", "--eb", false, button(Action::OpenEb)),
         opt("explore_latest", "Explore latest", "--explore-latest", false, check(false)),
         opt("explore", "Explore", "--explore", false, button(Action::OpenExplore)),
+        opt_topic("spaces", "Spaces", "--spaces", "spaces", false, button(Action::OpenSpaces)),
         opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
         opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
     ])
@@ -586,6 +589,7 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
         (CommandId::Discover, _) => Some("discover"),
         (CommandId::View, "notifications") => Some("notifications"),
+        (CommandId::View, "spaces") => Some("spaces"),
         (CommandId::Scrape, "whole_site") | (CommandId::Scrape, "budget") | (CommandId::Sync, "whole_site") => Some("whole-site"),
         _ => None,
     }
@@ -831,6 +835,13 @@ impl Menu {
     pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
         if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for the Spaces list (`--spaces`).
+    pub fn spaces_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--spaces".into()];
         v.extend(self.debug_args());
         validate(v)
     }

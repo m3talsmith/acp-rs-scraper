@@ -65,6 +65,8 @@ Update 2026-10-21 (interaction audit): **3.37.0** follows 3.36.0. Vote, subscrib
 
 Update 2026-10-21 (reply edit): crate **3.33.0** sends a reply-body edit. Validate, then save, once. The open is the captured redirect join to `/rs/post/{id}/edit`. The only field is `form[body_input]`. A top-level post edit, vote, subscribe, delete, and repost stay prepared, gated. The site does not support changing attachments on an edit; that is not prepared, gated. This follows crate 3.32.0 and does not renumber earlier releases.
 
+Update 2026-10-21 (spaces list): crate **3.34.0** lists spaces from `/rs/spaces` (View › Spaces and `--spaces`). A live room shows a live badge. Scheduled and ended are the states the page exposes. A recording link is kept when the page has one. Sync and `--scrape-all` store the list. A LiveKit URL or token is dropped and is never stored, logged, or printed. Joining a room stays gated until a capture. The write-up is [PLAN-SPACES.md](./PLAN-SPACES.md). This does not rewrite the historical plan-stage label 3.34.0 (whole-site scrape, which shipped as crate 3.30.0). Unmerged interaction work also uses crate 3.34.0; whichever merges first keeps that number.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -172,7 +174,7 @@ Legend for "We have": ✅ = done, ◐ = partial, ✗ = missing, n/a = out of sco
 | 34 | Report user | `js-reportUserActions-form` (cid 3), `save`, `form[reason]` ∈ {constitution, illegal_obscene, spam, uncomradely} | C | ✗ | Profile › Report |
 | 35 | Edit own profile | `edit-profile-form` (`phx-submit="save"`, method put): `form[display_name]`, `form[username]`, `form[forum_profile][bio]` (+ hidden `_persistent_id`/`_form_type`), uploads `profile_photo` and `banner` | C | ✗ | Account › Edit profile |
 | 36 | Forum settings | `/rs/settings`: `settings-form` with `form[time_zone_id]` (345 zones), `form[theme]` (light/dark/system) and `form[show_sustainer?]`. Web-push buttons `phx:push-subscribe` / `delete-push-subscriptions`. | C | ✗ | Account › Site settings (web push n/a) |
-| 37 | Spaces (live rooms) | `/rs/spaces` (a feed of space posts) and the `forum/SpaceBar` with a LiveKit URL and token. Events: `space-join`, `space-leave`, `space-raise-hand`, `space-lower-hand`, `space-react`, `space-recording`, `start-space`, `cancel-space`, `/rs/spaces/{id}/edit`, plus host tools (`space-mute`, `space-promote`, `space-demote`, `space-end` and so on). | C | ✗ | Phase 1: list spaces plus a "live now" badge. Phase 2 (optional): recordings via an external player. Live audio in a TUI is n/a. |
+| 37 | Spaces (live rooms) | `/rs/spaces` (a feed of space posts) and the `forum/SpaceBar` with a LiveKit URL and token. Events: `space-join`, `space-leave`, `space-raise-hand`, `space-lower-hand`, `space-react`, `space-recording`, `start-space`, `cancel-space`, `/rs/spaces/{id}/edit`, plus host tools (`space-mute`, `space-promote`, `space-demote`, `space-end` and so on). | C | ◐ | Crate 3.34.0 lists spaces, a live badge, scheduled and ended state, and a recording link. The LiveKit token is dropped. Join, hand, react, recording control, start/cancel, and host tools stay gated ([PLAN-SPACES.md](./PLAN-SPACES.md)). |
 
 **Not found on the site:** follows, direct messages, polls, emoji reactions on posts
 (only votes; reactions exist inside Spaces), and groups or channels (Spaces are the only "rooms").
@@ -308,7 +310,7 @@ Crate versions after 3.5.0 are the sequence in [CHANGELOG.md](../CHANGELOG.md), 
 | P5: Account | plan 3.12.0–3.15.0, not shipped | Edit profile, Site settings, Report post, Report user. Those digits are plan stages. |
 | P6: Outbox | plan 3.16.0, not shipped | Offline drafts and queue, plus **local-first posts, drafts and `post_versions`** (§7.14.8). Crate 3.16.0 is the restyled `red-star` theme. |
 | P7: Feeds | plan 3.17.0–3.20.0, not shipped | Feeds core + view; editor + add-to-feed modal; export; share/import (§6). Those digits are plan stages. |
-| P8: Spaces (optional) | plan 3.21.0, not shipped | List of spaces / live badge / recordings link. Crate 3.21.0 is hover tooltips. |
+| P8: Spaces (optional) | **3.34.0** list; join not shipped | List of spaces, a live badge, scheduled and ended state, and a recordings link. Joining a room stays gated ([PLAN-SPACES.md](./PLAN-SPACES.md)). The plan stage was called 3.21.0. Crate 3.21.0 is hover tooltips. |
 | Password change / re-key | **not shipped** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. The plan stage was called 3.22.0. Crate 3.22.0 is Help. |
 | P9: Decentralization | plan 3.23.0–3.27.0, not shipped | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. The re-key stays before this phase and has not shipped. It stays inside 3.x (§7.14.10). Crate 3.23.0 is About. |
 | P10: Review and Dart SDK | plan 3.28.0–3.29.0, not shipped | Draft review links, comments and suggestions (plan 3.28.0). `acp_rs_node_ffi` and the Dart SDK (plan 3.29.0). See §7.14. Crate 3.28.0 is the rule engine and crate 3.29.0 is alert templates. |
@@ -1557,7 +1559,7 @@ CREATE TABLE transcript_corrections (
 4. ~~**Notifications:** may I open `/rs/notifications` even if that marks them read?~~
    **Resolved 2026-10-18.** Yes. It's opened in P0 (§4.1) and used in P4.
 5. **View counting:** should the client send `view-post` like the browser does (honest view counts), or never (privacy)?
-6. **Spaces:** skip them, just list them, or try audio (needs LiveKit and an audio stack, a big lift)?
+6. **Spaces:** skip them, just list them, or try audio (needs LiveKit and an audio stack, a big lift)? Listing shipped in crate 3.34.0 and is read-only. Audio, video, and host tools stay open in [PLAN-SPACES.md](./PLAN-SPACES.md).
 7. ~~**Writes on by default from the write core (3.4.0)?**~~ **Resolved 2026-10-18.** Yes, they're on by default once writes exist. 3.0.0 does not add writes. The per-write preview and confirm (Cancel default) and `--dry-run` stay,
    and the opt-out is `ui.writes = false` or `ACP_WRITES=off` (§3).
 8. **Outbox:** auto-send queued items when you're back online, or always confirm again?

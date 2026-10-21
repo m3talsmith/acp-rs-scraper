@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.34.0] - 2026-10-21
+
+### Added
+
+- **Spaces list.** View › Spaces and `--spaces` read `/rs/spaces`. A live room shows a LIVE badge. Scheduled and ended are the states the page exposes. A recording link is shown when the page has one. The rows are stored in the encrypted database. Sync and `--scrape-all` pick the list up and stop early once the page is already known. A LiveKit URL or token is dropped and is not stored, logged, or printed. Joining a room is not built. The notes are [architecture/PLAN-SPACES.md](architecture/PLAN-SPACES.md).
+
 ## [3.33.0] - 2026-10-21
 
 ### Added

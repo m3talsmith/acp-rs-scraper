@@ -8,6 +8,7 @@ pub mod profile;
 pub mod reads;
 pub mod refetch;
 pub mod sitewide;
+pub mod spaces;
 pub mod thread;
 
 use crate::prelude::*;

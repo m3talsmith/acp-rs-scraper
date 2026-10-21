@@ -134,11 +134,15 @@ fn card(f: &mut Frame, app: &mut App, i: usize, cr: Rect, sel: bool) {
     let t = app.theme;
     let Some(p) = app.view().posts.get(i).cloned() else { return };
     let focused = app.focus == Focus::Body;
-    let b = boxed(&t.card(sel, focused)).title(meta_line(&p, &t));
+    let b = boxed(&t.card(sel, focused)).title(space_title(app, &p));
     let inner = b.inner(cr);
     f.render_widget(b, cr);
-    let lines: Vec<Line> = crate::tui::markdown::render(post_text(&p).trim(), inner.width as usize, &t).into_iter()
-        .filter(|l| l.width() > 0).take(inner.height as usize).collect();
+    let mut lines: Vec<Line> = crate::tui::markdown::render(post_text(&p).trim(), inner.width as usize, &t).into_iter()
+        .filter(|l| l.width() > 0).collect();
+    if let Some(url) = recording_url(app, &p.post_id) {
+        lines.push(Line::from(Span::styled(url, t.link())));
+    }
+    lines.truncate(inner.height as usize);
     f.render_widget(Paragraph::new(lines), inner);
     app.hits.push((cr, Hit::Post(i)));
     if cr.width > 8 {
@@ -288,6 +292,39 @@ pub const RESEARCH_ICON: &str = " ◈ ";
 /// The export-basket button: `+` adds the post, `✓` means it's in (click again to take it out).
 pub fn basket_icon(on: bool) -> &'static str { if on { " ✓ " } else { " + " } }
 
+fn space_row<'a>(app: &'a App, post_id: &str) -> Option<&'a crate::scrape::spaces::SpaceRow> {
+    if app.view().site_key.as_deref() != Some(crate::scrape::spaces::SPACES_KEY) { return None; }
+    app.spaces.get(post_id)
+}
+
+fn space_badge(app: &App, post_id: &str) -> Option<Span<'static>> {
+    let row = space_row(app, post_id)?;
+    let t = app.theme;
+    if row.live {
+        Some(Span::styled(" LIVE ", t.accent_bold()))
+    } else if !row.state.is_empty() {
+        Some(Span::styled(format!(" {} ", row.state), t.muted()))
+    } else {
+        None
+    }
+}
+
+fn recording_url(app: &App, post_id: &str) -> Option<String> {
+    let url = space_row(app, post_id)?.recording_url.clone();
+    (!url.is_empty()).then_some(url)
+}
+
+fn space_title(app: &App, p: &Post) -> Line<'static> {
+    let t = app.theme;
+    let mut spans = Vec::new();
+    if let Some(b) = space_badge(app, &p.post_id) { spans.push(b); }
+    spans.extend(meta_line(p, &t).spans);
+    if let Some(url) = recording_url(app, &p.post_id) {
+        spans.push(Span::styled(format!(" {url}"), t.link()));
+    }
+    Line::from(spans)
+}
+
 fn compact(f: &mut Frame, app: &mut App, i: usize, r: Rect) {
     let t = app.theme;
     let Some(p) = app.view().posts.get(i).cloned() else { return };
@@ -295,7 +332,12 @@ fn compact(f: &mut Frame, app: &mut App, i: usize, r: Rect) {
     let head = format!(" @{} · {} ", p.nick, p.posted_at.get(..16).unwrap_or(&p.posted_at));
     let rest = ellipsize(&snippet(&p), w.saturating_sub(head.len() + 8));
     let mark = if app.is_marked(&p.post_id) { "★" } else { " " };
-    f.render_widget(Paragraph::new(Line::from(vec![Span::styled(mark, t.accent_bold()), badge(&p, &t), Span::styled(head, t.muted()), Span::raw(rest)])), r);
+    let mut spans = vec![Span::styled(mark, t.accent_bold()), badge(&p, &t)];
+    if let Some(b) = space_badge(app, &p.post_id) { spans.push(b); }
+    spans.push(Span::styled(head, t.muted()));
+    if let Some(url) = recording_url(app, &p.post_id) { spans.push(Span::styled(format!(" {url} "), t.link())); }
+    spans.push(Span::raw(rest));
+    f.render_widget(Paragraph::new(Line::from(spans)), r);
     app.hits.push((r, Hit::Post(i)));
 }
 

@@ -207,6 +207,7 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
     c.execute_batch(SITE_STATE_SCHEMA)?;
     c.execute_batch(RULES_SCHEMA)?;
     c.execute_batch(CRAWL_SCHEMA)?;
+    c.execute_batch(SPACES_SCHEMA)?;
     Ok(())
 }
 

@@ -139,6 +139,22 @@ pub const SITE_FEEDS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_feeds (
             post_ids TEXT NOT NULL
         );";
 
+/// One Red Star space (a live room listed on `/rs/spaces` or named by a post's `space` key).
+///
+/// The LiveKit URL and token are not columns. A recording link is an ordinary https URL.
+pub const SPACES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS spaces (
+            slug TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL DEFAULT '',
+            title TEXT NOT NULL DEFAULT '',
+            state TEXT NOT NULL DEFAULT '',
+            live INTEGER NOT NULL DEFAULT 0,
+            scheduled_at TEXT NOT NULL DEFAULT '',
+            ended_at TEXT NOT NULL DEFAULT '',
+            recording_url TEXT NOT NULL DEFAULT '',
+            fetched_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS spaces_post_idx ON spaces(post_id);";
+
 /// Research projects and their items (see `research`). Items are unique per
 /// project, kind and ref; deleting a project deletes its items.
 pub const RESEARCH_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS research_projects (

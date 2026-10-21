@@ -134,6 +134,7 @@ pub fn job_source(kind: JobKind, cmd: &str) -> String {
     if has("--backup") { return "Backup".into(); }
     if has("--restore") { return "Restore".into(); }
     if has("--eb") { return "View › Executive Board".into(); }
+    if has("--spaces") { return "View › Spaces".into(); }
     if has("--explore") || has("--explore-latest") { return "Explore".into(); }
     if has("--top") { return "Site Top".into(); }
     if has("--sync") || has("--sync-bookmarks") { return "Sync".into(); }

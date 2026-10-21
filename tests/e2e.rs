@@ -180,6 +180,43 @@ async fn stderr_has(w: &mut E2e, s: String) { assert!(w.last.stderr.contains(&s)
 #[then(expr = "stdout contains {string}")]
 async fn stdout_has(w: &mut E2e, s: String) { assert!(w.last.stdout.contains(&s), "stdout lacks {s:?}:\n{}", w.last.stdout); }
 
+#[then("the home has no livekit token")]
+async fn home_has_no_livekit(w: &mut E2e) {
+    fn walk(dir: &std::path::Path, hit: &mut bool) {
+        let Ok(rd) = std::fs::read_dir(dir) else { return };
+        for ent in rd.flatten() {
+            let p = ent.path();
+            if p.is_dir() { walk(&p, hit); continue; }
+            let Ok(bytes) = std::fs::read(&p) else { continue };
+            let token = bytes.windows(b"lk-secret-token-do-not-keep".len()).any(|w| w == b"lk-secret-token-do-not-keep");
+            let url = bytes.windows(b"wss://livekit".len()).any(|w| w == b"wss://livekit");
+            if token || url { *hit = true; }
+        }
+    }
+    let mut hit = false;
+    walk(&w.home, &mut hit);
+    assert!(!hit, "livekit secret was written");
+    let c = w.conn();
+    let mut texts = Vec::new();
+    if acp_red_star::maintenance::table_exists(&c, "spaces").unwrap_or(false) {
+        let mut st = c.prepare("SELECT slug, post_id, title, state, scheduled_at, ended_at, recording_url FROM spaces").unwrap();
+        for row in st.query_map([], |r| {
+            Ok((0..7).map(|i| r.get::<_, String>(i).unwrap_or_default()).collect::<Vec<_>>().join(" "))
+        }).unwrap().flatten() {
+            texts.push(row);
+        }
+    }
+    if acp_red_star::maintenance::table_exists(&c, "posts").unwrap_or(false) {
+        let mut st = c.prepare("SELECT ifnull(title,''), ifnull(content,''), ifnull(body_json,'') FROM posts").unwrap();
+        for row in st.query_map([], |r| Ok(format!("{} {} {}", r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))).unwrap().flatten() {
+            texts.push(row);
+        }
+    }
+    let all = texts.join("\n");
+    assert!(!all.contains("lk-secret-token-do-not-keep"), "livekit secret was stored");
+    assert!(!all.contains("wss://livekit"), "livekit url was stored");
+}
+
 #[then("stdout shows one validate frame and one save frame")]
 async fn edit_frames(w: &mut E2e) {
     let s = &w.last.stdout;

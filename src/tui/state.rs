@@ -459,6 +459,8 @@ pub struct App {
     pub pending_job: Option<(JobKind, Vec<String>)>,
     /// Bookmarked post ids (local changes show at once; a side job stores them).
     pub marks: HashSet<String>,
+    /// Space rows for the Spaces list, keyed by post id. A LiveKit token is not a field.
+    pub spaces: HashMap<String, SpaceRow>,
     /// Body layout.
     pub view_mode: ViewMode,
     /// Grid columns at the last draw (↑/↓ move a row).
@@ -608,7 +610,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, anchor: None, opt: 0, editing: false, path_matches: Vec::new(), path_at: 0 },
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
+            job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), spaces: HashMap::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, paused_login: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None,
@@ -893,6 +895,7 @@ impl App {
     }
     /// Show a saved site read, in the site's order. Returns whether it was stored.
     pub fn show_site_feed(&mut self, key: &str) -> bool {
+        self.spaces.clear();
         match self.store.site_feed(key) {
             Ok(Some(f)) => {
                 let posts: Vec<Post> = f.post_ids.iter().filter_map(|id| self.store.post(id).ok().flatten()).collect();
@@ -900,6 +903,7 @@ impl App {
                 if missing > 0 { self.push_status(format!("{missing} posts from {} are not in the database", f.title)); }
                 let title = f.title.clone();
                 self.place_search(BodyView { title: f.title, posts, site_key: Some(key.into()), kind: crate::tui::order::ListKind::Site, site_order: true, ..BodyView::default() });
+                if key == SPACES_KEY { self.load_space_badges(); }
                 if !self.restoring { self.focus = Focus::Body; }
                 self.note_view(title);
                 true
@@ -937,6 +941,22 @@ impl App {
         match self.menu.menu.eb_argv() {
             Ok(argv) => self.open_site_read(&eb_key(replies), argv),
             Err(e) => self.error("Executive Board", &e),
+        }
+    }
+    /// Space rows for the open Spaces list. Other views do not draw them.
+    fn load_space_badges(&mut self) {
+        match self.store.spaces() {
+            Ok(rows) => {
+                self.spaces = rows.into_iter().filter(|r| !r.post_id.is_empty()).map(|r| (r.post_id.clone(), r)).collect();
+            }
+            Err(e) => self.push_status(format!("error: reading spaces: {e:#}")),
+        }
+    }
+    /// View › Spaces. The saved list opens at once. The refresh does not join a room.
+    pub fn open_spaces(&mut self) {
+        match self.menu.menu.spaces_argv() {
+            Ok(argv) => self.open_site_read(SPACES_KEY, argv),
+            Err(e) => self.error("Spaces", &e),
         }
     }
     /// The Explore row / View › Explore. Latest follows the View checkbox.
@@ -2155,6 +2175,7 @@ impl App {
             Action::OpenTop => self.open_top(),
             Action::OpenEb => self.open_eb(),
             Action::OpenExplore => self.open_explore(),
+            Action::OpenSpaces => self.open_spaces(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }

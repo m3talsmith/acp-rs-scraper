@@ -46,7 +46,7 @@ fn help_topics() -> Vec<String> {
         "  remembers its own order in ~/.acp/preferences.toml under [ui.list_order].",
         "  Nick timelines, bookmarks, search results, research items, and the export basket order",
         "  by posted time. A research file or page uses the time it was added.",
-        "  Site lists (Top, EB, Explore, a tag, reposts) keep the site's order. oldest reverses that",
+        "  Site lists (Top, EB, Explore, Spaces, a tag, reposts) keep the site's order. oldest reverses that",
         "  list. Top is a ranking, not a time sort, so oldest is the end of the ranking.",
         "  Edit history stays in version order. o there does not reorder it.",
         "",
@@ -173,6 +173,12 @@ fn area_topics() -> Vec<String> {
         "  Sync now reads the site into the local database. Auto sync repeats it while the TUI is open.",
         "  Whole site runs the incremental whole-site update. Rules run on the posts it stored.",
         "  Sync › Rules opens the rule list. A sync runs the enabled rules on the rows it just wrote.",
+    ]);
+    push_topic(&mut v, "spaces", "Spaces", &[
+        "  View › Spaces and --spaces read /rs/spaces. The list is stored in the encrypted database.",
+        "  A live room shows a LIVE badge. Scheduled and ended are the states the page exposes.",
+        "  A recording link is shown when the page has one. Sync and --scrape-all pick the list up.",
+        "  A LiveKit token is dropped. It is not stored, logged, or printed. Joining a room is not built.",
     ]);
     push_topic(&mut v, "whole-site", "Whole site", &[
         "  Scrape › Whole site, then Start Scanning, runs acprs --scrape-all.",

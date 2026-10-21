@@ -176,6 +176,19 @@ fn identity_flags_parse_and_do_not_open_the_tui() {
 }
 
 #[test]
+fn spaces_is_a_read_and_does_not_open_the_tui() {
+    let a = Args::try_parse_from(["x", "--spaces"]).unwrap();
+    assert!(a.spaces);
+    assert!(Args::try_parse_from(["x", "--spaces", "--explore"]).is_err());
+    assert!(Args::try_parse_from(["x", "--identity-init", "--spaces"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--spaces"]).unwrap();
+    assert!(!wants_tui(&m));
+    let help = Args::command().render_long_help().to_string();
+    assert!(help.contains("--spaces"));
+    assert!(help.contains("LiveKit"));
+}
+
+#[test]
 fn quiet_verbose_conflict() {
     assert!(Args::try_parse_from(["x", "-q", "-v"]).is_err());
     assert!(Args::try_parse_from(["x", "--quiet", "--debug"]).is_err());

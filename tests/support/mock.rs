@@ -176,6 +176,44 @@ fn to_auth(path: &str) -> Response {
 
 fn html(s: String) -> Response { ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], s).into_response() }
 
+fn space_posts() -> Vec<Value> {
+    let author = |n: &str| json!({"username": n, "user_id": format!("u-{n}")});
+    let one = |id: &str, nick: &str, title: &str, day: u32, space: Value| json!({
+        "id": id, "thread_id": id, "author": author(nick), "title": title, "body": body(title),
+        "inserted_at": format!("2026-10-{day:02}T12:00:00Z"), "space": space,
+    });
+    vec![
+        one("SPC00001", "ada", "Strike meeting", 21, json!({
+            "slug": "strike-meeting", "title": "Strike meeting", "state": "live", "live": true,
+            "scheduled_at": "2026-10-21T18:00:00Z",
+            "recording_url": "https://example.test/recordings/strike",
+            "token": "lk-secret-token-do-not-keep",
+            "livekit_url": "wss://livekit.example.test/room"
+        })),
+        one("SPC00002", "bob", "Later forum", 22, json!({
+            "slug": "later-forum", "state": "scheduled", "scheduled_at": "2026-10-22T15:00:00Z"
+        })),
+        one("SPC00003", "cara", "Old forum", 20, json!({
+            "name": "old-forum", "state": "ended", "ended_at": "2026-10-20T12:00:00Z"
+        })),
+    ]
+}
+
+async fn spaces_page(h: HeaderMap) -> Response {
+    if !logged_in(&h) { return to_auth("/rs/spaces"); }
+    let props = json!({"posts": space_posts(), "next_cursor": Value::Null, "at_end": true});
+    let bar = json!({
+        "slug": "strike-meeting",
+        "token": "lk-secret-token-do-not-keep",
+        "url": "wss://livekit.example.test/room"
+    });
+    html(lv_page(&format!(
+        r#"<div id="forum/Feed" data-props="{}"></div><div id="forum/SpaceBar" data-props="{}"></div>"#,
+        esc(&props.to_string()),
+        esc(&bar.to_string()),
+    )))
+}
+
 async fn site_feed(State(m): State<Mock>, h: HeaderMap) -> Response {
     if !logged_in(&h) { return to_auth("/rs"); }
     let props = page_of(&feed(&m.base, None, false), 0);
@@ -423,6 +461,7 @@ impl Mock {
         let app = Router::new()
             .route("/rs", get(site_feed))
             .route("/rs/latest", get(site_feed))
+            .route("/rs/spaces", get(spaces_page))
             .route("/rs/bookmarks", get(bookmarks_page))
             .route("/rs/{at}", get(profile))
             .route("/rs/post/{id}", get(thread))

@@ -1,0 +1,48 @@
+{
+  "posts": [
+    {
+      "id": "SPC00001",
+      "thread_id": "SPC00001",
+      "inserted_at": "2026-10-21T18:00:00Z",
+      "title": "Strike meeting",
+      "author": {"username": "ada"},
+      "body": "the room is live",
+      "space": {
+        "slug": "strike-meeting",
+        "title": "Strike meeting",
+        "state": "live",
+        "live": true,
+        "scheduled_at": "2026-10-21T18:00:00Z",
+        "recording_url": "https://example.test/recordings/strike",
+        "token": "lk-secret-token-do-not-keep",
+        "livekit_url": "wss://livekit.example.test/room"
+      }
+    },
+    {
+      "id": "SPC00002",
+      "thread_id": "SPC00002",
+      "inserted_at": "2026-10-22T15:00:00Z",
+      "title": "Later forum",
+      "author": {"username": "bob"},
+      "body": "scheduled later",
+      "space": {
+        "slug": "later-forum",
+        "state": "scheduled",
+        "scheduled_at": "2026-10-22T15:00:00Z"
+      }
+    },
+    {
+      "id": "SPC00003",
+      "thread_id": "SPC00003",
+      "inserted_at": "2026-10-20T12:00:00Z",
+      "title": "Old forum",
+      "author": {"username": "cara"},
+      "body": "that room ended",
+      "space": {
+        "name": "old-forum",
+        "state": "ended",
+        "ended_at": "2026-10-20T12:00:00Z"
+      }
+    }
+  ]
+}
