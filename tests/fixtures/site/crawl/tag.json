@@ -1,0 +1,12 @@
+{
+  "posts": [
+    {
+      "id": "POST0005",
+      "thread_id": "POST0005",
+      "inserted_at": "2026-10-17T00:00:00Z",
+      "title": "Tagged",
+      "author": {"username": "ada"},
+      "body": "on the tag"
+    }
+  ]
+}

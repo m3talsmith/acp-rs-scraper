@@ -1,0 +1,13 @@
+{
+  "posts": [
+    {
+      "id": "POST0008",
+      "thread_id": "POST0008",
+      "inserted_at": "2026-10-14T00:00:00Z",
+      "title": "Repost",
+      "author": {"username": "bob"},
+      "body": "again",
+      "repost_of": "POST0001"
+    }
+  ]
+}

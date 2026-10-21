@@ -398,6 +398,33 @@ pub async fn run() -> Result<()> {
         info!("== bookmarks: {} on the site, {} new posts stored, {} pulled, {} added and {} removed on the site, {} dropped{}",
             st.site, st.posts_saved, st.pulled, st.pushed.0, st.pushed.1, st.dropped,
             if st.failed > 0 { format!(", {} refused", st.failed) } else { String::new() });
+        if nicks.is_empty() && !args.refetch_truncated && !args.scrape_all { return Ok(()); }
+    }
+    if args.scrape_all {
+        let db = home()?.join(DB_REL_PATH);
+        let report = match crate::scrape::sitewide::scrape_site(&http, &jar, &db, crate::scrape::sitewide::CrawlOpts {
+            origin: base_url().to_string(),
+            incremental: !args.full,
+            limit: args.limit,
+            budget_ms: args.scrape_budget.map(|secs| secs.saturating_mul(1000)),
+            attachments: !args.no_attachments,
+        }).await {
+            Ok(report) => report,
+            Err(e) => {
+                err!("error: whole site: {e:#}");
+                return Err(e);
+            }
+        };
+        let line = match &report.stopped {
+            Some(why) => format!("paused at the {why}. {} pages left. The next run resumes.", report.pending),
+            None => format!("finished. {} new posts across {} pages.", report.new_posts, report.pages),
+        };
+        info!("Job: whole site {line}");
+        if args.sync {
+            if let Err(e) = crate::rules::on_sync(&db, &report.posts) {
+                err!("warning: rules: {e:#}");
+            }
+        }
         if nicks.is_empty() && !args.refetch_truncated { return Ok(()); }
     }
     if args.sync && nicks.is_empty() && !args.refetch_truncated {

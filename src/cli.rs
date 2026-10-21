@@ -26,6 +26,8 @@ Examples:
   acp-red-star --theme-init all     # download every theme in the repo into ~/.acp/themes
   acp-red-star --theme-starter mine # a minimal theme to edit (Shift-F5)
   acp-red-star --scrape             # headless scrape; asks for nicks
+  acprs --scrape-all                # every reachable read-only page; resumes
+  acprs --sync --scrape-all         # incremental whole-site update, then rules
   acp-red-star --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-red-star --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
   acp-red-star --nick alice --no-mentions --crawl-limit 200
@@ -110,10 +112,10 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost"]).multiple(false).conflicts_with_all([
-    "remove_nick", "clear_all", "scrape", "nick", "nicks", "logout", "sync", "sync_bookmarks",
+    "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
 ])))]
 #[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
-    "nick", "nicks", "scrape", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
+    "nick", "nicks", "scrape", "scrape_all", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
     "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
 ])))]
@@ -278,6 +280,14 @@ pub struct Args {
     /// Max site-feed posts to scan when hunting mentions (default 500).
     #[arg(long, default_value_t = DEFAULT_CRAWL_LIMIT, help_heading = "Scraping")]
     pub crawl_limit: usize,
+    /// Scrape every reachable read-only page of the Red Star site. `acprs --scrape-all` is this flag.
+    /// The frontier is stored in the encrypted database, so a stopped run resumes. The next finished
+    /// run is incremental unless `--full`. Sync with this flag runs that incremental update and then the rules.
+    #[arg(long, help_heading = "Scraping", conflicts_with_all = ["import", "export", "search", "list_nicks", "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "post_ids"])]
+    pub scrape_all: bool,
+    /// Stop `--scrape-all` after this many seconds and keep the frontier for the next run.
+    #[arg(long, value_name = "SECS", requires = "scrape_all", value_parser = parse_scrape_budget, help_heading = "Scraping")]
+    pub scrape_budget: Option<u64>,
     /// Skip downloading media attachments.
     #[arg(long, help_heading = "Scraping")]
     pub no_attachments: bool,
@@ -886,6 +896,13 @@ pub fn parse_site_attachments(s: &str) -> std::result::Result<SiteAttachmentList
 /// `--color` is `auto`, `always`, or `never`.
 pub fn parse_color_mode(s: &str) -> std::result::Result<ColorMode, String> {
     ColorMode::parse(s)
+}
+
+/// `--scrape-budget` is a whole number of seconds, at least 1.
+pub fn parse_scrape_budget(s: &str) -> std::result::Result<u64, String> {
+    let n: u64 = s.parse().map_err(|_| format!("--scrape-budget must be a number of seconds, not {s:?}"))?;
+    if n == 0 { return Err("--scrape-budget must be at least 1 second".into()); }
+    Ok(n)
 }
 
 /// `--limit` must be a whole number of at least 1.

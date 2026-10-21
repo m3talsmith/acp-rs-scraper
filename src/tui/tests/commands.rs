@@ -81,6 +81,30 @@ fn scrape_errors() {
 }
 
 #[test]
+fn whole_site_scrape_and_sync_map_to_scrape_all() {
+    let mut m = Menu::new(&no_args());
+    m.set_check(CommandId::Scrape, "whole_site", true);
+    m.set_text(CommandId::Scrape, "budget", "90");
+    m.set_text(CommandId::Scrape, "limit", "10");
+    let argv = m.scrape_argv(&[]).unwrap();
+    let a = parsed(&argv);
+    assert!(a.scrape_all && !a.full);
+    assert_eq!(a.scrape_budget, Some(90));
+    assert_eq!(a.limit, Some(10));
+    assert!(a.nick_list().unwrap().is_empty());
+    m.set_text(CommandId::Scrape, "budget", "0");
+    assert!(m.scrape_argv(&[]).unwrap_err().contains("at least 1"));
+    m.set_check(CommandId::Scrape, "whole_site", false);
+    m.set_text(CommandId::Scrape, "budget", "");
+    m.set_text(CommandId::Scrape, "limit", "");
+    m.set_check(CommandId::Sync, "whole_site", true);
+    m.set_check(CommandId::Sync, "bookmarks", false);
+    let sync = m.sync_argv(&[]).unwrap();
+    let s = parsed(&sync);
+    assert!(s.sync && s.scrape_all && s.no_bookmarks);
+}
+
+#[test]
 fn export_bulk_from_selection_view_or_everything() {
     let mut m = Menu::new(&no_args());
     use CommandId::Export as E;

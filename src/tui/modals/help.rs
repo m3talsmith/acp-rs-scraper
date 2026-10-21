@@ -160,7 +160,22 @@ fn area_topics() -> Vec<String> {
     ]);
     push_topic(&mut v, "sync", "Sync", &[
         "  Sync now reads the site into the local database. Auto sync repeats it while the TUI is open.",
+        "  Whole site runs the incremental whole-site update. Rules run on the posts it stored.",
         "  Sync › Rules opens the rule list. A sync runs the enabled rules on the rows it just wrote.",
+    ]);
+    push_topic(&mut v, "whole-site", "Whole site", &[
+        "  Scrape › Whole site, then Start Scanning, runs acprs --scrape-all.",
+        "  It reads every reachable page: feeds, threads and replies, profiles, tags,",
+        "  spaces and communities when the site has them, reposts, and attachment URLs.",
+        "  The file bytes stay for a nick scrape. This crawl stores the URL and the type.",
+        "  The frontier is in the encrypted database. A stopped run resumes.",
+        "  --limit caps new posts. Time budget (--scrape-budget) caps seconds.",
+        "  Between pages it waits, and it backs off after a refusal. robots.txt is honored.",
+        "  The next finished run is incremental: newest feeds stop at known posts,",
+        "  and recent threads are read again for new replies. --full walks everything.",
+        "  Sync › Whole site is that incremental update. Rules and alerts run on the new rows.",
+        "  The status line shows pages, posts, and how many are left.",
+        "  Finish and failure raise a notice. Nothing is published. The capture gate stays.",
     ]);
     push_topic(&mut v, "rules", "Rules", &[
         "  Sync › Rules lists system rules and user rules. Lower priority runs first.",

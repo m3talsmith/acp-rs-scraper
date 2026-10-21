@@ -1,0 +1,12 @@
+{
+  "posts": [
+    {
+      "id": "POST0007",
+      "thread_id": "POST0007",
+      "inserted_at": "2026-10-15T00:00:00Z",
+      "title": "Community",
+      "author": {"username": "ned"},
+      "body": "in the community"
+    }
+  ]
+}

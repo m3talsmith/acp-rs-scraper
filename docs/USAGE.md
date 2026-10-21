@@ -92,7 +92,7 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
 
   | Menu | Flags it builds |
   |---|---|
-  | Scrape (Start Scanning, `F6`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--profile-feed` `--order` `--limit` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format` |
+  | Scrape (Start Scanning, `F6`) | `--nicks` (field, else the selected nicks) `--latest`/`--trending` `--no-mentions` `--said-by` `--profile-feed` `--order` `--limit` `--crawl-limit` `--no-attachments` `--full` `--refetch-truncated` `--output --format`; Whole site is `acprs --scrape-all`, with Time budget as `--scrape-budget` |
   | Search | in-app search (same matching as `--search`, plus the filters above, Order, and Limit) |
   | Export | `--export PATH` + `--nicks` (selection) or `--search`/`--nicks` (current view) or nothing (everything) or `--post-ids` (Basket, and the Export basket button), `--format`, `--name`, `--compress --tar-gz` |
   | Import | `--import PATH` `--compress --tar-gz` |
@@ -101,7 +101,7 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
   | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; Colour; ◂ Previous post / Next post ▸ (TUI only) |
-  | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked; Rules… (`--rules-list`) |
+  | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; Whole site is `acprs --sync --scrape-all` (incremental, then rules); on a timer when Auto sync is ticked; Rules… (`--rules-list`) |
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
@@ -454,6 +454,8 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--order <ORDER>` | Which end of that profile feed `--limit` keeps. `newest` (default) keeps the start of the site's list. `oldest` keeps the end, so a limited scrape reads the whole feed first. On `newest` that is the oldest posts. On `top` that is the end of the Top ranking. The site has no oldest-first profile URL. |
 | `--limit <N>` | How many profile items to keep from each nick. With `--order newest` this is the start of the feed (the newest posts, or the top of `--profile-feed top`). With `--order oldest` this is the end of that feed. Omit it to scrape the whole profile. Replies in those threads are still fetched, unless `--said-by`. This is not `--crawl-limit`. |
 | `--crawl-limit <N>` | The most site-feed posts to scan when looking for mentions (default 500). |
+| `--scrape-all` | Read every reachable page of the Red Star site (`acprs --scrape-all`): newest and top feeds, threads and replies, profiles, tags, spaces and communities when they are linked, reposts, and attachment URLs and types. The file bytes are not downloaded. The frontier is stored in the encrypted database, so a stopped run resumes. After a finished run the next one is incremental unless `--full`: newest feeds stop at a page of known posts, and recent threads are read again for new replies. Pages wait between requests, back off after a refusal, and honor `robots.txt`. `--limit` caps how many new posts this run stores. The status line counts pages, posts, and what is left. Finish and failure raise a notice. Nothing is sent to the site. |
+| `--scrape-budget <SECS>` | With `--scrape-all`: stop after this many seconds and leave the frontier for the next run. At least 1. |
 | `--no-attachments` | Don't download media, avatars or banners. Profile images are otherwise saved to `~/.acp/ai/data/attachments/profiles/<nick>.<ext>` and shown in HTML exports. |
 | `--full` | Re-crawl everything: ignore known post ids when paging, refetch every thread, and process attachments for every post (files already on disk are still reused). |
 
@@ -539,7 +541,7 @@ with `state` `"1"` or `"0"`, which is what the current page sends.
 
 | Flag | What it does |
 |---|---|
-| `--sync` | Log in, sync bookmarks, then incrementally scrape `--nick`/`--nicks` if given. No export unless `--output`; never prompts. After the new rows are saved, enabled rules run on those rows only. |
+| `--sync` | Log in, sync bookmarks, then incrementally scrape `--nick`/`--nicks` if given. With `--scrape-all` (`acprs --sync --scrape-all`) it also runs the incremental whole-site update. No export unless `--output`; never prompts. After the new rows are saved, enabled rules run on those rows only. |
 | `--no-bookmarks` | With `--sync`: skip the bookmark sync. |
 
 ### Rules (offline)

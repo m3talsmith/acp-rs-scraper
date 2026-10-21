@@ -56,6 +56,15 @@ acprs --scrape --nick alice --no-mentions
 
 Progress is on the status line in the TUI, and on stderr when you are not in the TUI. `--limit` and `--order` keep part of a profile. Omit `--limit` to read the whole profile.
 
+Whole site, on Scrape or on Sync, reads every reachable page:
+
+```
+acprs --scrape-all
+acprs --sync --scrape-all
+```
+
+`acprs --scrape-all` resumes if it stopped. The sync form is the incremental update, and rules run on the posts it stored. `--scrape-budget 600` stops after ten minutes and leaves the rest for the next run.
+
 ## Browse and search
 
 Click a nick, or press Enter, to read posts. `b` bookmarks the open post. `/` filters the nick list. Search on the menu reads the local database. Search the site uses the same query against the forum. `Shift-S` opens the full search. `<` goes back.

@@ -1,0 +1,26 @@
+{
+  "posts": [
+    {
+      "id": "POST0001",
+      "thread_id": "POST0001",
+      "inserted_at": "2026-10-21T00:00:00Z",
+      "title": "Hello",
+      "author": {"username": "ada"},
+      "body": "hello #strike",
+      "media": [{"type": "image", "url": "https://acp.us/media/a.jpg"}],
+      "space": {"slug": "forum"},
+      "community": {"slug": "local"},
+      "repost_of": "POST0009"
+    },
+    {
+      "id": "POST0002",
+      "thread_id": "POST0002",
+      "inserted_at": "2026-10-20T00:00:00Z",
+      "title": "Second",
+      "author": {"username": "bob"},
+      "body": "docks"
+    }
+  ],
+  "next": "/rs/latest?cursor=2",
+  "links": ["/rs/private/secret"]
+}
