@@ -36,9 +36,10 @@ pub fn identity_init() -> Result<()> {
     let entropy = Zeroizing::new(master::new_entropy());
     let phrase = Zeroizing::new(master::phrase_from_entropy(&entropy)?);
     let master = master::derive_master(&phrase, password.as_str(), default_params())?;
-    println!();
+    clear_screen();
     println!("Write these 24 words on paper. A screenshot or a photo is not a safe copy.");
     println!("There is no password reset. The password is not part of the phrase.");
+    println!("This screen is the only place the words are shown. They are not logged.");
     println!();
     println!("    {}", phrase.as_str());
     println!();
@@ -71,7 +72,7 @@ pub fn identity_init() -> Result<()> {
     println!();
     println!("Pinned {}.", master.acp_id);
     println!(
-        "An encrypted copy of these words is at ~/.acp/recovery.seal. --show-phrase shows them again after you enter the password."
+        "An encrypted copy of these words is at ~/.acp/recovery.seal. --show-recovery shows them again after you enter the password."
     );
     println!(
         "That file is not a paper copy. It does not help if the password is lost, and a new computer still needs the words or 3 shares."
@@ -81,17 +82,19 @@ pub fn identity_init() -> Result<()> {
         "There is no password reset. A lost password together with lost shares cannot be recovered."
     );
     println!();
-    let answer = prompt("Print the 5 recovery shares now? The phrase cannot be postponed. [y/N] ")?;
-    if is_yes(&answer) {
-        print_sheets(master.acp_id.as_str(), &entropy)?;
-        clear_shares_pending(&home)?;
-        note_shares_checked(&home)?;
-    } else {
+    println!(
+        "The shares come next, one at a time. Any {} of {} rebuild the seed. One group, group threshold {} of {}.",
+        slip39::MEMBER_THRESHOLD,
+        slip39::MEMBER_COUNT,
+        slip39::GROUP_THRESHOLD,
+        slip39::GROUP_COUNT
+    );
+    if let Err(err) = present_shares(master.acp_id.as_str(), &entropy, false) {
         mark_shares_pending(&home)?;
-        println!(
-            "Shares postponed. Run --shares-print on a terminal when the sheets can be written down."
-        );
+        return Err(err);
     }
+    clear_shares_pending(&home)?;
+    note_shares_checked(&home)?;
     Ok(())
 }
 
@@ -237,10 +240,7 @@ pub fn prepare_db() -> Result<()> {
     if std::io::IsTerminal::is_terminal(&std::io::stdin())
         && std::io::IsTerminal::is_terminal(&std::io::stdout())
     {
-        let home = home()?;
-        if super::recovery::next_pending(&home) {
-            explain_recovery(&home)?;
-        }
+        offer_on_terminal(&home()?)?;
     }
     Ok(())
 }
@@ -439,7 +439,7 @@ pub fn backup_schedule(cadence: &str, keep: u32, dest: &Path) -> Result<()> {
 pub fn shares_reminder(home: &Path) -> Option<String> {
     if home.join(config::SHARES_PENDING_REL_PATH).is_file() {
         return Some(
-            "Recovery shares are not printed yet. Run --shares-print. A lost password and lost shares cannot be recovered."
+            "Recovery shares are not printed yet. Run --show-recovery. A lost password and lost shares cannot be recovered."
                 .into(),
         );
     }
@@ -493,18 +493,84 @@ fn print_sheets_for_home(home: &Path, seed: &[u8; 32]) -> Result<()> {
 
 fn print_sheets(acp_id: &str, seed: &[u8; 32]) -> Result<()> {
     let shares = slip39::split_seed(seed)?;
-    println!();
-    println!("Five recovery shares, any 3 of which restore the seed. The password is not in them.");
-    println!(
-        "Reissuing shares of this seed does not invalidate older shares. Only a master rotation does."
-    );
-    println!("Write each sheet down separately. They are not stored and not copied for you.");
-    println!("Run --shares-verify once a year.");
-    println!();
-    for mnemonic in &shares {
-        println!("{}", slip39::sheet(acp_id, mnemonic)?);
+    present_shares_with(acp_id, &shares, true, &mut std::io::stdout(), read_stdin_line)
+}
+
+fn clear_screen() {
+    if std::io::IsTerminal::is_terminal(&std::io::stdout()) {
+        let _ = super::recovery::clear_terminal();
     }
+}
+
+fn read_stdin_line() -> Result<String> {
+    let mut line = String::new();
+    std::io::stdin().read_line(&mut line)?;
+    Ok(line.trim().to_string())
+}
+
+/// Show each share on its own screen. The next share is printed only after this
+/// one is typed back. Nothing here is logged or written to disk.
+pub fn present_shares_with(
+    acp_id: &str,
+    shares: &[String],
+    fresh: bool,
+    out: &mut dyn Write,
+    mut read_line: impl FnMut() -> Result<String>,
+) -> Result<()> {
+    let count = slip39::MEMBER_COUNT;
+    let threshold = slip39::MEMBER_THRESHOLD;
+    let groups = slip39::GROUP_COUNT;
+    let group_need = slip39::GROUP_THRESHOLD;
+    writeln!(out)?;
+    writeln!(
+        out,
+        "Any {threshold} of {count} shares rebuild the seed. One group, group threshold {group_need} of {groups}."
+    )?;
+    writeln!(out, "The password is not in a share. A share is not logged and is not stored.")?;
+    if fresh {
+        writeln!(out, "This is a new split of the same master secret.")?;
+        writeln!(
+            out,
+            "A split uses new randomness, so an older set cannot be printed again."
+        )?;
+        writeln!(
+            out,
+            "Destroy any older shares of this secret. An older share still rebuilds it until that paper is destroyed."
+        )?;
+    }
+    writeln!(out, "Write each share on its own paper. Run --shares-verify once a year.")?;
+    out.flush()?;
+    for (i, mnemonic) in shares.iter().enumerate() {
+        let n = i + 1;
+        clear_screen();
+        writeln!(out)?;
+        writeln!(
+            out,
+            "Share {n} of {count}. Threshold {threshold} of {count}. Group threshold {group_need} of {groups}."
+        )?;
+        writeln!(out, "{}", slip39::sheet(acp_id, mnemonic)?)?;
+        writeln!(out, "Type this share to confirm you wrote it down, then Enter.")?;
+        out.flush()?;
+        loop {
+            let typed = read_line()?;
+            if master::normalize_phrase(&typed) == master::normalize_phrase(mnemonic) {
+                writeln!(out, "Share {n} of {count} is confirmed.")?;
+                out.flush()?;
+                break;
+            }
+            writeln!(out, "That share did not match. It is still on screen. Type it again.")?;
+            out.flush()?;
+        }
+    }
+    clear_screen();
+    writeln!(out, "All {count} shares were confirmed. They were not written to disk.")?;
+    out.flush()?;
     Ok(())
+}
+
+fn present_shares(acp_id: &str, seed: &[u8; 32], fresh: bool) -> Result<()> {
+    let shares = slip39::split_seed(seed)?;
+    present_shares_with(acp_id, &shares, fresh, &mut std::io::stdout(), read_stdin_line)
 }
 
 fn read_block(msg: &str) -> Result<String> {
@@ -527,77 +593,99 @@ fn read_block(msg: &str) -> Result<String> {
     Ok(lines.join("\n"))
 }
 
-fn is_yes(s: &str) -> bool {
-    matches!(s.trim().to_ascii_lowercase().as_str(), "y" | "yes")
+/// What the next terminal session should do about the phrase and the shares.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecoveryNext {
+    /// Nothing is waiting.
+    Quiet,
+    /// No account yet. Create the phrase and the shares.
+    Create,
+    /// The seal can open the phrase. Show it, then a fresh split.
+    ShowAgain,
+    /// A pin exists and the seal does not. The password cannot rebuild the words.
+    CannotRebuild,
 }
 
-fn is_no(s: &str) -> bool {
-    matches!(s.trim().to_ascii_lowercase().as_str(), "n" | "no")
+/// Decide from the home directory. This does not print the phrase or a share.
+pub fn recovery_next(home: &Path) -> Result<RecoveryNext> {
+    let waiting = super::recovery::next_pending(home)
+        || home.join(config::SHARES_PENDING_REL_PATH).is_file();
+    let pinned = Pin::load(home)?.is_some();
+    if !pinned {
+        return Ok(if waiting { RecoveryNext::Create } else { RecoveryNext::Quiet });
+    }
+    if !waiting {
+        return Ok(RecoveryNext::Quiet);
+    }
+    if super::recovery::seal_exists(home) {
+        Ok(RecoveryNext::ShowAgain)
+    } else {
+        Ok(RecoveryNext::CannotRebuild)
+    }
 }
 
-/// Print the recovery steps and, when there is no account yet, offer to create the phrase.
-fn explain_recovery(home: &std::path::Path) -> Result<()> {
-    println!();
-    println!("{}", super::recovery::GUIDE.trim_end());
-    println!();
-    if Pin::load(home)?.is_some() {
-        super::recovery::clear_next(home)?;
-        if super::recovery::seal_exists(home) {
-            println!("Show the words again with --show-phrase. It asks for the password.");
-        } else {
+fn offer_on_terminal(home: &Path) -> Result<()> {
+    match recovery_next(home)? {
+        RecoveryNext::Quiet => Ok(()),
+        RecoveryNext::Create => identity_init(),
+        RecoveryNext::ShowAgain => show_recovery(),
+        RecoveryNext::CannotRebuild => {
             println!(
                 "This account was created before the phrase was saved here. The password cannot rebuild the words."
             );
             println!("Use the paper copy, or 3 shares with --shares-print.");
+            super::recovery::clear_next(home)?;
+            Ok(())
         }
-        return Ok(());
     }
-    let answer = prompt("Create the recovery phrase now, so you can write it down? [y/N] ")?;
-    if is_yes(&answer) {
-        identity_init()?;
-    } else {
-        super::recovery::clear_next(home)?;
-        println!("Run --identity-init when you can write the words down.");
-        println!(
-            "After that, --show-phrase shows the words again. The same steps are in --help, and in the terminal UI under ? or F1."
-        );
-    }
-    Ok(())
 }
 
-/// Before the terminal UI covers the screen, offer to create the phrase.
-/// `Ok(true)` opens Help, which starts with the same steps.
+/// Print the recovery steps and, when there is no account yet, create the phrase.
+fn explain_recovery(home: &std::path::Path) -> Result<()> {
+    offer_on_terminal(home)
+}
+
+/// Before the terminal UI covers the screen, show the phrase and the shares.
+/// `Ok(true)` opens Help when the words cannot be rebuilt.
 pub fn tui_recovery_offer(home: &std::path::Path) -> Result<bool> {
-    if !super::recovery::next_pending(home) {
+    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
         return Ok(false);
     }
-    if Pin::load(home)?.is_some() {
-        super::recovery::clear_next(home)?;
-        return Ok(true);
-    }
-    println!();
-    println!("The database is encrypted. The password is not the master key.");
-    println!(
-        "The next screen explains the 24-word recovery phrase, the 5 shares (any 3 rebuild it), and how to restore a backup."
-    );
-    let answer = prompt("Create the recovery phrase now, so you can write it down? [y/N] ")?;
-    if is_yes(&answer) {
-        identity_init()?;
-        prompt(
-            "Press Enter to open the terminal UI. Anything above this line will leave the screen. ",
-        )?;
-        Ok(false)
-    } else {
-        super::recovery::clear_next(home)?;
-        Ok(true)
+    match recovery_next(home)? {
+        RecoveryNext::Quiet => Ok(false),
+        RecoveryNext::Create => {
+            identity_init()?;
+            prompt("Press Enter to open the terminal UI. The words above were confirmed. ")?;
+            Ok(false)
+        }
+        RecoveryNext::ShowAgain => {
+            println!("The recovery phrase and the shares still need to be written down.");
+            show_recovery()?;
+            prompt("Press Enter to open the terminal UI. ")?;
+            Ok(false)
+        }
+        RecoveryNext::CannotRebuild => {
+            println!(
+                "This account was created before the phrase was saved here. The password cannot rebuild the words."
+            );
+            println!("Use the paper copy, or 3 shares with --shares-print.");
+            super::recovery::clear_next(home)?;
+            Ok(true)
+        }
     }
 }
 
-/// Show the 24 words again. Always asks for the password, even when `ACP_PASSWORD` is set.
+/// Show the 24 words again, then a fresh split. Always asks for the password,
+/// even when `ACP_PASSWORD` is set. `--show-phrase` is the same screen.
 pub fn show_phrase() -> Result<()> {
+    show_recovery()
+}
+
+/// Show the phrase and then each share. The password is typed, not read from the environment.
+pub fn show_recovery() -> Result<()> {
     if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
         bail!(
-            "--show-phrase needs a terminal, so the recovery phrase is not written to a log or a pipe."
+            "--show-recovery needs a terminal, so the recovery phrase and the shares are not written to a log or a pipe."
         );
     }
     let home = home()?;
@@ -618,36 +706,37 @@ pub fn show_phrase() -> Result<()> {
     eprintln!();
     let password = Zeroizing::new(rpassword::prompt_password("Password: ")?);
     let home_open = home.clone();
-    let phrase = super::progress::run_busy("Opening the recovery phrase", move || {
+    let acp_id = pin.acp_id.clone();
+    let params = pin.argon2;
+    let opened = super::progress::run_busy("Opening the recovery phrase", move || {
         let entropy = super::recovery::open(&home_open, password.as_str())?;
         let phrase = Zeroizing::new(master::phrase_from_entropy(&entropy)?);
-        let master = master::derive_master(phrase.as_str(), password.as_str(), pin.argon2)?;
-        master.require_id(&pin.acp_id)?;
-        Ok(phrase)
+        let master = master::derive_master(phrase.as_str(), password.as_str(), params)?;
+        master.require_id(&acp_id)?;
+        Ok((entropy, phrase, acp_id))
     })?;
+    let (entropy, phrase, acp_id) = opened;
+    clear_screen();
+    println!("Write these 24 words on paper. They are not logged and they are not stored as text.");
     println!();
     println!("{}", phrase.as_str());
     println!();
-    let typed =
-        prompt("Type the 24 words from your paper to check them, or press Enter to skip: ")?;
-    if !typed.trim().is_empty()
-        && master::normalize_phrase(&typed) != master::normalize_phrase(phrase.as_str())
-    {
-        println!("Those words do not match. The phrase is still on screen. Nothing was changed.");
+    let typed = prompt("Type the 24 words to confirm you wrote them down, then Enter: ")?;
+    if master::normalize_phrase(&typed) != master::normalize_phrase(phrase.as_str()) {
+        println!("Those words do not match. The phrase is still on screen. The shares were not shown.");
         return Ok(());
     }
-    if !typed.trim().is_empty() {
-        println!("Those words match the saved phrase.");
+    println!("Those words match the saved phrase.");
+    if let Err(err) = present_shares(acp_id.as_str(), &entropy, true) {
+        mark_shares_pending(&home)?;
+        return Err(err);
     }
-    let answer = prompt("Clear the terminal now? [Y/n] ")?;
+    clear_shares_pending(&home)?;
+    note_shares_checked(&home)?;
+    super::recovery::clear_next(&home)?;
     let shown = super::recovery::seal_path(&home).display().to_string();
-    if is_no(&answer) {
-        println!("The words are still on this screen. They remain encrypted at {shown}.");
-        return Ok(());
-    }
-    super::recovery::clear_terminal()?;
     println!(
-        "The terminal was cleared. The words remain encrypted at {shown}. Run --show-phrase to see them again."
+        "The terminal was cleared. The words remain encrypted at {shown}. Run --show-recovery to see them again."
     );
     println!(
         "Clearing the screen does not erase a screenshot, and some terminals keep the scrollback anyway."

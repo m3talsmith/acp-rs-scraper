@@ -10,17 +10,17 @@ Create the phrase when you can write it down:
 
     acp-red-star --identity-init
 
-The words are shown once, and you type them again to confirm you saved them. The command then offers the 5 shares. To print the shares later:
+The words are shown once, and you type them again to confirm you saved them. The command then shows the 5 shares, one at a time. Each share is share N of 5, the threshold is 3 of 5, and the group threshold is 1 of 1. You type that share before the next one is shown. The shares are not logged and they are not stored as text. To print a fresh split later:
 
     acp-red-star --shares-print
 
-That asks for the 24 words, or for at least 3 shares you already have, and for the password.
+That asks for the 24 words, or for at least 3 shares you already have, and for the password. A new split cannot reprint an older one. Destroy any older shares. An older share still rebuilds the secret until that paper is destroyed.
 
-Show the words again on this computer:
+Show the words and the shares again on this computer:
 
-    acp-red-star --show-phrase
+    acp-red-star --show-recovery
 
-It asks for the password. It does not read the password from the environment. It warns you that the words will be on the screen and may stay in scrollback, and it can clear the terminal afterward. A phrase created before this copy was saved cannot be rebuilt from the password. Use the paper copy, or 3 shares with --shares-print.
+`--show-phrase` opens the same screen. It asks for the password. It does not read the password from the environment. It warns you that the words will be on the screen and may stay in scrollback, and it clears the terminal after the shares are confirmed. Account › Security in the terminal UI is the same screen. A phrase created before this copy was saved cannot be rebuilt from the password. Use the paper copy, or 3 shares with --shares-print.
 
 Check a written copy of the shares:
 

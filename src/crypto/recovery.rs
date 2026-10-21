@@ -292,6 +292,8 @@ mod tests {
         assert!(GUIDE.contains("not the master key"));
         assert!(GUIDE.contains("3 of 5") || GUIDE.contains("Any 3 of those 5"));
         assert!(GUIDE.contains("--show-phrase"));
+        assert!(GUIDE.contains("--show-recovery"));
+        assert!(GUIDE.contains("one at a time"));
         assert!(GUIDE.contains("--identity-init"));
         assert!(GUIDE.contains("--shares-print"));
         assert!(GUIDE.contains("--shares-verify"));

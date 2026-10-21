@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.33.1] - 2026-10-21
+
+### Fixed
+
+- **The recovery phrase and the shares are shown.** First-run setup on the command line and in the terminal UI shows the 24-word phrase, asks for it to be typed back, then shows each of the 5 shares on its own screen. The screen says share N of 5, threshold 3, and group threshold 1 of 1. The next share waits until this one is typed back. The words are not logged, not written as text, and not put in notices or history. `--show-recovery` and Account › Security ask for the password and show the phrase again from `~/.acp/recovery.seal`. Shares are a new split of the same master secret, so any older shares should be destroyed. Without the seal, the password cannot rebuild the words.
+
 ## [3.33.0] - 2026-10-21
 
 ### Added

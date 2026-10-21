@@ -180,6 +180,57 @@ async fn stderr_has(w: &mut E2e, s: String) { assert!(w.last.stderr.contains(&s)
 #[then(expr = "stdout contains {string}")]
 async fn stdout_has(w: &mut E2e, s: String) { assert!(w.last.stdout.contains(&s), "stdout lacks {s:?}:\n{}", w.last.stdout); }
 
+#[when(expr = "the recovery screens walk five shares")]
+async fn walk_shares(w: &mut E2e) {
+    let shares = acp_red_star::crypto::slip39::split_seed(&[0x3c; 32]).expect("split");
+    let mut answers = shares.clone();
+    answers.insert(0, "not the share".into());
+    let mut n = 0usize;
+    let mut out = Vec::new();
+    acp_red_star::crypto::cmd::present_shares_with("acp1-example", &shares, true, &mut out, || {
+        let line = answers[n].clone();
+        n += 1;
+        Ok(line)
+    })
+    .expect("screens");
+    assert_eq!(n, shares.len() + 1);
+    w.last.stdout = String::from_utf8(out).expect("screen text");
+    w.last.stderr.clear();
+    w.last.code = 0;
+}
+
+#[then(expr = "the recovery screen showed one share at a time")]
+async fn one_share_at_a_time(w: &mut E2e) {
+    let text = &w.last.stdout;
+    let first = text.find("Share 1 of 5").expect("share 1 header");
+    let missed = text.find("That share did not match").expect("mismatch");
+    let second = text.find("Share 2 of 5").expect("share 2 header");
+    assert!(first < missed && missed < second);
+    assert!(text.contains("Threshold 3 of 5"), "threshold");
+    assert!(text.contains("Group threshold 1 of 1"), "group");
+    assert!(text.contains("Destroy any older shares"), "fresh split");
+    assert!(!text.contains("not the share"), "a wrong line was echoed");
+}
+
+#[then(expr = "the home has no recovery words on disk")]
+async fn no_recovery_words_on_disk(w: &mut E2e) {
+    fn walk(dir: &std::path::Path) {
+        let Ok(rd) = std::fs::read_dir(dir) else { return };
+        for entry in rd.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path);
+                continue;
+            }
+            let bytes = std::fs::read(&path).unwrap_or_default();
+            let text = String::from_utf8_lossy(&bytes);
+            assert!(!text.contains("Share 1 of 5"), "{}", path.display());
+            assert!(!text.contains("Write these 24 words"), "{}", path.display());
+        }
+    }
+    walk(&w.home);
+}
+
 #[then("stdout shows one validate frame and one save frame")]
 async fn edit_frames(w: &mut E2e) {
     let s = &w.last.stdout;

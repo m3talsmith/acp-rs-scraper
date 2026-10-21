@@ -65,6 +65,8 @@ Update 2026-10-21 (interaction audit): **3.37.0** follows 3.36.0. Vote, subscrib
 
 Update 2026-10-21 (reply edit): crate **3.33.0** sends a reply-body edit. Validate, then save, once. The open is the captured redirect join to `/rs/post/{id}/edit`. The only field is `form[body_input]`. A top-level post edit, vote, subscribe, delete, and repost stay prepared, gated. The site does not support changing attachments on an edit; that is not prepared, gated. This follows crate 3.32.0 and does not renumber earlier releases.
 
+Update 2026-10-21 (recovery ceremony): crate **3.33.1** shows the 24-word phrase and then each SLIP-39 share on its own screen during first-run setup. The split stays one group, group threshold 1 of 1, member threshold 3 of 5 (§7.13.8). A share is confirmed before the next one is shown. `--show-recovery` (and Account › Security) opens the phrase from `recovery.seal` and prints a fresh split, because a split is not reproducible. Older shares of that secret still work until they are destroyed. The phrase stays 24 BIP-39 words. A share stays 20 or 33 SLIP-39 words.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).

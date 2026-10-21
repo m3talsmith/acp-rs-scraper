@@ -91,6 +91,8 @@ acp-red-star --identity-init
   \
 acp-red-star --show-phrase
   \
+acp-red-star --show-recovery
+  \
 acp-red-star --acp-id
   \
 acp-red-star --shares-print
@@ -474,14 +476,14 @@ pub struct Args {
     pub error_log: Option<PathBuf>,
 
     /// Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id.
-    /// The phrase is shown on this terminal. An encrypted copy is kept so --show-phrase can show it again. Needs a terminal.
+    /// The phrase is shown on this terminal, then each of the 5 shares, one at a time. An encrypted copy of the phrase is kept so --show-recovery can show it again. Needs a terminal.
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "acp_id", "shares_print", "shares_verify",
-        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub identity_init: bool,
@@ -492,7 +494,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "shares_print", "shares_verify",
-        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub acp_id: bool,
@@ -504,7 +506,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_verify",
-        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub shares_print: bool,
@@ -515,7 +517,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id",
-        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
+        "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub shares_verify: bool,
@@ -530,7 +532,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "restore", "backup_schedule", "change_password", "show_phrase",
+        "shares_verify", "restore", "backup_schedule", "change_password", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub backup: bool,
@@ -541,7 +543,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "backup", "backup_schedule", "change_password", "show_phrase",
+        "shares_verify", "backup", "backup_schedule", "change_password", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub restore: Option<PathBuf>,
@@ -552,7 +554,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "backup", "restore", "change_password", "show_phrase",
+        "shares_verify", "backup", "restore", "change_password", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub backup_schedule: Option<String>,
@@ -569,7 +571,7 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "backup", "restore", "backup_schedule", "change_password", "show_phrase",
+        "shares_verify", "backup", "restore", "backup_schedule", "change_password", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub encrypt_db: bool,
@@ -581,12 +583,12 @@ pub struct Args {
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
-        "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "show_phrase",
+        "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "show_phrase", "show_recovery",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub change_password: bool,
-    /// Show the 24-word recovery phrase again. Asks for the password on a terminal.
-    /// Warns that the words will be on screen and can clear the terminal afterward.
+    /// Show the 24-word recovery phrase again, then each share. Same screen as --show-recovery.
+    /// Asks for the password on a terminal. The words are not logged.
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
@@ -594,9 +596,22 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "show_recovery", "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub show_phrase: bool,
+    /// Show the 24-word phrase and then each recovery share. Asks for the password
+    /// on a terminal. A fresh split is printed, because an older split cannot be
+    /// reproduced. Needs a terminal.
+    #[arg(long, help_heading = "Identity", conflicts_with_all = [
+        "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
+        "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "site_search", "tag",
+        "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
+        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
+        "show_phrase", "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+    ])]
+    pub show_recovery: bool,
 
     /// Create this machine's node key and certificates. Needs a pinned acp-id.
     /// The node key is generated here. It is not derived from the master.
@@ -607,7 +622,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "show_phrase", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "show_phrase", "show_recovery", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub node_init: bool,
     /// Name for --node-init. The default is this computer's hostname.
@@ -621,7 +636,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "show_phrase", "node_init", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "show_phrase", "show_recovery", "node_init", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub node_id: bool,
 }

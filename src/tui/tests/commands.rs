@@ -1,6 +1,7 @@
 use super::*;
 use crate::tui::commands::*;
 use crate::tui::data::SearchFilter;
+use crate::tui::state::Effect;
 
 fn parsed(argv: &[String]) -> Args { parse_with_mode(argv).unwrap().0 }
 
@@ -170,6 +171,18 @@ fn bar_categories_pin_scrape_and_tuck_library_children() {
     assert_eq!(m.bar_by_hint('S').map(|i| m.items[i].id), Some(Scrape));
     assert!(m.get(Export).opts.iter().all(|o| o.key != "basket_add"));
     assert!(m.get(Basket).opts.iter().any(|o| o.key == "basket_add"));
+}
+
+#[test]
+fn account_security_queues_the_recovery_screen() {
+    let m = Menu::new(&no_args());
+    let security = m.get(CommandId::Session).opts.iter().find(|o| o.key == "security").unwrap();
+    assert_eq!(security.label, "Security");
+    assert!(security.flag.contains("--show-recovery"));
+    let mut a = app();
+    a.act(Action::ShowRecovery);
+    assert!(matches!(a.effects.as_slice(), [Effect::ShowRecovery]));
+    assert!(a.status.is_empty());
 }
 
 #[test]

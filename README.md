@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.33.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.33.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -20,14 +20,14 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 - **What breaks.** Startup will not open `~/.acp/ai/data/rs.database` from 2.x. A new database asks for a password before the terminal UI or a headless command uses it. 2.x cannot read a 3.0.0 database, `rs.database.bootstrap`, or a `*.acpbackup`.
 - **Migrate.** Copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp` if you may want 2.x again. Then run `acp-red-star --encrypt-db`. It writes a `*.acpbackup` first, encrypts the file, and removes the plaintext copy only after the encrypted copy matches. The password you set is required the next time the program starts (or set `ACP_PASSWORD` when there is no terminal). A session that has already unlocked the database does not ask again.
-- **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
+- **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app shows the 24 words and then each of the 5 shares (any 3 rebuild it), one at a time. Show them again with `acp-red-star --show-recovery` (it asks for the password). Account › Security does the same. The same steps are in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.33.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.33.1`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
 **3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.32.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
-**3.33.0** edits a reply. `--edit REPLY --body TEXT` sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel. `--dry-run` prints the frames and does not connect. The one-hour window still applies. A top-level post edit, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.
+**3.33.0** edits a reply. `--edit REPLY --body TEXT` sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel. `--dry-run` prints the frames and does not connect. The one-hour window still applies. A top-level post edit, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit. **3.33.1** shows the 24-word recovery phrase and then each share on first run, and again with `--show-recovery`.
 
 **3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed text post or reply sends validate, then save, once, and prints the new post id and URL. The site copy uploads first (3.32.0). Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
 
@@ -431,7 +431,7 @@ Debug:
 
 Identity:
       --identity-init
-          Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id. The phrase is shown on this terminal. An encrypted copy is kept so --show-phrase can show it again. Needs a terminal
+          Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id. The phrase is shown on this terminal, then each of the 5 shares, one at a time. An encrypted copy of the phrase is kept so --show-recovery can show it again. Needs a terminal
 
       --acp-id
           Print the pinned acp-id
@@ -469,7 +469,10 @@ Identity:
           Change the password on an encrypted database. Rewraps the local key and the account key. The account id stays the same. Needs a terminal
 
       --show-phrase
-          Show the 24-word recovery phrase again. Asks for the password on a terminal. Warns that the words will be on screen and can clear the terminal afterward
+          Show the 24-word recovery phrase again, then each share. Same screen as --show-recovery. Asks for the password on a terminal. The words are not logged
+
+      --show-recovery
+          Show the 24-word phrase and then each recovery share. Asks for the password on a terminal. A fresh split is printed, because an older split cannot be reproduced. Needs a terminal
 
       --node-init
           Create this machine's node key and certificates. Needs a pinned acp-id. The node key is generated here. It is not derived from the master
@@ -492,17 +495,17 @@ Create the phrase when you can write it down:
 
     acp-red-star --identity-init
 
-The words are shown once, and you type them again to confirm you saved them. The command then offers the 5 shares. To print the shares later:
+The words are shown once, and you type them again to confirm you saved them. The command then shows the 5 shares, one at a time. Each share is share N of 5, the threshold is 3 of 5, and the group threshold is 1 of 1. You type that share before the next one is shown. The shares are not logged and they are not stored as text. To print a fresh split later:
 
     acp-red-star --shares-print
 
-That asks for the 24 words, or for at least 3 shares you already have, and for the password.
+That asks for the 24 words, or for at least 3 shares you already have, and for the password. A new split cannot reprint an older one. Destroy any older shares. An older share still rebuilds the secret until that paper is destroyed.
 
-Show the words again on this computer:
+Show the words and the shares again on this computer:
 
-    acp-red-star --show-phrase
+    acp-red-star --show-recovery
 
-It asks for the password. It does not read the password from the environment. It warns you that the words will be on the screen and may stay in scrollback, and it can clear the terminal afterward. A phrase created before this copy was saved cannot be rebuilt from the password. Use the paper copy, or 3 shares with --shares-print.
+`--show-phrase` opens the same screen. It asks for the password. It does not read the password from the environment. It warns you that the words will be on the screen and may stay in scrollback, and it clears the terminal after the shares are confirmed. Account › Security in the terminal UI is the same screen. A phrase created before this copy was saved cannot be rebuilt from the password. Use the paper copy, or 3 shares with --shares-print.
 
 Check a written copy of the shares:
 
@@ -570,6 +573,7 @@ Examples:
   acp-red-star --edits THREAD/POST
   acp-red-star --identity-init
   acp-red-star --show-phrase
+  acp-red-star --show-recovery
   acp-red-star --acp-id
   acp-red-star --shares-print
   acp-red-star --shares-verify --shares-file shares.txt
@@ -589,7 +593,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.33.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.33.1  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |

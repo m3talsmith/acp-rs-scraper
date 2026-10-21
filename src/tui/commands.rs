@@ -107,6 +107,8 @@ pub enum Action {
     Login,
     /// Forget the saved session, then route to Login.
     Logout,
+    /// Account › Security. Show the recovery phrase and the shares on the terminal.
+    ShowRecovery,
     /// Help modal.
     Help,
     /// About page, on Credits.
@@ -461,6 +463,7 @@ fn account_item() -> MenuCommand {
     shown(CommandId::Session, "Account", 'n', vec![
         opt("login", "Log in", "", false, button(Action::Login)),
         opt("logout", "Log out", "--logout", false, button(Action::Logout)),
+        opt("security", "Security", "--show-recovery", false, button(Action::ShowRecovery)),
     ])
 }
 

@@ -146,6 +146,66 @@ fn three_shares_or_the_phrase_recover_the_seed_and_two_shares_do_not() {
 }
 
 #[test]
+fn recovery_next_create_show_and_cannot_rebuild() {
+    let dir = std::env::temp_dir().join(format!("acp-next-{}-{}", std::process::id(), line!()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    assert_eq!(cmd::recovery_next(&dir).unwrap(), cmd::RecoveryNext::Quiet);
+    cmd::mark_shares_pending(&dir).unwrap();
+    assert_eq!(cmd::recovery_next(&dir).unwrap(), cmd::RecoveryNext::Create);
+    let phrase = phrase_from_entropy(&[0x11; 32]).unwrap();
+    let master = derive_master(&phrase, "correct horse battery staple", Argon2Params::FAST).unwrap();
+    Pin { acp_id: master.acp_id.clone(), argon2: Argon2Params::FAST, sign_pub: master.sign_pub, wrap_pub: master.wrap_pub }
+        .store(&dir)
+        .unwrap();
+    assert_eq!(cmd::recovery_next(&dir).unwrap(), cmd::RecoveryNext::CannotRebuild);
+    recovery::seal(&dir, "correct horse battery staple", Argon2Params::FAST, &[0x11; 32]).unwrap();
+    assert_eq!(cmd::recovery_next(&dir).unwrap(), cmd::RecoveryNext::ShowAgain);
+    let seal = std::fs::read(recovery::seal_path(&dir)).unwrap();
+    assert!(!String::from_utf8_lossy(&seal).contains(&phrase));
+    cmd::clear_shares_pending(&dir).unwrap();
+    recovery::clear_next(&dir).unwrap();
+    assert_eq!(cmd::recovery_next(&dir).unwrap(), cmd::RecoveryNext::Quiet);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn shares_are_confirmed_one_at_a_time_and_not_written() {
+    let seed = [0x3cu8; 32];
+    let shares = slip39::split_seed(&seed).unwrap();
+    assert_eq!(shares.len(), slip39::MEMBER_COUNT);
+    let mut answers = shares.clone();
+    answers.insert(0, "not the share".into());
+    let mut n = 0;
+    let mut out = Vec::new();
+    cmd::present_shares_with("acp1-example", &shares, true, &mut out, || {
+        let line = answers[n].clone();
+        n += 1;
+        Ok(line)
+    })
+    .unwrap();
+    let text = String::from_utf8(out).unwrap();
+    let first = text.find("Share 1 of 5").unwrap();
+    let missed = text.find("That share did not match").unwrap();
+    let second = text.find("Share 2 of 5").unwrap();
+    assert!(first < missed && missed < second, "share 2 was shown before share 1 was confirmed");
+    assert!(text.contains("Threshold 3 of 5"));
+    assert!(text.contains("Group threshold 1 of 1"));
+    assert!(text.contains("Destroy any older shares"));
+    assert!(!text.contains("not the share"));
+    assert_eq!(n, shares.len() + 1);
+    let dir = std::env::temp_dir().join(format!("acp-sheets-{}-{}", std::process::id(), line!()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    for entry in std::fs::read_dir(&dir).unwrap() {
+        let bytes = std::fs::read(entry.unwrap().path()).unwrap_or_default();
+        let got = String::from_utf8_lossy(&bytes);
+        assert!(!got.contains(&shares[0]), "a share was written to disk");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
 fn a_postponed_share_set_is_reminded_until_it_is_checked() {
     let dir = std::env::temp_dir().join(format!("acp-shares-{}-{}", std::process::id(), line!()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -153,7 +213,7 @@ fn a_postponed_share_set_is_reminded_until_it_is_checked() {
     assert!(cmd::shares_reminder(&dir).is_none());
     cmd::mark_shares_pending(&dir).unwrap();
     let msg = cmd::shares_reminder(&dir).unwrap();
-    assert!(msg.contains("--shares-print"), "{msg}");
+    assert!(msg.contains("--show-recovery"), "{msg}");
     cmd::clear_shares_pending(&dir).unwrap();
     assert!(cmd::shares_reminder(&dir).is_none());
     let _ = std::fs::remove_dir_all(&dir);

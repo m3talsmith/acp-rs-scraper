@@ -1,3 +1,9 @@
+acp-red-star (3.33.1) unstable; urgency=medium
+
+  * Package 3.33.1. First-run setup shows the 24-word recovery phrase and then each SLIP-39 share. --show-recovery shows them again after the password.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 22:45:00 +0000
+
 acp-red-star (3.33.0) unstable; urgency=medium
 
   * Package 3.33.0. A reply edit sends validate, then save, once. Top-level post edits, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.

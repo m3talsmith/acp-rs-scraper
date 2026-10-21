@@ -4,5 +4,6 @@
 //! the official test vectors.
 
 pub use acp_red_star_node_core::slip39::{
-    combine, extract_mnemonics, member_position, set_id, sheet, split_seed,
+    GROUP_COUNT, GROUP_THRESHOLD, MEMBER_COUNT, MEMBER_THRESHOLD, combine, extract_mnemonics,
+    member_position, set_id, sheet, split_seed,
 };

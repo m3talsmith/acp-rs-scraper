@@ -471,8 +471,19 @@ pub fn combine(mnemonics: &[&str], passphrase: &str) -> Result<Zeroizing<Vec<u8>
     Ok(Zeroizing::new(ms))
 }
 
+/// One SLIP-39 group. The plan's default is a single group.
+pub const GROUP_COUNT: usize = 1;
+/// Groups required. With one group, this is 1.
+pub const GROUP_THRESHOLD: usize = 1;
+/// Shares in the group.
+pub const MEMBER_COUNT: usize = 5;
+/// Shares required to rebuild the seed.
+pub const MEMBER_THRESHOLD: usize = 3;
+
 /// Split a 256-bit seed into 5 SLIP-39 mnemonics, any 3 of which restore it.
 /// The share passphrase is empty. The account password stays outside the shares.
+/// Each split draws a new identifier and new randomness, so the same seed does
+/// not produce the same shares again.
 pub fn split_seed(seed: &[u8; 32]) -> Result<Vec<String>> {
     let mut id_bytes = [0u8; 2];
     rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut id_bytes);
@@ -480,8 +491,8 @@ pub fn split_seed(seed: &[u8; 32]) -> Result<Vec<String>> {
     let ext = 1u8;
     let e = 0u8;
     let ems = encrypt_master(seed, "", e, id, ext);
-    let group = split_secret(1, 1, &ems)?;
-    let members = split_secret(3, 5, &group[0])?;
+    let group = split_secret(GROUP_THRESHOLD, GROUP_COUNT, &ems)?;
+    let members = split_secret(MEMBER_THRESHOLD, MEMBER_COUNT, &group[0])?;
     let mut out = Vec::with_capacity(5);
     for (index, value) in members.into_iter().enumerate() {
         let share = Share {
@@ -489,10 +500,10 @@ pub fn split_seed(seed: &[u8; 32]) -> Result<Vec<String>> {
             ext,
             e,
             group_index: 0,
-            group_threshold: 1,
-            group_count: 1,
+            group_threshold: GROUP_THRESHOLD,
+            group_count: GROUP_COUNT,
             member_index: index as u8,
-            member_threshold: 3,
+            member_threshold: MEMBER_THRESHOLD,
             value,
         };
         out.push(encode_share(&share)?);
@@ -508,7 +519,7 @@ pub fn set_id(mnemonic: &str) -> Result<u16> {
 /// Member index, counting from 1, and the member count (5 for a seed split here).
 pub fn member_position(mnemonic: &str) -> Result<(u8, u8)> {
     let s = decode_share(mnemonic)?;
-    Ok((s.member_index + 1, 5))
+    Ok((s.member_index + 1, MEMBER_COUNT as u8))
 }
 
 /// Pull share mnemonics out of a sheet, a file, or a paste. A share is 20 or 33 words.

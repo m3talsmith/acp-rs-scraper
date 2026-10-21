@@ -59,6 +59,32 @@ enum Msg {
 
 struct Terminal(ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>);
 
+fn spawn_input(
+    tx: tokio::sync::mpsc::UnboundedSender<crossterm::event::Event>,
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+) -> std::thread::JoinHandle<()> {
+    std::thread::spawn(move || {
+        while !stop.load(std::sync::atomic::Ordering::Relaxed) {
+            if crossterm::event::poll(Duration::from_millis(100)).unwrap_or(false) {
+                match crossterm::event::read() {
+                    Ok(e) => { if tx.send(e).is_err() { break; } }
+                    Err(_) => break,
+                }
+            }
+        }
+    })
+}
+
+/// A status line. A recovery error that looks like a phrase or a share is not shown.
+fn recovery_status(err: &anyhow::Error) -> String {
+    let text = format!("{err:#}");
+    if text.split_whitespace().count() > 12 {
+        "The recovery screen stopped. Nothing secret was saved in notices or history.".into()
+    } else {
+        text
+    }
+}
+
 fn restore_terminal() {
     use crossterm::{event::DisableMouseCapture, execute, terminal::{LeaveAlternateScreen, disable_raw_mode}};
     let _ = disable_raw_mode();
@@ -157,8 +183,8 @@ pub async fn run(args: Args) -> Result<()> {
     app.note_no_color();
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
-    set_log_sink(Some(log_tx));
-    let r = event_loop(&mut app, log_rx).await;
+    set_log_sink(Some(log_tx.clone()));
+    let r = event_loop(&mut app, log_tx, log_rx).await;
     set_log_sink(None);
     let detached = r?;
     if let Some((kind, pid, log)) = detached {
@@ -201,7 +227,7 @@ fn setup_themes(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
     Ok(())
 }
 
-async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) -> Result<Option<(&'static str, u32, PathBuf)>> {
+async fn event_loop(app: &mut App, log_tx: std::sync::mpsc::Sender<String>, log_rx: std::sync::mpsc::Receiver<String>) -> Result<Option<(&'static str, u32, PathBuf)>> {
     use crossterm::{event::EnableMouseCapture, execute, terminal::{EnterAlternateScreen, enable_raw_mode}};
     let jar = Arc::new(Jar::default());
     if let Err(e) = load_session(&jar) { app.push_status(format!("warning: ignoring saved session: {e:#}")); }
@@ -224,16 +250,9 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     let mut term = Terminal(ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(std::io::stdout()))?);
 
     // Input thread → channel.
-    let (ev_tx, mut ev_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (mut ev_tx, mut ev_rx) = tokio::sync::mpsc::unbounded_channel();
     let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let stop2 = stop.clone();
-    std::thread::spawn(move || {
-        while !stop2.load(std::sync::atomic::Ordering::Relaxed) {
-            if crossterm::event::poll(Duration::from_millis(100)).unwrap_or(false) {
-                match crossterm::event::read() { Ok(e) => { if ev_tx.send(e).is_err() { break; } } Err(_) => break }
-            }
-        }
-    });
+    let mut input_thread = spawn_input(ev_tx.clone(), stop.clone());
     let (msg_tx, mut msg_rx) = tokio::sync::mpsc::unbounded_channel::<Msg>();
     let mut job: Option<jobs::Job> = None;
     // Small writes (bookmarks) that run next to the main job.
@@ -432,6 +451,26 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Ok(removed) => app.logged_out(removed),
                     Err(e) => app.error("Logout failed", &format!("{e:#}")),
                 },
+                Effect::ShowRecovery => {
+                    stop.store(true, std::sync::atomic::Ordering::Relaxed);
+                    let _ = input_thread.join();
+                    set_log_sink(None);
+                    restore_terminal();
+                    let shown = crate::crypto::cmd::show_recovery();
+                    enable_raw_mode()?;
+                    execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+                    set_log_sink(Some(log_tx.clone()));
+                    stop.store(false, std::sync::atomic::Ordering::Relaxed);
+                    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+                    ev_tx = tx;
+                    ev_rx = rx;
+                    input_thread = spawn_input(ev_tx.clone(), stop.clone());
+                    term.0.clear()?;
+                    match shown {
+                        Ok(()) => app.push_status("The recovery phrase and shares were shown on this terminal. They were not saved in notices or history."),
+                        Err(e) => app.error("Recovery", &recovery_status(&e)),
+                    }
+                }
                 Effect::Quit { cancel_job } => {
                     if let Some(mut j) = job.take() {
                         if cancel_job { let _ = j.cancel(); } else { detached = Some((j.kind.name(), j.pid(), j.log.clone())); }

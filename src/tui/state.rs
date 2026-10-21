@@ -239,6 +239,8 @@ pub enum Effect {
     LoginCancel,
     /// Forget the session.
     Logout,
+    /// Leave the alternate screen and show the phrase and the shares on this terminal.
+    ShowRecovery,
     /// Store `[ui] theme` in preferences.toml.
     SaveUiTheme(String),
     /// Write a copy of this theme into the exports folder.
@@ -2143,6 +2145,7 @@ impl App {
             },
             Action::Login => { self.close_menu(); self.open_login(None); }
             Action::Logout => { self.close_menu(); self.effects.push(Effect::Logout); }
+            Action::ShowRecovery => { self.close_menu(); self.effects.push(Effect::ShowRecovery); }
             Action::Help => self.open_help(None),
             Action::About => self.open_about(),
             Action::AboutAt(section) => self.open_about_at(section),

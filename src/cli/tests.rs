@@ -171,6 +171,12 @@ fn identity_flags_parse_and_do_not_open_the_tui() {
     let help = Args::command().render_long_help().to_string();
     assert!(help.contains("not the master key"), "{help}");
     assert!(help.contains("--show-phrase"));
+    assert!(Args::try_parse_from(["x", "--show-recovery"]).unwrap().show_recovery);
+    assert!(Args::try_parse_from(["x", "--show-recovery", "--show-phrase"]).is_err());
+    let m = Args::command().try_get_matches_from(["x", "--show-recovery"]).unwrap();
+    assert!(!wants_tui(&m));
+    assert!(help.contains("--show-recovery"));
+    assert!(help.contains("one at a time"));
     assert!(help.contains("Any 3 of those 5"));
     assert!(help.contains("--identity-init"));
 }
