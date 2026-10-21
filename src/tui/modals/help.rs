@@ -162,6 +162,7 @@ fn area_topics() -> Vec<String> {
         "  Vote, subscribe, delete, edit, and repost stay gated. No live frame is in the repo.",
         "  + asks before an upvote. - asks before a downvote. Cancel is the default.",
         "  Post menu Subscribe and Repost ask the same way. Delete and Edit also ask you to type yes.",
+        "  Post menu Report asks you to type yes. The reason is Account › Report reason.",
         "  A confirm still sends nothing. --dry-run prints the stub and does not connect.",
         "  The clicks to record are in architecture/INTERACTIONS-CAPTURE.md.",
     ]);
@@ -173,6 +174,31 @@ fn area_topics() -> Vec<String> {
         "  Sync now reads the site into the local database. Auto sync repeats it while the TUI is open.",
         "  Whole site runs the incremental whole-site update. Rules run on the posts it stored.",
         "  Sync › Rules opens the rule list. A sync runs the enabled rules on the rows it just wrote.",
+    ]);
+    push_topic(&mut v, "profile", "Profile", &[
+        "  Account › Profile reads the card on /rs/@nick: display name, username, and bio.",
+        "  The command is --show-profile NICK. The nick is the one selected on the left.",
+        "  No new key. The card is stored in the encrypted database.",
+    ]);
+    push_topic(&mut v, "site-settings", "Site settings", &[
+        "  Account › Site settings reads /rs/settings: time zone, theme, and show-sustainer.",
+        "  The command is --site-settings. Web push is not read and not saved.",
+        "  Account › Save site settings asks first. Cancel is the default.",
+        "  --save-settings with --time-zone, --site-theme, or --show-sustainer prints the form.",
+        "  --dry-run opens no connection. A confirm still sends nothing.",
+    ]);
+    push_topic(&mut v, "edit-profile", "Edit profile", &[
+        "  Account › Edit profile asks you to type yes. Cancel is the default.",
+        "  --edit-profile needs --display-name, --username, or --bio.",
+        "  --dry-run prints the edit-profile-form and opens no connection.",
+        "  A confirm still sends nothing. Profile photo and banner uploads are not built.",
+        "  The hidden _persistent_id and _form_type wait for a capture.",
+    ]);
+    push_topic(&mut v, "report-user", "Report", &[
+        "  Post menu Report and Account › Report user ask you to type yes.",
+        "  Cancel is the default. The reason is constitution, illegal_obscene, spam, or uncomradely.",
+        "  --report-post POST --reason and --report-user NICK --reason print the form.",
+        "  --dry-run opens no connection. A confirm still sends nothing.",
     ]);
     push_topic(&mut v, "whole-site", "Whole site", &[
         "  Scrape › Whole site, then Start Scanning, runs acprs --scrape-all.",

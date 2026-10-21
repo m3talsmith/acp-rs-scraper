@@ -28,6 +28,40 @@ pub enum ConfirmAction {
     },
     /// Repost. The form is not built. The send stays gated.
     Repost(String),
+    /// Edit the signed-in profile. The send stays gated.
+    EditProfile {
+        /// `form[display_name]`. Empty omits the field.
+        display_name: String,
+        /// `form[username]`. Empty omits the field.
+        username: String,
+        /// `form[forum_profile][bio]`. Empty omits the field.
+        bio: String,
+    },
+    /// Save forum settings. The send stays gated.
+    SaveSettings {
+        /// `form[time_zone_id]`. Empty omits the field.
+        time_zone: String,
+        /// `form[theme]`.
+        theme: String,
+        /// `form[show_sustainer?]`, `true` or `false`.
+        show_sustainer: String,
+    },
+    /// Report a post. The send stays gated.
+    ReportPost {
+        /// Post id.
+        id: String,
+        /// Thread root.
+        thread: String,
+        /// One of the four documented reasons.
+        reason: String,
+    },
+    /// Report a user. The send stays gated.
+    ReportUser {
+        /// Nick, without `@`.
+        nick: String,
+        /// One of the four documented reasons.
+        reason: String,
+    },
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.

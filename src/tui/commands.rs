@@ -169,6 +169,16 @@ pub enum Action {
     OpenEb,
     /// Open Explore (the Explore row, or View › Explore).
     OpenExplore,
+    /// Account › Profile (`--show-profile`). No new key.
+    ShowProfile,
+    /// Account › Site settings (`--site-settings`). No new key.
+    ShowSiteSettings,
+    /// Account › Edit profile. The send stays gated.
+    EditProfile,
+    /// Account › Save site settings. The send stays gated.
+    SaveSiteSettings,
+    /// Account › Report user. The send stays gated.
+    ReportUser,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
     /// Compose › New post.
@@ -461,6 +471,18 @@ fn account_item() -> MenuCommand {
     shown(CommandId::Session, "Account", 'n', vec![
         opt("login", "Log in", "", false, button(Action::Login)),
         opt("logout", "Log out", "--logout", false, button(Action::Logout)),
+        opt_topic("profile", "Profile", "--show-profile", "profile", false, button(Action::ShowProfile)),
+        opt_topic("site_settings", "Site settings", "--site-settings", "site-settings", false, button(Action::ShowSiteSettings)),
+        opt_topic("display_name", "Display name", "--display-name", "edit-profile", false, text("")),
+        opt_topic("username", "Username", "--username", "edit-profile", false, text("")),
+        opt_topic("bio", "Bio", "--bio", "edit-profile", false, text("")),
+        opt_topic("edit_profile", "Edit profile", "--edit-profile", "edit-profile", false, button(Action::EditProfile)),
+        opt_topic("time_zone", "Time zone", "--time-zone", "site-settings", false, text("")),
+        opt_topic("theme", "Theme", "--site-theme", "site-settings", false, choice(&["system", "light", "dark"])),
+        opt_topic("show_sustainer", "Show sustainer", "--show-sustainer", "site-settings", false, check(false)),
+        opt_topic("save_settings", "Save site settings", "--save-settings", "site-settings", false, button(Action::SaveSiteSettings)),
+        opt_topic("reason", "Report reason", "--reason", "report-user", false, choice(&["constitution", "illegal_obscene", "spam", "uncomradely"])),
+        opt_topic("report_user", "Report user", "--report-user", "report-user", false, button(Action::ReportUser)),
     ])
 }
 
@@ -583,6 +605,10 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Basket, _) => Some("basket"),
         (CommandId::Session, "login") => Some("login"),
         (CommandId::Session, "logout") => Some("account"),
+        (CommandId::Session, "profile") => Some("profile"),
+        (CommandId::Session, "site_settings") | (CommandId::Session, "time_zone") | (CommandId::Session, "theme") | (CommandId::Session, "show_sustainer") | (CommandId::Session, "save_settings") => Some("site-settings"),
+        (CommandId::Session, "display_name") | (CommandId::Session, "username") | (CommandId::Session, "bio") | (CommandId::Session, "edit_profile") => Some("edit-profile"),
+        (CommandId::Session, "reason") | (CommandId::Session, "report_user") => Some("report-user"),
         (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
         (CommandId::Discover, _) => Some("discover"),
         (CommandId::View, "notifications") => Some("notifications"),
@@ -831,6 +857,22 @@ impl Menu {
     pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
         if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--show-profile` of the selected nick.
+    pub fn profile_argv(&self, nick: &str) -> std::result::Result<Vec<String>, String> {
+        let nick = nick.trim().trim_start_matches('@');
+        if nick.is_empty() { return Err("Profile needs a selected nick".into()); }
+        let mut v = vec![ARGV0.to_string(), "--show-profile".into(), nick.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--site-settings`.
+    pub fn site_settings_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--site-settings".into()];
         v.extend(self.debug_args());
         validate(v)
     }

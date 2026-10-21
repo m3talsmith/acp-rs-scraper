@@ -9,8 +9,11 @@
 //! [`write::CAPTURE_BLOCK`]. The site does not support changing attachments
 //! on an edit. The one-hour window still refuses an
 //! older edit before a connection. `--dry-run` opens no connection.
+//! A profile card and forum settings are read. Edit profile, saving those
+//! settings, report post, and report user stay behind [`account::ACCOUNT_GATE`].
 
 mod attach;
+pub mod account;
 pub mod delete;
 pub mod edit;
 pub mod repost;
@@ -52,6 +55,10 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.edit.is_some()
         || args.subscribe.is_some()
         || args.vote.is_some()
+        || args.edit_profile
+        || args.save_settings
+        || args.report_post.is_some()
+        || args.report_user.is_some()
 }
 
 /// `y/N`, then `yes`. `--yes` covers both. A dry-run does not ask.
@@ -156,6 +163,54 @@ pub async fn run_cli(args: &Args) -> Result<()> {
                 login(&http, &jar).await?;
                 let published = edit::publish_reply_edit(&http, &jar, &plan).await?;
                 println!("published {}\n{}", published.id, published.url);
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if args.edit_profile {
+        if args.display_name.is_none() && args.username.is_none() && args.bio.is_none() {
+            bail!("an edit needs --display-name, --username, or --bio");
+        }
+        let confirmed = confirm_strict(args, "Edit profile? [y/N] ")?;
+        return match account::present_profile_edit(args.display_name.as_deref(), args.username.as_deref(), args.bio.as_deref(), confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if args.save_settings {
+        if args.time_zone.is_none() && args.site_theme.is_none() && args.show_sustainer.is_none() {
+            bail!("a save needs --time-zone, --site-theme, or --show-sustainer");
+        }
+        let confirmed = confirm_write(args, "Save site settings? [y/N] ")?;
+        return match account::present_settings(args.time_zone.as_deref(), args.site_theme.as_deref(), args.show_sustainer.as_deref(), confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.report_post.as_deref() {
+        let why = args.reason.as_deref().unwrap_or("");
+        let confirmed = confirm_strict(args, "Report post? [y/N] ")?;
+        return match account::present_report_post(id.trim(), id.trim(), why, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(nick) = args.report_user.as_deref() {
+        let why = args.reason.as_deref().unwrap_or("");
+        let confirmed = confirm_strict(args, "Report user? [y/N] ")?;
+        return match account::present_report_user(nick.trim(), why, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
                 Ok(())
             }
             Err(e) => bail!("{e}"),

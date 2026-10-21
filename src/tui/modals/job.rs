@@ -133,6 +133,8 @@ pub fn job_source(kind: JobKind, cmd: &str) -> String {
     if has("--encrypt-db") { return "Encrypt database".into(); }
     if has("--backup") { return "Backup".into(); }
     if has("--restore") { return "Restore".into(); }
+    if has("--show-profile") { return "Account › Profile".into(); }
+    if has("--site-settings") { return "Account › Site settings".into(); }
     if has("--eb") { return "View › Executive Board".into(); }
     if has("--explore") || has("--explore-latest") { return "Explore".into(); }
     if has("--top") { return "Site Top".into(); }

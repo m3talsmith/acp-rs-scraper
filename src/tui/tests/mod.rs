@@ -7,6 +7,7 @@ mod delete;
 mod edit;
 mod repost;
 mod subscribe;
+mod account;
 mod vote;
 mod bookmarks;
 mod data;

@@ -353,6 +353,20 @@ pub async fn run() -> Result<()> {
         info!("== eb: {n} posts");
         return Ok(());
     }
+    if let Some(nick) = args.show_profile.as_deref() {
+        for line in crate::site::account::read_profile(&http, nick).await? {
+            println!("{line}");
+        }
+        info!("== profile {nick}");
+        return Ok(());
+    }
+    if args.site_settings {
+        for line in crate::site::account::read_settings(&http).await? {
+            println!("{line}");
+        }
+        info!("== site settings");
+        return Ok(());
+    }
     if args.explore || args.explore_latest {
         let n = read_explore(&http, &jar, args.explore_latest).await?;
         info!("== explore: {n} posts");

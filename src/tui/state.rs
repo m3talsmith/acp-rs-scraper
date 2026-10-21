@@ -19,6 +19,11 @@ use std::time::{Duration, Instant};
 ///
 /// The child's runtime prints `Error: ...`. The status bar used to look only
 /// for a lowercase prefix, so that line was drawn as ordinary text.
+fn blank(s: &str) -> Option<&str> {
+    let t = s.trim();
+    if t.is_empty() { None } else { Some(t) }
+}
+
 pub(crate) fn status_line_is_problem(line: &str) -> bool {
     let line = line.trim_start();
     let bytes = line.as_bytes();
@@ -946,6 +951,112 @@ impl App {
             Ok(argv) => self.open_site_read(&explore_key(latest), argv),
             Err(e) => self.error("Explore", &e),
         }
+    }
+    fn account_nick(&self) -> Result<String, String> {
+        self.selected.first().filter(|n| !n.is_empty()).cloned().ok_or_else(|| "Profile needs a selected nick".into())
+    }
+    /// Account › Profile. The saved card shows at once, then a refresh.
+    pub fn open_profile(&mut self) {
+        let nick = match self.account_nick() {
+            Ok(n) => n,
+            Err(e) => { self.error("Profile", &e); return; }
+        };
+        let argv = match self.menu.menu.profile_argv(&nick) {
+            Ok(v) => v,
+            Err(e) => { self.error("Profile", &e); return; }
+        };
+        if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F6)"); return; }
+        let key = format!("profile:{nick}");
+        if let Ok(Some(card)) = crate::site::account::load_card(&nick) {
+            self.push_status(format!("profile {} · {} · {}", card.nick, card.display_name, card.bio));
+        }
+        self.pending_feed = Some(key);
+        self.push_status(format!("fetching profile {nick} from the site…"));
+        self.start_online_job(JobKind::Read, argv);
+    }
+    /// Account › Site settings.
+    pub fn open_site_settings(&mut self) {
+        let argv = match self.menu.menu.site_settings_argv() {
+            Ok(v) => v,
+            Err(e) => { self.error("Site settings", &e); return; }
+        };
+        if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F6)"); return; }
+        if let Ok(Some(s)) = crate::site::account::load_settings() {
+            self.push_status(format!("time zone {} · theme {} · show sustainer {}", s.time_zone, s.theme, s.show_sustainer));
+        }
+        self.pending_feed = Some("settings".into());
+        self.push_status("fetching site settings…");
+        self.start_online_job(JobKind::Read, argv);
+    }
+    fn report_reason(&self) -> String {
+        self.menu.menu.choice(crate::tui::commands::CommandId::Session, "reason").to_string()
+    }
+    /// Account › Edit profile. Cancel is the default. A confirm still sends nothing.
+    pub fn edit_profile(&mut self) {
+        if !self.writes_are_on() { self.show_writes_off(); return; }
+        let display_name = self.menu.menu.text(crate::tui::commands::CommandId::Session, "display_name");
+        let username = self.menu.menu.text(crate::tui::commands::CommandId::Session, "username");
+        let bio = self.menu.menu.text(crate::tui::commands::CommandId::Session, "bio");
+        if display_name.trim().is_empty() && username.trim().is_empty() && bio.trim().is_empty() {
+            self.error("Edit profile", "type a display name, a username, or a bio first");
+            return;
+        }
+        self.close_menu();
+        let mut confirm = ConfirmModal::new(
+            "Edit profile",
+            vec![
+                "Save this profile?".into(),
+                "Type yes. Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+                "Profile photo and banner uploads are not built.".into(),
+            ],
+            "Save",
+            ConfirmAction::EditProfile { display_name, username, bio },
+        );
+        confirm.strict = true;
+        self.modal = Some(Modal::Confirm(confirm));
+    }
+    /// Account › Save site settings. Cancel is the default. A confirm still sends nothing.
+    pub fn save_site_settings(&mut self) {
+        if !self.writes_are_on() { self.show_writes_off(); return; }
+        let time_zone = self.menu.menu.text(crate::tui::commands::CommandId::Session, "time_zone");
+        let theme = self.menu.menu.choice(crate::tui::commands::CommandId::Session, "theme").to_string();
+        let show_sustainer = if self.menu.menu.check(crate::tui::commands::CommandId::Session, "show_sustainer") { "true" } else { "false" }.to_string();
+        if time_zone.trim().is_empty() && theme.trim().is_empty() {
+            self.error("Site settings", "type a time zone or pick a theme");
+            return;
+        }
+        self.close_menu();
+        self.modal = Some(Modal::Confirm(ConfirmModal::new(
+            "Site settings",
+            vec![
+                format!("Time zone {time_zone}. Theme {theme}. Show sustainer {show_sustainer}."),
+                "Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+                "Web push is not built.".into(),
+            ],
+            "Save",
+            ConfirmAction::SaveSettings { time_zone, theme, show_sustainer },
+        )));
+    }
+    /// Account › Report user. Cancel is the default. A confirm still sends nothing.
+    pub fn report_user(&mut self) {
+        if !self.writes_are_on() { self.show_writes_off(); return; }
+        let nick = match self.account_nick() {
+            Ok(n) => n,
+            Err(e) => { self.error("Report user", &e); return; }
+        };
+        let reason = self.report_reason();
+        self.close_menu();
+        let mut confirm = ConfirmModal::new(
+            "Report user",
+            vec![
+                format!("Report @{nick} for {reason}?"),
+                "Type yes. Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+            ],
+            "Report",
+            ConfirmAction::ReportUser { nick, reason },
+        );
+        confirm.strict = true;
+        self.modal = Some(Modal::Confirm(confirm));
     }
     /// `p`: the post menu for the open detail, else the highlighted card.
     pub fn open_post_menu(&mut self) {
@@ -2155,6 +2266,11 @@ impl App {
             Action::OpenTop => self.open_top(),
             Action::OpenEb => self.open_eb(),
             Action::OpenExplore => self.open_explore(),
+            Action::ShowProfile => self.open_profile(),
+            Action::ShowSiteSettings => self.open_site_settings(),
+            Action::EditProfile => self.edit_profile(),
+            Action::SaveSiteSettings => self.save_site_settings(),
+            Action::ReportUser => self.report_user(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }
@@ -2387,12 +2503,28 @@ impl App {
         self.load_base_keep();
         self.reload_marks();
         if let Some(key) = feed.as_deref() {
-            let had = if let Some((thread, post)) = parse_edits_key(key) {
-                self.show_edits(post, thread)
+            if let Some(nick) = key.strip_prefix("profile:") {
+                match crate::site::account::load_card(nick) {
+                    Ok(Some(card)) => self.push_status(format!("profile {} · {} · {}", card.nick, card.display_name, card.bio)),
+                    Ok(None) if !ok => self.push_status(format!("profile {nick} was not stored")),
+                    Ok(None) => {}
+                    Err(e) => self.push_status(format!("error: reading profile {nick}: {e:#}")),
+                }
+            } else if key == "settings" {
+                match crate::site::account::load_settings() {
+                    Ok(Some(s)) => self.push_status(format!("time zone {} · theme {} · show sustainer {}", s.time_zone, s.theme, s.show_sustainer)),
+                    Ok(None) if !ok => self.push_status("site settings were not stored"),
+                    Ok(None) => {}
+                    Err(e) => self.push_status(format!("error: reading site settings: {e:#}")),
+                }
             } else {
-                self.show_site_feed(key)
-            };
-            if !ok && had { self.push_status(format!("showing the saved {key}; the refresh failed")); }
+                let had = if let Some((thread, post)) = parse_edits_key(key) {
+                    self.show_edits(post, thread)
+                } else {
+                    self.show_site_feed(key)
+                };
+                if !ok && had { self.push_status(format!("showing the saved {key}; the refresh failed")); }
+            }
         }
         if let Some((id, sort)) = sort {
             self.restore_thread_sort(&id, sort);
@@ -2547,6 +2679,29 @@ impl App {
                     Ok(text) => self.push_status(text),
                     Err(e) => self.error("Repost", &e.message),
                 },
+                ConfirmAction::EditProfile { display_name, username, bio } => {
+                    let display_name = blank(&display_name);
+                    let username = blank(&username);
+                    let bio = blank(&bio);
+                    match crate::site::account::present_profile_edit(display_name, username, bio, true, false) {
+                        Ok(text) => self.push_status(text),
+                        Err(e) => self.error("Edit profile", &e.message),
+                    }
+                }
+                ConfirmAction::SaveSettings { time_zone, theme, show_sustainer } => {
+                    match crate::site::account::present_settings(blank(&time_zone), blank(&theme), blank(&show_sustainer), true, false) {
+                        Ok(text) => self.push_status(text),
+                        Err(e) => self.error("Site settings", &e.message),
+                    }
+                }
+                ConfirmAction::ReportPost { id, thread, reason } => match crate::site::account::present_report_post(&id, &thread, &reason, true, false) {
+                    Ok(text) => self.push_status(text),
+                    Err(e) => self.error("Report post", &e.message),
+                },
+                ConfirmAction::ReportUser { nick, reason } => match crate::site::account::present_report_user(&nick, &reason, true, false) {
+                    Ok(text) => self.push_status(text),
+                    Err(e) => self.error("Report user", &e.message),
+                },
             },
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
@@ -2584,6 +2739,25 @@ impl App {
                     }
                 }
                 PostAction::Edit => self.edit_post(&m.post_id),
+                PostAction::Report => {
+                    if !self.writes_are_on() {
+                        self.show_writes_off();
+                    } else {
+                        let reason = self.report_reason();
+                        let mut confirm = ConfirmModal::new(
+                            "Report post",
+                            vec![
+                                format!("Report {} in {} for {reason}?", m.post_id, m.thread_id),
+                                "Type yes. Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+                                "The reason is Account › Report reason.".into(),
+                            ],
+                            "Report",
+                            ConfirmAction::ReportPost { id: m.post_id, thread: m.thread_id, reason },
+                        );
+                        confirm.strict = true;
+                        self.modal = Some(Modal::Confirm(confirm));
+                    }
+                }
                 PostAction::Repost => {
                     if !self.writes_are_on() {
                         self.show_writes_off();

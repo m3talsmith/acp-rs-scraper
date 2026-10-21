@@ -64,6 +64,8 @@ pub struct Inner {
     pub edit_validate_value: String,
     /// Form value of the last reply-edit save.
     pub edit_save_value: String,
+    /// Account writes (profile, settings, report). A gated client leaves this at 0.
+    pub account_writes: usize,
 }
 
 /// Shared mock state.
@@ -206,9 +208,18 @@ async fn profile(State(m): State<Mock>, h: HeaderMap, Path(at): Path<String>, Qu
     }
     let props = page_of(&feed(&m.base, Some(nick), replies), 0);
     html(lv_page(&format!(
-        r#"<h1 class="ProfileName">{0} Example</h1><dialog id="js-configureFeed"><form phx-submit="configure-feed">
+        r#"<div id="js-profileCard" data-username="{0}" data-display-name="{1} Example" data-bio="organizing in the shop"></div><h1 class="ProfileName">{1} Example</h1><dialog id="js-configureFeed"><form phx-submit="configure-feed">
 <input type="radio" name="replies" value="0" checked> Posts <input type="radio" name="replies" value="1"> Posts and replies</form></dialog>
-<div id="forum/Feed" data-props="{1}"></div>"#, nick.to_uppercase(), esc(&props.to_string()))))
+<div id="forum/Feed" data-props="{2}"></div>"#, nick, nick.to_uppercase(), esc(&props.to_string()))))
+}
+
+async fn settings_page(h: HeaderMap) -> Response {
+    if !logged_in(&h) { return to_auth("/rs/settings"); }
+    html(lv_page(r#"<form id="settings-form" phx-submit="save" method="post">
+<input name="form[time_zone_id]" value="America/Chicago">
+<input name="form[theme]" value="dark">
+<input name="form[show_sustainer?]" value="true">
+</form>"#))
 }
 
 async fn thread(State(m): State<Mock>, h: HeaderMap, Path(id): Path<String>) -> Response {
@@ -350,7 +361,12 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                     vec![reply(&msg, json!({"rendered": {"s": [s]}}))]
                 }
             }
-            "event" => match (payload["type"].as_str(), payload["event"].as_str()) {
+            "event" => {
+                let blob = payload.to_string();
+                if blob.contains("edit-profile-form") || blob.contains("settings-form") || blob.contains("js-reportPostActions") || blob.contains("js-reportUserActions") || blob.contains("form[display_name]") || blob.contains("form[forum_profile]") || blob.contains("form[time_zone_id]") || blob.contains("form[show_sustainer") {
+                    m.inner.lock().unwrap().account_writes += 1;
+                }
+                match (payload["type"].as_str(), payload["event"].as_str()) {
                 (Some("form"), Some("send-login-email")) => {
                     let v = payload["value"].as_str().unwrap_or("");
                     m.inner.lock().unwrap().login_emails.push(v.trim_start_matches("user%5Bemail%5D=").replace("%40", "@"));
@@ -405,6 +421,7 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                     vec![reply(&msg, json!({"diff": {}}))]
                 }
                 _ => vec![reply(&msg, json!({"diff": {}}))],
+                }
             },
             _ => vec![reply(&msg, json!({}))],
         };
@@ -424,6 +441,7 @@ impl Mock {
             .route("/rs", get(site_feed))
             .route("/rs/latest", get(site_feed))
             .route("/rs/bookmarks", get(bookmarks_page))
+            .route("/rs/settings", get(settings_page))
             .route("/rs/{at}", get(profile))
             .route("/rs/post/{id}", get(thread))
             .route("/auth", get(auth_page))

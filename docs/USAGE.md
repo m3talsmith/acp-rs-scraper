@@ -440,6 +440,26 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--thread-sort ORDER` | With `--sort-thread`: `oldest` or `top`. Newest is the page default and sends no hook. |
 | `--reposts ID` | Reposts of that post (`/rs/post/ID/reposts`). `p` › View reposts does the same. |
 | `--edits THREAD/POST` | Edit history (`/rs/post/THREAD/POST/edits`). A post id already in the database works too (the thread is its parent, or itself when it is a root). `p` › View edits shows each version as a line diff against the previous one. |
+| `--show-profile NICK` | Profile card (`/rs/@NICK`): display name, username, and bio. Account › Profile uses the selected nick. Stored in the encrypted database. No new key. |
+| `--site-settings` | Forum settings (`/rs/settings`): time zone, theme, and show-sustainer. Account › Site settings. Web push is not read. No new key. |
+
+### Account writes
+
+These are prepared and gated. `--dry-run` prints the form and opens no connection. Cancel is the default. A confirm still sends nothing. The capture steps are in `tests/fixtures/site/account.json`.
+
+| Flag | Meaning |
+|---|---|
+| `--edit-profile` | Edit the signed-in profile. Needs `--display-name`, `--username`, or `--bio`. Asks `Edit profile? [y/N]`, then `Type yes`. Account › Edit profile. Photo and banner uploads are not built. |
+| `--display-name NAME` | With `--edit-profile`. `form[display_name]`. |
+| `--username NICK` | With `--edit-profile`. `form[username]`. |
+| `--bio TEXT` | With `--edit-profile`. `form[forum_profile][bio]`. |
+| `--save-settings` | Save forum settings. Needs `--time-zone`, `--site-theme`, or `--show-sustainer`. Asks `Save site settings? [y/N]`. Account › Save site settings. Web push is not built. |
+| `--time-zone ZONE` | With `--save-settings`. `form[time_zone_id]`. |
+| `--site-theme THEME` | With `--save-settings`. `light`, `dark`, or `system`. The forum theme. `--theme` is the terminal theme. |
+| `--show-sustainer true\|false` | With `--save-settings`. `form[show_sustainer?]`. |
+| `--report-post POST` | Report a post. Needs `--reason`. Asks `Report post? [y/N]`, then `Type yes`. Post menu › Report. |
+| `--report-user NICK` | Report a user. Needs `--reason`. Asks `Report user? [y/N]`, then `Type yes`. Account › Report user. |
+| `--reason REASON` | With `--report-post` or `--report-user`. `constitution`, `illegal_obscene`, `spam`, or `uncomradely`. |
 
 ### Scraping
 

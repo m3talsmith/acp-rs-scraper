@@ -188,6 +188,27 @@ async fn edit_frames(w: &mut E2e) {
     assert_eq!(s.matches("\"event\":").count(), 2, "{s}");
 }
 
+#[then(expr = "the site received {int} account writes")]
+async fn account_writes(w: &mut E2e, n: i64) {
+    assert_eq!(w.mock().inner.lock().unwrap().account_writes as i64, n);
+}
+
+#[then(expr = "profile {string} shows {string}")]
+async fn profile_shows(w: &mut E2e, nick: String, name: String) {
+    assert!(!nick.contains('\''), "nick");
+    assert!(!name.contains('\''), "name");
+    let n = w.q(&format!("SELECT count(*) FROM profiles WHERE nick='{nick}' AND display_name='{name}'"));
+    assert_eq!(n, 1, "profile {nick}");
+}
+
+#[then(expr = "site setting {string} is {string}")]
+async fn site_setting(w: &mut E2e, key: String, value: String) {
+    assert!(!key.contains('\''), "key");
+    assert!(!value.contains('\''), "value");
+    let n = w.q(&format!("SELECT count(*) FROM site_state WHERE key='site.{key}' AND value='{value}'"));
+    assert_eq!(n, 1, "site.{key}");
+}
+
 #[then(expr = "the site received {int} reply-edit validates and {int} reply-edit saves")]
 async fn edit_counts(w: &mut E2e, validates: i64, saves: i64) {
     let i = w.mock().inner.lock().unwrap();

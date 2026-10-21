@@ -1,0 +1,13 @@
+{
+  "capture_status": "missing",
+  "needed": [
+    "DevTools open, then reload the page so the LiveView websocket is recorded",
+    "open your own profile editor, change the display name, the username, and the bio, and save",
+    "if you can, upload a profile photo and a banner on that same editor",
+    "open /rs/settings, change the time zone, the theme, and show-sustainer, and save",
+    "web-push subscribe and delete are not needed",
+    "report a throwaway post: open the report actions, pick a reason, and save",
+    "report a user and save one reason of constitution, illegal_obscene, spam, or uncomradely",
+    "save the HAR and redact it on your machine"
+  ]
+}

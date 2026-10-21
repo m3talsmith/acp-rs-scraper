@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.33.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.36.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,7 +23,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.33.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.36.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+
+**3.36.0** reads a profile card and forum settings. `--show-profile NICK` and Account › Profile show the display name, username, and bio. `--site-settings` and Account › Site settings show the time zone, theme, and show-sustainer. Edit profile, saving those settings, report post, and report user are prepared, gated: `--dry-run` prints the form and opens no connection, Cancel is the default, and a confirm still sends nothing. Web push, and profile photo and banner uploads, are not built.
 
 **3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.32.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
@@ -119,6 +121,12 @@ Reading:
       --edits <THREAD/POST>
           Edit history (`/rs/post/THREAD/POST/edits`). THREAD/POST, or a post id already stored. The post menu (`p`) › View edits does this
 
+      --show-profile <NICK>
+          Profile card (`/rs/@NICK`): display name, username, and bio. Account › Profile. No new key
+
+      --site-settings
+          Forum settings (`/rs/settings`): time zone, theme, and show-sustainer. Account › Site settings. Web push is not read. No new key
+
 Writing:
       --new-post <TITLE>
           New post. The body is `--body` or `--body-file`. A confirmed post uploads the site copy, then sends validate and save once. `--dry-run` prints the frames and the upload plan and does not connect
@@ -153,6 +161,45 @@ Writing:
           With `--vote`. `1`, `0`, or `-1`
           
           [possible values: 1, 0, -1]
+
+      --edit-profile
+          Edit the signed-in profile. Needs `--display-name`, `--username`, or `--bio`. The terminal asks `Edit profile? [y/N]`, then `Type yes`. `--dry-run` prints the form and does not connect. A confirmed edit does not send: the live frame has not been captured. Profile photo and banner uploads are not built. Account › Edit profile. No new key
+
+      --display-name <NAME>
+          With `--edit-profile`
+
+      --username <NICK>
+          With `--edit-profile`. The `@` is not sent
+
+      --bio <TEXT>
+          With `--edit-profile`
+
+      --save-settings
+          Save forum settings. Needs `--time-zone`, `--site-theme`, or `--show-sustainer`. The terminal asks `Save site settings? [y/N]`. `--dry-run` prints the form and does not connect. A confirmed save does not send. Web push is not built. Account › Save site settings. No new key. This is not `--theme`, which picks the terminal theme
+
+      --time-zone <ZONE>
+          With `--save-settings`. A zone id such as `America/Chicago`
+
+      --site-theme <THEME>
+          With `--save-settings`. `light`, `dark`, or `system`. The forum's theme, not `--theme`
+          
+          [possible values: light, dark, system]
+
+      --show-sustainer <true|false>
+          With `--save-settings`. `true` or `false`
+          
+          [possible values: true, false]
+
+      --report-post <POST>
+          Report a post. Needs `--reason`. The terminal asks `Report post? [y/N]`, then `Type yes`. `--dry-run` prints the show-actions hook and the save form and does not connect. A confirmed report does not send. Post menu › Report. No new key
+
+      --report-user <NICK>
+          Report a user. Needs `--reason`. The terminal asks `Report user? [y/N]`, then `Type yes`. `--dry-run` prints the form and does not connect. A confirmed report does not send. Account › Report user. No new key
+
+      --reason <REASON>
+          With `--report-post` or `--report-user`. `constitution`, `illegal_obscene`, `spam`, or `uncomradely`
+          
+          [possible values: constitution, illegal_obscene, spam, uncomradely]
 
       --body <MARKDOWN>
           Markdown body for `--new-post`, `--reply`, or `--edit`
@@ -568,6 +615,12 @@ Examples:
   acp-red-star --sort-thread THREAD --thread-sort top
   acp-red-star --reposts POST
   acp-red-star --edits THREAD/POST
+  acp-red-star --show-profile NICK
+  acp-red-star --site-settings
+  acp-red-star --edit-profile --display-name NAME --dry-run
+  acp-red-star --save-settings --site-theme dark --dry-run
+  acp-red-star --report-post POST --reason spam --dry-run
+  acp-red-star --report-user NICK --reason spam --dry-run
   acp-red-star --identity-init
   acp-red-star --show-phrase
   acp-red-star --acp-id
@@ -589,7 +642,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.33.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.36.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |

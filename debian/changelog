@@ -1,3 +1,9 @@
+acp-red-star (3.36.0) unstable; urgency=medium
+
+  * Package 3.36.0. A profile card and forum settings can be read. Edit profile, saving settings, report post, and report user stay prepared, gated.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 23:55:00 +0000
+
 acp-red-star (3.33.0) unstable; urgency=medium
 
   * Package 3.33.0. A reply edit sends validate, then save, once. Top-level post edits, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.
