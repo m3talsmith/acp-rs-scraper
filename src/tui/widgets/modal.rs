@@ -201,7 +201,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
             y += 1;
         }
     }
-    let note = m.error.clone().unwrap_or_else(|| "Attach lists local files. A post that still has files is not published.".into());
+    let note = m.error.clone().unwrap_or_else(|| "Attach lists local files. Images, videos, and PDFs upload when you publish. Other files stay on this machine.".into());
     if y < btn_y {
         f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
     }

@@ -60,13 +60,20 @@ pub const SITE_MAX_ATTACHMENTS: usize = 4;
 
 /// MIME prefixes the Red Star site accepts on a post (`image/*`, `video/*`).
 ///
-/// Local compose, the archive, and the network keep every other type. Add a
-/// prefix here when the site starts accepting another kind.
+/// PDF is [`SITE_ATTACHMENT_EXTRA_MIMES`], not a prefix, so `application/*` is
+/// not accepted wholesale. Local compose, the archive, and the network keep
+/// every other type.
 pub const SITE_ATTACHMENT_MIME_PREFIXES: &[&str] = &["image/", "video/"];
 
-/// `image/* and video/*`, taken from [`SITE_ATTACHMENT_MIME_PREFIXES`].
+/// Exact MIME types the site copy also accepts. PDF rides `file_attachments`.
+pub const SITE_ATTACHMENT_EXTRA_MIMES: &[&str] = &["application/pdf"];
+
+/// `image/*, video/*, and PDF`, from the prefixes and [`SITE_ATTACHMENT_EXTRA_MIMES`].
 pub fn site_attachment_kinds() -> String {
-    let parts: Vec<String> = SITE_ATTACHMENT_MIME_PREFIXES.iter().map(|p| format!("{p}*")).collect();
+    let mut parts: Vec<String> = SITE_ATTACHMENT_MIME_PREFIXES.iter().map(|p| format!("{p}*")).collect();
+    if SITE_ATTACHMENT_EXTRA_MIMES.contains(&"application/pdf") {
+        parts.push("PDF".into());
+    }
     match parts.as_slice() {
         [] => String::new(),
         [one] => one.clone(),
@@ -82,7 +89,13 @@ pub fn site_attachment_kinds() -> String {
 /// `true` when `mime` is a type the site copy can carry. A parameter after `;` is ignored.
 pub fn site_accepts_mime(mime: &str) -> bool {
     let mime = mime.split(';').next().unwrap_or("").trim().to_ascii_lowercase();
-    !mime.is_empty() && SITE_ATTACHMENT_MIME_PREFIXES.iter().any(|prefix| mime.starts_with(prefix))
+    if mime.is_empty() {
+        return false;
+    }
+    if SITE_ATTACHMENT_EXTRA_MIMES.iter().any(|exact| mime == *exact) {
+        return true;
+    }
+    SITE_ATTACHMENT_MIME_PREFIXES.iter().any(|prefix| mime.starts_with(prefix))
 }
 
 /// MIME type for an attachment extension. Unknown extensions are `application/octet-stream`.
@@ -111,7 +124,7 @@ pub fn mime_for_attachment_ext(ext: &str) -> &'static str {
     }
 }
 
-/// `true` when the path's extension is an image or a video the site copy can carry.
+/// `true` when the path's extension is an image, a video, or a PDF the site copy can carry.
 pub fn site_accepts_path(path: &Path) -> bool {
     let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     site_accepts_mime(mime_for_attachment_ext(ext))
@@ -358,9 +371,9 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
     ("p", "Post menu: view reposts or the edit history of the open or highlighted post"),
     ("s", "In a thread: cycle reply order newest → oldest → top"),
-    ("n", "New post. Cancel is the default. A text post is sent after you confirm. Attachments are refused"),
-    ("Compose · Attach", "Type a path. Tab completes a real segment. Enter adds the file. Backspace on an empty line removes the last file. Nothing is uploaded"),
-    ("Compose · site files", "More than 4 images or videos: check which go to Red Star. Other types stay local, greyed out. Space toggles. Enter confirms. ? site-attachments"),
+    ("n", "New post. Cancel is the default. A confirmed post uploads the site copy, then sends the text"),
+    ("Compose · Attach", "Type a path. Tab completes a real segment. Enter adds the file. Backspace on an empty line removes the last file. Images, videos, and PDFs upload on Publish"),
+    ("Compose · site files", "More than 4 images, videos, or PDFs: check which go to Red Star. Audio and other files stay local. Space toggles. Enter confirms. ? site-attachments"),
     ("r", "On an open post: reply (a comment pre-fills the reference). Otherwise add to a research project"),
     ("Q", "On an open post: reply with that post quoted"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),

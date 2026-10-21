@@ -92,7 +92,7 @@ const REDACTED: &str = "[REDACTED]";
 const SECRET_JSON_KEY_RE: &str = concat!(
     r#"(?i)"("#,
     r"_csrf_token|csrf_token|csrf-token|session|static|cookie|",
-    r"authorization|user_token|access_token|refresh_token",
+    r"authorization|user_token|access_token|refresh_token|token",
     r#")"\s*:\s*"(?:\\.|[^"\\])*""#,
 );
 
