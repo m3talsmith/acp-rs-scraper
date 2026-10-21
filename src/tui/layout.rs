@@ -19,12 +19,21 @@ pub struct Areas {
     pub nicks: Rect,
     /// Body.
     pub body: Rect,
+    /// Right action-history bar. One column when it is collapsed.
+    pub actions: Rect,
     /// Status / log footer.
     pub status: Rect,
 }
 
-/// Split the screen: top bar, menu bar, nicks | body, status (`log_rows` tall).
+/// Split the screen: top bar, menu bar, nicks | body | actions, status (`log_rows` tall).
+///
+/// Nicks start open. The action bar starts collapsed to one column.
 pub fn areas(r: Rect, log_rows: u16) -> Areas {
+    areas_open(r, log_rows, true, false)
+}
+
+/// [`areas`] with the nick bar and the action bar open or collapsed.
+pub fn areas_open(r: Rect, log_rows: u16, nicks_open: bool, actions_open: bool) -> Areas {
     let row = |y: u16, h: u16| Rect { x: r.x, y, width: r.width, height: h };
     let th = TUI_HEADER_ROWS.min(r.height);
     let top = row(r.y, th);
@@ -33,10 +42,14 @@ pub fn areas(r: Rect, log_rows: u16) -> Areas {
     let main_y = r.y + th + 1;
     let main_h = r.height.saturating_sub(th + 1 + status_h);
     let status = row(main_y + main_h, status_h);
-    let nw = NICK_BAR_WIDTH.min(r.width / 3);
+    let nw = if nicks_open { NICK_BAR_WIDTH.min(r.width / 3).max(1) } else { 1.min(r.width) };
+    let rest = r.width.saturating_sub(nw);
+    let aw = if actions_open { 24.min(rest / 3).max(1) } else { 1.min(rest) };
+    let body_w = rest.saturating_sub(aw);
     Areas { top, menu,
         nicks: Rect { x: r.x, y: main_y, width: nw, height: main_h },
-        body: Rect { x: r.x + nw, y: main_y, width: r.width.saturating_sub(nw), height: main_h },
+        body: Rect { x: r.x + nw, y: main_y, width: body_w, height: main_h },
+        actions: Rect { x: r.x + nw + body_w, y: main_y, width: aw, height: main_h },
         status }
 }
 

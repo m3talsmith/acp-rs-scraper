@@ -18,6 +18,7 @@ fn delete_requires_yes_and_then_blocks() {
     key(&mut a, KeyCode::Char('p'));
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Char('j'));
+    key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Confirm(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert!(m.strict);
@@ -28,6 +29,7 @@ fn delete_requires_yes_and_then_blocks() {
     assert!(!status.contains("nothing was published"), "{status}");
 
     key(&mut a, KeyCode::Char('p'));
+    key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);

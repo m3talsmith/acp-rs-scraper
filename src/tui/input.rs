@@ -78,8 +78,8 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         KeyCode::F(5) => { app.act(Action::ThemePicker); return; }
         KeyCode::F(6) => { app.act(Action::StartScan); return; }
         KeyCode::F(10) => { app.focus = Focus::Menu; return; }
-        KeyCode::Tab => { app.close_menu_dropdown(); app.focus = next_focus(app.focus, 1); return; }
-        KeyCode::BackTab => { app.close_menu_dropdown(); app.focus = next_focus(app.focus, -1); return; }
+        KeyCode::Tab => { app.close_menu_dropdown(); app.focus = next_focus(app, 1); return; }
+        KeyCode::BackTab => { app.close_menu_dropdown(); app.focus = next_focus(app, -1); return; }
         _ => {}
     }
     match app.focus {
@@ -87,13 +87,33 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         Focus::Nicks => nicks_key(app, k),
         Focus::Body => body_key(app, k),
         Focus::Status => status_key(app, k),
+        Focus::Actions => actions_key(app, k),
     }
 }
 
-fn next_focus(f: Focus, d: i32) -> Focus {
-    let all = [Focus::Nicks, Focus::Body, Focus::Menu, Focus::Status];
-    let i = all.iter().position(|x| *x == f).unwrap_or(0);
+fn next_focus(app: &App, d: i32) -> Focus {
+    let mut all = vec![Focus::Nicks, Focus::Body, Focus::Menu, Focus::Status];
+    if app.actions_open { all.insert(2, Focus::Actions); }
+    let i = all.iter().position(|x| *x == app.focus).unwrap_or(0);
     all[cycle(i, all.len(), d)]
+}
+
+fn actions_key(app: &mut App, k: KeyEvent) {
+    let page = app.action_page.max(1) as i32;
+    match k.code {
+        KeyCode::Up | KeyCode::Char('k') => app.move_action_cursor(-1),
+        KeyCode::Down | KeyCode::Char('j') => app.move_action_cursor(1),
+        KeyCode::PageUp => app.scroll_actions(-page),
+        KeyCode::PageDown => app.scroll_actions(page),
+        KeyCode::Home => app.move_action_cursor(-1_000_000),
+        KeyCode::End => app.move_action_cursor(1_000_000),
+        KeyCode::Enter => app.jump_action(app.action_cursor),
+        KeyCode::Char('b') => app.open_branches(),
+        KeyCode::Left | KeyCode::Char('h') => app.switch_branch(app.branch_at.saturating_sub(1)),
+        KeyCode::Right | KeyCode::Char('l') => app.switch_branch(app.branch_at.saturating_add(1)),
+        KeyCode::Esc => app.focus = Focus::Body,
+        _ => { common_key(app, k); }
+    }
 }
 
 fn status_key(app: &mut App, k: KeyEvent) {
@@ -110,6 +130,8 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('m') => app.focus = Focus::Menu,
         KeyCode::Char('<') => { app.search_back(); }
         KeyCode::Char('b') => app.act(Action::ToggleBookmark),
+        KeyCode::Char('+') => app.vote_current("1"),
+        KeyCode::Char('-') => app.vote_current("-1"),
         KeyCode::Char('p') => app.open_post_menu(),
         KeyCode::Char('x') => app.act(Action::ToggleBasket),
         KeyCode::Char('n') => app.open_new_post(),
@@ -376,6 +398,26 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         return;
     }
     let hit = hit_at(app, m.column, m.row);
+    if matches!(m.kind, MouseEventKind::Moved) {
+        app.note_hover(hit);
+        return;
+    }
+    if let MouseEventKind::Down(MouseButton::Left) = m.kind {
+        match hit {
+            Some(Hit::Tip) => {
+                let topic = app.tip.as_ref().map(|t| t.topic);
+                app.tip = None;
+                app.open_help(topic);
+                return;
+            }
+            Some(Hit::HelpMark) => {
+                let topic = app.tip.as_ref().map(|t| t.topic);
+                app.open_help(topic);
+                return;
+            }
+            _ => {}
+        }
+    }
     let wheel = match m.kind { MouseEventKind::ScrollDown => 1, MouseEventKind::ScrollUp => -1, _ => 0 };
     if app.modal.is_some() {
         if matches!(app.modal, Some(Modal::Job(_))) { app.refresh_job_modal(); }
@@ -394,6 +436,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     if wheel != 0 {
         match hit {
             Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::Eb | Hit::Explore | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
+            Some(Hit::Action(_) | Hit::ActionPane | Hit::ActionBranches) => app.scroll_actions(wheel * 3),
             Some(Hit::DetailPane | Hit::Link(_) | Hit::StarTop | Hit::BasketTop | Hit::ResearchTop) => app.scroll_detail(wheel * 3),
             Some(Hit::Post(_) | Hit::Star(_) | Hit::Basket(_) | Hit::Research(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
             _ => {}
@@ -437,6 +480,11 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::ListPane | Hit::DetailPane) => app.focus = Focus::Body,
         Some(Hit::Status | Hit::Job) => { app.focus = Focus::Status; app.open_jobs(); }
         Some(Hit::Logo) => app.tap_logo(Instant::now()),
+        Some(Hit::ToggleNicks) => app.nicks_open = !app.nicks_open,
+        Some(Hit::ToggleActions) => app.toggle_actions(),
+        Some(Hit::ActionBranches) => { app.focus = Focus::Actions; app.open_branches(); }
+        Some(Hit::ActionPane) => app.focus = Focus::Actions,
+        Some(Hit::Action(i)) => { app.focus = Focus::Actions; app.jump_action(i); }
         _ => {}
     }
 }

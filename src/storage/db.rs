@@ -200,6 +200,8 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
     if !has_score { c.execute_batch(POSTS_ADD_SCORE)?; }
     c.execute_batch(POSTS_MIGRATIONS)?;
     c.execute_batch(POST_TAGS_SCHEMA)?;
+    c.execute_batch(crate::storage::history::SEARCH_HISTORY_SCHEMA)?;
+    c.execute_batch(crate::storage::history::ACTION_TREE_SCHEMA)?;
     c.execute_batch(POST_VERSIONS_SCHEMA)?;
     c.execute_batch(SITE_STATE_SCHEMA)?;
     Ok(())

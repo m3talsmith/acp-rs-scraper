@@ -26,6 +26,7 @@ pub mod sample;
 pub mod state;
 pub mod theme;
 pub mod theming;
+pub mod tooltip;
 pub mod widgets;
 
 use crate::prelude::*;
@@ -64,19 +65,17 @@ impl Drop for Terminal {
     fn drop(&mut self) { restore_terminal(); }
 }
 
-/// The LiveView login is not `Send`. Run it on a thread of its own.
+/// Login on this runtime, same as the command line. The sign-in POST used to
+/// hold a non-`Send` HTML node across the request, so this ran on a second
+/// runtime and the code submit failed with "websocket closed". Dropping `rx`
+/// (via `login_tx`) ends the wait. `JoinHandle::abort` stops a submit already
+/// in flight.
 fn spawn_login(
     http: reqwest::Client, jar: Arc<Jar>, email: String,
     rx: tokio::sync::mpsc::UnboundedReceiver<LoginCmd>,
     tx: tokio::sync::mpsc::UnboundedSender<Msg>, g: u64,
-) -> std::thread::JoinHandle<()> {
-    std::thread::spawn(move || {
-        let Ok(rt) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
-            let _ = tx.send(Msg::LoginDone(g, Err("could not start the login runtime".into())));
-            return;
-        };
-        rt.block_on(login_attempt(http, jar, email, rx, tx, g));
-    })
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(login_attempt(http, jar, email, rx, tx, g))
 }
 
 /// Email, then wait. Heartbeats run during the wait. A close reconnects.
@@ -134,6 +133,9 @@ pub async fn run(args: Args) -> Result<()> {
     setup_themes(&mut app, &args, &prefs)?;
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
+    if let Some(n) = prefs.ui.as_ref().and_then(|u| u.search_history_limit) {
+        app.menu.menu.set_text(crate::tui::commands::CommandId::Search, "keep", &n.to_string());
+    }
     (app.empty_anim, app.empty_anim_accent) = empty_anim::from_prefs(prefs.ui.as_ref());
     if let Some(msg) = crate::crypto::cmd::shares_reminder(&home_dir) {
         app.push_status(msg);
@@ -228,7 +230,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     // Small writes (bookmarks) that run next to the main job.
     let mut side: Vec<jobs::Job> = Vec::new();
     let mut login_tx: Option<tokio::sync::mpsc::UnboundedSender<LoginCmd>> = None;
-    let mut login_task: Option<std::thread::JoinHandle<()>> = None;
+    let mut login_task: Option<tokio::task::JoinHandle<()>> = None;
     let mut detached = None;
     // Generation of the current login attempt; replies from abandoned ones are ignored.
     let mut login_gen: u64 = 0;
@@ -367,11 +369,12 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     }
                 },
                 Effect::LoginEmail(email) => {
-                    // The LiveView socket is not Send: one thread, one current-thread
-                    // runtime. The command channel stays open across a wrong code or a
-                    // dropped socket. Dropping `login_tx` cancels the attempt.
+                    // Same runtime as the HTTP client. The command channel stays open
+                    // across a wrong code or a dropped socket. Dropping `login_tx`
+                    // cancels the wait; abort stops a submit already in flight.
                     login_gen += 1;
                     let g = login_gen;
+                    if let Some(t) = login_task.take() { t.abort(); }
                     let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel();
                     login_tx = Some(cmd_tx);
                     login_task = Some(spawn_login(http.clone(), jar.clone(), email, cmd_rx, msg_tx.clone(), g));
@@ -384,7 +387,11 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Some(tx) => { let _ = tx.send(LoginCmd::Resend); }
                     None => app.login_expired(),
                 },
-                Effect::LoginCancel => { login_tx = None; login_task = None; login_gen += 1; }
+                Effect::LoginCancel => {
+                    login_tx = None;
+                    if let Some(t) = login_task.take() { t.abort(); }
+                    login_gen += 1;
+                }
                 Effect::Logout => match logout(&jar) {
                     Ok(removed) => app.logged_out(removed),
                     Err(e) => app.error("Logout failed", &format!("{e:#}")),
