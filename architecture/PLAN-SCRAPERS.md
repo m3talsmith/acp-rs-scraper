@@ -1,744 +1,681 @@
-# Plan: read-only X and YouTube sources for ACP Red Star
+# Plan: modular services for ACP Red Star
 
-Status: **design only, for Michael's review.** Nothing in this file is implemented.
-Target path in the repo: `architecture/PLAN-SCRAPERS.md`. This draft was written on the agent box. It was not committed or pushed.
-Base: `main` at `28759588` (crate `3.5.0`, about 12 features under `[Unreleased]`).
+Status: **design, revised with Michael's 2026-10-21 answers.** Nothing in this file is implemented.
+Target path in the repo: `architecture/PLAN-SCRAPERS.md`.
+Base: `main` at `8eb6b802` (crate `3.5.0`). Version numbers in this plan are relative labels until the versioning cleanup settles the crate version.
 Companion docs: [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) (§6 Feeds, §7.5 records, §7.14.13 rules and alerts, §7.14.14 post source) and [PLAN-4.0.md](./PLAN-4.0.md) (the research corpus).
 
 Facts about the X API, the YouTube Data API and yt-dlp were checked on **2026-10-21** against docs.x.com, developers.google.com and the yt-dlp README (release `2026.08.19`). They change often. Re-check them before each phase: the X pricing and rate-limit pages, which X GraphQL operations are gated, the yt-dlp release notes (`max_comments` order, `live_chat`, EJS and JS runtime, PO tokens), and the YouTube quota calculator.
 
+Michael accepts the churn of making Red Star one service among others. His words: "It's worth it."
+
 ---
 
-## 0. Goal and approved approach
+## 0. Goal and decisions
 
-Michael wants two more **read-only** sources, X and YouTube. They work like the Red Star scraper, but have no compose, vote, reply, bookmark-push or any other write. The approach he approved:
+Red Star, X and YouTube are **independent services**. They are separate crates, registered in one app, and the scheduler runs the enabled ones **in parallel**. More services will be added the same way. Red Star is not a special case inside the UI: it is the service that is on by default.
 
-- **One source module per site.** Each is built on the shared core crate (`acp_red_star_node_core`, 3.2.0).
-- **One database.** Accounts, posts, replies and media go into the same tables. Exports (json, html, tar.gz) are the same. `--said-by`-style filters, the TUI reader views and search work the same way, plus a **source switcher**.
-- **YouTube:**
-  - **yt-dlp** for channels, playlists, video metadata, transcripts or subtitles, and comments.
-  - This feeds the PLAN-4.0 corpus (post source, then the Haz stream corpus).
-  - The **YouTube Data API v3** is an optional alternative backend.
-- **X:** two paths. The official **X API v2** with Michael's bearer token comes first. A **logged-in X web session** is the fallback, with cookies imported into `~/.acp`. Credentials never go into logs.
+Decisions from 2026-10-21, which override any older sentence in this file:
 
-Non-goals:
-- Writing to X or YouTube.
-- Live audio or video (Spaces audio, livestream playback).
-- DMs.
-- Any other user's private data.
+- **Separate crates.** One crate per service, including Red Star. Parsers and network clients do not live only as modules of the root crate.
+- **What the user turns on.** Red Star (the party's web app at acp.us) is enabled by default. Every other service starts off. The user turns one on in the Services preferences screen, or with the CLI and config equivalents, and fills in that service's details only then.
+- **Same settings shape everywhere.** Every service exposes its fields in the TUI and in the CLI or config. A `ConfigSchema` describes the fields. The TUI and the CLI render that schema, so a new service does not grow a hand-built settings form.
+- **Secrets and config are split.** Keys, tokens, cookies and credentials are sealed in the encrypted database and are never written to a file and never printed. Other settings live in `~/.acp/services/<service>.toml`.
+- **Routes.** The default route is the user's logged-in account (web session). The user can make that service's API the default instead. A service with more than one route exposes the same trio: route choice, credentials, pacing. A service with one route skips the route choice. Red Star has one route today (its web session).
+- **X web session.** The whole read surface stays, search and replies included. §13 keeps the Terms of Service and account-suspension warning. The first time the user enables that session, the app shows the warning and waits for an acknowledgement. Pacing and daily caps are settings, not constants.
+- **Spend.** Every service used through a paid or quota-metered API has a monthly cap and a per-run cap, a cost estimate, and a confirmation before spending. Cancel is the default.
+- **Who to follow.** Nicks are per service, the same idea as Red Star. The user picks a nick that is valid on that service. `--nick`, `--said-by`, alerts and the other reader flags apply per service, with namespaced ids.
+- **Media.** Video, audio and transcripts are all available. A storage cap bounds what is kept on disk.
+- **Writes.** As a service makes a write possible, it gets the same set Red Star is growing: post, reply, upload, vote or like, subscribe or follow, edit, delete, repost. Reads ship before writes. Every write follows `AGENTS.md`: a mocked test, a preview, a confirmation whose default is Cancel, and a `--dry-run` that prints exactly what would be sent.
+- **X cookies** are sealed in the encrypted database. There is no `~/.acp/x-session.json`.
+- **Backups strip secrets.** A `.acpbackup` snapshot drops `source_secrets` before it is packed, so a restore asks for tokens and cookies again.
+- **Peer sync.** X and YouTube records stay out of P9 replication by default.
+
+Non-goals for the first phases:
+
+- DMs, and any other user's private data.
 - A cloud model.
-- Changing how Red Star works.
+- Spaces audio and livestream playback. Listing a live item is in scope when the Live capability says so. Playing the stream is not.
+- Sending a write for a service that has not implemented that capability, or whose runtime state is still gated.
 
 ---
 
 ## 1. How this fits the current code
 
-| Area today | File | What the new sources reuse or change |
+| Area today | File | What changes |
 |---|---|---|
-| Post model | `src/scrape/mod.rs` `Post` | Reused. It gains `source`, provenance fields and `kind` (§3). |
-| Schema and migrations | `src/storage/schema.rs`, `db.rs` `ensure_posts_schema` | The same additive pattern: a `pragma_table_info` check, then `ALTER TABLE ... ADD COLUMN`. |
-| Encrypted DB | `src/crypto/atrest.rs`, `open_db_flags` | No change. New tables live in the same SQLCipher file and go into backups automatically. |
-| Session | `src/auth/session.rs` (`~/.acp/session.json`, 0600, cookie values never logged) | The X web session uses the same `SavedSession` shape, but is **sealed** (§4.3). |
-| Preferences | `src/auth/prefs.rs` `Prefs` (`[ui]`, `[sync]`, `[theme]`) | Adds `[sources]`, `[x]` and `[youtube]` tables, non-secret values only (§4). |
-| Secrets interface | core `store.rs` `SecretStore`, `seal_blob`/`open_blob` | Holds the X bearer token, X cookies and the YouTube API key (§4.3). |
-| HTTP | `src/http.rs` (client posing as Firefox, shared jar) | Gets a separate client per source. The X API client uses honest headers (§6.1). |
-| Media | `src/media.rs` (`download_all`, `canonical_url`, `url_key`) | Reused for X images and video and YouTube thumbnails. yt-dlp handles video and audio files (§8). |
-| Crawl frontier | `CRAWL_SCHEMA` (3.34) | The same idea, but in a per-source cursor table (§7). |
-| Jobs | TUI jobs run as children of the headless binary and stream JSON lines | Scrapes of the new sources are ordinary jobs. The database key goes over the same private pipe. |
-| Rules and alerts | `src/rules` (`Condition::Source`, `same_source`) | `x` and `youtube` become real source values (§9). |
-| Export | `src/export`, `EXPORT_FORMAT_VERSION = 2` | Bumps to **3**, adding source fields as PLAN-4.0 already expected (§3.5). |
-| Writes | `src/site/*` `SiteAction`, `CAPTURE_BLOCK` | Every write path refuses a post whose `source != 'redstar'` (§10.4). |
-| Tests | `tests/support/mock.rs` (axum fake acp.us), cucumber `tests/features/*.feature`, `ACP_BASE_URL` | Gets the same kind of mocks per source, plus a fake yt-dlp (§11). |
+| Post model | `src/scrape/mod.rs` `Post` | Stays the shared row. It gains `source`, provenance fields and `kind` (§3). Service crates do not own this struct. |
+| Red Star scrape, login, writes | `src/scrape`, `src/auth`, `src/site` | Move behind capability traits in Phase A. Behaviour stays the same. The code then lives in the Red Star service crate. |
+| Schema and migrations | `src/storage/schema.rs`, `db.rs` `ensure_posts_schema` | Additive columns and the new tables (§3). The root crate remains the only writer. |
+| Encrypted DB | `src/crypto/atrest.rs` | Same SQLCipher file. `source_secrets` is sealed with the unlocked database key and is omitted from backups. |
+| Session | `src/auth/session.rs` (`~/.acp/session.json`) | Phase A still reads this file, so today's tests pass. Phase B seals the cookie into `source_secrets` and stops using the file. |
+| Preferences | `src/auth/prefs.rs` | App-wide UI stays in `preferences.toml`. Red Star's service settings move to `~/.acp/services/redstar.toml` (§4). |
+| Secrets interface | core `store.rs` `SecretStore`, `seal_blob` / `open_blob` | Holds every service secret. Plaintext never enters a TOML file, the log, or argv. |
+| HTTP | `src/http.rs` | One client per service. The X API client uses its own headers. The X web client uses the Firefox identity the imported cookies came from. |
+| Media | `src/media.rs` | Shared downloader for images and files the service has already resolved to a URL. yt-dlp stays inside the YouTube crate. |
+| Crawl frontier | `CRAWL_SCHEMA` | Red Star's whole-site crawl becomes the Red Star `Reader` implementation. Other services use `source_cursors` (§7). |
+| Jobs | TUI jobs, private pipe for the database key | The scheduler is the parent of those jobs. Each enabled service is one job, and jobs run together. |
+| Rules and alerts | `src/rules` | `x` and `youtube` become real source values (§9). |
+| Export | `src/export`, format version 2 | Bumps to **3** when non-Red-Star rows can exist (§3.5). |
+| Writes | `src/site/*`, `CAPTURE_BLOCK` | Become per-capability runtime gates (§2.4). A Red Star write stays gated exactly as it is today until its own capture exists. |
+| Tests | mock server, cucumber, `ACP_BASE_URL` | Phase A must stay green with no behaviour change. Later phases add a mock per service (§11). |
+
+The core crate still does not open SQLite, draw the terminal, or talk to the network. Service crates may talk to the network. Only the root crate opens the database.
 
 ---
 
-## 2. Source interface
+## 2. Traits, capabilities, registry, scheduler
 
-### 2.1 Where the code lives
+### 2.1 Crates
 
-The core crate's rule is that it "does not open the SQLite database, draw the terminal, or talk to the network." Keep that rule. So:
+| Crate | Role |
+|---|---|
+| `acp_red_star_node_core::service` | Traits, ids, records, `ConfigSchema`, capability ids. No I/O. |
+| `crates/acp_red_star_service_redstar` | Today's Red Star client, behind the traits. |
+| `crates/acp_red_star_service_x` | X session route and X API route. |
+| `crates/acp_red_star_service_youtube` | yt-dlp session route and Data API route. |
+| Root crate | Registry, scheduler, SQLite, TUI, CLI. Maps records into `Post` and `Profile`. |
 
-- **`acp_red_star_node_core::source`** (new module, no I/O). Contains:
-  - `SourceKind`, namespaced ids (`SourceId`), and the record types (`AccountRec`, `ItemRec`, `MediaRec`, `SegmentRec`).
-  - `Target`, `Cursor`, `Budget` and `Capabilities`.
-  - The canonical CBOR encoding of an `ItemRec`, so the P9 `PostRecord` (§7.5 of the 3.0 plan) can carry any source later.
-- **`crates/acp_red_star_source_x`** and **`crates/acp_red_star_source_youtube`** (new workspace crates). Each:
-  - implements the trait,
-  - owns its HTTP client or its yt-dlp subprocess, and its parsers,
-  - depends on core plus `reqwest`, `serde_json` and `tokio`,
-  - never touches SQLite.
-- **Root crate `src/sources/`**. Glue code that:
-  - maps records into `Post`, `Profile` and `Attachment`,
-  - runs the sync loop (§7) and writes cursors,
-  - calls the rules engine,
-  - handles CLI and TUI wiring.
+A new service is a new workspace crate registered in the root crate. This plan does not load dynamic libraries. Whether a later runtime plugin loader is wanted is open (§15).
 
-The root crate stays the only owner of the database.
+Async functions in traits are not `dyn`-compatible. The registry holds concrete service values and dispatches with an enum (`AnyService`) that the root crate constructs. That is enough while every service is a workspace crate.
 
-> Open question Q1: two new crates, or modules `src/sources/{x,youtube}` in the root crate? Crates keep the core rule and let a future node or relay reuse the parsers. Modules are less ceremony. This plan assumes crates.
-
-### 2.2 The trait
-
-Async functions in traits are stable well below MSRV 1.88. They aren't `dyn`-compatible, so dispatch goes through an enum (`AnySource`) instead of `Box<dyn>`.
+### 2.2 Service and the shared types
 
 ```rust
-/// Which service a record came from. Stored as text in `posts.source`.
-pub enum SourceKind { RedStar, X, YouTube }          // "redstar" | "x" | "youtube"
+pub struct ServiceId(pub &'static str); // "redstar" | "x" | "youtube"
 
-/// Namespaced id: Red Star ids stay bare; others are "x:…" / "yt:…" (§3.2).
-pub struct SourceId { pub kind: SourceKind, pub native: String, pub sub: Option<SubId> }
-
-pub enum Target {
-    Account(String),          // X handle or user id; YouTube @handle, channel id or URL
-    Search(String),           // X query; YouTube search terms (optional, §5.6)
-    Playlist(String),         // YouTube playlist id or URL
-    Item(String),             // one X post id / URL; one YouTube video id / URL
-    Conversation(String),     // X conversation_id (replies of one thread)
+pub trait Service {
+    fn id(&self) -> ServiceId;
+    fn display_name(&self) -> &'static str;
+    /// The capability traits this crate implements. Fixed for the life of the binary.
+    fn implemented(&self) -> &'static [CapabilityId];
+    fn schema(&self) -> &'static [Field];
+    /// Logged-in, gated, over cap, and so on. Changes between calls.
+    fn availability(&self, cap: CapabilityId, ctx: &RuntimeCtx) -> Availability;
 }
 
-pub struct Capabilities {
-    pub writes: bool,                 // always false for X and YouTube
-    pub replies: bool, pub media: bool, pub transcripts: bool, pub comments: bool,
-    pub live_chat: bool, pub metrics: bool, pub edit_history: bool,
-}
+pub struct SourceId { pub service: ServiceId, pub native: String, pub sub: Option<SubId> }
 
+pub enum RouteKind { Session, Api }
+
+pub struct Field {
+    pub key: &'static str,
+    pub label: &'static str,
+    pub help: &'static str,
+    pub kind: FieldKind,          // bool, text, int, enum, string list, secret
+    pub store: Store,             // Config → TOML, Secret → sealed DB
+}
+```
+
+`SourceKind` in stored rows uses the same strings as `ServiceId`: `redstar`, `x`, `youtube`.
+
+Namespaced ids stay as in §3.2: Red Star ids bare, `x:…`, `yt:…`. Nicks are `x:alice` and `yt:@channel`. The UI strips the prefix and draws a badge.
+
+### 2.3 Capability traits
+
+A feature is a capability trait. A service implements it or it does not. Red Star's current features are split onto these traits in Phase A, with no change to what the user can do.
+
+| Trait | What it means | Red Star today |
+|---|---|---|
+| `Authenticator` | Routes (`Session`, and `Api` when the service has one), each with its own fields in the schema | Session only. No route picker. |
+| `Reader` | Incremental, resumable scrape of accounts, searches, threads | The scraper, including whole-site |
+| `Live` | Updates for the open view without a full scrape | The LiveView socket |
+| `Notifications` | That service's own notice stream | Not the local toast stack. Toasts stay in the app (§15). |
+| `Post`, `Reply`, `Upload` | Compose and attachments | Implemented, send still gated where `CAPTURE_BLOCK` gates it |
+| `Vote`, `Subscribe`, `Edit`, `Delete`, `Repost` | The interaction set | Stubs, gated until a capture exists |
+| `Bookmarks` | Local save, and a remote push when the service has one | Local save works. Remote push is the current bookmark hook. |
+| `Research` | Add the current item to a research project | App research store, keyed by namespaced id |
+| `Feeds` | This service can refresh a feed rule | Red Star feeds when P7 exists. X and YouTube join then. |
+| `MediaFetcher` | Video, audio, transcripts, thumbnails | Red Star attachments. YouTube and X in Phase D. |
+| `CostMeter` | Estimate, ledger, monthly cap, per-run cap | Unused on Red Star. Required on a paid or quota API route. |
+
+`Publisher` is not a separate grab-bag. Each write is its own trait, so the UI can hide Vote on a service that will never vote and still show Reply.
+
+`Reader` page shape (one page, newest first, stop early for incremental sync):
+
+```rust
 pub struct Page {
-    pub accounts: Vec<AccountRec>,    // authors seen on this page (upserted)
-    pub items: Vec<ItemRec>,          // posts, replies, videos, comments
-    pub segments: Vec<SegmentRec>,    // transcript turns (YouTube)
-    pub next: Option<Cursor>,         // None = this direction is exhausted
-    pub cost: Spend,                  // requests, resources billed, quota units
+    pub accounts: Vec<AccountRec>,
+    pub items: Vec<ItemRec>,
+    pub segments: Vec<SegmentRec>,
+    pub next: Option<Cursor>,
+    pub cost: Spend,
 }
 
-pub trait Source {
-    fn kind(&self) -> SourceKind;
-    fn capabilities(&self) -> Capabilities;
-    /// Turn a user string into a canonical target (handle → user id, URL → video id).
+pub trait Reader: Service {
     async fn resolve(&self, t: &Target) -> Result<Resolved>;
-    /// One page, newest first. `stop_at` lets incremental sync end early (§7).
     async fn page(&self, t: &Resolved, cur: &Cursor, stop_at: Option<&str>,
                   budget: &mut Budget) -> Result<Page>;
-    /// Per-item extras that cost more: full thread, transcript, comments.
     async fn expand(&self, item: &SourceId, what: Expand, budget: &mut Budget) -> Result<Page>;
 }
 ```
 
-- `Budget` carries the run caps: the post limit, seconds, X spend, YouTube quota units and the web daily cap. Every adapter decrements it **before** a request and returns `BudgetExhausted` rather than overspending.
-- `Cursor` is opaque, serialisable text:
-  - an X `pagination_token`, `next_token` or `since_id`,
-  - a GraphQL `cursor-bottom`,
-  - a YouTube playlist index or Data API `pageToken`.
-- Red Star doesn't have to move onto the trait in this work. A thin `RedStarSource` wrapper can come later.
+`Budget` carries that service's run caps. The adapter decrements it before a request and returns `BudgetExhausted` rather than overspending. `Cursor` is opaque text (an X token, a GraphQL cursor, a YouTube `pageToken` or playlist index).
 
-### 2.3 Record mapping
+Suggested `Target`: `Account`, `Search`, `Playlist`, `Item`, `Conversation`. A service that cannot express one of those does not advertise it. YouTube has no X-style conversation target. X has no playlist target.
 
-| Concept | Red Star (today) | X | YouTube |
-|---|---|---|---|
-| Account (`profiles`) | nick | `@handle`, user id, name, bio, avatar, banner, metrics | channel (`@handle`, `UC…` id), title, description, avatar, banner, subscriber count |
-| Root post | post with title | post that isn't a reply | **video**: title, description as body, `posted_at` = upload or release date |
-| Reply | reply (`parent_post_id` = root, `in_reply_to_id` = parent) | reply: `conversation_id` → root, `referenced_tweets[replied_to]` → parent | **comment**: parent = video; a reply to a comment sets `in_reply_to_id` to that comment |
-| Quote / repost | `quoted_post` | `quoted` / `retweeted` reference (repost stored as a link, not a copy, §5.3) | n/a |
-| Media | attachments | photos, video and GIF variants | thumbnail. Optional video or audio file (§8) |
-| Text body | ProseMirror → text | `note_tweet.text` when present (long posts), else `text`; entities expanded | description, comment text |
-| Score | `score` | like count (raw metrics in `metrics_json`) | like count (views etc. in `metrics_json`) |
-| Tags | `post_tags` | `entities.hashtags` | video `tags` plus `#hashtags` in the description |
-| Mentions | `mentions` | `entities.mentions` → `x:<handle>` | `@handle` in comments (best effort) |
-| Transcript | n/a | n/a | **segment rows** (§3.3) |
+### 2.4 Capability discovery
+
+Two layers.
+
+**Static.** `implemented()` is the set of traits the crate has. It does not depend on login or caps. The CLI builds flag groups from it. The TUI builds menus from it. Help for that service lists only this set.
+
+**Runtime.** `availability(cap, ctx)` is one of:
+
+| State | Meaning | Control |
+|---|---|---|
+| `Ready` | Usable now | Shown and enabled |
+| `NeedsAuth` | Implemented, not logged in, or the token is missing | Shown, disabled. Tooltip: "Sign in to X" (or the service's words) |
+| `Gated` | Implemented, not sent until a capture is in the tree | Shown, disabled. Tooltip: "Gated until captured" |
+| `Limited` | Over the monthly cap, the per-run cap, the daily cap, the storage cap, or a pacing pause | Shown, disabled. Tooltip names the cap |
+| `Off` | The user has not enabled the service | The service's controls are absent |
+
+Rules for the active or selected service:
+
+- The trait is absent: the menu item, keybinding and flag are **hidden**. There is nothing to hover, so there is no tooltip. `--help` for that service does not list the flag.
+- The trait is present but not `Ready`: the control is **shown and disabled**, with a tooltip that says why.
+
+Rules for a mixed list or an All view (the layout of that view is still open, §15; these rules apply to both a date-mixed list and a grouped list):
+
+- A control is shown when **any service currently in the view** implements the trait.
+- It is enabled when the highlighted item's service is `Ready` for that trait, or when a multi-selection contains at least one `Ready` item.
+- The tooltip names the services that will be skipped and why ("X does not implement edit", "YouTube vote is gated until captured").
+- The action never crosses services. An X id is not sent to Red Star's vote hook.
+- The preview, and `--dry-run`, print one block per selected item: the payload that would be sent, or the skip reason. Nothing is sent for a skip.
+- Confirm defaults to Cancel and repeats the skips. `--yes` confirms the `Ready` items only.
+
+A shared flag (`--nick`, `--said-by`, `--limit`, `--sync`) runs on every **enabled** service that implements `Reader`, using that service's namespaced ids. A flag for a capability only some services implement (`--vote`) follows the All-view rule above.
+
+### 2.5 Registry and scheduler
+
+The registry is the list of compiled-in services plus the user's enabled set.
+
+- Missing `~/.acp/services/redstar.toml` means Red Star is **on**.
+- Missing `x.toml` or `youtube.toml` means that service is **off**. Creating the file with `enabled = false` is the same as off.
+- Enabling a service opens its schema. Secret fields go to the database through a no-echo prompt. Config fields go to the TOML file.
+
+The scheduler starts one job per enabled service that has a due target. Jobs run at the same time. Each service has its own rate limit, and that limit is not shared with the others. SQLite writes commit per page, so two services can insert without sharing a crawl cursor. Within one service the service's own pacing still holds (X web stays serial; only one yt-dlp process at a time).
+
+`--sync` with no service runs every enabled service together. `--sync --source x` runs only X.
 
 ---
 
 ## 3. Schema changes and migrations
 
-All changes are **additive**, so 3.0's SQLCipher file is migrated in place. There's no re-key, no second database, and `~/.acp/ai/data/rs.database` isn't renamed. Each change follows the `ensure_posts_schema` pattern, so it is idempotent and safe on every open.
+All changes are additive. The SQLCipher file stays `~/.acp/ai/data/rs.database`. Each change follows `ensure_posts_schema`: a `pragma_table_info` check, then `ALTER TABLE`, and it is safe to run on every open.
 
-### 3.1 `posts`: provenance columns (the PLAN-4.0 groundwork)
+Phase A does **not** apply the non-Red-Star columns. It only moves Red Star behind the traits. The columns land with the first phase that can store another service's rows (Phase C).
 
-This lands the §7.14.14 sketch early. That section allows "a 3.x minor before 4.0".
+### 3.1 `posts`: provenance columns
+
+This is the §7.14.14 sketch, landed as a 3.x change before 4.0.
 
 ```sql
-ALTER TABLE posts ADD COLUMN source TEXT NOT NULL DEFAULT 'redstar';   -- redstar | x | youtube
-ALTER TABLE posts ADD COLUMN source_id TEXT NOT NULL DEFAULT '';        -- native id at the source
-ALTER TABLE posts ADD COLUMN source_url TEXT NOT NULL DEFAULT '';       -- canonical permalink
-ALTER TABLE posts ADD COLUMN source_start_ms INTEGER;                   -- transcript segment start
-ALTER TABLE posts ADD COLUMN source_end_ms INTEGER;                     -- transcript segment end
-ALTER TABLE posts ADD COLUMN speaker TEXT NOT NULL DEFAULT '';          -- 4.0 diarization label
-ALTER TABLE posts ADD COLUMN kind TEXT NOT NULL DEFAULT '';             -- post|reply|video|comment|segment|chat
+ALTER TABLE posts ADD COLUMN source TEXT NOT NULL DEFAULT 'redstar';
+ALTER TABLE posts ADD COLUMN source_id TEXT NOT NULL DEFAULT '';
+ALTER TABLE posts ADD COLUMN source_url TEXT NOT NULL DEFAULT '';
+ALTER TABLE posts ADD COLUMN source_start_ms INTEGER;
+ALTER TABLE posts ADD COLUMN source_end_ms INTEGER;
+ALTER TABLE posts ADD COLUMN speaker TEXT NOT NULL DEFAULT '';
+ALTER TABLE posts ADD COLUMN kind TEXT NOT NULL DEFAULT '';
 ALTER TABLE posts ADD COLUMN lang TEXT NOT NULL DEFAULT '';
-ALTER TABLE posts ADD COLUMN metrics_json TEXT NOT NULL DEFAULT '';     -- likes, reposts, views… as fetched
-ALTER TABLE posts ADD COLUMN fetched_via TEXT NOT NULL DEFAULT '';      -- liveview | x-api | x-web | yt-dlp | yt-api
+ALTER TABLE posts ADD COLUMN metrics_json TEXT NOT NULL DEFAULT '';
+ALTER TABLE posts ADD COLUMN fetched_via TEXT NOT NULL DEFAULT '';
 CREATE INDEX IF NOT EXISTS posts_source_idx ON posts(source, posted_at);
 CREATE INDEX IF NOT EXISTS posts_source_id_idx ON posts(source, source_id);
 ```
 
-- Existing rows keep `source = 'redstar'`. An optional backfill sets `source_id = post_id` and `source_url = https://acp.us/rs/post/…`, as §7.14.14 already allows.
-- `kind` can be derived for old rows: `parent_post_id = ''` gives `post`, otherwise `reply`.
-- `post_versions.source` stays the edit-observation column (`site|peer|local|draft`). X edit history is stored there with `source = 'site'`, read as "observed from the origin service". No table rebuild is needed.
+`fetched_via` is `liveview`, `x-api`, `x-web`, `yt-dlp` or `yt-api`.
 
-### 3.2 Namespaced ids and nicks (decision)
+- Existing rows keep `source = 'redstar'`. An optional backfill sets `source_id = post_id` and `source_url` to the Red Star permalink.
+- `kind` for old rows: empty `parent_post_id` means `post`, otherwise `reply`.
+- `post_versions.source` stays the edit-observation column (`site|peer|local|draft`). X edit history, when a later write or a read of edits exists, uses `source = 'site'` to mean "seen on the origin service". No table rebuild.
 
-`posts.post_id` already has a **global** unique index, and bookmarks, research items, tags, mentions, attachments and rule firings all key on that text. So:
+### 3.2 Namespaced ids and nicks
 
-- **Red Star ids stay bare.** These are 22-character base64url ids. No existing row, bookmark, research item or export changes.
-- **New sources are prefixed:**
-  - `x:<tweet id>`, for example `x:1849…`.
-  - `yt:<video id>`, for example `yt:dQw4w9WgXcQ`.
-  - `yt:<video id>/c:<comment id>` for comments.
-  - `yt:<video id>/t:<start_ms>` for transcript segments.
-  - `yt:<video id>/chat:<message id>` for live-chat replay.
-  - The prefix can't collide with Red Star ids, because base64url never contains `:`.
-- **Nicks are namespaced the same way**, `x:alice` and `yt:@somechannel`:
-  - `profiles.nick` (the primary key) and `posts.nick` hold the prefixed form.
-  - The nick bar, `--said-by`, rules `Author` and `RepliesTo`, alert "watch user" and Feeds nick rules all keep working unchanged and can't merge two different people named `alice`.
-  - The UI strips the prefix and shows a source badge instead.
-- `profiles` also gains `source TEXT NOT NULL DEFAULT 'redstar'` and `source_user_id TEXT NOT NULL DEFAULT ''`. The X numeric id and the YouTube `UC…` id are the stable keys, because handles can change. A handle change on X updates `display`/`nick` through a rename map (§3.4).
-- `research_items.kind` has a `CHECK` constraint (`post`, `reply`, `search-result`, `local-file`, `web-url`). Adding kinds would mean a table rebuild, so new items reuse `post` and `reply` with namespaced refs. The item's own `posts.kind` carries the detail (video, segment).
+`posts.post_id` is globally unique, and bookmarks, research items, tags, mentions, attachments and rule firings key on that text.
+
+- **Red Star ids stay bare** (22-character base64url). No existing row or export changes.
+- **Other services are prefixed:** `x:<id>`, `yt:<video id>`, `yt:<video>/c:<comment>`, `yt:<video>/t:<start_ms>`, `yt:<video>/chat:<message>`. Base64url never contains `:`, so the prefix cannot collide.
+- **Nicks** are `x:alice` and `yt:@somechannel`. `profiles.nick` and `posts.nick` store the prefixed form. `--said-by`, the nick bar, rule authors and "watch user" keep working and cannot merge two people named alice. The UI hides the prefix and shows a badge.
+- `profiles` gains `source TEXT NOT NULL DEFAULT 'redstar'` and `source_user_id TEXT NOT NULL DEFAULT ''`. The X numeric id and the YouTube `UC…` id are the stable keys. A handle change is recorded in `account_aliases`.
+- `research_items.kind` keeps its current `CHECK`. New items use `post` or `reply` with a namespaced ref. `posts.kind` carries video, comment, segment.
 
 ### 3.3 Transcript segments
 
-Following PLAN-4.0, **one transcript turn is one `posts` row**:
+One transcript turn is one `posts` row, as PLAN-4.0 describes:
 
 - `source = 'youtube'`, `kind = 'segment'`, `parent_post_id = in_reply_to_id = 'yt:<video>'`.
-- `source_start_ms` and `source_end_ms` hold the timing, and `speaker` stays `''` until 4.0 diarization.
-- `nick` is the channel (`yt:@channel`), with `title = ''`.
+- `source_start_ms` and `source_end_ms` hold the timing. `speaker` stays empty until 4.0 diarization.
+- `nick` is the channel.
 
-Raw caption cues are merged into readable turns: sentence boundaries, at most about 30 s, at most about 600 characters. The merge is deterministic, so re-runs dedupe by `post_id`. The raw subtitle file (json3 or vtt) is kept as an attachment (`mime text/vtt` or `application/json`) so a later re-segmentation or human correction (`transcript_corrections`, 4.0) can start from the original.
+Cues merge into turns on sentence boundaries, at most about 30 seconds and about 600 characters. The merge is deterministic, so a re-run dedupes on `post_id`. The raw subtitle file is an attachment (`text/vtt` or `application/json`) so a later re-segmentation can start from the original.
 
-- A new column `transcript_kind` on the video's `metrics_json` (`manual` | `auto` | `none`) records whether the captions were human or automatic. 4.0 needs that to decide what is "quotable".
+The video's `metrics_json` records `transcript_kind`: `manual`, `auto` or `none`. Which languages are fetched, and whether automatic captions count, is open (§15).
 
-### 3.4 New tables (created on first use)
+### 3.4 New tables
 
 ```sql
--- What to keep in sync (also editable in preferences.toml; DB wins after first import).
 CREATE TABLE IF NOT EXISTS source_targets (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  source TEXT NOT NULL, kind TEXT NOT NULL,        -- account|search|playlist|item|conversation
+  source TEXT NOT NULL, kind TEXT NOT NULL,
   value TEXT NOT NULL, resolved_id TEXT NOT NULL DEFAULT '',
-  options TEXT NOT NULL DEFAULT '{}',              -- replies, transcripts, comments, depth…
+  options TEXT NOT NULL DEFAULT '{}',
   enabled INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL,
   UNIQUE (source, kind, value));
 
--- Incremental sync and resume (§7). One row per target and direction.
 CREATE TABLE IF NOT EXISTS source_cursors (
   target_id INTEGER NOT NULL REFERENCES source_targets(id) ON DELETE CASCADE,
   direction TEXT NOT NULL CHECK (direction IN ('forward','backfill')),
   cursor TEXT NOT NULL DEFAULT '', newest_id TEXT NOT NULL DEFAULT '', oldest_id TEXT NOT NULL DEFAULT '',
-  status TEXT NOT NULL DEFAULT 'pending',          -- pending|running|done|error|budget
+  status TEXT NOT NULL DEFAULT 'pending',
   attempts INTEGER NOT NULL DEFAULT 0, wait_until INTEGER NOT NULL DEFAULT 0,
   last_error TEXT, updated_at TEXT NOT NULL,
   PRIMARY KEY (target_id, direction));
 
--- Per-item expensive stages (transcript, comments, live chat, media), resumable.
 CREATE TABLE IF NOT EXISTS source_item_stages (
-  post_id TEXT NOT NULL, stage TEXT NOT NULL,      -- transcript|comments|live_chat|media|thread
+  post_id TEXT NOT NULL, stage TEXT NOT NULL,
   status TEXT NOT NULL, cursor TEXT NOT NULL DEFAULT '', attempts INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL, PRIMARY KEY (post_id, stage));
 
--- Spend and quota ledger, so runs can refuse before a cap (§6).
 CREATE TABLE IF NOT EXISTS source_usage (
-  day TEXT NOT NULL, source TEXT NOT NULL, path TEXT NOT NULL,   -- x-api|x-web|yt-api|yt-dlp
+  day TEXT NOT NULL, source TEXT NOT NULL, path TEXT NOT NULL,
   resource TEXT NOT NULL, count INTEGER NOT NULL DEFAULT 0,
-  est_cost_micros INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (day, source, path, resource));
+  est_cost_micros INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, source, path, resource));
 
--- Handle history (X handles and YouTube @handles change; the numeric id is the key).
 CREATE TABLE IF NOT EXISTS account_aliases (
   source TEXT NOT NULL, source_user_id TEXT NOT NULL, nick TEXT NOT NULL, seen_at TEXT NOT NULL,
   PRIMARY KEY (source, source_user_id, nick));
 
--- Sealed per-source secrets (§4.3). Value is seal_blob(db_key, aad=name, plaintext).
-CREATE TABLE IF NOT EXISTS source_secrets (name TEXT PRIMARY KEY, sealed BLOB NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS source_secrets (
+  name TEXT PRIMARY KEY, sealed BLOB NOT NULL, updated_at TEXT NOT NULL);
 ```
 
-`attachments` gains `kind TEXT NOT NULL DEFAULT ''` (`image|video|gif|thumbnail|subtitle|audio`), and `on_site` gets a documented meaning: "1 = this file exists on the origin service". New sources set it to 1.
+`source_secrets.name` is `<service>.<field>`, for example `x.bearer`, `x.session`, `youtube.api_key`, `youtube.cookies`, `redstar.session`. The blob is `seal_blob` under the unlocked database key. The plaintext is never stored elsewhere.
+
+`attachments.kind` gains `image|video|gif|thumbnail|subtitle|audio`. `on_site = 1` means the file exists on the origin service.
+
+The TOML file is the user's editable copy of non-secret targets (nicks, channels, pacing). On startup the registry copies enabled targets into `source_targets` if the row is missing. After that, a disable in the Services screen and a disable in the file are the same `enabled` flag. The database does not keep a second secret copy of those settings.
 
 ### 3.5 Export and import
 
-- `EXPORT_FORMAT_VERSION` 2 → **3**. Each post gains `source`, `source_id`, `source_url`, `source_start_ms`, `source_end_ms`, `speaker`, `kind`, `lang` and `metrics`. The copy embedded in the HTML export gains them too.
-- Importing a v2 file treats a missing `source` as `redstar`, as PLAN-4.0 requires.
-- A v2 client refuses a v3 file. It already bails on a newer `format_version`.
-- The HTML export shows a source badge and a permalink. YouTube segments render as a timestamped transcript under the video, with each timestamp linking to `…watch?v=ID&t=Ns`.
-- A search export's `search` object gains `sources: [...]`.
+- Format version 2 becomes **3** in the phase that first writes a non-Red-Star row. Each post gains the provenance fields. The HTML copy gains them too.
+- A v2 import treats a missing `source` as `redstar`.
+- A v2 client already refuses a newer `format_version`.
+- HTML shows a badge and a permalink. Segments render as a timestamped transcript under the video.
+- A search export's `search` object gains `sources`.
 
-### 3.6 Rollback note
+### 3.6 Older binaries
 
-A 3.x binary from before this change opens the migrated database, because the columns are additive. It will, however, list `x:alice` and `yt:@chan` as if they were Red Star nicks. That is acceptable, but the changelog should say so. The writes guard (§10.4) ships in the **same** release as the schema, so no client that can write ever sees a non-Red-Star row without that guard.
+A binary from before the new columns still opens the file. It will show `x:alice` as if it were a Red Star nick. The changelog for that phase says so. The same phase refuses every Red Star `SiteAction` whose id is namespaced, before any frame is built.
 
 ---
 
-## 4. Per-source auth and configuration
+## 4. Configuration, secrets, and migration
 
-### 4.1 `preferences.toml` (hand-edited, non-secret only)
+### 4.1 Two stores
+
+`ConfigSchema` marks every field.
+
+| `store` | Examples | Where it goes |
+|---|---|---|
+| `Config` | `enabled`, `route`, pacing, spend caps, nicks, media options, caption languages | `~/.acp/services/<service>.toml` |
+| `Secret` | bearer token, API key, session cookies, CSRF cookie | `source_secrets`, sealed |
+
+The Services screen and the CLI walk the same schema. A secret field is a no-echo prompt or a stdin read, then `seal_blob`. It is never written into the TOML, never placed in argv, and never printed. If a TOML file contains a key the schema marks `Secret`, load fails with the key name only, and the value is not logged.
+
+Suggested service ids and files: `redstar`, `x`, `youtube`.
 
 ```toml
-[sources]
-default = "redstar"              # what the TUI and headless commands use without --source
-enabled = ["redstar", "youtube", "x"]
+# ~/.acp/services/redstar.toml
+enabled = true
+# one route, so there is no `route` key
+nicks = ["alice"]
+mentions = true
+bookmarks = true
 
-[youtube]
-backend = "yt-dlp"               # "yt-dlp" (default) or "api"
-ytdlp_path = "yt-dlp"            # or an absolute path; ACP_YTDLP overrides (tests use this)
-channels = ["@hazaldin"]         # seeded into source_targets on first run
-playlists = []
-transcripts = true
-sub_langs = ["en.*"]             # yt-dlp --sub-langs
-auto_subs = true                 # also take auto-generated captions, marked as such
-comments = true
-max_comments = 500               # per video; 0 = none, "all" allowed
-comment_depth = 1                # 0 = top-level only, 1 = replies to top-level (YouTube max)
-comment_sort = "top"             # "top" | "new"
-live_chat = false                # replay of past livestream chat (§5.5)
-download = "none"                # "none" | "audio" | "video" (§8)
-max_height = 720
-sleep_requests = 1.0             # seconds between yt-dlp requests
-api_daily_quota = 10000          # only with backend = "api"
-
-[x]
-mode = "api"                     # "api" | "web" | "auto" (api first, then web where allowed)
-users = []                       # handles to sync, without @
+# ~/.acp/services/x.toml
+enabled = false
+route = "session"            # "session" (default) or "api"
+users = []                   # handles, without @
 searches = []
-include_replies = true           # replies by the user (their own)
-include_conversations = false    # other people's replies under the user's posts (§5.4)
+include_replies = true
+include_conversations = false
 include_reposts = false
 max_posts_per_run = 500
-monthly_budget_usd = 10.0        # hard stop from the source_usage ledger
-web_enabled = false              # the session fallback is opt-in (§6.2, §13)
-web_delay_ms = 4000              # minimum gap between web requests, plus jitter
-web_daily_post_cap = 2000        # far below X's 1,000,000/24 h damages threshold (§13)
+monthly_budget_usd = 10.0   # API route only; ignored on session
+per_run_budget_usd = 2.0
+web_delay_ms = 4000
+web_daily_post_cap = 2000
+
+# ~/.acp/services/youtube.toml
+enabled = false
+route = "session"            # "session" = yt-dlp (default), "api" = Data API
+ytdlp_path = "yt-dlp"        # ACP_YTDLP overrides
+channels = []
+playlists = []
+transcripts = true
+audio = true
+video = true
+sub_langs = ["en.*"]         # open: which languages ship as the default
+auto_subs = true             # open: whether auto captions count
+comments = true
+max_comments = 500           # open: cap and depth
+comment_depth = 1
+comment_sort = "top"
+live_chat = false            # open
+max_storage_gb = 20
+sleep_requests = 1.0
+api_daily_quota = 10000
+api_per_run_quota = 2000
 ```
 
-Unknown keys get the same warning as themes and feeds. A `[x]` or `[youtube]` table that is missing turns that source off. Nothing is fetched until a target exists.
+Unknown keys warn, the same way theme files do. A service with one route rejects a `route` key.
 
-### 4.2 Environment
+### 4.2 What stays in `preferences.toml`
 
-These override for headless and CI use. Each is read once and never echoed:
+`preferences.toml` remains the **app** file. After Phase B it keeps:
+
+- `[ui]`: theme, theme mode, theme download, colour, list order, search-history limit, empty-body animation, the app-wide `writes` switch (`ACP_WRITES` still wins).
+- `[ui.notify]`: do-not-disturb and per-kind toast switches. These are the local notifier, not a service.
+- `[theme]`: the legacy colour keys, still ignored after the one-time conversion.
+- `[sync] auto` and `[sync] interval_minutes`: when the scheduler runs. The nicks it used to store move out.
+
+It loses, because they are Red Star service settings:
+
+- Top-level `email` (the remembered login address). It moves to `redstar.toml` as config, not as a secret. It is not a token.
+- `[sync] nicks`, `[sync] mentions`, `[sync] bookmarks`.
+
+Phase B copies those values into `redstar.toml` on first launch, then removes them from `preferences.toml`. If `redstar.toml` already exists, the file wins and the old keys are still removed. A missing `redstar.toml` is created with `enabled = true` and those copied values. X and YouTube files are not created until the user turns the service on.
+
+`session.json` is read once in that same launch, sealed as `redstar.session`, and no longer consulted. The file is left in place until that seal succeeds, then deleted. Phase A does not do this, so today's session tests stay valid through modularization.
+
+### 4.3 Environment
+
+Read once, never echoed. These override the sealed value for a headless run and are not written back:
 
 - `ACP_X_BEARER`
 - `ACP_YT_API_KEY`
-- `ACP_YTDLP` (path)
-- `ACP_X_API_BASE`, `ACP_X_WEB_BASE` and `ACP_YT_API_BASE` point at mocks, as `ACP_BASE_URL` does today.
+- `ACP_YTDLP`
+- `ACP_X_API_BASE`, `ACP_X_WEB_BASE`, `ACP_YT_API_BASE` for mocks, the same role as `ACP_BASE_URL`
 
-### 4.3 Secrets
+### 4.4 How a secret gets in
 
-| Secret | How it gets in | Where it lives |
+| Secret | Entry | Row |
 |---|---|---|
-| X bearer token (app-only, OAuth 2.0) | `--x-token-set`, read from a no-echo prompt or stdin, **never argv** | `source_secrets` row `x.bearer`, sealed with `seal_blob` under the unlocked DB key |
-| X web session (`auth_token`, `ct0`, `twid`, plus any others the app needs) | `--x-import-cookies FILE` (Netscape `cookies.txt` or a browser-export JSON). Only x.com cookies are kept; the file is not copied | `source_secrets` row `x.session` (`SavedSession` JSON, sealed) |
-| YouTube Data API key | `--yt-api-key-set` (prompt or stdin) | `source_secrets` row `youtube.api_key` |
-| YouTube cookies (only if a video needs sign-in) | `--yt-import-cookies FILE` | `source_secrets` row `youtube.cookies`. Given to yt-dlp as a **0600 temp file**, deleted after the run |
+| X bearer (API route) | `--x-token-set`, prompt or stdin, never argv | `x.bearer` |
+| X web session (`auth_token`, `ct0`, `twid`, and any other cookie that route needs) | `--x-import-cookies FILE` (Netscape `cookies.txt` or a browser-export JSON). Only x.com cookies are kept. The file is not copied into `~/.acp` | `x.session` |
+| YouTube Data API key | `--yt-api-key-set` | `youtube.api_key` |
+| YouTube cookies, only when a video needs sign-in | `--yt-import-cookies FILE` | `youtube.cookies`, passed to yt-dlp as a 0600 temp file that `Drop` deletes |
+| Red Star session | Existing login, then Phase B seal | `redstar.session` |
 
-- Red Star's `session.json` stays plaintext 0600 today. §7.13.6 of the 3.0 plan already says sessions move into the keystore. Starting X sealed avoids adding a second plaintext credential file.
-  > Open question Q2: does Michael prefer exact parity (`~/.acp/x-session.json`, 0600)? The plan recommends sealed.
-- `--x-logout` and `--yt-forget-key` delete the rows.
-- Backups (`.acpbackup`) contain the sealed rows, because they're inside the DB. That differs from Red Star, whose `session.json` is excluded. Recommend excluding them by deleting the `source_secrets` rows from the snapshot copy, so a restore asks for the token again.
-  > Open question Q3.
-- **The log masker** (`src/logging.rs`, the `--debug` redaction tests) gains:
-  - the values of `Authorization: Bearer …` and `x-csrf-token`,
-  - the cookies `auth_token`, `ct0`, `kdt`, `twid` and `att`,
-  - `x-guest-token`, the value of `x-client-transaction-id`, and `guest_id`,
-  - the `key=` query parameter (YouTube API),
-  - yt-dlp's `--cookies` path and any `po_token`.
-  - Every rule gets a unit test.
-  - The pre-commit scan and `.gitleaks.toml` get rules for X bearer tokens (`AAAAAAAAAAAAAAAAAAAAA…`) and for `auth_token=`.
+`--x-logout` and `--yt-forget-key` delete the rows. Logout of Red Star deletes `redstar.session`.
+
+Backups copy the database and then **delete `source_secrets` from the snapshot** before packing. A restore has accounts and posts, and asks for credentials again. This is different from today's `session.json`, which is already outside the backup because it is a file.
+
+The log masker (`src/logging.rs`) grows rules, each with a unit test, for `Authorization: Bearer`, `x-csrf-token`, the cookies `auth_token`, `ct0`, `kdt`, `twid` and `att`, `x-guest-token`, `x-client-transaction-id`, `guest_id`, a YouTube `key=` query parameter, a yt-dlp `--cookies` path, and `po_token`. The pre-commit scan and `.gitleaks.toml` gain a rule for an X bearer (`AAAAAAAAAAAAAAAAAAAAA…`) and for `auth_token=`.
+
+### 4.5 Services screen
+
+TUI: a Services preferences screen, opened from Account › Services. The list is every registered service, with Red Star on and the others off. Enabling one shows that service's schema. Secret rows say "set" or "not set" and never the value. Changing `route` is the same control on every multi-route service.
+
+CLI, generated from the schema rather than hard-coded per field where the type allows it:
+
+- `--services` prints id, display name, enabled, route, and whether each secret is set.
+- `--service-enable x` / `--service-disable x`
+- `--service-set x route api` for config fields
+- The secret commands in §4.4, because a secret cannot ride in argv.
+
+The first time X's session route is enabled, before any cookie is used, the app shows §13's warning (Terms of Service, the damages clause, account lock or suspension) and requires an acknowledgement. Cancel leaves the service off. The acknowledgement is a config field `session_ack = true` in `x.toml`, not a secret. The API route does not show that warning. It shows the spend confirm instead (§6).
 
 ---
 
-## 5. Source behaviour
+## 5. Service behaviour
 
-### 5.1 YouTube via yt-dlp (default backend)
+### 5.1 YouTube session route (yt-dlp, the default)
 
-yt-dlp runs as a **subprocess**:
-- arguments go through `Command::args` (no shell),
-- a timeout is enforced,
-- stderr goes to the job log after masking,
-- stdout is parsed as JSON lines.
+yt-dlp is a subprocess: `Command::args` only, a timeout, masked stderr, JSON on stdout. `yt-dlp --version` must meet a pinned floor. Older than about 90 days warns.
 
-Minimum version check: `yt-dlp --version` must be at least a pinned floor. The app warns when it's older than about 90 days (§13).
-
-| Step | Command (shape) | Stored as |
+| Step | Command shape | Stored as |
 |---|---|---|
-| List a channel, newest first | `yt-dlp --flat-playlist --dump-json --lazy-playlist https://www.youtube.com/@H/videos` (also `/streams` and `/shorts` per option) | ids, titles and dates. Stops at the first known id (§7) |
-| List a playlist | `yt-dlp --flat-playlist --dump-json URL` | the same, in playlist order |
-| Video metadata | `yt-dlp -J --skip-download --no-write-playlist-metafiles URL` | `posts` (`kind=video`), `profiles` (channel), tags, thumbnail URL |
-| Transcript | add `--write-subs --write-auto-subs --sub-langs "en.*,-live_chat" --sub-format "json3/vtt/best" --skip-download -o <tmp>` | subtitle file → attachment; cues → segment rows (§3.3) |
-| Comments | add `--write-comments --extractor-args "youtube:max_comments=500,all,all,10,1;comment_sort=top"` (the order is `max-comments,max-parents,max-replies,max-replies-per-thread,max-depth`) | `posts` (`kind=comment`); a reply's parent is the top-level comment |
-| Live chat replay (opt-in) | `--write-subs --sub-langs live_chat --skip-download` (yt-dlp downloads replayed chat as a `live_chat` "subtitle" JSON) | `posts` (`kind=chat`, `source_start_ms` = video offset) |
+| Channel, newest first | `yt-dlp --flat-playlist --dump-json --lazy-playlist https://www.youtube.com/@H/videos` (also `/streams` and `/shorts` when those options are on) | ids, titles, dates. Stops at the first known id |
+| Playlist | `yt-dlp --flat-playlist --dump-json URL` | the same, playlist order |
+| Video metadata | `yt-dlp -J --skip-download --no-write-playlist-metafiles URL` | `kind=video`, channel profile, tags, thumbnail URL |
+| Transcript | `--write-subs --write-auto-subs --sub-langs "en.*,-live_chat" --sub-format "json3/vtt/best" --skip-download` | subtitle attachment and segment rows. Languages and auto captions are open (§15) |
+| Comments | `--write-comments` with `max_comments`, depth and `comment_sort`. Depth and the cap are open (§15) | `kind=comment` |
+| Live chat replay | only if the open question is answered yes: `--sub-langs live_chat` | `kind=chat` |
 
-Notes:
-- **Pacing:** `--sleep-requests <yt.sleep_requests>` and `--sleep-subtitles 5`. Only one yt-dlp process runs at a time, and no parallel videos.
-- **JavaScript runtime:** recent yt-dlp needs `yt-dlp-ejs` plus a runtime (deno recommended; node, bun and QuickJS are supported) for full YouTube support. Without one, some clients are skipped and formats can go missing. Metadata, captions and comments usually still work. `--doctor` reports which runtime it found. The app doesn't bundle one (§12).
-- `--cookies-from-browser` isn't used, because it reads the browser's cookie store directly. Cookies come only from the user's explicit import.
-- `--download-archive` isn't used. Our own `posts` table is the archive.
+Pacing: `--sleep-requests` from the service file, `--sleep-subtitles 5`, one yt-dlp process at a time. Recent yt-dlp needs a JS runtime (deno, node, bun or QuickJS). The app does not bundle one. `--doctor` reports which runtime it found. `--cookies-from-browser` is not used. The archive is the `posts` table, not `--download-archive`.
 
-### 5.2 YouTube Data API v3 (optional backend)
+### 5.2 YouTube API route
 
-`backend = "api"` with an API key gives:
-- `channels.list` → uploads playlist id,
-- `playlistItems.list` (50 per page),
-- `videos.list` (batches of 50 ids),
-- `commentThreads.list` and `comments.list` for replies.
+`route = "api"` uses the Data API key:
 
-Each list call costs **1 unit**. The default quota is **10,000 units per day**, reset at midnight Pacific time.
+- `channels.list`, `playlistItems.list` (50 per page), `videos.list` (50 ids), `commentThreads.list`, `comments.list`.
+- Each list call costs 1 unit. The default project quota is 10,000 units per day, reset at midnight Pacific.
+- `captions.download` cannot fetch other people's captions. On the API route, transcripts still come from yt-dlp when it is installed, otherwise `transcript_kind = none`.
+- The ledger counts units and stops before `api_daily_quota` or `api_per_run_quota`. The run confirms first (§6).
 
-- **Transcripts aren't available this way:** `captions.download` (200 units) only works for videos the caller may edit. In API mode, transcripts still come from yt-dlp when it's installed. Otherwise they're marked `transcript_kind = none`.
-- `search.list`: the current quota page lists it under its own small daily bucket. Older docs priced it at 100 units. The plan doesn't need search for channel and playlist sync.
-- The `source_usage` ledger tracks units and refuses a run that would exceed `api_daily_quota`.
+### 5.3 X API route
 
-### 5.3 X API v2 (first path)
+Used only when `route = "api"`. App-only bearer, OAuth 2.0.
 
-App-only bearer token (OAuth 2.0). Endpoints:
-
-| Need | Endpoint | Notes (rate limits per 15 min, app / user) |
+| Need | Endpoint | Notes |
 |---|---|---|
-| Resolve a handle | `GET /2/users/by/username/:username` | → numeric id (the stable key), profile fields |
-| A user's posts | `GET /2/users/:id/tweets` | 10,000 / 900. **Only the 3,200 most recent.** `exclude=retweets,replies` per options. `since_id` for incremental, `pagination_token` for backfill |
-| Search, last 7 days | `GET /2/tweets/search/recent` | 450 / 300. 10–100 results, 512-character query |
-| Full-archive search | `GET /2/tweets/search/all` | 1 per second, 300 per 15 min. 10–500 results, 1,024-character query. Available on pay-per-use |
-| Thread replies | `search/recent` or `search/all` with `conversation_id:<root>` | recent only reaches back 7 days; older threads need full-archive |
-| Post lookup | `GET /2/tweets?ids=` (100 per call) | 3,500 / 5,000 |
-| Mentions of a user | `GET /2/users/:id/mentions` | 450 / 300. The most recent 800 |
+| Resolve a handle | `GET /2/users/by/username/:username` | numeric id is the stable key |
+| A user's posts | `GET /2/users/:id/tweets` | Only the 3,200 most recent. `since_id` forward, `pagination_token` back |
+| Search, last 7 days | `GET /2/tweets/search/recent` | 512-character query |
+| Full-archive search | `GET /2/tweets/search/all` | pay-per-use, higher cap on query length |
+| Thread replies | `conversation_id:<root>` on those search endpoints | recent search reaches back 7 days |
+| Post lookup | `GET /2/tweets?ids=` | up to 100 |
+| Mentions | `GET /2/users/:id/mentions` | most recent 800 |
 
-- **Fields requested every time:**
-  - `tweet.fields=created_at,author_id,conversation_id,in_reply_to_user_id,referenced_tweets,entities,public_metrics,lang,attachments,note_tweet,edit_history_tweet_ids`
-  - `expansions=author_id,attachments.media_keys,referenced_tweets.id,referenced_tweets.id.author_id`
-  - `media.fields=url,preview_image_url,variants,type,width,height,alt_text`
-  - `user.fields=username,name,description,profile_image_url,created_at,public_metrics,verified`
-- **Pricing (verified 2026-10-21). New developers have no tiers.** Pay-per-use credits:
-  - Posts: Read **$0.005 per post returned**.
-  - User: Read **$0.010** per user.
-  - Owned reads (your own data) $0.001.
-  - Repeated reads of the same resource within one **24-hour UTC day are deduplicated** (a "soft guarantee").
-  - Pay-per-use is capped at **3,000,000 post reads per billing month**.
-  - Legacy Basic and Pro subscriptions were migrated to pay-per-use in June and September 2026.
-  - Example: syncing 10 accounts × 200 new posts a month is about 2,000 reads ≈ **$10 a month**. A first backfill of 3,200 posts each for 10 accounts is about 32,000 reads ≈ **$160**.
-- **Cost guard:** before a run, estimate the maximum reads (pages × `max_results`) and show it. The CLI asks `Spend up to $X.XX? [y/N]` unless `--yes`. The run stops on `monthly_budget_usd` from the ledger. Responses are counted per resource returned, not per request.
-- **Rate limits:** read `x-rate-limit-limit`, `-remaining` and `-reset` on every response. Sleep until `reset` when `remaining == 0`. A 429 sets `wait_until` on the cursor and ends the job cleanly with a resumable notice. One request at a time per app.
-- **Reposts** are stored as a link row (`kind=post`, body "↻ reposted x:<id>"), plus the original post when expansions include it.
-- **Edit history:** `edit_history_tweet_ids` → `post_versions`.
+Fields requested every time: `tweet.fields` including `created_at`, `conversation_id`, `referenced_tweets`, `entities`, `public_metrics`, `note_tweet`, `edit_history_tweet_ids`; expansions for author, media and referenced tweets; `media.fields`; `user.fields`.
 
-### 5.4 X logged-in web session (fallback)
+Pricing checked 2026-10-21. Pay-per-use, no new tiers: post read $0.005, user read $0.010, owned reads $0.001. The same resource inside one UTC day is deduplicated (a soft guarantee). The monthly platform cap is 3,000,000 post reads. The estimator's prices live in one dated table with a test.
 
-The web path is used only when `mode = "web"`, or when `mode = "auto"` and **both** of these hold:
-- the API can't serve the request: no token, budget exhausted, beyond 3,200 posts, or a search older than what the token allows;
-- `web_enabled = true`.
+Reposts, when `include_reposts` is on, are a link row plus the original when the expansion includes it. `edit_history_tweet_ids` can fill `post_versions` as a read. Sending an edit is a later write capability.
 
-It reads with Michael's imported cookies. This mirrors how the Red Star scraper reads with his session:
+### 5.4 X session route (the default)
 
-- **Transport:** the web app's `https://x.com/i/api/graphql/<queryId>/<Operation>` endpoints. These include `UserByScreenName`, `UserTweets`, `UserTweetsAndReplies`, `TweetDetail` and `SearchTimeline`. Each request sends:
-  - the public web bearer,
-  - `x-csrf-token` = `ct0`,
-  - `x-twitter-auth-type: OAuth2Session`,
-  - the session cookies.
-- **Query ids rotate** with each web deploy. A stale id answers 404. Ids are read from a small, tested table and refreshed from the live JS bundle only when a 404 is seen (a "protocol self-check", like Red Star's bundle-hash gate). On failure the client falls back to read-only API mode with a clear message.
-- **`x-client-transaction-id`:** as of mid-2026, X rejects some operations (`SearchTimeline`, `UserTweetsAndReplies`, `Followers`) with an empty 404 unless this per-request anti-bot header is valid. Others (`UserByScreenName`, `UserTweets`, `TweetDetail`) were reported ungated.
-  - **This plan does not implement a generator** for that header. Building one is "working around technical limitations" and makes the ToS exposure worse (§13).
-  - The web path therefore covers **ungated operations only**: profile, the user's posts timeline and thread detail.
-  - Gated operations are reported as "not available through the web session".
-  > Open question Q4: does Michael want the gated operations anyway?
-- **Guest tokens:** the logged-out guest path reaches only a handful of operations now, and search isn't one of them. The plan doesn't use guest tokens. They are short-lived, rate-limited by IP and easily flagged.
-- **Pacing:** one request at a time, `web_delay_ms` (default 4 s) plus 0–50 % jitter, at most 1 page of 20 posts per request, and `web_daily_post_cap` (default 2,000). A 429, a `Rate limit exceeded` body, a login challenge or a locked-account response stops at once, raises a notice and doesn't retry until the next day.
-- **Headers:** the existing Firefox identity (`src/http.rs`) for parity with the browser the cookies came from.
-- **Account safety:** this path uses Michael's real X account, which can be locked or suspended (§13). That is why it's off by default and capped.
+`route = "session"` reads with the imported cookies, including **search and replies**, not only the user's own timeline.
 
-### 5.5 Which kinds are included by default
+- Transport: `https://x.com/i/api/graphql/<queryId>/<Operation>` for `UserByScreenName`, `UserTweets`, `UserTweetsAndReplies`, `TweetDetail` and `SearchTimeline`.
+- Each request sends the public web bearer, `x-csrf-token` equal to `ct0`, `x-twitter-auth-type: OAuth2Session`, and the session cookies.
+- Query ids rotate. A stale id is a 404. Ids live in a tested table and are refreshed from the signed-in page's script bundle only after a 404, the same idea as Red Star's bundle-hash check. Failure stops that run with a notice. It does not silently switch to the API route.
+- Operations that the web app only answers when the per-request client header is present (`SearchTimeline`, `UserTweetsAndReplies`, and others) are **in scope**, because search and replies are in scope. The header value comes from a captured logged-in session, recorded the way Red Star records a LiveView frame, and is redacted in fixtures. This plan does not specify a way to mint that header by attacking the client. If the site rejects the call, the run stops, raises a notice, and does not retry in a loop.
+- Guest tokens are not used.
+- Pacing comes from the service file: one request at a time, `web_delay_ms` plus 0–50% jitter, at most one page per request, and `web_daily_post_cap`. A 429, a rate-limit body, a login challenge or a locked account stops the X job for the day and raises a notice.
+- The first enable still requires the §13 acknowledgement (§4.5), even though this route is the default once the service is on.
 
-| | Default | Option |
+### 5.5 Defaults that are not still open
+
+| | Default |
+|---|---|
+| X: the account's own posts, and their replies when `include_replies` is on | on |
+| X: other people's replies under those posts | off (`include_conversations`) |
+| X: reposts | off |
+| X: Spaces and Communities | not in the first read track |
+| YouTube: uploads | on |
+| YouTube: shorts and livestream VODs as metadata | on for uploads and shorts, streams tab off until the user turns it on |
+| YouTube file and transcript availability | video, audio and transcripts are all available, bounded by `max_storage_gb` (§8) |
+
+Comment depth, the comment cap, caption languages, automatic captions, and live chat replay stay open (§15).
+
+### 5.6 Search
+
+`--x-search` uses the active X route. On the API route, `--x-archive` is full-archive search and goes through the spend confirm. On the session route it is `SearchTimeline`. YouTube search is available and is not a standing sync target, because the order is ranked rather than chronological.
+
+---
+
+## 6. Rate limits and spend caps
+
+Every `CostMeter` route, before a run that would spend:
+
+1. Estimate the maximum (pages × page size × the dated price, or quota units).
+2. Show it.
+3. Ask `Spend up to $X.XX? [y/N]` or the quota equivalent. Cancel is the default. `--yes` affirms. `--dry-run` prints the estimate and does not ask and does not connect.
+4. Refuse when the estimate would pass the monthly cap or the per-run cap already stored in the service file.
+5. Add actual usage to `source_usage` as responses arrive. Stop the job cleanly, with a resumable cursor, when a cap is hit (`Limited` in the UI).
+
+| Path | Pace | Caps |
 |---|---|---|
-| X: the user's own posts and replies (`--said-by` semantics) | on | `include_replies` |
-| X: others' replies under the user's posts | off (costs reads) | `include_conversations`, `--x-conversations` |
-| X: reposts | off | `include_reposts` |
-| X: Spaces, Communities | off (Q5) | later minors |
-| YouTube: uploads | on | `/videos` |
-| YouTube: livestream VODs and shorts | on and off | `/streams`, `/shorts` |
-| YouTube: transcripts | on | `--transcripts` / `--no-transcripts` |
-| YouTube: comments | on, top 500, depth 1 | `--comments N`, `--comment-depth` |
-| YouTube: live chat replay | off (Q6) | `--live-chat` |
+| X API | rate-limit headers; one request in flight; full-archive at most 1/s | `max_posts_per_run`, `per_run_budget_usd`, `monthly_budget_usd`, platform 3M posts / month |
+| X session | `web_delay_ms` + jitter, serial | `web_daily_post_cap`; stop on a challenge |
+| yt-dlp | `--sleep-requests`, one process | `--limit`, `--scrape-budget`, `max_storage_gb` for files |
+| YouTube API | 1 unit per list | `api_per_run_quota`, `api_daily_quota` |
 
-### 5.6 Searches
-
-`--x-search` maps to recent search, or to full-archive with `--x-archive` (higher cost, with a confirm). YouTube search (`ytsearchN:` in yt-dlp) is supported but not stored as a sync target by default, because results are ranked and not chronological (like ranked Red Star feeds, §7).
+`--limit` and `--scrape-budget` apply to every service's reader. A 429 sets `wait_until` and ends that service's job. Other services keep running.
 
 ---
 
-## 6. Rate limiting summary
+## 7. Incremental sync
 
-| Path | Pace | Hard caps | On limit |
-|---|---|---|---|
-| X API | headers; one request in flight; `full-archive` at most 1/s | `max_posts_per_run`, `monthly_budget_usd` (ledger), 3M per month | sleep to `reset` if under 15 min, else stop with a resumable cursor |
-| X web | 4 s + jitter, serial | `web_daily_post_cap` (2,000), stop on any challenge | stop for the day, notice |
-| yt-dlp | `--sleep-requests 1`, `--sleep-subtitles 5`, one process | `--limit` videos per run, `--scrape-budget` seconds | stop on HTTP 429 or "Sign in to confirm you're not a bot"; notice suggests cookies or waiting |
-| YouTube API | 1 unit per list call | `api_daily_quota` | stop at the quota; resume after midnight PT |
+Same idea as the Red Star whole-site crawl, per target, inside that service's job:
 
-The existing `--limit N` and `--scrape-budget SECS` apply to every source.
+1. **Forward.** X API uses `since_id`. X session, yt-dlp and the YouTube API walk newest-first until a page of ids that are all known. `newest_id` advances only after the page commits.
+2. **Backfill.** Continues from `oldest_id` until the source ends, the run cap, or the budget. `status = budget` means resume next time.
+3. **Stages.** Transcript, comments, live chat and media are `source_item_stages` rows, each with its own cursor. They run only when that capability is on and `Ready`.
+4. **One transaction per page** for accounts, items, tags, mentions and the cursor. `ON CONFLICT(post_id) DO UPDATE` keeps the non-blanking rules.
+5. **Rules** run on the rows just committed (§9).
+6. **`--full`** ignores `newest_id`.
 
----
-
-## 7. Incremental sync and resume
-
-The same model as the 3.34 whole-site crawl, but per target:
-
-1. **Forward (new items).**
-   - X API: `since_id = newest_id`.
-   - X web, yt-dlp and YouTube API: walk newest-first until **a page where every id is already known**, as Red Star's chronological feeds already do.
-   - `newest_id` is advanced only after the page is committed.
-2. **Backfill (older items).** Continues from `oldest_id` / `cursor` until the source is exhausted (X: the 3,200 limit or no `next_token`), the run limit or the budget. `status = budget` means "resume next run".
-3. **Per-item stages** (`source_item_stages`): transcript, comments, live chat and media run after the item row exists. Each is resumable: the comment `continuation` and API `pageToken` are stored. `--refresh-comments` re-reads comments for videos younger than N days (comments keep arriving), using `comment_sort=new` and stopping at known comment ids.
-4. **Transactions:** a page's accounts, items, tags, mentions and the cursor update commit in one SQLite transaction. A crash re-reads at most one page. `INSERT … ON CONFLICT(post_id) DO UPDATE` keeps the non-blanking rules already used for `body_json` and `score`.
-5. **Rules:** after each commit, the rule engine evaluates the rows just written, with `source` set (§9).
-6. **`--full`** ignores `newest_id` and walks again, as the crawl does.
-7. **`--sync`:** `acprs --sync --source youtube` runs every enabled target of that source. `--sync --source all` runs Red Star, then YouTube, then X. The sources run one after another, never in parallel against one service.
+Services do not wait on each other (§2.5).
 
 ---
 
-## 8. Media download
+## 8. Media
 
-- **X:**
-  - Photos come from `media.url`, upgraded to `?name=orig`.
-  - Video and GIF: the highest-bitrate `video/mp4` entry in `variants`.
-  - Downloads go through `media::download_all` into the same attachments directory, deduped by `url_key`. Query strings are canonicalised, as in the 1.26.1 fix.
-  - `--no-attachments` skips media, as it does today.
-- **YouTube:**
-  - Thumbnails (`maxresdefault`, then the best available) and the channel avatar and banner are on by default.
-  - `download = "audio"`: `yt-dlp -f bestaudio -x --audio-format opus`. This prepares PLAN-4.0's local transcription. Off by default.
-  - `download = "video"`: `-f "bv*[height<=720]+ba/b[height<=720]"`, merged by ffmpeg when present. Off by default; large.
-  - The `[youtube] max_storage_gb` cap (default 20) refuses new files past it.
-- Files are named `<source>/<id>.<ext>` under the attachments directory, so a Red Star `post_id` collision is impossible.
-- Export with attachments copies them, as it does today.
-- PDFs, audio and other files are never uploaded anywhere. These sources have no writes.
+Video, audio and transcripts are available on every service that implements `MediaFetcher`. The storage cap is `max_storage_gb` in that service's file (YouTube's suggested default is 20). A new file that would pass the cap is skipped, the stage stays resumable, and the UI shows `Limited`.
+
+- **X.** Photos from `media.url` at `?name=orig`. Video and GIF: the highest-bitrate `video/mp4` variant. Audio-only variants are kept when the media option asks for audio. `--no-attachments` skips file bytes and still stores the post text.
+- **YouTube.** Thumbnails, avatar and banner are part of the read, because cards need them. Transcripts, audio (`bestaudio` to opus) and video (`bv*[height<=720]+ba` when ffmpeg is present) follow the service file. All three default **on**, and the cap is what stops a runaway channel.
+- Files are named `<service>/<id>.<ext>` under the attachments directory.
+- Export copies them as it does today.
+- Nothing here uploads. Upload is the `Upload` capability in Phase E, per service, after reads.
 
 ---
 
-## 9. Rules, alerts, Feeds and the 4.0 corpus
+## 9. Rules, alerts, Feeds, research, replication
 
-- **Rule engine (3.32):**
-  - `Condition::Source` accepts `x` and `youtube`. `same_source` keeps `site|redstar → site`, so existing user rules keep their meaning.
-  - `Author` matches namespaced nicks (`x:alice`). The editor offers a source picker so users don't type prefixes.
-  - New trigger fields: `kind` (video, comment, segment) and `transcript_kind`.
-  - `rule_firings.source` records the source.
-- **Alert templates (3.33):**
-  - "Watch a user" takes a source.
-  - "Replies to me" works per source once Michael's own handles are configured (`[x] me`, `[youtube] me`).
-  - "Saved-search matches" spans every source unless filtered.
-- **Notices (3.31):** finish, budget stop, 429, a challenge, and yt-dlp being too old or missing all raise notices.
-- **Feeds (P7, not built yet):**
-  - The `.acpfeed` rule model gains an optional `sources = ["redstar","x","youtube"]` filter and a `source` key on nick rules.
-  - The share string still holds only rules: no tokens, no cookies.
-  - Refreshing a feed from the site runs the matching source jobs.
-  - This extends §6 of the 3.0 plan and doesn't change its numbering.
-- **Research projects:**
-  - Items can be X posts, videos or transcript segments (namespaced refs, §3.2).
-  - Research › Add current view works across sources.
-- **4.0 corpus:**
-  - This plan delivers the post-source columns and YouTube transcript ingestion, the two prerequisites of the Haz stream corpus.
-  - "Every Haz stream" is a target list (`[youtube] channels`, plus playlists) that Michael owns (Q7).
-  - Diarization, human review and `transcript_corrections` stay in 4.0.
-  - Auto captions are stored with `transcript_kind = auto`, so 4.0 never treats them as reviewed text.
-- **P9 replication (later):** the CBOR `ItemRec` carries `source`, so X and YouTube records can replicate like Red Star posts. Site-observed precedence becomes "origin-observed". Media blobs follow §7.5.
+- `Condition::Source` accepts `x` and `youtube`. Existing rules that mean Red Star keep meaning Red Star (`site` and `redstar`).
+- `Author` matches namespaced nicks. The editor offers a service picker.
+- New condition fields when the columns exist: `kind`, `transcript_kind`.
+- "Watch a user" takes a service and a nick that is valid there. "Replies to me" uses that service's configured own nick. "Saved search" spans enabled services unless the rule names one.
+- Finish, budget stop, 429, a challenge, and a missing yt-dlp raise the **app** notifier. That is not the `Notifications` capability.
+- Feeds (P7, not built yet) gain an optional `sources` list. The share string still has no tokens and no cookies.
+- Research items can point at any namespaced id. Research › Add current view follows §2.4.
+- This plan is what gives PLAN-4.0 its post-source columns and YouTube transcripts. Diarization and `transcript_corrections` stay in 4.0. The channel list for a corpus is the user's `channels` in `youtube.toml`, not a hard-coded set.
+- **P9.** The CBOR record may carry `source`, but X and YouTube rows are **excluded from peer sync by default**. Red Star replication is unchanged. A later change to §7.7 of the 3.0 plan can opt them in. Media blobs are not replicated with those rows while they are excluded.
 
 ---
 
 ## 10. CLI and TUI
 
-### 10.1 CLI flags (clap, `help_heading` per group, same style as `--nick` and `--said-by`)
+Flags are generated from the capability set and the schema as far as clap allows. Hand-written flags stay for the actions that already exist (`--nick`, `--said-by`, `--new-post`, and the rest), and each one checks `availability` before it runs.
 
-| Flag | Heading | Meaning |
-|---|---|---|
-| `--source redstar\|x\|youtube\|all` | Sources | Scopes scrape, sync, search, export, `--list-nicks`, `--remove-nick`. Default `[sources] default` |
-| `--x-user HANDLE[,HANDLE…]` | X | Scrape these accounts (implies `--source x`) |
-| `--x-search QUERY` | X | Recent search; `--x-archive` for full-archive (cost confirm) |
-| `--x-post ID\|URL` | X | One post and, with `--x-conversations`, its thread |
-| `--x-conversations` | X | Include other people's replies in the user's threads |
-| `--x-mode api\|web\|auto` | X | Override `[x] mode` |
-| `--x-token-set` / `--x-token-clear` | X | Read the bearer token from a prompt or stdin; never argv |
-| `--x-import-cookies FILE` / `--x-logout` | X | Import or forget the web session |
-| `--x-cost` | X | Print the month's ledger and the estimate for the next run; fetch nothing |
-| `--yt-channel @H\|ID\|URL[,…]` | YouTube | Channel uploads (`--yt-tabs videos,streams,shorts`) |
-| `--yt-playlist ID\|URL[,…]` | YouTube | A playlist |
-| `--yt-video ID\|URL[,…]` | YouTube | Single videos |
-| `--transcripts` / `--no-transcripts`, `--sub-langs LANGS`, `--no-auto-subs` | YouTube | Transcript stage |
-| `--comments [N]` / `--no-comments`, `--comment-depth 0\|1`, `--comment-sort top\|new` | YouTube | Comment stage |
-| `--live-chat` | YouTube | Live chat replay stage |
-| `--yt-backend yt-dlp\|api`, `--yt-api-key-set`, `--yt-import-cookies FILE` | YouTube | Backend and credentials |
-| `--yt-download none\|audio\|video` | YouTube | Media files beyond thumbnails |
-| `--refresh-comments DAYS` | YouTube | Re-read comments on recent videos |
-| `--targets-list`, `--target-add SOURCE KIND VALUE`, `--target-remove ID` | Sources | Saved sync targets |
+| Flag | Who sees it |
+|---|---|
+| `--source redstar\|x\|youtube\|all` | Everyone. Default is the enabled set. `all` means every enabled service. |
+| `--service-enable`, `--service-disable`, `--services`, `--service-set` | Registry |
+| `--nick`, `--said-by`, `--limit`, `--order`, `--full`, `--sync`, `--scrape-budget` | Every enabled `Reader`, namespaced |
+| `--x-user`, `--x-search`, `--x-post`, `--x-conversations`, `--x-token-set`, `--x-import-cookies`, `--x-logout`, `--x-cost` | Only when X is registered. Hidden when X is off, except `--service-enable x` |
+| `--yt-channel`, `--yt-playlist`, `--yt-video`, transcript and comment flags, `--yt-api-key-set`, `--yt-download` | Only when YouTube is registered. Download flags exist because video and audio are available |
+| `--new-post`, `--reply`, `--vote`, `--subscribe`, `--delete`, `--edit`, `--repost`, upload | Shown or hidden per §2.4. They are not globally disabled for X and YouTube. They are hidden until that service implements the trait, and disabled with a tooltip while gated |
 
-- **Reused unchanged:** `--said-by`, `--limit`, `--order`, `--full`, `--scrape-budget`, `--format json,html`, `--output`, `--compress --tar-gz`, `--no-attachments`, `--search`, `--export`, `--sync`, `--dry-run` (which prints the planned requests and the cost estimate and opens no connection) and `--yes`.
-- **Every write flag** (`--new-post`, `--reply`, `--vote`, `--subscribe`, `--delete`, `--edit`, `--repost`, `--bookmark` push) **conflicts with `--source x|youtube`** at the clap level, so the error appears before anything runs.
+`--dry-run` prints planned reads (URLs or operation names, caps, cost estimate) or planned writes (the exact payload) and opens no connection. A write confirm defaults to Cancel.
 
-### 10.2 TUI
+TUI:
 
-- **Source switcher:**
-  - A header chip `Source: All ▾` (Red Star · X · YouTube · All).
-  - View › Source in the menu, plus a palette entry.
-  - The key is to be chosen against existing bindings; F8 is a candidate, since F5, F6 and F7 are taken or planned.
-  - The choice persists in `[ui] source`. "All" interleaves by `posted_at`.
-- **Nick bar:** grouped sections ★ Red Star, 𝕏 X and ▶ YouTube, each with counts. The prefix is hidden and the badge is shown instead.
-- **Cards and detail:**
-  - A source badge and a permalink.
-  - X posts show metrics and media.
-  - A **video detail** has tabs: Description · Transcript (timestamps; Enter opens the browser at `&t=`) · Comments (nested like Red Star replies) · Chat.
-  - Segment search results open the video at that segment.
-- **Read-only chrome:**
-  - Compose, Reply, Quote, Vote, Subscribe, Delete, Edit and Repost are greyed out on non-Red-Star posts.
-  - Their tooltip says "Read-only source (X)" and links to the `sources-read-only` Help topic. This follows the §4.3 tooltip rule.
-  - Local bookmarks still work (`remote = 0`, never pushed).
-- **Start Scanning:** gets a Source dropdown that swaps in that source's fields (handles, searches, channel, playlist, transcripts, comments, depth, budget).
-- **Account menu:** X › Set token, Import cookies, Spending · YouTube › API key, Import cookies, yt-dlp status.
-- **Help:** topics `source-x`, `source-youtube` and `sources-read-only`. Getting Started gains a short section. Every new flag gets a description (§4.4 rule).
+- **Services** preferences screen (§4.5).
+- **Source switcher** for which service's rows are on screen: one service, or All. The key is open (§15). The choice is remembered in `[ui]`, because it is a view, not a service secret. View › Source and a palette entry exist either way.
+- **Nick bar** sections per enabled service, prefix hidden, badge shown.
+- **Cards.** Badge, permalink, and a video detail with the tabs that service's capabilities allow (Description, Transcript, Comments, Chat). A missing capability omits the tab.
+- **Actions** follow §2.4. Local bookmarks still work when `Bookmarks` is implemented even if the remote push is gated.
+- **Start Scanning** shows the selected service's schema fields (nicks, channels, caps).
+- **Help** has one topic per service plus a topic for capabilities and gates. Getting Started gains a short section. Every flag has a description.
+
+All-view layout (mixed by time, or grouped by service) is open. Capability behaviour is not (§2.4).
 
 ---
 
-## 11. Testing strategy
+## 11. Testing
 
-Nothing in the test suite talks to x.com, api.x.com, twitter.com, youtube.com, googleapis.com or googlevideo.com.
+Tests never talk to acp.us, x.com, api.x.com, twitter.com, youtube.com, googleapis.com or googlevideo.com.
 
-- **Guards:** under `cfg(test)` and in the cucumber harness, the source HTTP clients **panic** if the host is one of those domains. This is the same rule as `acp.us`. A test also asserts that the yt-dlp runner refuses a real `yt-dlp` binary when `ACP_TEST` is set.
-- **Mocks** (`tests/support/`):
-  - `mock_x_api.rs`: axum. Serves `/2/users/by/username`, `/2/users/:id/tweets`, `/2/tweets/search/recent|all` and `/2/tweets`, with paging, `since_id`, rate-limit headers, a scripted 429, and an invalid-token 401. It also asserts the `Authorization` header is present and never logged.
-  - `mock_x_web.rs`: GraphQL `UserByScreenName`, `UserTweets` and `TweetDetail`. Includes a stale-queryId 404, a login challenge, and a missing `ct0` case.
-  - `mock_yt_api.rs`: channels, playlistItems, videos, commentThreads, comments, and a quota-exceeded 403.
-  - **`fake-yt-dlp`**: a tiny test binary (`tests/bin/fake_ytdlp.rs`) selected through `ACP_YTDLP`. It checks argv against expectations, rejects shell metacharacters, sleeps on cue, and prints fixture JSON or subtitle files. It also covers version-too-old, the "not a bot" error, and a mid-stream crash.
-- **Fixtures** (`tests/fixtures/x/`, `tests/fixtures/youtube/`):
-  - **Synthetic or minimised:** invented ids, handles and text that keep the real field shapes. These include long `note_tweet`, edits, quotes, media variants, json3 and vtt captions with overlaps, live-chat JSON, and nested comments.
-  - A real capture is used only after redaction, gated by the existing `scan.sh` and gitleaks, as the Red Star reply capture was.
-- **Gherkin features:** `x_api.feature`, `x_web.feature`, `youtube.feature`, `sources.feature`. Scenarios:
-  - scrape → export JSON/HTML (v3) → import into a second throwaway HOME → same rows;
-  - incremental sync stops at known ids;
-  - resume after a 429 or a budget stop;
-  - `--said-by` keeps only the user's own posts;
-  - transcript segments are deterministic across runs;
-  - comment depth;
-  - a write flag with `--source x` is refused;
-  - the TUI read-only tooltips;
-  - the source switcher filters lists;
-  - rules fire with `source = x`;
-  - the masker hides bearer, cookies and API key in `--debug`.
-- **Unit tests:**
-  - the record mapping for each field;
-  - id and nick namespacing round-trips;
-  - the migration on a 3.5.0 fixture DB (encrypted), checking row counts and that Red Star rows are unchanged;
-  - the cost estimator;
-  - cue → turn merging;
-  - the yt-dlp argv builder (no secrets in argv; cookies passed only as a temp file path);
-  - the budget never going negative.
-- **Manual live checks:** a `docs/LIVE-SOURCES-TEST.md` checklist in the style of LIVE-PUBLISH-TEST:
-  - run by Michael on his own machine with a throwaway HOME (never the real `~/.acp`, where auto-sync is on);
-  - first `--dry-run`, then one small target per path.
-  - Never in CI and never from an agent VM.
+- Under `cfg(test)` and in cucumber, a service HTTP client **panics** if the host is one of those. The yt-dlp runner refuses a real `yt-dlp` when `ACP_TEST` is set.
+- **Phase A.** The existing suite passes unchanged. New tests only assert that Red Star's `implemented()` set matches today's features and that a missing trait is not offered. No snapshot of user-visible copy changes.
+- **Later phases.** Axum mocks for the X API, the X web operations (including search and replies), and the YouTube Data API. A `fake-yt-dlp` binary selected with `ACP_YTDLP` checks argv, rejects a secret in argv, and prints fixtures. Fixtures are synthetic. A real capture is redacted first, then scanned, the same rule as the Red Star fixtures.
+- Gherkin covers: scrape, export v3, import into a throwaway `HOME`, incremental stop, resume after 429 or a cap, `--said-by` per service, deterministic transcript turns, a gated write that `--dry-run` prints as gated and does not send, an All-view selection that skips a service without that trait, the masker, and the backup snapshot containing no `source_secrets` plaintext and no sealed rows.
+- Manual live checks, if Michael runs them, go in a checklist like `docs/LIVE-PUBLISH-TEST.md`: throwaway `HOME`, `--dry-run` first, one small target. Never from CI and never from an agent VM.
 
 ---
 
 ## 12. Packaging and runtime dependencies
 
-- **yt-dlp is a runtime dependency of the YouTube source only.** Red Star and X work without it. The app detects it (`ytdlp_path`, `ACP_YTDLP`, `$PATH`) and explains how to install it when it's missing.
+yt-dlp is a runtime dependency of the YouTube service only. Red Star and X work without it. The app looks at `ytdlp_path`, `ACP_YTDLP`, then `$PATH`, and explains how to install it when the YouTube session route is enabled and the binary is missing.
 
-| Package | Change |
+| Package | Change, in the YouTube read phase |
 |---|---|
-| Debian (`debian/control`) | `Recommends: yt-dlp, ffmpeg`. `Suggests: deno \| nodejs`. Distro yt-dlp often lags; the docs recommend the upstream binary or `pipx install yt-dlp` and `yt-dlp -U` |
-| Arch (`packaging/arch/PKGBUILD`) | `optdepends+=('yt-dlp: YouTube source' 'deno: full YouTube support in yt-dlp' 'ffmpeg: merge downloaded video and audio')` |
-| Fedora (`packaging/fedora/acp-red-star.spec`) | `Recommends: yt-dlp`. `Suggests: ffmpeg-free`, `nodejs` |
-| `scripts/install.sh` | Prints a hint when yt-dlp is missing; never installs it silently |
+| Debian | `Recommends: yt-dlp, ffmpeg`. `Suggests: deno \| nodejs` |
+| Arch | optdepends for yt-dlp, deno, ffmpeg |
+| Fedora | `Recommends: yt-dlp`. Suggests ffmpeg and nodejs |
+| `scripts/install.sh` | A hint when yt-dlp is missing. It does not install it |
 
-- A hard dependency was rejected: it would force Python onto users who don't want YouTube, and distro copies break whenever YouTube changes.
-- Packaging stays on the alpha gate in §4.5 of the 3.0 plan. Nothing here cuts a release.
-- No new native libraries are needed for X; it uses `reqwest` and `rustls`, which are already present.
-- `--doctor` (planned in §7.14.5) gains:
-  - the yt-dlp version and age,
-  - the JS runtime it found,
-  - whether ffmpeg is present,
-  - X token presence (yes/no, never the value),
-  - the web session's age,
-  - the month's spend.
+Packaging stays on the alpha gate in §4.5 of the 3.0 plan. This plan does not cut a release. X uses the `reqwest` already in the tree. `--doctor` reports yt-dlp version and age, the JS runtime, ffmpeg, whether each secret is set (never the value), the session acknowledgement, and the month's spend.
 
 ---
 
 ## 13. Risks
 
-1. **X Terms of Service and anti-scraping.**
-   - X's terms forbid crawling or scraping "in any form, for any purpose" without prior written consent, and forbid working around technical limits.
-   - Since late 2024 they also include **liquidated damages of $15,000 per 1,000,000 posts** requested, viewed or accessed in any 24-hour period.
-   - The **web-session path is exactly that kind of access.** It can get Michael's X account locked or suspended, and the damages clause is a real legal exposure, even at small volume.
-   - Mitigations:
-     - the API is the default;
-     - the web path is opt-in (`web_enabled = false`) with a one-time warning screen;
-     - only ungated operations are used, and there's no generator for anti-bot headers;
-     - serial pacing;
-     - a 2,000-post daily cap (a factor of 500 under the threshold);
-     - no guest tokens, no account rotation, no proxies.
-   - Michael should decide explicitly (Q4).
-2. **X API cost.**
-   - Pay-per-use bills each post returned ($0.005) and each user ($0.010). Backfills are the expensive part, and the 3,200-post timeline limit means older history needs full-archive search, which costs more requests.
-   - Mitigations: the estimate plus confirm, `monthly_budget_usd`, the ledger, same-day dedup, `max_posts_per_run`, and `--x-cost`.
-   - Prices changed twice in 2026, so the estimator's rates live in one constant table with a date and a test.
-3. **X API churn.** Tiers were retired in 2026, endpoints and fields move, and the rate-limit tables change. The fixtures pin our parser to the shapes we tested. A schema drift is logged with the unknown fields, not fatal.
-4. **yt-dlp breakage.**
-   - YouTube changes often:
-     - PO tokens,
-     - the JS challenge (now requiring yt-dlp-ejs plus a runtime),
-     - "Sign in to confirm you're not a bot",
-     - IP throttling.
-   - Mitigations:
-     - a version floor and staleness warning;
-     - parsing only stable `info.json` keys;
-     - per-stage failure that doesn't lose the item;
-     - a resumable stage table;
-     - an optional Data API backend for metadata and comments;
-     - a clear notice telling the user to run `yt-dlp -U`.
-5. **YouTube terms.**
-   - YouTube's terms also restrict automated access outside the API.
-   - Comments and transcripts are other people's content.
-   - The 4.0 "rights, permission and credit" note (PLAN-4.0 PROPOSED 8) should cover what may be stored and exported.
-   - The Data API path is the more compliant one where it can serve the request.
-6. **Privacy.** Collecting other people's X posts and YouTube comments into a database that may later replicate (P9) widens exposure. Non-Red-Star records should be **excluded from replication by default** until §7.7 of the 3.0 plan is revisited (Q9).
-7. **Schema mixing.**
-   - Namespaced ids avoid collisions, but older binaries will show mixed rows (§3.6).
-   - The writes guard ships in the same release as the schema.
-   - A bug that forgets the guard could try to "reply" to `x:123` on Red Star. A unit test sends every `SiteAction` with a non-Red-Star id and expects a refusal before any frame is built.
-8. **Disk.** Video downloads and comment-heavy channels grow fast. The defaults (thumbnails only, 500 comments) and `max_storage_gb` keep it bounded.
-9. **Credential handling.** Bearer tokens and cookies are long-lived. They are sealed, masked and never in argv or env dumps. The temp cookie file for yt-dlp is 0600 and deleted in a `Drop` guard. Tests assert all of this.
+1. **X Terms of Service and account risk.** X's terms forbid crawling or scraping without prior written consent, and forbid working around technical limits. Since late 2024 they also state liquidated damages of **$15,000 per 1,000,000 posts** requested, viewed or accessed in any 24-hour period. The session route is that kind of access. It can lock or suspend the account, and the damages clause is a real exposure even at small volume. The user has decided to keep this route, including search and replies. The mitigations that remain are: the service is off until the user turns it on; the first enable shows this warning and requires an acknowledgement; pacing and the daily cap are configurable (the suggested cap is 2,000 posts, far under the threshold); there is no guest-token path, no account rotation and no proxy pool; a challenge stops the job for the day. The API route is there when the user would rather pay than use the session.
+2. **X API cost.** Post reads are $0.005 and user reads are $0.010. A backfill is the expensive part. The 3,200-post timeline means older history needs full-archive search. Mitigations: the estimate, Cancel by default, both caps, the ledger, same-day dedup, and `--x-cost`. Prices changed more than once in 2026, so the table is dated and tested.
+3. **X API and web churn.** Endpoints, query ids and rate limits move. Parsers accept unknown fields. A stale web query id refreshes once from the signed-in bundle and then stops if it still fails.
+4. **yt-dlp breakage.** PO tokens, the JS challenge, "Sign in to confirm you're not a bot", IP throttling. Mitigations: a version floor, stable `info.json` keys, per-stage failure that keeps the item, the optional API route for metadata and comments, and a notice to run `yt-dlp -U`.
+5. **YouTube terms.** Automated access outside the API is restricted. Comments and transcripts are other people's content. PLAN-4.0's rights note covers what may be stored and exported. The API route is the more compliant one where it can serve the request.
+6. **Privacy of other people's posts.** They sit in a database that can replicate. X and YouTube rows stay out of P9 by default (§9).
+7. **Mixed ids.** Namespaced ids avoid collisions. The phase that adds them also refuses a Red Star write aimed at a namespaced id. A unit test calls every Red Star write with an `x:` id and expects a refusal before a frame.
+8. **Disk.** Video, audio and transcripts are available. `max_storage_gb` is the bound. The run skips new files at the cap instead of filling the disk.
+9. **Credentials.** Tokens and cookies are long-lived. They are sealed, masked, absent from argv and from backups, and the yt-dlp cookie file is 0600 and deleted in `Drop`. Tests assert each of those.
 
 ---
 
-## 14. Phased plan and versioning
+## 14. Phases
 
-Michael's rule applies: **one minor per feature, a fix is a patch**, changelog plus tag on every bump.
+Labels are relative. They are not crate versions. One feature is one minor when it ships, and the post-commit hook tags that bump. The versioning cleanup PR assigns the real numbers. Nothing here moves a numbered stage in the 3.0 plan.
 
-**Prerequisite:** a version and changelog cleanup is **pending**. The crate is at 3.5.0 with about 12 features under `[Unreleased]`, and plan stage numbers (3.30–3.37) aren't real crate versions. So this plan uses **relative labels**. "S1 = next minor" means the first minor released *after* that cleanup lands; S2 is the one after, and so on. Final numbers are assigned when the cleanup decides the current version. Numbered 3.x stages in the 3.0 plan are not moved.
-
-| Label | Feature | Contents | Depends on |
+| Label | Phase | What ships | Depends on |
 |---|---|---|---|
-| **S1 (next minor)** | Source layer | Core `source` module and trait; post-source columns, namespaced ids and nicks, new tables; writes guard; export v3 and import; source switcher, badges and grouped nick bar; `--source`; rules `source` values; masker additions; mocks and harness | cleanup release |
-| **S2 (next minor + 1)** | YouTube metadata via yt-dlp | Channels, playlists and videos; incremental and backfill; thumbnails; the yt-dlp runner, version check and fake; packaging Recommends | S1 |
-| **S3 (+2)** | YouTube transcripts | Subtitles → segment rows; Transcript tab; `--transcripts`, `--sub-langs`; `transcript_kind` | S2 |
-| **S4 (+3)** | YouTube comments | Comments and replies, depth and sort, `--refresh-comments`, the Comments tab | S2 |
-| **S5 (+4)** | X API v2 | Token handling; users, search and post lookup; conversations; media; the cost estimator, ledger and confirm; rate-limit handling | S1 |
-| **S6 (+5)** | X web-session fallback | Cookie import, GraphQL ungated operations, query-id refresh, pacing and caps, warning screen. **Only if Michael approves after reading §13** | S5 |
-| **S7 (+6)** | YouTube Data API backend | API key; channels, playlists, videos and comments via the API; quota ledger | S2, S4 |
-| **S8 (+7)** | Media files | YouTube `download = audio\|video`, storage cap, X video variants at best bitrate | S2, S5 |
-| optional | YouTube live chat replay | `kind = chat` rows and a Chat tab | S3 (Q6) |
-| optional | X Spaces / Communities metadata | Read-only listing (no audio) | S5 (Q5) |
-| later, in P7 | Feeds across sources | `sources` filter in `.acpfeed` | Feeds core |
+| **A** | Red Star modularization | Extract today's Red Star behaviour behind the traits and into `acp_red_star_service_redstar`. Registry contains only Red Star. No new flags, no settings migration, no schema change for other services. The existing test suite passes with no behaviour change. | — |
+| **B** | Registry and Services | Services screen, schema-driven CLI, `~/.acp/services/*.toml`, sealed secrets, Red Star migration off `preferences.toml` and `session.json` (§4.2). Red Star on by default. X and YouTube present and off. Enabling X's session shows the §13 acknowledgement and does not yet scrape. | A |
+| **C-yt** | YouTube reads | Session route (yt-dlp metadata, channels, playlists, incremental and backfill, thumbnails) and the API route (quota meter and confirm). Comments if the open cap is decided; otherwise comments wait on §15. Parallel with C-x. | B |
+| **C-x** | X reads | Session route, including search and replies, with pacing, daily cap and the acknowledgement. API route with the spend confirm and ledger. Parallel with C-yt. | B |
+| **D** | Media | Video, audio and transcripts for the services that implement `MediaFetcher`, plus the storage cap. Transcript languages still follow §15. | C-yt for YouTube files. C-x for X video files. Either may land first for its own service. |
+| **E** | Writes, per service | One minor per write capability per service, and only after that service's reads have shipped. Each stays `Gated` until its captured frames are in the tree. Mock, preview, Cancel-default confirm, exact `--dry-run`. | That service's read phase |
 
-- Order rationale:
-  - YouTube first: it has lower legal and account risk, no per-read cost, and it is the 4.0 corpus prerequisite.
-  - X API before the web path, because the API is the sanctioned route.
-  - Michael may reorder (Q8).
-- Each minor ships with its tests, Help topics, changelog entry and a tag (the hook tags it).
-- None changes Red Star behaviour, except S1's export bump and the source switcher.
+YouTube and X reads are parallel tracks. Either may merge first. Writes do not start for a service before its reads. Red Star writes that are already gated stay gated in Phase A. Turning one on later is its own minor under E, still waiting on a capture, and is not required to unblock X or YouTube reads.
+
+Optional, not scheduled: YouTube live chat replay (if §15 says yes), X Spaces or Communities metadata, Feeds `sources` filters once P7 exists.
 
 ---
 
-## 15. Open questions for Michael
+## 15. Open questions
 
-1. **Crates or modules:** two new workspace crates for X and YouTube (recommended), or modules in the root crate?
-2. **X cookie storage:** sealed in the encrypted DB (recommended), or a 0600 `~/.acp/x-session.json` for parity with Red Star?
-3. **Backups:** should `.acpbackup` include the sealed X token, X cookies and YouTube key, or strip them so a restore asks again (recommended)?
-4. **X web session:** after reading §13 (ToS, the $15k-per-1M clause, account-suspension risk), keep the fallback? If yes, ungated operations only (recommended), or also search and replies, which need an anti-bot header generator?
-5. **X scope:** which accounts and which searches? Michael's own handle for "replies to me"? Include other people's replies under those accounts' posts (costs reads)? Reposts? X Spaces metadata? Communities?
-6. **YouTube scope:** which channels and playlists make up "every Haz stream" (PLAN-4.0)? Include shorts and livestream VODs? **Live chat replay** for streams? Comment depth (top-level only, or plus replies) and a cap per video (default 500, top-sorted)? Which caption languages, and should auto captions count?
-7. **Media:** thumbnails only by default, or also audio (for 4.0 local transcription) or full video? What storage cap?
-8. **Order:** YouTube first (S2–S4), then X (S5–S6), as proposed, or X first?
-9. **Replication:** keep X and YouTube records out of P9 peer sync by default (recommended) until the 3.0 plan's §7.7 is revisited?
-10. **Budget:** what monthly X API spend cap (default $10) and what per-run post cap? Is a first backfill of up to 3,200 posts per account worth about $16 per account?
-11. **YouTube API:** does Michael have, or want, a Google Cloud project and API key for the optional backend, or yt-dlp only?
-12. **Display:** in "All" mode, should Red Star, X and YouTube interleave by date (proposed), or always group by source?
-13. **Key for the source switcher:** F8, or another binding?
+Resolved, and not re-opened: separate crates; X cookies sealed in the encrypted database; backups strip `source_secrets`; X and YouTube stay out of P9 peer sync by default; Red Star on and other services off; session route as the default; search and replies included on the X session; video, audio and transcripts available under a storage cap; reads before writes.
+
+Still open:
+
+1. **Captions.** Which languages does the YouTube transcript stage request, and do automatic captions count as stored text, as `transcript_kind = auto` only, or not at all?
+2. **Comments.** What depth (top-level only, or one level of replies) and what cap per video?
+3. **Live chat replay.** Include it as `kind = chat`, or leave it out?
+4. **All view.** When more than one service is on screen, are rows mixed by time or grouped by service? Capability hiding and skipping are already decided either way (§2.4).
+5. **Source-switcher key.** Which key opens the switcher? F5, F6 and F7 are taken or planned. F8 is only a candidate.
+
+Raised by the trait split:
+
+6. **Bookmarks, site search, and edit history.** Should each be its own capability trait, or a facet of `Reader`? This plan lists `Bookmarks` on its own because Red Star already pushes a bookmark, and leaves site search and edit history unnamed.
+7. **Notifications.** Local toasts stay in the app. Is the `Notifications` trait only a service's own stream (a site notifications pane), and is that in scope for X or YouTube at all?
+8. **Plugins.** New services are workspace crates registered at compile time. Is a runtime plugin loader wanted later, or is the enum registry the long-term shape?
+9. **One confirm for a mixed write.** An All-view selection can contain a `Ready` item and a `Gated` item for the same capability. This plan uses one confirm that lists the skips and sends only the `Ready` items. Should a gated service instead force its own acknowledgement and send nothing in that run?
