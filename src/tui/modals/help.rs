@@ -220,6 +220,15 @@ fn area_topics() -> Vec<String> {
         "  https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf",
         "  https://acp.us/join is at the top and the bottom of that section only.",
     ]);
+    push_topic(&mut v, "actions", "Action history", &[
+        "  The right bar lists every step that led to this view. It does not drop old steps.",
+        "  The wheel scrolls the list. With the bar focused, the arrows, PgUp, and PgDn scroll it too.",
+        "  Click a step, or Enter on the highlighted step, to jump back. The bar collapses to one column.",
+        "  A new step after a jump keeps the later steps as another branch. The bar shows which path.",
+        "  b, or a click on that line, lists the branches. Choosing one restores that path.",
+        "  The branches are stored in the encrypted database with search history. Clear history deletes them.",
+        "  Search › History kept is blank by default, which keeps every search. A number keeps that many.",
+    ]);
     push_topic(&mut v, "bookmark", "Bookmarks", &[
         "  Bookmark (b) marks the open or highlighted post. B shows the bookmark list.",
         "  Sync with acp.us is Bookmarks › Sync with acp.us.",

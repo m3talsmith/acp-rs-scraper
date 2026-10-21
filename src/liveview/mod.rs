@@ -68,6 +68,9 @@ pub struct Lv {
     pub rendered: Value,
     /// How often to send a Phoenix heartbeat while waiting on this socket.
     pub heartbeat: std::time::Duration,
+    /// Ref of a heartbeat that has not been answered. The next heartbeat
+    /// while this is set means the socket went quiet and is dead.
+    pub hb_pending: Option<String>,
 }
 
 impl Lv {
@@ -82,7 +85,7 @@ impl Lv {
             h.insert("Cookie", c);
         }
         let (ws, _) = tokio_tungstenite::connect_async(req).await?;
-        let mut lv = Lv { ws, topic: format!("lv:{}", p.id), r: 0, rendered: json!({}), heartbeat: LV_HEARTBEAT };
+        let mut lv = Lv { ws, topic: format!("lv:{}", p.id), r: 0, rendered: json!({}), heartbeat: LV_HEARTBEAT, hb_pending: None };
         let reply = lv
             .push("phx_join", json!({
                 "url": p.url,
@@ -101,7 +104,8 @@ impl Lv {
     /// Push an event and wait for its reply, merging every diff seen into [`Lv::rendered`].
     ///
     /// Phoenix heartbeats go out on [`LV_HEARTBEAT`] while the reply is outstanding.
-    /// A heartbeat reply uses another ref and is ignored. A protocol ping is answered.
+    /// A heartbeat with no `phx_reply` before the next one means the socket is dead.
+    /// A protocol ping is answered by flushing the queued pong.
     pub async fn push(&mut self, event: &str, payload: Value) -> Result<Value> {
         self.r += 1;
         let want = self.r.to_string();
@@ -115,8 +119,9 @@ impl Lv {
             let frame = {
                 let ws = &mut self.ws;
                 tokio::select! {
-                    _ = beat.tick() => None,
+                    biased;
                     msg = ws.next() => Some(msg),
+                    _ = beat.tick() => None,
                 }
             };
             match frame {
@@ -129,11 +134,20 @@ impl Lv {
     }
 
     /// Send one Phoenix heartbeat (`[null, ref, "phoenix", "heartbeat", {}]`).
+    ///
+    /// Fails with `websocket closed` when the previous heartbeat is still
+    /// unanswered. A write that succeeds is not proof the socket is alive.
     pub async fn send_heartbeat(&mut self) -> Result<()> {
+        if self.hb_pending.is_some() {
+            bail!("websocket closed: heartbeat unanswered");
+        }
         self.r += 1;
-        let msg = json!([Value::Null, self.r.to_string(), "phoenix", "heartbeat", {}]);
+        let r = self.r.to_string();
+        let msg = json!([Value::Null, r.clone(), "phoenix", "heartbeat", {}]);
         dbg_log("push", &msg.to_string());
-        self.send_text(&msg).await
+        self.send_text(&msg).await?;
+        self.hb_pending = Some(r);
+        Ok(())
     }
 
     async fn send_text(&mut self, msg: &Value) -> Result<()> {
@@ -161,6 +175,9 @@ impl Lv {
                 let text = t.as_str();
                 let v: Value = serde_json::from_str(text)?;
                 dbg_log("recv", text);
+                if v[3] == "phx_reply" && self.hb_pending.as_deref() == json_ref(&v[1]).as_deref() {
+                    self.hb_pending = None;
+                }
                 if v[3] == "diff" { lv_merge(&mut self.rendered, &strip_meta(&v[4])); }
                 if let Some(want) = want
                     && v[1] == want && v[3] == "phx_reply" {
@@ -207,6 +224,13 @@ impl Lv {
         }
         self.push("event", p).await
     }
+}
+
+/// Phoenix refs are JSON strings. A numeric ref is accepted too.
+fn json_ref(v: &Value) -> Option<String> {
+    v.as_str().map(str::to_string)
+        .or_else(|| v.as_i64().map(|n| n.to_string()))
+        .or_else(|| v.as_u64().map(|n| n.to_string()))
 }
 
 /// `application/x-www-form-urlencoded` encoding of `s`.

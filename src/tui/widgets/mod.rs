@@ -1,6 +1,7 @@
 //! Drawing: every widget renders from [`App`] and records its clickable areas
 //! in `App::hits` (so mouse input hits exactly what was drawn).
 
+pub mod actions;
 pub mod body;
 pub mod detail;
 pub mod editor;
@@ -11,7 +12,6 @@ pub mod text;
 
 use crate::branding::{slogan_in_status, slogan_style, SLOGAN, SLOGAN_COLS};
 use crate::prelude::*;
-use crate::tui::layout::areas;
 use crate::tui::state::{status_line_is_problem, App, Focus, Hit, SessionState};
 use ratatui::Frame;
 use ratatui::layout::Rect;
@@ -43,11 +43,12 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
         return;
     }
     let log_rows = if app.show_log { 10 } else { 1 };
-    let a = areas(area, log_rows);
+    let a = crate::tui::layout::areas_open(area, log_rows, app.nicks_open, app.actions_open);
     topbar(f, app, a.top);
     menu::draw(f, app, a.menu);
     nicks::draw(f, app, a.nicks);
     body::draw(f, app, a.body, now);
+    actions::draw(f, app, a.actions);
     status(f, app, a.status);
     menu::draw_dropdown(f, app, area);
     if app.modal.is_some() { modal::draw(f, app, area); }

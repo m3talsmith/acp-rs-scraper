@@ -44,6 +44,9 @@ pub struct UiPrefs {
     /// `auto`, `always`, or `never`. Omitted means auto (follow NO_COLOR).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// How many search-history rows to keep. Omitted keeps the entire history.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_history_limit: Option<u64>,
 }
 
 /// `[ui.list_order]` in `~/.acp/preferences.toml`.
@@ -114,6 +117,28 @@ pub fn save_ui_color_at(path: &Path, color: &str) -> Result<()> {
 /// Set `[ui] color` in `~/.acp/preferences.toml`, keeping every other key.
 pub fn save_ui_color(color: &str) -> Result<()> {
     save_ui_color_at(&home()?.join(PREFS_REL_PATH), color)
+}
+
+/// Set `[ui] search_history_limit` in `path`. `None` removes the key, which keeps the entire history.
+pub fn save_search_history_limit_at(path: &Path, limit: Option<u64>) -> Result<()> {
+    let mut t: toml::Table = match std::fs::read_to_string(path) {
+        Ok(s) => toml::from_str(&s).with_context(|| format!("{} is not valid TOML; not changing it", path.display()))?,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => toml::Table::new(),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    };
+    let ui = t.entry("ui").or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    let Some(ui) = ui.as_table_mut() else { bail!("[ui] in {} is not a table; not changing it", path.display()) };
+    match limit {
+        Some(n) => { ui.insert("search_history_limit".into(), toml::Value::Integer(n as i64)); }
+        None => { ui.remove("search_history_limit"); }
+    }
+    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+    crate::themes::atomic_write(path, toml::to_string(&t)?.as_bytes()).with_context(|| format!("writing {}", path.display()))
+}
+
+/// Set `[ui] search_history_limit` in `~/.acp/preferences.toml`.
+pub fn save_search_history_limit(limit: Option<u64>) -> Result<()> {
+    save_search_history_limit_at(&home()?.join(PREFS_REL_PATH), limit)
 }
 
 /// Set `[ui] theme` in `~/.acp/preferences.toml`, keeping every other key (also unknown

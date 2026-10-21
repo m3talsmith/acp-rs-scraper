@@ -187,14 +187,16 @@ pub const EMAIL_FIELD: &str = "user[email]";
 /// Component id of the email form (`phx-target="1"`).
 pub const EMAIL_FORM_CID: u64 = 1; // phx-target="1" on #auth-page-email-form
 
-/// Code form event used when none can be read from the page (guessed).
-pub const CODE_EVENT_FALLBACK: &str = "verify-code";
+/// Code form event used when none can be read from the page.
+/// The live form is `phx-submit="submit-code"` (`verify-code` was an earlier guess).
+pub const CODE_EVENT_FALLBACK: &str = "submit-code";
 
 /// Verified from a real run: action of the phx-trigger-action form.
 pub const OTP_SIGN_IN_FALLBACK: &str = "/auth/user/otp/sign_in";
 
-/// Code input name used when none can be read from the page (guessed).
-pub const CODE_FIELD_FALLBACK: &str = "user[code]";
+/// Code input name used when none can be read from the page.
+/// The live form is `user[otp]` (`user[code]` was an earlier guess).
+pub const CODE_FIELD_FALLBACK: &str = "user[otp]";
 
 /// CSS selector of the Svelte Feed mount (`data-props` = `{posts, next_cursor, at_end}`).
 pub const FEED_PROPS_SEL: &str = "div#forum\\/Feed[data-props]";
@@ -274,9 +276,9 @@ pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "ena
 pub const THEMES_REL_DIR: &str = ".acp/themes";
 /// Where themes are downloaded from: the repo's `themes/` at this version's tag
 /// (`<base><name>.toml`). Themes are never installed by packages or built into the binary.
-pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v", env!("CARGO_PKG_VERSION"), "/themes/");
+pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/");
 /// The default theme's download URL (fetched on the first run into an empty themes folder).
-pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
+pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
 /// Overrides [`THEME_DOWNLOAD_BASE`] (a URL ending in `/`), e.g. the mocked tests' server.
 pub const THEME_URL_ENV: &str = "ACP_THEME_URL";
 /// `off` / `0` / `false` / `no` turns the automatic first-run theme download off.

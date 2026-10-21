@@ -185,6 +185,14 @@ pub enum Action {
     DiscoverLater,
     /// Sync › Rules.
     OpenRules,
+    /// Search › History. Re-run a saved query.
+    SearchHistory,
+    /// Search › Clear history. Deletes saved queries only.
+    ClearSearchHistory,
+    /// Collapse or open the nick bar.
+    ToggleNicks,
+    /// Collapse or open the action history bar.
+    ToggleActions,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -373,6 +381,9 @@ fn search_item() -> MenuCommand {
         opt("site", "Search the site", "--site-search", false, button(Action::RunSiteSearch)),
         opt("advanced", "Advanced…", "Shift-S", false, button(Action::OpenSearchModal)),
         opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
+        opt("keep", "History kept", "blank keeps every search. A number keeps that many.", false, text("")),
+        opt("history", "History…", "re-run a past query", false, button(Action::SearchHistory)),
+        opt("clear_history", "Clear history", "deletes saved queries only", false, button(Action::ClearSearchHistory)),
     ])
 }
 
@@ -734,6 +745,9 @@ impl Menu {
                 Some(f) => {
                     if !f.keyword.trim().is_empty() { v.extend(["--search".into(), f.keyword.trim().into()]); }
                     nicks_arg(&mut v, &f.nicks);
+                    if f.order != crate::prelude::ScrapeOrder::Newest { v.extend(["--order".into(), f.order.to_string()]); }
+                    if let Some(n) = f.limit { v.extend(["--limit".into(), n.to_string()]); }
+                    v.extend(["--search-json".into(), crate::tui::data::saved_query(f, false).to_json().to_string()]);
                 }
                 None => nicks_arg(&mut v, selected),
             },
