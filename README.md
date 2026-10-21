@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.5.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.37.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,11 +23,11 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.5.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.37.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.36.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
+**3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.37.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
-**3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed text post or reply sends validate, then save, once, and prints the new post id and URL. The site copy uploads first (3.36.0). Votes, subscribes, deletes, edits, and reposts stay gated. Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
+**3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed text post or reply sends validate, then save, once, and prints the new post id and URL. The site copy uploads first (3.37.0). Votes, subscribes, deletes, edits, and reposts stay gated. Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
 
 **3.3.2** signs an authorizer certificate for 30 days and a node certificate for 365 days. 3.3.0 and 3.3.1 had those two lifetimes reversed. A node from those versions keeps the short certificate until `~/.acp/node` is removed and `--node-init` is run again, which creates a new node key.
 
@@ -57,7 +57,7 @@ Uninstall with `scripts/uninstall.sh` (add `--no-purge` to keep `~/.acp`). See [
 ## Usage
 
 ```text
-Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
+ACP Red Star. Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
 
 Usage: acp-red-star [OPTIONS]
 
@@ -76,7 +76,7 @@ Mode:
           Site feed: Trending tab (/rs). Opt-in; incremental early-stop disabled (not chronological)
 
 Reading:
-      --top [PERIOD]
+      --top [<PERIOD>]
           Site-wide Top feed (/rs/top). PERIOD is day, week, month, year or all (default: week). Stored locally; View › Site Top opens it
 
       --top-replies
@@ -95,25 +95,92 @@ Reading:
           Explore's Latest tab (/rs/explore/latest)
 
       --site-search <TEXT>
-          Search the site (/rs/explore?q=). The Search modal's Where: Site does this too
+          Search the site (`/rs/explore?q=`). The Search modal's Where: Site does this too
 
       --tag <TAG>
-          Tag feed (/rs/tag/TAG). A #tag in a post opens the same view. Stored locally
+          Tag feed (`/rs/tag/TAG`). A `#tag` in a post opens the same view. Stored locally
 
       --backfill-tags
-          Fill post_tags from stored bodies, then re-read threads whose ProseMirror JSON is still empty. --nick / --nicks limit the rows. Does not change stored text
+          Fill `post_tags` from stored bodies, then re-read threads whose ProseMirror JSON is still empty. `--nick` / `--nicks` limit the rows. Does not change stored text
 
       --sort-thread <ID>
-          Re-read a thread after the sort hook (oldest or top) and store scores. s in a thread does this
+          Re-read a thread after the `sort` hook (`oldest` or `top`) and store scores. `s` in a thread does this
 
       --thread-sort <ORDER>
-          With --sort-thread: oldest or top. Newest is the site default and sends no hook
+          With `--sort-thread`: `oldest` or `top`. Newest is the site default and sends no hook
+          
+          [possible values: oldest, top]
 
       --reposts <ID>
-          Reposts of a post (/rs/post/ID/reposts). The post menu (p) › View reposts does this
+          Reposts of a post (`/rs/post/ID/reposts`). The post menu (`p`) › View reposts does this
 
       --edits <THREAD/POST>
-          Edit history (/rs/post/THREAD/POST/edits), shown as a diff. A stored post id works too. The post menu (p) › View edits does this
+          Edit history (`/rs/post/THREAD/POST/edits`). THREAD/POST, or a post id already stored. The post menu (`p`) › View edits does this
+
+Writing:
+      --new-post <TITLE>
+          New post. The body is `--body` or `--body-file`. A confirmed post uploads the site copy, then sends validate and save once. `--dry-run` prints the frames and the upload plan and does not connect
+
+      --reply <THREAD>
+          Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. A confirmed reply uploads the site copy, then sends the captured validate and save frames. Same confirm and dry-run rules as `--new-post`
+
+      --repost <POST>
+          Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. `--dry-run` prints the route and does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list
+
+      --edit <POST>
+          Edit a post. An edit stays open for one hour after `--posted-at` (unix seconds). Without that timestamp the hour is not checked. The edit form has not been captured, so it is not built. `--dry-run` prints that and does not connect. A confirmed edit does not send
+
+      --posted-at <UNIX>
+          With `--edit`. Unix seconds of the post's `posted_at`. Used only for the one-hour window
+
+      --delete <POST>
+          Delete a post. The terminal asks you to type yes. `--yes` confirms. `--dry-run` prints the documented hook and does not connect. A confirmed delete does not send: the live frame has not been captured
+
+      --subscribe <THREAD>
+          Subscribe to a thread. STATE is `1` (subscribe) or `0` (clear). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed subscribe does not send: the live frame has not been captured
+
+      --subscribe-state <STATE>
+          With `--subscribe`. `1` or `0`
+          
+          [possible values: 1, 0]
+
+      --vote <POST>
+          Vote on a post. STATE is `1` (upvote), `0` (clear), or `-1` (downvote). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed vote does not send: the live frame has not been captured
+
+      --vote-state <STATE>
+          With `--vote`. `1`, `0`, or `-1`
+          
+          [possible values: 1, 0, -1]
+
+      --body <MARKDOWN>
+          Markdown body for `--new-post` or `--reply`
+
+      --body-file <PATH>
+          Read the Markdown body from a file
+
+      --in-reply-to <POST>
+          With `--reply`: the comment this answers. A reply to the thread root omits this
+
+      --quote <TEXT>
+          Selected text, inserted as a blockquote. With `--reply`
+
+      --quote-post <POST>
+          Post the quote refers to. With `--reply` this also adds a post reference
+
+      --accept-site-update
+          Allow writes after the site's script URL changes from the one stored in `site_state`
+
+      --attachment <PATH>
+          Local file for `--new-post` or `--reply`. Repeat for more than one. Every file stays on the local copy, including audio and documents. Red Star takes up to 4 images, videos, or PDFs on the site copy. Audio and other documents stay local and are named, not dropped. `--dry-run` prints the allow_upload plan and does not connect. A confirmed publish uploads that site copy, then sends the text. See --site-attachments
+
+      --site-attachments <LIST>
+          Which `--attachment` files go to Red Star. LIST is 1-based indexes, comma-separated, for example 1,3,5,6. At most 4, and each index has to be an image, a video, or a PDF. Naming an audio file or another type is an error that names that file. Omit it and the first 4 images, videos, or PDFs are the site copy; other types are skipped. A notice names files left off when there are more than 4
+
+      --dry-run
+          With a write: print the documented frames and open no connection. With --remove-nick / --clear-all: show what would be removed and change nothing
+
+  -y, --yes
+          Confirm. With a write, this is Publish (the send stays gated). With --remove-nick / --clear-all, skip the prompt. Required when stdin is not a terminal for those maintenance commands
 
 Interface:
       --tui
@@ -171,6 +238,12 @@ Scraping:
           
           [default: 500]
 
+      --scrape-all
+          Scrape every reachable read-only page of the Red Star site. `acprs --scrape-all` is this flag. The frontier is stored in the encrypted database, so a stopped run resumes. The next finished run is incremental unless `--full`. Sync with this flag runs that incremental update and then the rules
+
+      --scrape-budget <SECS>
+          Stop `--scrape-all` after this many seconds and keep the frontier for the next run
+
       --no-attachments
           Skip downloading media attachments
 
@@ -183,6 +256,9 @@ Search / Export:
 
       --search <SEARCH>
           Search the local DB (title + content); exports matches + parent/children
+
+      --search-json <JSON>
+          Query and filters for an export of a search, as JSON. Not a snapshot of the results. A full dump, a nick filter, and a basket do not use it
 
       --export <FILE>
           Offline: dump the local DB (all / --nick(s) / --search) to FILE. Replaces --output for DB dumps
@@ -226,12 +302,6 @@ Maintenance:
 
       --clear-all
           Offline: delete the whole database and the attachments directory (preferences.toml and exports are kept)
-
-      --dry-run
-          With --remove-nick / --clear-all: show what would be removed and change nothing
-
-  -y, --yes
-          With --remove-nick / --clear-all: skip the confirmation prompt (required when stdin is not a terminal)
 
 Session:
       --logout
@@ -288,6 +358,56 @@ Research:
       --research-export <NAME>
           Offline: export research project NAME (its posts, files, pages and notes) to --export FILE (--format json,html; --compress --tar-gz bundles the files)
 
+Rules:
+      --rules-list
+          Offline: list rules (system and user), lower priority first. `--rules-format json` prints JSON
+
+      --rules-show <NAME>
+          Offline: show one rule by name. `--rules-format json` prints JSON; otherwise TOML
+
+      --rules-enable <NAME>
+          Offline: enable a user rule. A system rule is refused; clone it instead
+
+      --rules-disable <NAME>
+          Offline: disable a user rule. A system rule is refused; clone it instead
+
+      --rules-clone <KEY>
+          Offline: clone a system rule by its key. The clone is a user rule and starts enabled
+
+      --rules-delete <NAME>
+          Offline: delete a user rule. A system rule is refused
+
+      --rules-priority <NAME>
+          Offline: set a rule's priority (system or user). Lower runs first. Pass `--rules-rank`
+
+      --rules-rank <N>
+          With `--rules-priority`: the new priority. Lower runs first
+
+      --rules-import <PATH>
+          Offline: import rules from a TOML or JSON file. Each row is inserted as a user rule
+
+      --rules-export <PATH>
+          Offline: export every rule (system and user) to a TOML or JSON file
+
+      --rules-preview
+          Offline: preview enabled rules against posts already stored. Applies nothing
+
+      --rules-watch <NICK>
+          Offline: add a user rule that notifies when this nick posts. The notice names the author and links the post
+
+      --rules-saved <TEXT>
+          Offline: add a user rule that notifies when a synced post matches this keyword
+
+      --rules-replies <NICK>
+          Offline: add a user rule that notifies when someone replies to this nick
+
+      --rules-format <toml|json>
+          With a rules command: `toml` or `json`. Import and export otherwise follow the file extension
+
+          Possible values:
+          - toml: TOML (`[[rules]]` tables)
+          - json: JSON (`{"rules":[...]}`)
+
 Debug:
   -q, --quiet
           Suppress progress/summary on stderr (prompts and errors still show)
@@ -307,6 +427,95 @@ Debug:
       --error-log <PATH>
           Error log file (default ~/.acp/logs/error.log); implies --enable-logging
 
+Identity:
+      --identity-init
+          Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id. The phrase is shown on this terminal. An encrypted copy is kept so --show-phrase can show it again. Needs a terminal
+
+      --acp-id
+          Print the pinned acp-id
+
+      --shares-print
+          Print five SLIP-39 recovery sheets (3 of 5) for the pinned account. Needs a terminal. Reissuing shares of the same seed does not invalidate older shares
+
+      --shares-verify
+          Check three to five recovery shares against the pinned acp-id. Writes nothing secret
+
+      --shares-file <FILE>
+          Sheet or paste to read instead of typing shares. Used with --shares-print or --shares-verify
+
+      --backup
+          Write an encrypted *.acpbackup. --output FILE chooses the path; otherwise the schedule directory or the exports folder
+
+      --restore <FILE>
+          Restore an *.acpbackup into this home. A new machine also asks for the phrase or 3 shares
+
+      --backup-schedule <WHEN>
+          Remember a daily or weekly backup. The headless service that runs it is a later release
+          
+          [possible values: daily, weekly]
+
+      --keep <N>
+          How many *.acpbackup files to keep. Used with --backup-schedule
+
+      --dest <DIR>
+          Directory for scheduled backups. Used with --backup-schedule
+
+      --encrypt-db
+          Encrypt an existing plaintext database. Writes a backup first, then checks counts and text
+
+      --change-password
+          Change the password on an encrypted database. Rewraps the local key and the account key. The account id stays the same. Needs a terminal
+
+      --show-phrase
+          Show the 24-word recovery phrase again. Asks for the password on a terminal. Warns that the words will be on screen and can clear the terminal afterward
+
+      --node-init
+          Create this machine's node key and certificates. Needs a pinned acp-id. The node key is generated here. It is not derived from the master
+
+      --node-label <NAME>
+          Name for --node-init. The default is this computer's hostname
+
+      --node-id
+          Print this machine's node name, account id, peer id, and fingerprint
+
+The password that opens the database is not the master key. There is no password reset. If the password is lost, the database cannot be opened, even when you still have the recovery phrase.
+
+The master key is a 24-word recovery phrase (BIP-39). This program mixes that phrase with the password using Argon2id. A new computer needs both before it can open an encrypted backup, which is a .acpbackup file. The password is not written into the phrase.
+
+Split the phrase into 5 shares. Any 3 of those 5 shares rebuild the phrase. One share or two shares do nothing. The password is not written into the shares. Keep the shares in different places, and do not keep them with the password.
+
+Write the 24 words on paper, and write each share on its own paper. Do not email them, do not put them in a screenshot, and do not put them in the same note as the password. This computer can keep an encrypted copy at ~/.acp/recovery.seal so the words can be shown again here. That file still needs the password. It does not open a backup on a new computer, and it does not replace the paper copy.
+
+Create the phrase when you can write it down:
+
+    acp-red-star --identity-init
+
+The words are shown once, and you type them again to confirm you saved them. The command then offers the 5 shares. To print the shares later:
+
+    acp-red-star --shares-print
+
+That asks for the 24 words, or for at least 3 shares you already have, and for the password.
+
+Show the words again on this computer:
+
+    acp-red-star --show-phrase
+
+It asks for the password. It does not read the password from the environment. It warns you that the words will be on the screen and may stay in scrollback, and it can clear the terminal afterward. A phrase created before this copy was saved cannot be rebuilt from the password. Use the paper copy, or 3 shares with --shares-print.
+
+Check a written copy of the shares:
+
+    acp-red-star --shares-verify
+
+Paste 3 to 5 shares. It checks them against the pinned account and writes nothing secret. --show-phrase can also ask you to type the 24 words from paper and tell you whether they match.
+
+Restore a backup on this computer, or on a new one:
+
+    acp-red-star --restore FILE.acpbackup
+
+This computer needs the password. A new computer asks for the 24 words, or for 3 shares, and for the password.
+
+The same steps are on the Help screen in the terminal UI (? or F1).
+
 Examples:
   acp-red-star                      # terminal UI
   acp-red-star --tui --nicks @hazaldin -v
@@ -315,9 +524,14 @@ Examples:
   acp-red-star --theme-init all     # download every theme in the repo into ~/.acp/themes
   acp-red-star --theme-starter mine # a minimal theme to edit (Shift-F5)
   acp-red-star --scrape             # headless scrape; asks for nicks
+  acprs --scrape-all                # every reachable read-only page; resumes
+  acprs --sync --scrape-all         # incremental whole-site update, then rules
   acp-red-star --nicks @hazaldin,@m3talsmith --format html --compress --tar-gz
   acp-red-star --nick @hazaldin --format json,html --output hazaldin/hazaldin.json
   acp-red-star --nick alice --no-mentions --crawl-limit 200
+  acp-red-star --nick alice --limit 100
+  acp-red-star --nick alice --order oldest --limit 100
+  acp-red-star --nick alice --profile-feed top --limit 100
   acp-red-star --search "general strike" --format json
   acp-red-star --export all.json
   acp-red-star --export strike.tar.gz --search strike --compress --tar-gz --name strike
@@ -338,6 +552,28 @@ Examples:
   acp-red-star --nick alice -v
   acp-red-star --nicks @hazaldin --latest
   acp-red-star --nicks @hazaldin --trending --crawl-limit 200
+  acp-red-star --top week
+  acp-red-star --top all --top-replies
+  acp-red-star --eb
+  acp-red-star --eb --eb-replies
+  acp-red-star --explore
+  acp-red-star --explore-latest
+  acp-red-star --site-search strike
+  acp-red-star --tag strike
+  acp-red-star --backfill-tags
+  acp-red-star --backfill-tags --nick alice
+  acp-red-star --sort-thread THREAD --thread-sort oldest
+  acp-red-star --sort-thread THREAD --thread-sort top
+  acp-red-star --reposts POST
+  acp-red-star --edits THREAD/POST
+  acp-red-star --identity-init
+  acp-red-star --show-phrase
+  acp-red-star --acp-id
+  acp-red-star --shares-print
+  acp-red-star --shares-verify --shares-file shares.txt
+  acp-red-star --backup --output backup.acpbackup
+  acp-red-star --restore backup.acpbackup
+  acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 ```
 
 ## Terminal UI
@@ -351,7 +587,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star     v3.5.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.37.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
