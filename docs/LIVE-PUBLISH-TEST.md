@@ -4,6 +4,19 @@ This is a manual checklist for Michael and the maintainer. Run it together, by h
 
 One short post or one short reply is enough. The client sends validate, then save, once. It does not retry. If the reply is unclear, look at the site before posting again.
 
+## Verified live
+
+Michael ran commit `61c58300` on 2026-10-21. That commit is on main as merge `28759588`. He confirmed at `Publish? [y/N]` and did not pass `--yes`. The post was text plus one PNG.
+
+```text
+Already logged in.
+uploading social-red-star.png 100%
+published AaFe-qikeQyiWLMA1vwnNA
+https://acp.us/rs/post/AaFe-qikeQyiWLMA1vwnNA
+```
+
+Text and a PNG are verified. A PDF and a video have not been posted from this client yet. Vote, subscribe, delete, edit, and repost stay gated.
+
 ## Before you start
 
 1. Clone the repository yourself and check out the branch you intend to try. Build it there.
@@ -99,6 +112,8 @@ Check the printout:
 
 ### One small image
 
+Verified live on 2026-10-21: PNG `social-red-star.png`, post `AaFe-qikeQyiWLMA1vwnNA`. The steps below are the same check.
+
 ```bash
 ./target/release/acprs --new-post "upload check image" --body "small image from the client" --attachment /path/to/small.jpg
 ```
@@ -116,7 +131,7 @@ Open the URL. The image should be on the post. If the site rejected the file, th
 
 ### Optional small PDF
 
-A PDF uses the separate file input (`file_attachments`, accept `.pdf`). It counts toward the same 4 as images and videos.
+Not tried live yet. A PDF uses the separate file input (`file_attachments`, accept `.pdf`). It counts toward the same 4 as images and videos.
 
 ```bash
 ./target/release/acprs --new-post "upload check pdf" --body "small pdf from the client" --attachment /path/to/notes.pdf --dry-run
@@ -132,7 +147,7 @@ Open the URL and confirm the PDF is attached. This step is optional. Skip it if 
 
 ### Then a video
 
-Use a short MP4 you can afford to upload. The progress line may sit at `0%` for a while, because percent is an integer and the chunks are 64000 bytes until the server says otherwise.
+Not tried live yet. Use a short MP4 you can afford to upload. The progress line may sit at `0%` for a while, because percent is an integer and the chunks are 64000 bytes until the server says otherwise.
 
 ```bash
 ./target/release/acprs --new-post "upload check video" --body "short video from the client" --attachment /path/to/clip.mp4 --dry-run
