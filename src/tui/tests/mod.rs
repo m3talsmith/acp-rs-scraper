@@ -3,6 +3,7 @@
 
 mod commands;
 mod compose;
+mod subscribe;
 mod vote;
 mod bookmarks;
 mod data;

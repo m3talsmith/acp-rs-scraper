@@ -2306,6 +2306,16 @@ impl App {
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
                 PostAction::Edits => self.open_edits(&m.post_id, &m.thread_id),
+                PostAction::Subscribe => {
+                    if !self.writes_are_on() {
+                        self.show_writes_off();
+                    } else {
+                        match crate::site::subscribe::present(&m.post_id, "1", true, false) {
+                            Ok(text) => self.push_status(text),
+                            Err(e) => self.error("Subscribe", &e.message),
+                        }
+                    }
+                }
             },
             (Modal::Compose(c), ModalResult::ClosedCancelled) => {
                 self.push_status("nothing sent");
