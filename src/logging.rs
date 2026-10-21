@@ -100,8 +100,9 @@ const SECRET_JSON_KEY_RE: &str = concat!(
 ///
 /// Replaces JSON string values for known secret keys (`_csrf_token`, `session`, `static`,
 /// cookies, bearer-style tokens), `_csrf_token=` query params, Phoenix signed blobs
-/// (`SFMyNTY....`), and long hidden-input `value="..."` attributes that carry CSRF tokens in
-/// LiveView HTML diffs. Event names, topics, URLs, and post structure stay visible.
+/// (`SFMyNTY....`), one-time codes in `user[otp]` / `user[code]` form fields, and long
+/// hidden-input `value="..."` attributes that carry CSRF tokens in LiveView HTML diffs.
+/// Event names, topics, URLs, and post structure stay visible. Cookie values are not logged.
 pub fn redact_secrets(s: &str) -> String {
     use std::sync::LazyLock;
     static JSON_KEYS: LazyLock<regex::Regex> =
@@ -123,6 +124,14 @@ pub fn redact_secrets(s: &str) -> String {
         .replace_all(s, |caps: &regex::Captures| format!(r#""{}":"{REDACTED}""#, &caps[1]))
         .into_owned();
     out = CSRF_QUERY.replace_all(&out, format!("_csrf_token={REDACTED}")).into_owned();
+    // One-time codes travel in the form body (`user[otp]` / `user[code]`), not as a JSON key.
+    static OTP_FIELD: LazyLock<regex::Regex> = LazyLock::new(|| {
+        regex::Regex::new(r#"(?i)(user(?:%5[Bb]|\[)(?:otp|code)(?:%5[Dd]|])=)[^&\s"\\]+"#)
+            .expect("otp field re")
+    });
+    out = OTP_FIELD
+        .replace_all(&out, |caps: &regex::Captures| format!("{}{REDACTED}", &caps[1]))
+        .into_owned();
     out = PHOENIX_SIGNED.replace_all(&out, format!("SFMyNTY.{REDACTED}")).into_owned();
     out = HTML_VALUE
         .replace_all(&out, |caps: &regex::Captures| {
@@ -276,6 +285,19 @@ mod tests {
             "{out}"
         );
         assert!(out.contains(r#"name=\"_csrf_token\""#));
+    }
+
+    #[test]
+    fn redacts_otp_in_a_form_body() {
+        let raw = "value=user%5Bemail%5D=ada%40example.test&user%5Botp%5D=KWMRUV&user%5Bremember_me%5D=true";
+        let out = redact_secrets(raw);
+        assert!(!out.contains("KWMRUV"), "{out}");
+        assert!(out.contains("user%5Botp%5D=[REDACTED]"), "{out}");
+        assert!(out.contains("ada%40example.test"), "{out}");
+        let raw = r#"user[code]=SECRET12&user[email]=ada@example.test"#;
+        let out = redact_secrets(raw);
+        assert!(!out.contains("SECRET12"), "{out}");
+        assert!(out.contains("user[code]=[REDACTED]"), "{out}");
     }
 
     #[test]

@@ -267,6 +267,10 @@ pub struct Args {
     /// Search the local DB (title + content); exports matches + parent/children.
     #[arg(long, help_heading = "Search / Export")]
     pub search: Option<String>,
+    /// Query and filters for an export of a search, as JSON. Not a snapshot of the results.
+    /// A full dump, a nick filter, and a basket do not use it.
+    #[arg(long, value_name = "JSON", help_heading = "Search / Export", conflicts_with_all = ["post_ids", "import"])]
+    pub search_json: Option<String>,
     /// Offline: dump the local DB (all / --nick(s) / --search) to FILE. Replaces --output for DB dumps.
     #[arg(long, value_name = "FILE", help_heading = "Search / Export", conflicts_with_all = ["output", "import"])]
     pub export: Option<PathBuf>,

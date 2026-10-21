@@ -2,9 +2,11 @@
 //! closing with [`ModalResult::ClosedCancelled`] or [`ModalResult::ClosedSubmitted`].
 
 pub mod about;
+pub mod branches;
 pub mod compose;
 pub mod confirm;
 pub mod help;
+pub mod history;
 pub mod job;
 pub mod login;
 pub mod message;
@@ -18,9 +20,11 @@ pub mod theme_picker;
 use crossterm::event::KeyEvent;
 
 pub use about::*;
+pub use branches::*;
 pub use compose::*;
 pub use confirm::*;
 pub use help::*;
+pub use history::*;
 pub use job::JobModal;
 pub use login::*;
 pub use message::*;
@@ -94,6 +98,10 @@ pub enum Modal {
     About(AboutModal),
     /// Sync › Rules. System rows are read-only.
     Rules(RulesModal),
+    /// Saved searches. Choosing one re-runs it.
+    History(HistoryModal),
+    /// Action-history paths. Choosing one restores that path.
+    Branches(BranchesModal),
 }
 
 impl Modal {
@@ -107,6 +115,8 @@ impl Modal {
             Modal::Compose(m) => m,
             Modal::About(m) => m,
             Modal::Rules(m) => m,
+            Modal::History(m) => m,
+            Modal::Branches(m) => m,
         }
     }
 }

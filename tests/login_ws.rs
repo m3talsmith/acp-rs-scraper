@@ -42,6 +42,19 @@ struct Ctl {
     rejected: usize,
     pongs: usize,
     ping_after_email: bool,
+    /// Heartbeats are recorded but not answered while `joins` is still this value.
+    /// `None` answers every heartbeat. Set it to the current join count so only
+    /// the socket that is already up goes quiet; the reconnect is answered.
+    silence_at_joins: Option<usize>,
+    /// Email reply is the live code form: keyed comprehension, form csrf, `user[otp]`.
+    keyed_otp: bool,
+    /// OTP POST must carry the form csrf, `user[otp]`, remember-me, and `return_to`.
+    strict_otp: bool,
+    /// The next OTP POST is rejected with a flash, even when the fields are right.
+    reject_once: bool,
+    email_sends: usize,
+    posts: Vec<String>,
+    flash: Option<String>,
 }
 
 fn lv_page() -> String {
@@ -55,20 +68,74 @@ fn logged_in(h: &HeaderMap) -> bool {
 
 async fn site(headers: HeaderMap) -> Response {
     if !logged_in(&headers) {
-        return (StatusCode::FOUND, [(header::LOCATION, "/auth")]).into_response();
+        return (StatusCode::FOUND, [(header::LOCATION, "/auth?return_to=%2Frs")]).into_response();
     }
     ([(header::CONTENT_TYPE, "text/html")], "<html><body>feed</body></html>").into_response()
 }
 
-async fn auth_page() -> Response {
-    ([(header::CONTENT_TYPE, "text/html")], lv_page()).into_response()
+async fn auth_page(State(ctl): State<Arc<Mutex<Ctl>>>) -> Response {
+    let flash = ctl.lock().unwrap().flash.take();
+    let mut html = lv_page();
+    if let Some(f) = flash {
+        let p = format!(r#"<p class="alert alert-danger" role="alert">{f}</p>"#);
+        html = html.replace("</body>", &format!("{p}</body>"));
+    }
+    ([(header::CONTENT_TYPE, "text/html")], html).into_response()
+}
+
+fn has_pair(body: &str, key_enc: &str, key_raw: &str, val: &str) -> bool {
+    body.split('&').any(|kv| kv == format!("{key_enc}={val}") || kv == format!("{key_raw}={val}"))
+}
+
+fn strict_otp_ok(body: &str) -> bool {
+    let csrf = has_pair(body, "_csrf_token", "_csrf_token", "form-csrf") && !body.contains("_csrf_token=mock-csrf");
+    let otp = has_pair(body, "user%5Botp%5D", "user[otp]", CODE);
+    let remember = has_pair(body, "user%5Bremember_me%5D", "user[remember_me]", "true");
+    let ret = body.split('&').any(|kv| kv == "return_to=%2Frs" || kv == "return_to=/rs" || kv == "return_to=%2frs");
+    csrf && otp && remember && ret
+}
+
+fn keyed_code_diff() -> Value {
+    let inner = concat!(
+        r#"<input type="hidden" name="_csrf_token" value="form-csrf">"#,
+        r#"<input type="hidden" name="user[email]" value="">"#,
+        r#"<input type="text" name="user[otp]">"#,
+        r#"<input type="hidden" name="user[remember_me]" value="true">"#,
+        r#"<input type="hidden" name="marketing_opt_in" value="false">"#,
+    );
+    json!({
+        "c": {
+            "1": {
+                "s": 0,
+                "k": { "0": {"0": inner}, "kc": 1 },
+                "p": {"0": [
+                    "<form action=\"/auth/user/otp/sign_in\" method=\"post\" phx-target=\"1\" phx-submit=\"submit-code\" phx-disable-with=\"Signing in...\">",
+                    "</form>"
+                ]}
+            }
+        }
+    })
 }
 
 async fn sign_in(State(ctl): State<Arc<Mutex<Ctl>>>, body: String) -> Response {
-    let require = ctl.lock().unwrap().require_form_token;
-    let code_ok = body.split('&').any(|kv| kv == format!("user%5Bcode%5D={CODE}") || kv == format!("user[code]={CODE}"));
-    let token_ok = !require || body.split('&').any(|kv| kv == "user%5Btoken%5D=from-form" || kv == "user[token]=from-form");
-    if !(code_ok && token_ok) { return (StatusCode::FORBIDDEN, "bad code").into_response(); }
+    let (require, strict, reject) = {
+        let mut c = ctl.lock().unwrap();
+        c.posts.push(body.clone());
+        let reject = c.reject_once;
+        if reject { c.reject_once = false; }
+        (c.require_form_token, c.strict_otp, reject)
+    };
+    let legacy_ok = {
+        let code_ok = has_pair(&body, "user%5Bcode%5D", "user[code]", CODE);
+        let token_ok = !require || has_pair(&body, "user%5Btoken%5D", "user[token]", "from-form");
+        code_ok && token_ok
+    };
+    let bad = reject || if strict { !strict_otp_ok(&body) } else { !legacy_ok };
+    if bad && (strict || reject) {
+        ctl.lock().unwrap().flash = Some("invalid or expired code".into());
+        return (StatusCode::FOUND, [(header::LOCATION, "/auth")]).into_response();
+    }
+    if bad { return (StatusCode::FORBIDDEN, "bad code").into_response(); }
     (StatusCode::FOUND, [(header::SET_COOKIE, format!("{SESSION}=ok; Path=/; HttpOnly")), (header::LOCATION, "/rs".to_string())]).into_response()
 }
 
@@ -118,7 +185,12 @@ async fn handle_text(ctl: &Arc<Mutex<Ctl>>, ws: &mut WebSocket, text: &str) -> b
     let Ok(msg) = serde_json::from_str::<Value>(text) else { return false };
     let event = msg[3].as_str().unwrap_or("");
     if event == "heartbeat" {
-        ctl.lock().unwrap().events.push("hb");
+        let answer = {
+            let mut c = ctl.lock().unwrap();
+            c.events.push("hb");
+            c.silence_at_joins != Some(c.joins)
+        };
+        if !answer { return false; }
         return ws.send(phx_reply(&msg, json!({}))).await.is_err();
     }
     let kind = msg[4]["event"].as_str().unwrap_or("");
@@ -129,8 +201,16 @@ async fn handle_text(ctl: &Arc<Mutex<Ctl>>, ws: &mut WebSocket, text: &str) -> b
             phx_reply(&msg, json!({"rendered": {"s": [form]}}))
         }
         "event" if kind == "send-login-email" => {
-            let ping = ctl.lock().unwrap().ping_after_email;
-            let reply = phx_reply(&msg, json!({"diff": {"s": [r#"<form phx-submit="verify-code"><input type="text" name="user[code]"></form>"#]}}));
+            let (ping, keyed) = {
+                let mut c = ctl.lock().unwrap();
+                c.email_sends += 1;
+                (c.ping_after_email, c.keyed_otp)
+            };
+            let reply = if keyed {
+                phx_reply(&msg, json!({"diff": keyed_code_diff()}))
+            } else {
+                phx_reply(&msg, json!({"diff": {"s": [r#"<form phx-submit="verify-code"><input type="text" name="user[code]"></form>"#]}}))
+            };
             if ws.send(reply).await.is_err() { return true; }
             if ping && ws.send(Message::Ping(vec![9, 9, 9].into())).await.is_err() { return true; }
             return false;
@@ -270,6 +350,9 @@ async fn login_heartbeats_retries_a_closed_socket_and_keeps_a_wrong_code() {
         std::env::set_var("ACP_HOME", &isolated);
     }
     assert_eq!(acp_red_star::config::home().unwrap(), isolated);
+    let hint = acp_red_star::auth::session::session_login_hint();
+    assert!(hint.contains(&isolated.display().to_string()), "{hint}");
+    assert!(!hint.contains("~/.acp/session.json"), "{hint}");
     unsafe { std::env::set_var("ACP_HOME", ""); }
     assert_eq!(acp_red_star::config::home().unwrap(), std::path::PathBuf::from("/tmp/acp-real-home-not-used"));
 
@@ -334,4 +417,80 @@ async fn login_heartbeats_retries_a_closed_socket_and_keeps_a_wrong_code() {
     task.await.unwrap().unwrap();
     assert!(ctl.lock().unwrap().pongs >= 1, "a protocol ping during the wait is answered");
     assert!(std::fs::read_to_string(session_file(&home)).unwrap().contains(SESSION));
+
+    // The socket accepts heartbeat writes and then stops answering. The client
+    // must notice, reconnect, and not send another email. The code form is a
+    // keyed comprehension whose statics live in `p`. The fallback POST uses
+    // that form's csrf and `user[otp]`, not the page token and `user[code]`.
+    {
+        let mut c = ctl.lock().unwrap();
+        c.ping_after_email = false;
+        c.one_at_a_time = false;
+        c.hold_close = false;
+        c.diff_then_close = false;
+        c.require_form_token = false;
+        c.close_next_verify = false;
+        c.keyed_otp = true;
+        c.silence_at_joins = None;
+        c.strict_otp = true;
+        c.reject_once = false;
+        c.email_sends = 0;
+        c.posts.clear();
+        c.events.clear();
+        c.flash = None;
+    }
+    let home = fresh_home("dead-hb");
+    let mut session = begin_at(&home).await;
+    let (joins_after_start, emails_after_start) = {
+        let c = ctl.lock().unwrap();
+        (c.joins, c.email_sends)
+    };
+    assert_eq!(emails_after_start, 1, "the email is sent once, when the code is requested");
+    ctl.lock().unwrap().silence_at_joins = Some(joins_after_start);
+    session.set_heartbeat(Duration::from_millis(40));
+    let code = session.pump_until(emailed_code()).await.unwrap().unwrap();
+    let (emails, joins, events) = {
+        let c = ctl.lock().unwrap();
+        (c.email_sends, c.joins, c.events.clone())
+    };
+    assert_eq!(emails, 1, "a dead socket must not send another login email: {events:?}");
+    assert!(joins > joins_after_start, "an unanswered heartbeat reconnects (joins {joins_after_start} -> {joins})");
+    let posted = session.submit_code(&code).await;
+    let body = ctl.lock().unwrap().posts.last().cloned().unwrap_or_default();
+    assert!(body.contains("_csrf_token=form-csrf"), "form csrf missing: {body}");
+    assert!(!body.contains("_csrf_token=mock-csrf"), "page csrf was posted: {body}");
+    assert!(
+        body.contains(&format!("user%5Botp%5D={CODE}")) || body.contains(&format!("user[otp]={CODE}")),
+        "otp field missing: {body}"
+    );
+    assert!(!body.contains("user%5Bcode%5D") && !body.contains("user[code]"), "old code field was posted: {body}");
+    assert!(
+        body.contains("user%5Bremember_me%5D=true") || body.contains("user[remember_me]=true"),
+        "remember_me missing: {body}"
+    );
+    assert!(body.contains("marketing_opt_in=false"), "marketing field missing: {body}");
+    assert!(
+        body.contains("return_to=%2Frs") || body.contains("return_to=/rs"),
+        "return_to missing: {body}"
+    );
+    posted.unwrap();
+    assert!(std::fs::read_to_string(session_file(&home)).unwrap().contains(SESSION));
+
+    // A correct POST that the server rejects (redirect back to /auth) surfaces the flash
+    // and does not write a session. The same attempt can then sign in.
+    {
+        let mut c = ctl.lock().unwrap();
+        c.silence_at_joins = None;
+        c.reject_once = true;
+        c.posts.clear();
+        c.email_sends = 0;
+    }
+    let home = fresh_home("flash");
+    let mut session = begin_at(&home).await;
+    let err = session.submit_code(CODE).await.unwrap_err();
+    assert!(err.to_string().contains("invalid or expired code"), "{err:#}");
+    assert!(!err.to_string().contains(CODE), "the one-time code leaked into the error: {err:#}");
+    assert!(!session_file(&home).exists(), "a rejected sign-in does not write a session");
+    session.submit_code(CODE).await.unwrap();
+    assert!(session_file(&home).is_file());
 }
