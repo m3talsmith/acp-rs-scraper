@@ -276,9 +276,9 @@ pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "ena
 pub const THEMES_REL_DIR: &str = ".acp/themes";
 /// Where themes are downloaded from: the repo's `themes/` at this version's tag
 /// (`<base><name>.toml`). Themes are never installed by packages or built into the binary.
-pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v", env!("CARGO_PKG_VERSION"), "/themes/");
+pub const THEME_DOWNLOAD_BASE: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/");
 /// The default theme's download URL (fetched on the first run into an empty themes folder).
-pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-red-star/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
+pub const DEFAULT_THEME_URL: &str = concat!("https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v", env!("CARGO_PKG_VERSION"), "/themes/default.toml");
 /// Overrides [`THEME_DOWNLOAD_BASE`] (a URL ending in `/`), e.g. the mocked tests' server.
 pub const THEME_URL_ENV: &str = "ACP_THEME_URL";
 /// `off` / `0` / `false` / `no` turns the automatic first-run theme download off.

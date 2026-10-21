@@ -15,6 +15,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - A few surprises for the curious.
 - If you go looking, there is art in the dark of the tree.
 
+### Fixed
+
+- **Default theme download.** The first-run download and `--theme-init` fetch `themes/default.toml` from `m3talsmith/acp-rs-scraper`, the repository that holds the file. The old URL used `m3talsmith/acp-red-star`, which is not the repository, so the download failed. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
+
 ### Changed
 
 - **Search history and the action bar.** Each local or site search is a row in the encrypted database: the query and the filters only, including order and limit. Picking one re-runs it. Clear history deletes those rows and leaves posts alone. The default keeps the entire history. Search › History kept can cap it at the N newest rows, stored as `[ui] search_history_limit` in `preferences.toml`. An export of a search adds a `search` object with those fields. Format version stays 2. A full dump, a nick filter, and a basket do not add one. The right bar lists every action that led to the current view, with no cap, and collapses to one column. The list scrolls with the wheel and, when the bar is focused, with the arrows, PgUp, and PgDn. Clicking an earlier action jumps back. A new action after a jump keeps the later steps as another branch; the bar shows which branch, and `b` lists them. Branches are stored in the encrypted database. Clear history deletes the searches and the branches. An export from a restored search still carries the query. The nick bar collapses the same way. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including 3.22.0, are not moved.
