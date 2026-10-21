@@ -3,9 +3,9 @@
 //! A root reply matches the approved P0 capture: `postRef` first, then
 //! `form[thread_id]` and `form[body_input]`. Validate carries `meta._target`
 //! and `uploads: {}`. Save carries an empty `meta` and no `uploads` key.
-//! A confirmed text post or reply sends validate, then save, once. A post
-//! with attachments is refused. Vote, subscribe, delete, edit, and repost
-//! stay gated. `--dry-run` still opens no connection.
+//! A confirmed post or reply uploads the site copy, then sends validate, then
+//! save, once. Vote, subscribe, delete, edit, and repost stay gated.
+//! `--dry-run` still opens no connection.
 
 use super::attach::{self, PlannedAttachment};
 use super::prosemirror::{self, PmError};
@@ -294,8 +294,8 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
     }
     let mut omitted = if kind == Kind::Reply {
         vec![
-            "the upload channel (allow_upload / lvu) has not been captured, so media_attachments and file_attachments are not encoded and no file bytes are sent".into(),
-            "PDF and audio are not sent. The composer has a separate PDF input and no audio input; neither upload was captured".into(),
+            "file bytes travel as binary chunk frames on lvu:<entry ref> after allow_upload. This printout does not include the bytes.".into(),
+            "a pdf is sent on file_attachments when that input is on the form. Audio is not a site attachment. The captured composer has no audio input.".into(),
             "mention-query and tag-query replies have not been captured; completion is local and mention id is empty".into(),
             "no validate is sent after save. The captured browser sent one, and the server answered unmatched topic".into(),
             "join_ref, ref, and the LiveView topic are assigned on join. The printed frames use placeholders.".into(),
@@ -305,7 +305,8 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
     } else {
         vec![
             "_target is not in a captured new-post form, so it is not invented. The sent fields are form[title] and form[body_input].".into(),
-            "the upload channel (allow_upload / lvu) has not been captured, so media_attachments and file_attachments are not encoded and no file bytes are sent".into(),
+            "file bytes travel as binary chunk frames on lvu:<entry ref> after allow_upload. This printout does not include the bytes.".into(),
+            "a pdf is sent on file_attachments when that input is on the form. Audio is not a site attachment. The captured composer has no audio input.".into(),
             "mention-query and tag-query replies have not been captured; completion is local and mention id is empty".into(),
             "the new-post save reply was not in the P0 capture. A post id is read from thread:insert or live_redirect, the events the reply capture showed.".into(),
             "the LiveView topic and message ref are assigned on join. The printed frames use placeholders.".into(),
@@ -486,12 +487,17 @@ pub fn dry_run_text(plan: &WritePlan) -> String {
             let place = if file.on_site { "site" } else { "local-only" };
             s.push_str(&format!("- {place} {} {} ({} bytes) {}\n", file.kind.label(), file.name, file.bytes, file.path.display()));
         }
+        let kept: Vec<&str> = plan.attachments.iter().filter(|f| !f.on_site).map(|f| f.name.as_str()).collect();
+        s.push_str("not uploaded (kept on this machine): ");
+        s.push_str(&kept.join(", "));
+        s.push('\n');
     } else {
-        s.push_str("attachments (local only, not uploaded):\n");
+        s.push_str("attachments (sent after confirm):\n");
         for file in &plan.attachments {
-            s.push_str(&format!("- {} {} ({} bytes) {}\n", file.kind.label(), file.name, file.bytes, file.path.display()));
+            s.push_str(&format!("- site {} {} ({} bytes) {}\n", file.kind.label(), file.name, file.bytes, file.path.display()));
         }
     }
+    s.push_str(&super::upload::upload_plan_text(plan));
     if let Some(note) = &plan.site_notice {
         s.push_str(note);
         s.push('\n');
@@ -536,14 +542,14 @@ fn check_test_host(_url: &str) {}
 ///
 /// Text posts and replies are published. Uploads and the uncaptured
 /// interactions are not.
-pub const CAPTURE_BLOCK: &str = "text posts and replies are published. Uploads, votes, subscribes, deletes, edits, and reposts are not sent. The upload channel is not confirmed, so a post with attachments is refused. --dry-run prints the frames and does not connect. --capture-reply does not send.";
+pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. Votes, subscribes, deletes, edits, and reposts are not sent. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
 
 /// `--capture-reply` stops here. It does not copy `session.json` or open a page.
 pub fn capture_stub_message(thread: &str) -> String {
     format!(
         "--capture-reply {thread} did not open a connection and did not copy session.json.\n{CAPTURE_BLOCK}\n\
          The reviewed fixtures are tests/fixtures/site/reply_join.json, reply_validate.json, and reply_save.json. \
-         This flag does not send. Text publish uses --new-post and --reply. Still not sent: the upload channel, a validate after save, mention-query and tag-query, and any live read-back."
+         This flag does not send. Text publish uses --new-post and --reply. Still not sent: a validate after save, mention-query and tag-query, and any live read-back."
     )
 }
 
@@ -552,7 +558,7 @@ pub fn capture_stub_message(thread: &str) -> String {
 pub enum Gate {
     /// Dry-run text, or a cancel (`nothing sent`). No socket.
     Done(String),
-    /// Text-only plan. Send validate, then save, once. Do not retry.
+    /// Confirmed plan. Upload the site copy, then validate, then save, once. Do not retry.
     Send(WritePlan),
 }
 
@@ -565,8 +571,8 @@ pub struct Published {
     pub url: String,
 }
 
-/// Apply the safety checks. A confirmed text post or reply is [`Gate::Send`].
-/// A post with any attachment is refused, files included, so they are not dropped.
+/// Apply the safety checks. A confirmed post or reply is [`Gate::Send`].
+/// An empty site file is refused before a connection, so it is not dropped.
 pub fn decide(d: &Draft, confirmed: bool, dry_run: bool) -> Result<Gate, WriteError> {
     let plan = prepare(d)?;
     if let Some(src) = d.html.as_deref().and_then(|h| probe_html(h).script_src) {
@@ -582,12 +588,8 @@ pub fn decide(d: &Draft, confirmed: bool, dry_run: bool) -> Result<Gate, WriteEr
     if !confirmed {
         return Ok(Gate::Done("nothing sent".into()));
     }
-    if !plan.attachments.is_empty() {
-        let names = plan.attachments.iter().map(|f| f.name.as_str()).collect::<Vec<_>>().join(", ");
-        return Err(err(format!(
-            "this post has attachments ({names}). Uploads are not confirmed, so the files were kept and nothing was sent. Remove them, then publish the text.\n\n{CAPTURE_BLOCK}\n\n{}",
-            dry_run_text(&plan)
-        )));
+    if let Some(file) = plan.attachments.iter().find(|f| f.on_site && f.bytes == 0) {
+        return Err(err(format!("{} is empty. The file was kept and nothing was sent.", file.name)));
     }
     if let Some(wait) = rate_wait(d.last_write_unix, d.now_unix) {
         return Err(err(format!("rate limit: wait {wait}s before another post or reply. Nothing was sent.")));
@@ -703,14 +705,26 @@ fn reply_error(frames: &[Value]) -> Option<String> {
     reason
 }
 
-/// Join the compose page and send validate, then save, once.
-///
-/// Under test, a URL on `acp.us` panics. Callers in tests use [`after_reply`]
-/// and [`interpret`] with fixtures instead of this function.
-pub async fn publish_text(http: &reqwest::Client, jar: &Jar, plan: &WritePlan, accept_bundle: bool) -> Result<Published> {
-    if !plan.attachments.is_empty() {
-        bail!("this post has attachments. Uploads are not confirmed, so nothing was sent.");
+/// The success lines, plus any file that stayed on this machine.
+pub fn published_text(published: &Published, plan: &WritePlan) -> String {
+    let mut s = format!("published {}\n{}", published.id, published.url);
+    let local: Vec<&str> = plan.attachments.iter().filter(|f| !f.on_site).map(|f| f.name.as_str()).collect();
+    if !local.is_empty() {
+        s.push_str("\nnot uploaded (kept on this machine): ");
+        s.push_str(&local.join(", "));
     }
+    s
+}
+
+/// Join the compose page, upload the site copy, then send validate and save once.
+///
+/// `progress` is called with `uploading {name} {pct}%` when the integer percent
+/// changes. Under test, a URL on `acp.us` panics. Callers in tests use
+/// [`after_reply`] and [`interpret`] with fixtures instead of this function.
+pub async fn publish_text<F>(http: &reqwest::Client, jar: &Jar, plan: &WritePlan, accept_bundle: bool, mut progress: F) -> Result<Published>
+where
+    F: FnMut(&str) + Send,
+{
     let origin = base_url().trim_end_matches('/').to_string();
     let url = format!("{origin}{}", plan.page);
     check_test_host(&url);
@@ -739,29 +753,39 @@ pub async fn publish_text(http: &reqwest::Client, jar: &Jar, plan: &WritePlan, a
     }
     let page = crate::liveview::parse_lv(&url, &html)?;
     let mut lv = crate::liveview::Lv::connect(&page, jar).await.context("joining the compose page")?;
-    let mut frames = Vec::new();
-    let mut sent = 0usize;
-    let outcome = loop {
-        match after_reply(&payloads, sent, &frames) {
-            Err(e) => break Err(anyhow!("{e}")),
-            Ok(None) => break interpret(&frames, &origin).map_err(|e| anyhow!("{e}")),
-            Ok(Some(payload)) => {
-                let reply = match lv.push("event", payload).await {
-                    Ok(reply) => reply,
-                    Err(e) => {
-                        let msg = crate::logging::redact_secrets(&format!("{e:#}"));
-                        break Err(anyhow!("{msg}. Nothing was retried."));
-                    }
-                };
-                let errored = reply.get("status").and_then(Value::as_str) == Some("error");
-                frames.push(reply);
-                sent += 1;
-                if sent == payloads.len() && !errored {
-                    match lv.collect_for(std::time::Duration::from_secs(3)).await {
-                        Ok(extra) => frames.extend(extra),
+    let upload_result = if plan.attachments.iter().any(|a| a.on_site) {
+        let rendered = lv.html();
+        super::upload::send_uploads(&mut lv, &plan, &rendered, &html, &mut progress).await
+    } else {
+        Ok(())
+    };
+    let outcome = if let Err(e) = upload_result {
+        Err(e)
+    } else {
+        let mut frames = Vec::new();
+        let mut sent = 0usize;
+        loop {
+            match after_reply(&payloads, sent, &frames) {
+                Err(e) => break Err(anyhow!("{e}")),
+                Ok(None) => break interpret(&frames, &origin).map_err(|e| anyhow!("{e}")),
+                Ok(Some(payload)) => {
+                    let reply = match lv.push("event", payload).await {
+                        Ok(reply) => reply,
                         Err(e) => {
                             let msg = crate::logging::redact_secrets(&format!("{e:#}"));
-                            break Err(anyhow!("the save was sent and the reply could not be read ({msg}). Nothing was retried. Check the site before posting again."));
+                            break Err(anyhow!("{msg}. Nothing was retried."));
+                        }
+                    };
+                    let errored = reply.get("status").and_then(Value::as_str) == Some("error");
+                    frames.push(reply);
+                    sent += 1;
+                    if sent == payloads.len() && !errored {
+                        match lv.collect_for(std::time::Duration::from_secs(3)).await {
+                            Ok(extra) => frames.extend(extra),
+                            Err(e) => {
+                                let msg = crate::logging::redact_secrets(&format!("{e:#}"));
+                                break Err(anyhow!("the save was sent and the reply could not be read ({msg}). Nothing was retried. Check the site before posting again."));
+                            }
                         }
                     }
                 }

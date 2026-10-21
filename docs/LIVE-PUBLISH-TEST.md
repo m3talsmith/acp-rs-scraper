@@ -46,7 +46,7 @@ Check the printed frames:
 - A reply shows `form[thread_id]` and `form[body_input]`, then `"event": "validate"` and `"event": "save"`.
 - A new post shows `form[title]` and `form[body_input]`, then the same two events.
 - There is no third event after save.
-- No file name is inside the frames. If you passed `--attachment`, remove it. A post that still has files is refused and nothing is sent.
+- A text-only dry-run has no file name inside the validate and save frames. An attachment dry-run is a later step. It prints an `allow_upload` plan and still does not connect.
 - The printout has no session cookie, no one-time code, and no `_csrf_token` value.
 
 ## One real post
@@ -76,6 +76,73 @@ A reply URL is `/rs/post/THREAD/POST_ID`. Open that URL on the site and confirm 
 
 A second confirm inside 30 seconds waits. That wait is expected. Do not send a second post to get around it.
 
+## Attachments
+
+Do this only after the text-only post above has worked, and only with files you are willing to put on the site. Use a throwaway sentence so you can find the post later. Do not pass `--yes` on the first try of each file. A second confirm inside 30 seconds waits. That wait is expected.
+
+The client uploads the site copy, then sends validate and save once. It does not retry a chunk, and it does not send the post again if the upload fails. If the error says the post was not saved, the bytes did not become a post. If the error says to check the site, look before you post again.
+
+### Dry-run with a small image
+
+Pick a small JPEG or PNG, well under a megabyte.
+
+```bash
+./target/release/acprs --new-post "upload check image" --body "small image from the client" --attachment /path/to/small.jpg --dry-run
+```
+
+Check the printout:
+
+- The first line says `dry-run: no connection opened`.
+- An `upload plan` names `media_attachments`, `ref=phx:<page>`, the file name, `image/jpeg` or `image/png`, the size, and a chunk count. `chunk_size 64000` is the captured default. A live reply can change it.
+- The validate and save frames are still there, and they do not contain the file bytes.
+- There is no session cookie, no one-time code, no `_csrf_token` value, and no `SFMyNTY` blob.
+
+### One small image
+
+```bash
+./target/release/acprs --new-post "upload check image" --body "small image from the client" --attachment /path/to/small.jpg
+```
+
+Answer `y` only when you mean to post. Stderr prints `uploading small.jpg N%` as the integer percent changes, then the command prints:
+
+```text
+published POST_ID
+https://acp.us/rs/post/...
+```
+
+In the full-screen client, `n`, attach the same file, move from Cancel to Publish, and confirm. The status line shows the same `uploading` lines, then `publishing…`, then a Published box.
+
+Open the URL. The image should be on the post. If the site rejected the file, the command names it and says nothing was sent or nothing was retried. Do not run it again until you have read that line.
+
+### Optional small PDF
+
+A PDF uses the separate file input (`file_attachments`, accept `.pdf`). It counts toward the same 4 as images and videos.
+
+```bash
+./target/release/acprs --new-post "upload check pdf" --body "small pdf from the client" --attachment /path/to/notes.pdf --dry-run
+```
+
+The plan should name `file_attachments` and `application/pdf`. Then, when you mean to post:
+
+```bash
+./target/release/acprs --new-post "upload check pdf" --body "small pdf from the client" --attachment /path/to/notes.pdf
+```
+
+Open the URL and confirm the PDF is attached. This step is optional. Skip it if you only wanted the image.
+
+### Then a video
+
+Use a short MP4 you can afford to upload. The progress line may sit at `0%` for a while, because percent is an integer and the chunks are 64000 bytes until the server says otherwise.
+
+```bash
+./target/release/acprs --new-post "upload check video" --body "short video from the client" --attachment /path/to/clip.mp4 --dry-run
+./target/release/acprs --new-post "upload check video" --body "short video from the client" --attachment /path/to/clip.mp4
+```
+
+Confirm the video plays or is listed on the post. A reply with an attachment is the same flags with `--reply THREAD` instead of `--new-post`.
+
+Audio and other documents are kept locally and named as not uploaded. They should not appear on the site. `.tif` is not renamed to `.tiff`. If the form's accept list rejects a name, the command stops before save.
+
 ## If the site refuses it
 
 The command prints the reason and says nothing was retried. Read that reason. Do not run the command again until you know the first attempt did not land. A save that was sent, with no id in the reply, says to check the site before posting again. Search your profile for the exact sentence you used. If it is there, do not post it again.
@@ -96,4 +163,4 @@ Share the dry-run text, the two success lines (id and URL), and, if it failed, t
 - a signed flash (`SFMyNTY…`)
 - anyone else's home directory
 
-Say whether you used the command line or the compose box, and whether the post was still visible before you deleted it.
+Say whether you used the command line or the compose box, whether the attempt was text, an image, a PDF, or a video, and whether the post was still visible before you deleted it. Do not paste an upload token or a chunk of the file.

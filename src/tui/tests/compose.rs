@@ -182,10 +182,9 @@ fn attach_line_lists_a_local_file_and_publish_stays_gated() {
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Enter);
-    let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal); };
-    let text = m.lines.join("\n");
-    assert!(text.contains("nothing was sent"), "{text}");
-    assert!(text.contains("photo.jpg"), "{text}");
+    assert!(a.modal.is_none(), "publish closes the compose box: {:?}", a.modal);
+    assert!(a.status.iter().any(|s| s.contains("publishing")), "{:?}", a.status);
+    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::Publish(_))));
     assert!(a.last_write_unix.is_some());
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -231,7 +230,9 @@ fn reply_attach_line_accepts_a_pdf_and_drops_it_on_backspace() {
     assert!(m.error.is_none(), "{:?}", m.error);
     assert_eq!(m.attachments.len(), 2, "a text file stays attached locally");
     let plan = crate::site::prepare(&m.draft(0, None, true)).unwrap();
-    assert!(plan.attachments.iter().all(|a| !a.on_site), "pdf and text stay off the site");
+    assert!(plan.attachments[0].on_site, "a pdf is uploaded");
+    assert!(!plan.attachments[1].on_site, "a text file stays off the site");
+    assert_eq!(plan.attachments[0].kind.input_name(), "file_attachments");
     assert!(m.attach_path.is_empty());
     key(&mut a, KeyCode::Backspace);
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };

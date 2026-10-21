@@ -109,25 +109,91 @@ impl Lv {
     pub async fn push(&mut self, event: &str, payload: Value) -> Result<Value> {
         self.r += 1;
         let want = self.r.to_string();
-        let msg = json!(["1", want, self.topic, event, payload]);
+        let msg = json!(["1", &want, self.topic, event, payload]);
         dbg_log("push", &msg.to_string());
         self.send_text(&msg).await?;
+        self.wait_reply(&want, None).await
+    }
+
+    /// Join a topic whose `join_ref` is the same as the message ref.
+    ///
+    /// The upload channel does this (`lvu:<entry ref>`). The page channel keeps
+    /// join ref `"1"`. The returned string is the join ref to reuse on later
+    /// pushes to this topic.
+    pub async fn join_topic(&mut self, topic: &str, payload: Value) -> Result<(String, Value)> {
+        self.r += 1;
+        let want = self.r.to_string();
+        let msg = json!([&want, &want, topic, "phx_join", payload]);
+        dbg_log("push", &msg.to_string());
+        self.send_text(&msg).await?;
+        let reply = self.wait_reply(&want, None).await?;
+        Ok((want, reply))
+    }
+
+    /// Push a Phoenix V2 binary frame and wait for the text `phx_reply` on `msg_ref`.
+    ///
+    /// The debug line names the topic and the byte count. The file bytes are not logged.
+    pub async fn push_binary(
+        &mut self,
+        join_ref: &str,
+        topic: &str,
+        event: &str,
+        bytes: &[u8],
+        timeout: std::time::Duration,
+    ) -> Result<Value> {
+        self.r += 1;
+        let want = self.r.to_string();
+        let bin = encode_binary_push(join_ref, &want, topic, event, bytes)?;
+        dbg_log("push", &format!("binary {topic} chunk {} bytes", bytes.len()));
+        self.ws
+            .send(Message::binary(bin))
+            .await
+            .map_err(|e| anyhow!("websocket closed: {e}"))?;
+        self.wait_reply(&want, Some(timeout)).await
+    }
+
+    /// Leave a topic. A missing reply, or a socket that is already closed, is ignored.
+    pub async fn leave_topic(&mut self, join_ref: &str, topic: &str) {
+        self.r += 1;
+        let want = self.r.to_string();
+        let msg = json!([join_ref, &want, topic, "phx_leave", {}]);
+        dbg_log("push", &msg.to_string());
+        if self.send_text(&msg).await.is_err() {
+            return;
+        }
+        let _ = self.wait_reply(&want, Some(std::time::Duration::from_secs(2))).await;
+    }
+
+    /// Wait until `phx_reply` for `want`. `timeout` bounds an upload chunk. A page push passes `None`.
+    async fn wait_reply(&mut self, want: &str, timeout: Option<std::time::Duration>) -> Result<Value> {
+        let started = tokio::time::Instant::now();
         let mut beat = tokio::time::interval(self.heartbeat);
         beat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         beat.tick().await;
         loop {
+            let timeout_sleep = async {
+                match timeout {
+                    Some(limit) => tokio::time::sleep(limit.saturating_sub(started.elapsed())).await,
+                    None => std::future::pending::<()>().await,
+                }
+            };
             let frame = {
                 let ws = &mut self.ws;
                 tokio::select! {
                     biased;
                     msg = ws.next() => Some(msg),
                     _ = beat.tick() => None,
+                    _ = timeout_sleep => {
+                        bail!("upload timed out waiting for a reply");
+                    }
                 }
             };
             match frame {
                 None => self.send_heartbeat().await?,
                 Some(msg) => {
-                    if let Some(reply) = self.absorb(msg, Some(&want)).await? { return Ok(reply); }
+                    if let Some(reply) = self.absorb(msg, Some(want)).await? {
+                        return Ok(reply);
+                    }
                 }
             }
         }
@@ -281,6 +347,58 @@ pub fn props(html: &str, sel: &str) -> Option<Value> {
     let doc = Html::parse_document(html);
     let el = doc.select(&Selector::parse(sel).ok()?).next()?;
     serde_json::from_str(el.value().attr("data-props")?).ok()
+}
+
+/// Phoenix V2 binary push. `kind` 0, then one length byte each for join ref, ref, topic, and event, then those strings, then the raw bytes.
+///
+/// A captured chunk header is 21 bytes when the refs are three digits, the topic is `lvu:1`, and the event is `chunk`: 5 length bytes + 3 + 3 + 5 + 5.
+pub fn encode_binary_push(join_ref: &str, msg_ref: &str, topic: &str, event: &str, bytes: &[u8]) -> Result<Vec<u8>> {
+    let jr = join_ref.as_bytes();
+    let rf = msg_ref.as_bytes();
+    let tp = topic.as_bytes();
+    let ev = event.as_bytes();
+    if jr.len() > 255 || rf.len() > 255 || tp.len() > 255 || ev.len() > 255 {
+        bail!("a binary push field is longer than 255 bytes");
+    }
+    let mut out = Vec::with_capacity(5 + jr.len() + rf.len() + tp.len() + ev.len() + bytes.len());
+    out.push(0);
+    out.push(jr.len() as u8);
+    out.push(rf.len() as u8);
+    out.push(tp.len() as u8);
+    out.push(ev.len() as u8);
+    out.extend_from_slice(jr);
+    out.extend_from_slice(rf);
+    out.extend_from_slice(tp);
+    out.extend_from_slice(ev);
+    out.extend_from_slice(bytes);
+    Ok(out)
+}
+
+/// Kind, join ref, message ref, topic, event, and the trailing bytes of a Phoenix V2 binary push.
+pub type BinaryPush<'a> = (u8, String, String, String, String, &'a [u8]);
+
+/// Split a Phoenix V2 binary push into kind, join ref, ref, topic, event, and the trailing bytes.
+pub fn decode_binary_push(bytes: &[u8]) -> Option<BinaryPush<'_>> {
+    if bytes.len() < 5 {
+        return None;
+    }
+    let kind = bytes[0];
+    let jl = bytes[1] as usize;
+    let rl = bytes[2] as usize;
+    let tl = bytes[3] as usize;
+    let el = bytes[4] as usize;
+    let mut i = 5usize;
+    let take = |i: &mut usize, n: usize| -> Option<String> {
+        let end = i.checked_add(n)?;
+        let slice = bytes.get(*i..end)?;
+        *i = end;
+        String::from_utf8(slice.to_vec()).ok()
+    };
+    let join_ref = take(&mut i, jl)?;
+    let msg_ref = take(&mut i, rl)?;
+    let topic = take(&mut i, tl)?;
+    let event = take(&mut i, el)?;
+    Some((kind, join_ref, msg_ref, topic, event, bytes.get(i..)?))
 }
 
 /// LiveView put `{:reply, map}` under response.r (LV >= 0.18) or response itself.

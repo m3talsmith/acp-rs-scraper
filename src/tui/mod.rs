@@ -51,6 +51,8 @@ enum Msg {
     LoginDone(u64, std::result::Result<(), String>),
     AutoSyncChecked(std::result::Result<bool, String>, Vec<String>),
     ThemeDownloaded(String, bool, std::result::Result<crate::themes::download::Fetched, String>),
+    /// One upload percent changed. The line is `uploading {name} {pct}%`.
+    PublishProgress(String),
     /// One text publish finished. The error is already redacted.
     Published(std::result::Result<String, String>),
 }
@@ -282,6 +284,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 Msg::LoginDone(g, r) if g == login_gen => { login_tx = None; login_task = None; app.login_done(r); }
                 Msg::AutoSyncChecked(r, argv) => app.auto_sync_checked(r, argv),
                 Msg::ThemeDownloaded(name, manual, r) => app.theme_downloaded(&name, manual, r),
+                Msg::PublishProgress(line) => app.push_status(line),
                 Msg::Published(r) => app.publish_finished(r),
                 Msg::LoginNeedCode(_) | Msg::LoginHold(..) | Msg::LoginDone(..) => {}
             },
@@ -353,9 +356,13 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     let now = chrono::Utc::now().timestamp();
                     tokio::spawn(async move {
                         crate::site::store_last_write(now);
-                        let r = crate::site::publish_text(&http, &jar, &plan, false).await
-                            .map(|p| format!("published {}\n{}", p.id, p.url))
-                            .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
+                        let tx_progress = tx.clone();
+                        let r = crate::site::publish_text(&http, &jar, &plan, false, move |line| {
+                            let _ = tx_progress.send(Msg::PublishProgress(line.to_string()));
+                        })
+                        .await
+                        .map(|p| crate::site::published_text(&p, &plan))
+                        .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
                         let _ = tx.send(Msg::Published(r));
                     });
                 }

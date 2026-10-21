@@ -1,11 +1,12 @@
-//! Write core (3.4.0), attachments (3.5.0), and text publish (3.35.0).
+//! Write core (3.4.0), attachments (3.5.0), text publish (3.35.0), and uploads (3.36.0).
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the reply frames
-//! live here. A confirmed text post or reply sends validate, then save, once.
-//! A post with attachments is refused. Vote, subscribe, delete, edit, and
-//! repost stay behind [`write::CAPTURE_BLOCK`]. Edit keeps the one-hour window
-//! and does not build the form. Repost names the documented route and does
-//! not build the form. `--dry-run` opens no connection.
+//! live here. A confirmed post or reply uploads the site copy, then sends
+//! validate, then save, once. Images, videos, and PDFs are the site copy, at
+//! most 4. Vote, subscribe, delete, edit, and repost stay behind
+//! [`write::CAPTURE_BLOCK`]. Edit keeps the one-hour window and does not build
+//! the form. Repost names the documented route and does not build the form.
+//! `--dry-run` opens no connection.
 
 mod attach;
 pub mod delete;
@@ -14,6 +15,7 @@ pub mod repost;
 pub mod subscribe;
 pub mod vote;
 mod prosemirror;
+mod upload;
 mod write;
 
 pub use attach::{
@@ -23,7 +25,7 @@ pub use attach::{
 pub use prosemirror::{BODY_CHAR_LIMIT, assemble, markdown_to_doc, plain_blocks, post_ref};
 pub use write::{
     CAPTURE_BLOCK, Completion, Draft, Gate, Kind, NickHint, Probe, Published, WriteError, WritePlan, bundle_changed, capture_stub_message,
-    after_reply, completions, decide, dry_run_text, event_payloads, interpret, liveview_frames, load_last_write, prepare, probe_html, publish_text, rate_wait, refuse_live_write, store_last_write, writes_enabled,
+    after_reply, completions, decide, dry_run_text, event_payloads, interpret, liveview_frames, load_last_write, prepare, probe_html, publish_text, published_text, rate_wait, refuse_live_write, store_last_write, writes_enabled,
     writes_enabled_from,
 };
 
@@ -217,8 +219,8 @@ pub async fn run_cli(args: &Args) -> Result<()> {
             }
             let http = client(jar.clone())?;
             login(&http, &jar).await?;
-            let published = publish_text(&http, &jar, &plan, draft.accept_bundle).await?;
-            println!("published {}\n{}", published.id, published.url);
+            let published = publish_text(&http, &jar, &plan, draft.accept_bundle, |line| eprintln!("{line}")).await?;
+            println!("{}", published_text(&published, &plan));
             Ok(())
         }
         Err(e) => bail!("{e}"),
@@ -510,15 +512,17 @@ mod tests {
         std::fs::write(&pdf, b"pdf").unwrap();
         std::fs::write(&bad, b"nope").unwrap();
         let mut d = draft();
-        d.attachments = vec![jpg.clone(), pdf.clone()];
+        d.attachments = vec![jpg.clone(), pdf.clone(), bad.clone()];
         let plan = prepare(&d).unwrap();
-        assert_eq!(plan.attachments.len(), 2);
+        assert_eq!(plan.attachments.len(), 3);
         assert!(plan.attachments[0].on_site);
-        assert!(!plan.attachments[1].on_site, "a pdf stays on the local copy");
+        assert!(plan.attachments[1].on_site, "a pdf is a site file");
+        assert!(!plan.attachments[2].on_site, "a text file stays on the local copy");
         assert!(plan.site_notice.is_none());
         assert_eq!(plan.attachments[0].kind, AttachmentKind::Media);
         assert_eq!(plan.attachments[0].kind.input_name(), "media_attachments");
         assert_eq!(plan.attachments[1].kind, AttachmentKind::File);
+        assert_eq!(plan.attachments[1].kind.input_name(), "file_attachments");
         assert_eq!(plan.attachments[1].bytes, 3);
         let frames = serde_json::to_string(&liveview_frames(&plan)).unwrap();
         assert!(!frames.contains("photo.jpg"), "{frames}");
@@ -528,15 +532,22 @@ mod tests {
         let text = shown(decide(&d, false, true));
         assert!(text.contains("the site copy is a subset"), "{text}");
         assert!(text.contains("site media photo.jpg"), "{text}");
-        assert!(text.contains("local-only file notes.pdf"), "{text}");
+        assert!(text.contains("site file notes.pdf"), "{text}");
+        assert!(text.contains("local-only file notes.txt"), "{text}");
+        assert!(text.contains("not uploaded (kept on this machine)"), "{text}");
         assert!(text.contains("allow_upload"), "{text}");
-        assert!(text.contains("no file bytes are sent"), "{text}");
+        assert!(text.contains("phx:<page>"), "{text}");
+        assert!(text.contains("file_attachments"), "{text}");
+        assert!(!text.contains("jpeg-bytes"), "{text}");
         assert!(!text.contains("nothing was published"), "{text}");
-        let err = decide(&d, true, false).unwrap_err();
-        assert!(err.message.contains("nothing was sent"), "{}", err.message);
-        assert!(err.message.contains("photo.jpg"), "{}", err.message);
-        assert!(err.message.contains("notes.pdf"), "{}", err.message);
-        assert!(err.message.contains("allow_upload"), "{}", err.message);
+        let Gate::Send(sent) = decide(&d, true, false).unwrap() else {
+            panic!("a post with a site file is ready to send");
+        };
+        assert!(sent.attachments.iter().any(|a| a.name == "photo.jpg" && a.on_site));
+        assert!(sent.attachments.iter().any(|a| a.name == "notes.pdf" && a.on_site));
+        assert!(sent.attachments.iter().any(|a| a.name == "notes.txt" && !a.on_site));
+        let frames = serde_json::to_string(&liveview_frames(&sent)).unwrap();
+        assert!(!frames.contains("allow_upload") && !frames.contains("jpeg-bytes"), "{frames}");
         d.attachments = vec![bad.clone()];
         let notes = prepare(&d).unwrap();
         assert!(!notes.attachments[0].on_site, "a text file stays local");
@@ -558,6 +569,17 @@ mod tests {
         let upper = dir.join("PHOTO.JPG");
         std::fs::write(&upper, b"j").unwrap();
         assert_eq!(plan_attachment(&upper).unwrap().kind, AttachmentKind::Media);
+        let pdf_path = dir.join("sample.pdf");
+        std::fs::write(&pdf_path, b"%PDF").unwrap();
+        let planned_pdf = plan_attachment(&pdf_path).unwrap();
+        assert_eq!(planned_pdf.kind, AttachmentKind::File);
+        assert!(planned_pdf.on_site);
+        let empty = dir.join("empty.jpg");
+        std::fs::write(&empty, b"").unwrap();
+        d.site_attachments = None;
+        d.attachments = vec![empty];
+        let empty_err = decide(&d, true, false).unwrap_err().message;
+        assert!(empty_err.contains("empty") && empty_err.contains("nothing was sent"), "{empty_err}");
         use clap::Parser;
         let parsed = Args::try_parse_from(["x", "--new-post", "Title", "--attachment", jpg.to_str().unwrap(), "--dry-run"]).unwrap();
         assert!(cli_requested(&parsed));
@@ -582,29 +604,34 @@ mod tests {
         assert!(plan.attachments.iter().take(4).all(|a| a.on_site));
         assert!(plan.attachments.iter().skip(4).all(|a| !a.on_site));
         let note = plan.site_notice.clone().unwrap();
-        assert_eq!(note, "site copy keeps the first 4 of 5 images or videos (Red Star allows 4: image/* and video/*). Left off the site: 5 notes.pdf, 6 extra.png");
+        let kinds = crate::config::site_attachment_kinds();
+        assert_eq!(note, format!("site copy keeps the first 4 of 6 files the site copy can take (Red Star allows 4: {kinds}). Left off the site: 5 notes.pdf, 6 extra.png"));
         let text = shown(decide(&d, false, true));
         assert!(text.contains(&note), "{text}");
         assert!(text.contains("local-only file notes.pdf"), "{text}");
         assert!(text.contains("site media one.jpg"), "{text}");
         assert!(!text.contains("nothing was published"), "{text}");
-        let err = decide(&d, true, false).unwrap_err();
-        assert!(err.message.contains("nothing was sent"), "{}", err.message);
-        assert!(err.message.contains("one.jpg"), "{}", err.message);
-        assert!(err.message.contains("5 notes.pdf"), "{}", err.message);
-        assert!(err.message.contains("allow_upload"), "{}", err.message);
+        assert!(text.contains("allow_upload"), "{text}");
+        let Gate::Send(sent) = decide(&d, true, false).unwrap() else {
+            panic!("the site copy is ready to send");
+        };
+        assert!(sent.attachments.iter().any(|a| a.name == "one.jpg" && a.on_site));
+        assert!(sent.attachments.iter().any(|a| a.name == "notes.pdf" && !a.on_site));
+        assert!(sent.site_notice.as_deref().is_some_and(|n| n.contains("5 notes.pdf")));
         let frames = serde_json::to_string(&liveview_frames(&plan)).unwrap();
         assert!(!frames.contains("notes.pdf"), "{frames}");
         d.attachments.truncate(4);
         let few = prepare(&d).unwrap();
         assert!(few.attachments.iter().all(|a| a.on_site));
         assert!(few.site_notice.is_none());
-        assert!(shown(decide(&d, false, true)).contains("attachments (local only, not uploaded)"));
+        assert!(shown(decide(&d, false, true)).contains("attachments (sent after confirm)"));
+        assert!(shown(decide(&d, false, true)).contains("allow_upload"));
         d.attachments = paths.clone();
         d.site_attachments = Some(vec![0, 2, 4, 5]);
-        let refused = prepare(&d).unwrap_err().message;
-        assert!(refused.contains("notes.pdf"), "{refused}");
-        assert!(refused.contains("image/*") && refused.contains("video/*"), "{refused}");
+        let chosen_pdf = prepare(&d).unwrap();
+        assert!(chosen_pdf.attachments[4].on_site, "a chosen pdf is uploaded");
+        assert_eq!(chosen_pdf.attachments[4].kind.input_name(), "file_attachments");
+        assert!(chosen_pdf.attachments[4].name.ends_with("notes.pdf"));
         d.site_attachments = Some(vec![0, 2, 3, 5]);
         let chosen = prepare(&d).unwrap();
         assert!(chosen.site_notice.is_none());

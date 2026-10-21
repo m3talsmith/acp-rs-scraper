@@ -23,3 +23,8 @@ contains other members' notification text, so it is not in this directory. The f
 
 The reply tests load these three files. They compare the composed validate and save
 payloads to the captured frames. They do not open a socket.
+
+`upload.json` is not a slice of a capture. It is a minimized stand-in for the
+2026-10-21 upload notes in `architecture/UPLOAD-CAPTURE.md`: invented names,
+refs, and tokens. The upload tests compare `allow_upload`, the `lvu` join, and
+the progress payload to it. They do not open a socket.
