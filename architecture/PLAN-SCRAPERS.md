@@ -23,7 +23,7 @@ Decisions from 2026-10-21, which override any older sentence in this file:
 - **Comments.** The full depth is scraped by default. Optional settings cap the depth and the count (§5.1).
 - **Live chat replays** are in scope: `kind = chat` rows, shown on the Chat tab (§5.1, §14).
 - **Combined views.** Mixed and grouped are both offered. The default is mixed, sorted by time: the updated time when the item has one, otherwise the posted time (§10).
-- **Keys.** The source-switcher binding waits on a later modal-input design. It will be a Ctrl global key. This plan does not pick the chord (§10.1).
+- **Keys.** Modal input ships in v3, before launch. The design is [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md). The source switcher is a Ctrl global. The default chord in that keymap is `ctrl-]`, and it is remappable (§10.1).
 - **Global actions.** Bookmarks, site search, and edit history are app actions. They are not capability traits (§2.3).
 - **Notification.** Every action that notifies implements `Notification`, local toasts included. Phase A refactors the existing notices, rule engine, and alert-template code onto that trait if the split needs it (§2.3, §9).
 - **What the user turns on.** Red Star (the party's web app at acp.us) is enabled by default. Every other service starts off. The user turns one on in the Services preferences screen, or with the CLI and config equivalents, and fills in that service's details only then.
@@ -620,7 +620,7 @@ Video, audio and transcripts are available on every service that implements `Med
 - New condition fields when the columns exist: `kind`, `transcript_kind`.
 - "Watch a user" takes a service and a nick that is valid there. "Replies to me" uses that service's configured own nick. "Saved search" spans enabled services unless the rule names one.
 - Finish, budget stop, 429, a challenge, and a missing yt-dlp notify through `Notification`. Local toasts are that trait, implemented by the app. A service implements the same trait when it has its own notice stream.
-- Phase A refactors the existing notices, rule engine, and alert-template code onto `Notification` if the split needs it. The versioning-cleanup draft labels those features 3.32.0 (notices), 3.33.0 (the rule engine), and 3.34.0 (alert templates). Those numbers are that draft's labels. This plan does not retag them and does not wait on that draft.
+- Phase A refactors the existing notices, rule engine, and alert-template code onto `Notification` if the split needs it. The versioning-cleanup draft labels those features 3.27.0 (notices), 3.28.0 (the rule engine), and 3.29.0 (alert templates). Those numbers are that draft's labels. This plan does not retag them and does not wait on that draft.
 - Feeds (P7, not built yet) gain an optional `sources` list. The share string still has no tokens and no cookies.
 - Research items can point at any namespaced id. Research › Add current view follows §2.4.
 - This plan is what gives PLAN-4.0 its post-source columns and YouTube transcripts. Diarization and `transcript_corrections` stay in 4.0. The channel list for a corpus is the user's `channels` in `youtube.toml`, not a hard-coded set.
@@ -646,7 +646,7 @@ Flags are generated from the capability set and the schema as far as clap allows
 TUI:
 
 - **Services** preferences screen (§4.5).
-- **Source switcher** for which service's rows are on screen: one service, or All. The choice is remembered in `[ui]`, because it is a view, not a service secret. View › Source and a palette entry exist either way. The key is a Ctrl global under the modal-input design (§10.1). This plan does not pick the chord.
+- **Source switcher** for which service's rows are on screen: one service, or All. The choice is remembered in `[ui]`, because it is a view, not a service secret. View › Source and a palette entry exist either way. The key is the Ctrl global `view.source`. The default binding is `ctrl-]` in [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md), and the keymap can change it.
 - **Nick bar** sections per enabled service, prefix hidden, badge shown.
 - **Cards.** Badge, permalink, and a video detail with the tabs that service's capabilities allow (Description, Transcript, Comments, Chat). A missing capability omits the tab. YouTube's Chat tab shows `kind=chat` rows.
 - **Actions** follow §2.4. Bookmarks, site search, and edit history stay global actions (§2.3). One confirm sends a write to every selected service where it is Ready and skips the others.
@@ -655,15 +655,15 @@ TUI:
 
 Both combined layouts are offered. **Mixed** is the default: one list, newest first. The sort key is the item's updated time when it has one, and `posted_at` otherwise. For a Red Star post the updated time is the latest `post_versions.edited_at` that is a real timestamp. A `~NNNN` placeholder is not a time, and a row with no edit uses `posted_at`. **Grouped** keeps a section per service, and each section uses that same key. The choice is remembered in `[ui]`. Capability rules for both layouts are in §2.4.
 
-### 10.1 Future: modal input
+### 10.1 Modal input
 
-After the service features have landed, input becomes modal, in the way Neovim modes are modal. This section records the shape. It is not a keymap, and it is not part of phases A–E.
+Modal input is in v3, required before the 3.0 launch. The design is [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md), and the 3.0 roadmap points at it. It is not part of phases A–E.
 
 The app enters a mode for what is focused. Viewing a post enters post mode, and that mode's keys become valid. In post mode, `r` replies. Global keys stay, and they move behind a Ctrl-<key> pattern. Every other key is a mode hotkey.
 
 A mode's keys are the capabilities of the focused object's service. Post mode on a Red Star post offers the Red Star capabilities that are `Ready`. The same mode on an X post offers X's capabilities. A capability the service does not implement has no key in that mode.
 
-The source switcher is one of the Ctrl global keys. The exact chord belongs to that design.
+The source switcher is one of the Ctrl global keys. The default binding is `ctrl-]`. The keymap file can change it.
 
 ---
 
@@ -711,11 +711,11 @@ Packaging stays on the alpha gate in §4.5 of the 3.0 plan. This plan does not c
 
 ## 14. Phases
 
-Labels are relative. They are not crate versions. One feature is one minor when it ships, and the post-commit hook tags that bump. The versioning cleanup PR assigns the real numbers. Nothing here moves a numbered stage in the 3.0 plan.
+Labels are relative. They are not crate versions. One feature is one minor when it ships, and the tag is created when that bump is on main. The versioning cleanup PR assigns the real numbers. Nothing here moves a numbered stage in the 3.0 plan.
 
 | Label | Phase | What ships | Depends on |
 |---|---|---|---|
-| **A** | Red Star modularization | Extract today's Red Star behaviour behind the traits and into `acp_red_star_service_redstar`. Red Star registers through the registrar. No plugin-directory scan. If the trait split needs it, refactor notices, the rule engine, and alert templates onto `Notification` (versioning-cleanup labels 3.32.0, 3.33.0, and 3.34.0). No new flags, no settings migration, no schema change for other services. The existing test suite passes with no behaviour change. | — |
+| **A** | Red Star modularization | Extract today's Red Star behaviour behind the traits and into `acp_red_star_service_redstar`. Red Star registers through the registrar. No plugin-directory scan. If the trait split needs it, refactor notices, the rule engine, and alert templates onto `Notification` (versioning-cleanup labels 3.27.0, 3.28.0, and 3.29.0). No new flags, no settings migration, no schema change for other services. The existing test suite passes with no behaviour change. | — |
 | **B** | Registry and Services | Services screen, schema-driven CLI, `~/.acp/services/*.toml`, sealed secrets, Red Star migration off `preferences.toml` and `session.json` (§4.2). The loader scans `~/.acp/plugins/`, refuses a rustc or core-version mismatch, and lists refused plugins. Red Star on by default. X and YouTube register statically and stay off. Enabling X's session shows the §13 acknowledgement and does not yet scrape. | A |
 | **C-yt** | YouTube reads | Session route (yt-dlp metadata, channels, playlists, incremental and backfill, thumbnails) and the API route (quota meter and confirm). Comments at full depth, with optional depth and count caps. Live chat replays stored as `kind=chat` and shown on the Chat tab. Parallel with C-x. | B |
 | **C-x** | X reads | Session route, including search and replies, with pacing, daily cap and the acknowledgement. API route with the spend confirm and ledger. Parallel with C-yt. | B |
@@ -730,7 +730,7 @@ Not scheduled: X Spaces or Communities metadata, and Feeds `sources` filters onc
 
 ## 15. Open questions
 
-Resolved, and not re-opened: separate crates; X cookies sealed in the encrypted database; backups strip `source_secrets`; X and YouTube stay out of P9 peer sync by default; Red Star on and other services off; session route as the default; search and replies included on the X session; video, audio and transcripts available under a storage cap; reads before writes; caption locales (English first, every available track, a missing locale skipped quietly and the available locales recorded); comments at full depth with optional depth and count caps; live chat replays (`kind = chat`, Chat tab); both combined views, mixed by default, sorted by the updated time when the item has one and otherwise the posted time; the source-switcher key deferred to modal input, where it will be a Ctrl global; bookmarks, site search, and edit history as global actions; `Notification` on every notifying action, local toasts included; services registered through the plugin registrar; one confirm for a mixed write.
+Resolved, and not re-opened: separate crates; X cookies sealed in the encrypted database; backups strip `source_secrets`; X and YouTube stay out of P9 peer sync by default; Red Star on and other services off; session route as the default; search and replies included on the X session; video, audio and transcripts available under a storage cap; reads before writes; caption locales (English first, every available track, a missing locale skipped quietly and the available locales recorded); comments at full depth with optional depth and count caps; live chat replays (`kind = chat`, Chat tab); both combined views, mixed by default, sorted by the updated time when the item has one and otherwise the posted time; the source switcher as the Ctrl global `view.source`, default `ctrl-]` in [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md); bookmarks, site search, and edit history as global actions; `Notification` on every notifying action, local toasts included; services registered through the plugin registrar; one confirm for a mixed write.
 
 **One confirm.** A write selection uses a single confirm. It sends to every service where that write is Ready. Every other selected service is skipped. The preview and `--dry-run` name each skipped service and why: not captured, not logged in, or disabled. Cancel is the default. `--yes` affirms that one confirm. Nothing is sent for a skip (§2.4).
 
