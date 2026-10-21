@@ -2352,6 +2352,16 @@ impl App {
                     }
                 }
                 PostAction::Edit => self.edit_post(&m.post_id),
+                PostAction::Repost => {
+                    if !self.writes_are_on() {
+                        self.show_writes_off();
+                    } else {
+                        match crate::site::repost::present(&m.post_id, true, false) {
+                            Ok(text) => self.push_status(text),
+                            Err(e) => self.error("Repost", &e.message),
+                        }
+                    }
+                }
             },
             (Modal::Compose(c), ModalResult::ClosedCancelled) => {
                 self.push_status("nothing sent");
