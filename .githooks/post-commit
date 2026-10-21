@@ -1,14 +1,26 @@
 #!/usr/bin/env bash
-# Tags every commit that changes the crate version as vX.Y.Z (annotated).
-# This hook does not create a GitHub Release. A release for a version that
-# is not on main is a draft (`gh release create --draft`), with notes from
-# the matching CHANGELOG section and no assets. The maintainer publishes
-# the draft after merging to main. Do not publish a release from this hook.
+# Tags a commit that changes the crate version, and only when that commit is
+# on main. A feature branch prints a note and does not tag. This hook does
+# not create a GitHub Release and does not push the tag.
 set -euo pipefail
 ver() { sed -n 's/^version *= *"\(.*\)"/\1/p' | head -1; }
 new_v=$(git show HEAD:Cargo.toml 2>/dev/null | ver || true)
 old_v=$(git show HEAD^:Cargo.toml 2>/dev/null | ver || true)
 [ -z "$new_v" ] || [ "$new_v" = "$old_v" ] && exit 0
+
+on_main=0
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+if [ "$branch" = "main" ]; then
+  on_main=1
+elif git rev-parse -q --verify refs/heads/main >/dev/null \
+  && git merge-base --is-ancestor HEAD refs/heads/main; then
+  on_main=1
+fi
+if [ "$on_main" -ne 1 ]; then
+  printf '\033[33mVersion %s is not tagged on this branch. Tagging happens when the bump lands on main.\033[0m\n' "$new_v" >&2
+  exit 0
+fi
+
 tag="v$new_v"
 if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
   printf '\033[33mTag %s already exists; not moving it.\033[0m\n' "$tag" >&2
