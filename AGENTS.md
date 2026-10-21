@@ -5,8 +5,9 @@ Follow them on every change. When a rule conflicts with a task prompt, ask Micha
 
 ## Releases and versioning
 - **One minor bump per feature, one patch bump per fix.** Several features in one change means several minor bumps.
+- **A stub is not a feature.** A stub is code that has merged but is gated, disabled, or prepared and not sent, so a person cannot use it yet. It gets no version of its own. Record it in the next real release, under Added, as `prepared, gated: …`. It earns its minor when it is enabled and usable, and that release says so. A fix to a stub gets a patch only after that stub has shipped.
 - **Every version bump edits `CHANGELOG.md`** in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format: a dated `## [x.y.z]` section with Added / Changed / Fixed / Removed subsections (one heading of each kind per release). Nothing ships from `## [Unreleased]`.
-- **Every commit that changes the version gets an annotated tag `vX.Y.Z`.** The `.githooks/post-commit` hook creates it, so don't tag by hand. `.githooks/pre-commit` blocks a version bump without a matching changelog entry.
+- **Tags are created and pushed only from main; never push a tag from a feature branch.** On any other branch `.githooks/post-commit` does not tag: it prints that tagging happens when the bump lands on main. A commit on local `main` is tagged by that hook. A merge on GitHub is tagged by `.github/workflows/tag-on-main.yml`, which creates `vX.Y.Z` only when `Cargo.toml`'s version changed and the tag does not exist. Don't tag by hand. `.githooks/pre-commit` blocks a version bump without a matching changelog entry.
 - Keep the version in sync everywhere: `Cargo.toml`/`Cargo.lock`, the README version line, `debian/changelog`, the Fedora spec and `PKGBUILD`.
 - Never rewrite published history: no force-pushes, and never move or delete existing tags.
 
