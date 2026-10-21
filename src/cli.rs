@@ -167,10 +167,10 @@ pub struct Args {
     #[arg(long, value_name = "THREAD/POST", help_heading = "Reading")]
     pub edits: Option<String>,
 
-    /// New post. The body is `--body` or `--body-file`. Publishing asks first (Cancel is the default) and does not send until a guided capture confirms the payload. `--dry-run` prints the frames and does not connect.
+    /// New post. The body is `--body` or `--body-file`. A text post asks `Publish? [y/N]` and then sends validate and save once. `--dry-run` prints the frames and does not connect. A post with attachments is refused.
     #[arg(long, value_name = "TITLE", help_heading = "Writing")]
     pub new_post: Option<String>,
-    /// Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. Same confirm and dry-run rules as `--new-post`.
+    /// Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. A text reply sends the captured validate and save frames. Same confirm and dry-run rules as `--new-post`. Attachments are refused.
     #[arg(long, value_name = "THREAD", help_heading = "Writing")]
     pub reply: Option<String>,
     /// Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. `--dry-run` prints the route and does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list.
@@ -215,7 +215,7 @@ pub struct Args {
     /// Allow writes after the site's script URL changes from the one stored in `site_state`.
     #[arg(long, help_heading = "Writing")]
     pub accept_site_update: bool,
-    /// Local file for `--new-post` or `--reply`. Repeat for more than one. Every file stays on the local copy, including audio and documents. Red Star takes up to 4 images or videos (image/* and video/*) on the site copy; other types stay local. `--dry-run` lists them and does not upload. A confirmed publish still does not send. See --site-attachments
+    /// Local file for `--new-post` or `--reply`. Repeat for more than one. Every file stays on the local copy, including audio and documents. Red Star takes up to 4 images or videos (image/* and video/*) on the site copy; other types stay local. `--dry-run` lists them and does not upload. A confirmed publish that still has attachments is refused, and nothing is sent. Remove the files to publish the text. See --site-attachments
     #[arg(long, value_name = "PATH", help_heading = "Writing")]
     pub attachment: Vec<PathBuf>,
     /// Which `--attachment` files go to Red Star. LIST is 1-based indexes, comma-separated, for example 1,3,5,6. At most 4, and each index has to be an image or a video. Naming an audio file, a pdf, or another type is an error that names that file. Omit it and the first 4 images or videos are the site copy; other types are skipped. A notice names files left off when there are more than 4 images or videos.

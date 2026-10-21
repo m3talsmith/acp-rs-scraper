@@ -358,7 +358,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
     ("p", "Post menu: view reposts or the edit history of the open or highlighted post"),
     ("s", "In a thread: cycle reply order newest → oldest → top"),
-    ("n", "New post. Cancel is the default; Publish does not send until a guided capture"),
+    ("n", "New post. Cancel is the default. A text post is sent after you confirm. Attachments are refused"),
     ("Compose · Attach", "Type a path. Tab completes a real segment. Enter adds the file. Backspace on an empty line removes the last file. Nothing is uploaded"),
     ("Compose · site files", "More than 4 images or videos: check which go to Red Star. Other types stay local, greyed out. Space toggles. Enter confirms. ? site-attachments"),
     ("r", "On an open post: reply (a comment pre-fills the reference). Otherwise add to a research project"),

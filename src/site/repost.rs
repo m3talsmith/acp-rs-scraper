@@ -74,7 +74,7 @@ mod tests {
         }
         assert_eq!(present("POST", false, false).unwrap(), "nothing sent");
         let blocked = present("POST", true, false).unwrap_err();
-        assert!(blocked.message.contains("nothing was published"), "{}", blocked.message);
+        assert!(blocked.message.contains("are not sent"), "{}", blocked.message);
         assert!(blocked.message.contains("the repost form is not built"), "{}", blocked.message);
         assert!(blocked.message.contains("capture still needed"), "{}", blocked.message);
     }

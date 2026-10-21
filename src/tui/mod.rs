@@ -51,6 +51,8 @@ enum Msg {
     LoginDone(u64, std::result::Result<(), String>),
     AutoSyncChecked(std::result::Result<bool, String>, Vec<String>),
     ThemeDownloaded(String, bool, std::result::Result<crate::themes::download::Fetched, String>),
+    /// One text publish finished. The error is already redacted.
+    Published(std::result::Result<String, String>),
 }
 
 struct Terminal(ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>);
@@ -280,6 +282,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 Msg::LoginDone(g, r) if g == login_gen => { login_tx = None; login_task = None; app.login_done(r); }
                 Msg::AutoSyncChecked(r, argv) => app.auto_sync_checked(r, argv),
                 Msg::ThemeDownloaded(name, manual, r) => app.theme_downloaded(&name, manual, r),
+                Msg::Published(r) => app.publish_finished(r),
                 Msg::LoginNeedCode(_) | Msg::LoginHold(..) | Msg::LoginDone(..) => {}
             },
             _ = tokio::time::sleep(wait) => {}
@@ -345,6 +348,17 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Ok(p) => app.modal = Some(modals::Modal::Message(modals::MessageModal::info("Theme exported", &format!("Wrote {}", p.display())))),
                     Err(e) => app.error("Cannot export the theme", &format!("{e:#}")),
                 },
+                Effect::Publish(plan) => {
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    let now = chrono::Utc::now().timestamp();
+                    tokio::spawn(async move {
+                        crate::site::store_last_write(now);
+                        let r = crate::site::publish_text(&http, &jar, &plan, false).await
+                            .map(|p| format!("published {}\n{}", p.id, p.url))
+                            .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
+                        let _ = tx.send(Msg::Published(r));
+                    });
+                }
                 Effect::DownloadTheme(name, manual) => {
                     let Some(dir) = app.themes_dir.clone() else { continue };
                     let tx = msg_tx.clone();

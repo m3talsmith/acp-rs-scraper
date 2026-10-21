@@ -19,7 +19,7 @@ fn plus_prepares_an_upvote_and_does_not_send_it() {
     let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert!(m.title.contains("Vote"), "{}", m.title);
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("nothing was published"), "{status}");
+    assert!(status.contains("are not sent"), "{status}");
     assert!(status.contains("\"event\": \"vote\""), "{status}");
     assert!(status.contains("state 1"), "{status}");
     assert!(status.contains("capture still needed"), "{status}");
@@ -28,5 +28,5 @@ fn plus_prepares_an_upvote_and_does_not_send_it() {
     key(&mut a, KeyCode::Char('-'));
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
     assert!(status.contains("state -1"), "{status}");
-    assert!(status.contains("nothing was published"), "{status}");
+    assert!(status.contains("are not sent"), "{status}");
 }

@@ -247,6 +247,8 @@ default, a stable CLI↔TUI contract, and testable behavior.
   already pass `--nick`, `--search`, `--export`, etc. keep their behavior.
 - Bump minor for later TUI-only polish after 2.0 lands.
 
+The client has moved on from this 2.0 note. Text posts and replies are sent (plan 3.35.0): validate, then save, once, from the command line and the compose box. `--dry-run` prints the frames and does not connect. A post that still has attachments is refused. Votes, subscribes, deletes, edits, and reposts are not sent. The crate version stays 3.5.0. The first live check is [docs/LIVE-PUBLISH-TEST.md](../docs/LIVE-PUBLISH-TEST.md).
+
 ## Default entry & CLI contract
 
 | Invocation | Behavior |
@@ -312,7 +314,7 @@ Search work is touched. Sync keeps the local copy up to date. Discover finds
 people, nodes, and rooms. Those stay separate menus. The table above is the
 older flag map. The layout is in [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.2.
 
-Every actionable control shows a short tooltip on hover, including menu-bar entries and the icons on a card or detail. When the control has a key, the tooltip includes it (`Bookmark (b)`). The next line is `? {topic}` and opens the Help topic for that action. One shared helper draws them. Publish stays behind `CAPTURE_BLOCK`. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.3.
+Every actionable control shows a short tooltip on hover, including menu-bar entries and the icons on a card or detail. When the control has a key, the tooltip includes it (`Bookmark (b)`). The next line is `? {topic}` and opens the Help topic for that action. One shared helper draws them. Text posts and replies are sent. Uploads and interactions stay behind `CAPTURE_BLOCK`. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.3.
 
 Help is topics you can move between, with search inside Help. A `?` on the header opens Help. `?` and F1 stay the entry. Every user-facing flag, menu command, menu option, and control has a description in Help and a tooltip. See [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) §4.4.
 

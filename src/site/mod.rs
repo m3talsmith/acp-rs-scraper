@@ -1,13 +1,11 @@
-//! Write core (3.4.0) and attachments (3.5.0): New post and Reply.
+//! Write core (3.4.0), attachments (3.5.0), and text publish (3.35.0).
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the reply frames
-//! live here. A root reply matches the approved P0 fixtures. Publishing does
-//! not open a connection. The guided capture has not confirmed the upload
-//! channel, so validate, save, and `allow_upload` / `lvu` stay behind
-//! [`write::CAPTURE_BLOCK`]. Vote, subscribe, and delete each build the
-//! documented hook and stop at the same gate. Edit keeps the one-hour window
+//! live here. A confirmed text post or reply sends validate, then save, once.
+//! A post with attachments is refused. Vote, subscribe, delete, edit, and
+//! repost stay behind [`write::CAPTURE_BLOCK`]. Edit keeps the one-hour window
 //! and does not build the form. Repost names the documented route and does
-//! not build the form.
+//! not build the form. `--dry-run` opens no connection.
 
 mod attach;
 pub mod delete;
@@ -24,8 +22,8 @@ pub use attach::{
 };
 pub use prosemirror::{BODY_CHAR_LIMIT, assemble, markdown_to_doc, plain_blocks, post_ref};
 pub use write::{
-    CAPTURE_BLOCK, Completion, Draft, Kind, NickHint, Probe, WriteError, WritePlan, bundle_changed, capture_stub_message,
-    completions, decide, dry_run_text, liveview_frames, prepare, probe_html, rate_wait, refuse_live_write, writes_enabled,
+    CAPTURE_BLOCK, Completion, Draft, Gate, Kind, NickHint, Probe, Published, WriteError, WritePlan, bundle_changed, capture_stub_message,
+    after_reply, completions, decide, dry_run_text, event_payloads, interpret, liveview_frames, load_last_write, prepare, probe_html, publish_text, rate_wait, refuse_live_write, store_last_write, writes_enabled,
     writes_enabled_from,
 };
 
@@ -70,8 +68,8 @@ fn confirm_write(args: &Args, prompt: &str) -> Result<bool> {
 }
 
 /// Run a write command. Cancel prints `nothing sent` and returns Ok.
-/// A confirmed publish returns the capture error and does not connect.
-pub fn run_cli(args: &Args) -> Result<()> {
+/// A confirmed text post or reply logs in and sends validate, then save, once.
+pub async fn run_cli(args: &Args) -> Result<()> {
     if let Some(thread) = args.capture_reply.as_deref() {
         bail!("{}", capture_stub_message(thread.trim()));
     }
@@ -202,13 +200,33 @@ pub fn run_cli(args: &Args) -> Result<()> {
     } else {
         false
     };
+    let mut draft = draft;
+    if confirmed && !args.dry_run {
+        draft.last_write_unix = draft.last_write_unix.or_else(load_last_write);
+    }
     match decide(&draft, confirmed, args.dry_run) {
-        Ok(text) => {
+        Ok(Gate::Done(text)) => {
             println!("{text}");
+            Ok(())
+        }
+        Ok(Gate::Send(plan)) => {
+            store_last_write(draft.now_unix);
+            let jar = Arc::new(Jar::default());
+            if let Err(e) = load_session(&jar) {
+                cli_warning_session(&e);
+            }
+            let http = client(jar.clone())?;
+            login(&http, &jar).await?;
+            let published = publish_text(&http, &jar, &plan, draft.accept_bundle).await?;
+            println!("published {}\n{}", published.id, published.url);
             Ok(())
         }
         Err(e) => bail!("{e}"),
     }
+}
+
+fn cli_warning_session(err: &anyhow::Error) {
+    eprintln!("ignoring saved session: {err:#}");
 }
 
 #[cfg(test)]
@@ -231,6 +249,13 @@ mod tests {
             now_unix: 1_000,
             last_write_unix: None,
             writes_on: true,
+        }
+    }
+
+    fn shown(g: Result<Gate, WriteError>) -> String {
+        match g.unwrap() {
+            Gate::Done(s) => s,
+            Gate::Send(_) => panic!("dry-run or cancel tried to send"),
         }
     }
 
@@ -340,21 +365,30 @@ mod tests {
     #[test]
     fn dry_run_prints_frames_and_cancel_sends_nothing() {
         let d = draft();
-        let text = decide(&d, false, true).unwrap();
+        let text = shown(decide(&d, false, true));
         assert!(text.contains("dry-run: no connection opened"), "{text}");
         assert!(text.contains("\"event\": \"validate\""), "{text}");
         assert!(text.contains("\"event\": \"save\""), "{text}");
         assert!(text.contains("form%5Btitle%5D=Strike") || text.contains("form[title]"), "{text}");
         assert!(text.contains("_target"), "{text}");
         assert!(!text.contains("https://acp.us"), "{text}");
-        assert_eq!(decide(&d, false, false).unwrap(), "nothing sent");
+        assert_eq!(shown(decide(&d, false, false)), "nothing sent");
     }
 
     #[test]
-    fn confirm_is_blocked_and_does_not_open_a_connection() {
-        let err = decide(&draft(), true, false).unwrap_err();
-        assert!(err.message.contains("nothing was published"), "{}", err.message);
-        assert!(err.message.contains("dry-run: no connection opened"), "{}", err.message);
+    fn confirm_prepares_a_text_send_and_does_not_open_a_connection() {
+        let Gate::Send(plan) = decide(&draft(), true, false).unwrap() else {
+            panic!("a text post is ready to send");
+        };
+        let payloads = event_payloads(&plan);
+        assert_eq!(payloads.len(), 2);
+        assert_eq!(payloads[0]["event"], "validate");
+        assert_eq!(payloads[1]["event"], "save");
+        assert!(payloads[0].get("meta").is_none(), "a new post does not invent _target");
+        assert!(!payloads[0].to_string().contains("_target"));
+        assert!(payloads[0]["value"].as_str().unwrap().contains("form%5Btitle%5D="));
+        assert!(!plan.page.starts_with("http"));
+        assert!(plan.attachments.is_empty());
     }
 
     #[test]
@@ -368,8 +402,9 @@ mod tests {
         let err = decide(&d, true, false).unwrap_err();
         assert!(err.message.contains("bundle changed"), "{}", err.message);
         d.accept_bundle = true;
-        let err = decide(&d, true, false).unwrap_err();
-        assert!(err.message.contains("nothing was published"), "{}", err.message);
+        let Gate::Send(_) = decide(&d, true, false).unwrap() else {
+            panic!("accepted bundle, text only, is ready to send");
+        };
         d.accept_bundle = false;
         d.stored_bundle = None;
         d.last_write_unix = Some(980);
@@ -440,7 +475,8 @@ mod tests {
     #[test]
     fn a_non_site_host_is_still_refused_without_panicking() {
         let err = refuse_live_write("http://127.0.0.1/rs/post/new").unwrap_err();
-        assert!(err.to_string().contains("nothing was published"));
+        assert!(err.to_string().contains("are not sent"));
+        assert!(err.to_string().contains("text posts and replies are published"));
     }
 
     #[test]
@@ -489,7 +525,7 @@ mod tests {
         assert!(!frames.contains("allow_upload"), "{frames}");
         assert!(!frames.contains("jpeg-bytes"), "{frames}");
         assert!(plan.fields.iter().all(|(k, _)| !k.contains("attachment")), "{:?}", plan.fields);
-        let text = decide(&d, false, true).unwrap();
+        let text = shown(decide(&d, false, true));
         assert!(text.contains("the site copy is a subset"), "{text}");
         assert!(text.contains("site media photo.jpg"), "{text}");
         assert!(text.contains("local-only file notes.pdf"), "{text}");
@@ -497,8 +533,9 @@ mod tests {
         assert!(text.contains("no file bytes are sent"), "{text}");
         assert!(!text.contains("nothing was published"), "{text}");
         let err = decide(&d, true, false).unwrap_err();
-        assert!(err.message.contains("nothing was published"), "{}", err.message);
+        assert!(err.message.contains("nothing was sent"), "{}", err.message);
         assert!(err.message.contains("photo.jpg"), "{}", err.message);
+        assert!(err.message.contains("notes.pdf"), "{}", err.message);
         assert!(err.message.contains("allow_upload"), "{}", err.message);
         d.attachments = vec![bad.clone()];
         let notes = prepare(&d).unwrap();
@@ -546,13 +583,14 @@ mod tests {
         assert!(plan.attachments.iter().skip(4).all(|a| !a.on_site));
         let note = plan.site_notice.clone().unwrap();
         assert_eq!(note, "site copy keeps the first 4 of 5 images or videos (Red Star allows 4: image/* and video/*). Left off the site: 5 notes.pdf, 6 extra.png");
-        let text = decide(&d, false, true).unwrap();
+        let text = shown(decide(&d, false, true));
         assert!(text.contains(&note), "{text}");
         assert!(text.contains("local-only file notes.pdf"), "{text}");
         assert!(text.contains("site media one.jpg"), "{text}");
         assert!(!text.contains("nothing was published"), "{text}");
         let err = decide(&d, true, false).unwrap_err();
-        assert!(err.message.contains("nothing was published"), "{}", err.message);
+        assert!(err.message.contains("nothing was sent"), "{}", err.message);
+        assert!(err.message.contains("one.jpg"), "{}", err.message);
         assert!(err.message.contains("5 notes.pdf"), "{}", err.message);
         assert!(err.message.contains("allow_upload"), "{}", err.message);
         let frames = serde_json::to_string(&liveview_frames(&plan)).unwrap();
@@ -561,7 +599,7 @@ mod tests {
         let few = prepare(&d).unwrap();
         assert!(few.attachments.iter().all(|a| a.on_site));
         assert!(few.site_notice.is_none());
-        assert!(decide(&d, false, true).unwrap().contains("attachments (local only, not uploaded)"));
+        assert!(shown(decide(&d, false, true)).contains("attachments (local only, not uploaded)"));
         d.attachments = paths.clone();
         d.site_attachments = Some(vec![0, 2, 4, 5]);
         let refused = prepare(&d).unwrap_err().message;
@@ -660,15 +698,20 @@ mod tests {
         assert_eq!(save["frames"][6]["frame"][3], "live_redirect");
         assert_eq!(save["frames"][6]["frame"][4]["kind"], "replace");
 
-        let text = decide(&d, false, true).unwrap();
+        let text = shown(decide(&d, false, true));
         assert!(text.contains("dry-run: no connection opened"), "{text}");
         assert!(text.contains("form[thread_id]="));
+        assert!(text.contains("no validate is sent after save"), "{text}");
         assert!(!text.contains("https://acp.us"), "{text}");
         assert!(!text.contains("<REDACTED:"), "{text}");
-        let err = decide(&d, true, false).unwrap_err();
-        assert!(err.message.contains("nothing was published"), "{}", err.message);
-        assert!(err.message.contains("does not send them"), "{}", err.message);
-        assert!(err.message.contains(captured_value), "{}", err.message);
+        let Gate::Send(plan) = decide(&d, true, false).unwrap() else {
+            panic!("a text reply is ready to send");
+        };
+        let payloads = event_payloads(&plan);
+        assert_eq!(payloads.len(), 2);
+        assert_eq!(payloads[0]["value"].as_str().unwrap(), captured_value);
+        assert_eq!(payloads[1]["value"].as_str().unwrap(), captured_value);
+        assert_eq!(payloads[1]["event"], "save");
     }
 
     #[test]
@@ -676,7 +719,62 @@ mod tests {
         let msg = capture_stub_message("T1");
         assert!(msg.contains("did not open a connection"));
         assert!(msg.contains("did not copy session.json"));
-        assert!(msg.contains("nothing was published"));
+        assert!(msg.contains("does not send"));
+        assert!(msg.contains("text posts and replies are published"));
+        assert!(!msg.contains("nothing was published"));
+    }
+
+    #[test]
+    fn a_text_reply_reads_the_captured_id_and_does_not_retry() {
+        let save: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/reply_save.json")).unwrap();
+        let frames: Vec<Value> = save["frames"].as_array().unwrap().iter().map(|f| f["frame"].clone()).collect();
+        let mut d = draft();
+        d.title.clear();
+        d.thread = Some("AaFV7IhwdC-iC6JuW97QMg".into());
+        d.body = "hello".into();
+        let Gate::Send(plan) = decide(&d, true, false).unwrap() else { panic!("text reply") };
+        let payloads = event_payloads(&plan);
+        assert_eq!(payloads.len(), 2, "validate then save, and no third frame");
+        assert_eq!(payloads[0]["event"], "validate");
+        assert_eq!(payloads[1]["event"], "save");
+
+        let first = after_reply(&payloads, 0, &[]).unwrap().expect("validate");
+        assert_eq!(first["event"], "validate");
+        let ok = json!({"status": "ok", "response": {"diff": {}}});
+        let second = after_reply(&payloads, 1, &[ok.clone()]).unwrap().expect("save");
+        assert_eq!(second["event"], "save");
+        assert!(after_reply(&payloads, 2, &[ok.clone(), ok.clone()]).unwrap().is_none());
+
+        let rejected = json!({"status": "error", "response": {"reason": "_csrf_token=SECRETSECRETSECRETSECRETSECRET12"}});
+        let stopped = after_reply(&payloads, 1, &[rejected]).unwrap_err();
+        assert!(stopped.message.contains("the site rejected the post"), "{}", stopped.message);
+        assert!(stopped.message.contains("Nothing was retried"), "{}", stopped.message);
+        assert!(!stopped.message.contains("SECRETSECRET"), "{}", stopped.message);
+
+        let save_err = json!(["1", "2", "lv:x", "phx_reply", {"status": "error", "response": {"reason": "bad body"}}]);
+        let no_third = after_reply(&payloads, 2, &[ok.clone(), save_err]).unwrap_err();
+        assert!(no_third.message.contains("bad body"), "{}", no_third.message);
+        assert!(no_third.message.contains("Nothing was retried"), "{}", no_third.message);
+
+        let missing = interpret(&[ok.clone(), ok], "https://acp.us").unwrap_err();
+        assert!(missing.message.contains("did not return a post id"), "{}", missing.message);
+        assert!(missing.message.contains("Nothing was retried"), "{}", missing.message);
+        assert!(missing.message.contains("Check the site"), "{}", missing.message);
+
+        let seen = [frames[1].clone(), frames[2].clone(), frames[3].clone(), frames[6].clone()];
+        assert!(after_reply(&payloads, 2, &seen).unwrap().is_none(), "the id frames are not another push");
+        let published = interpret(&seen, "https://acp.us").unwrap();
+        assert_eq!(published.id, "AaFWh52wdleDeaWo1se9AQ");
+        assert_eq!(published.url, "https://acp.us/rs/post/AaFV7IhwdC-iC6JuW97QMg/AaFWh52wdleDeaWo1se9AQ");
+        let shown_ok = format!("{published:?}");
+        assert!(!shown_ok.contains("REDACTED"), "{shown_ok}");
+        assert!(!shown_ok.contains("flash"), "{shown_ok}");
+
+        d.in_reply_to = Some("COMMENT1".into());
+        let Gate::Send(comment) = decide(&d, true, false).unwrap() else { panic!("comment reply") };
+        assert_eq!(comment.body["content"][0]["attrs"]["postId"], "COMMENT1");
+        assert_eq!(comment.body["content"][0]["attrs"]["threadId"], "AaFV7IhwdC-iC6JuW97QMg");
+        assert_eq!(event_payloads(&comment).len(), 2);
     }
 
     const FORM: &str = r#"

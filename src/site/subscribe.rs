@@ -82,7 +82,7 @@ mod tests {
         }
         assert_eq!(present("THREAD", "0", false, false).unwrap(), "nothing sent");
         let blocked = present("THREAD", "0", true, false).unwrap_err();
-        assert!(blocked.message.contains("nothing was published"), "{}", blocked.message);
+        assert!(blocked.message.contains("are not sent"), "{}", blocked.message);
         assert!(blocked.message.contains("state 0"), "{}", blocked.message);
         assert!(blocked.message.contains("capture still needed"), "{}", blocked.message);
     }

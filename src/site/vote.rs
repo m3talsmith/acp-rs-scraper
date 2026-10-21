@@ -88,7 +88,7 @@ mod tests {
         }
         assert_eq!(present("POST", "1", false, false).unwrap(), "nothing sent");
         let blocked = present("POST", "-1", true, false).unwrap_err();
-        assert!(blocked.message.contains("nothing was published"), "{}", blocked.message);
+        assert!(blocked.message.contains("are not sent"), "{}", blocked.message);
         assert!(blocked.message.contains("state -1"), "{}", blocked.message);
         assert!(blocked.message.contains("capture still needed"), "{}", blocked.message);
     }

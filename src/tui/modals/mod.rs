@@ -92,7 +92,7 @@ pub enum Modal {
     Post(PostMenu),
     /// Running and recent jobs.
     Job(JobModal),
-    /// New post or reply. Publish does not open a connection.
+    /// New post or reply. A text publish sends validate and save. Attachments are refused.
     Compose(ComposeModal),
     /// Name, slogan, and a star. The credits stay hidden.
     About(AboutModal),

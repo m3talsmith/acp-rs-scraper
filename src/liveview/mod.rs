@@ -201,6 +201,39 @@ impl Lv {
         out
     }
 
+    /// Read frames until `limit` elapses, the socket closes, or the buffer ends.
+    ///
+    /// A closed socket returns the frames already read. This does not send.
+    pub async fn collect_for(&mut self, limit: std::time::Duration) -> Result<Vec<Value>> {
+        let deadline = tokio::time::Instant::now() + limit;
+        let mut frames = Vec::new();
+        loop {
+            let left = deadline.saturating_duration_since(tokio::time::Instant::now());
+            if left.is_zero() {
+                break;
+            }
+            let msg = match tokio::time::timeout(left, self.ws.next()).await {
+                Err(_) => break,
+                Ok(m) => m,
+            };
+            let text = match &msg {
+                Some(Ok(Message::Text(t))) => Some(t.to_string()),
+                _ => None,
+            };
+            match self.absorb(msg, None).await {
+                Ok(_) => {}
+                Err(e) if e.to_string().contains("websocket closed") => break,
+                Err(e) => return Err(e),
+            }
+            if let Some(text) = text
+                && let Ok(v) = serde_json::from_str::<Value>(&text)
+            {
+                frames.push(v);
+            }
+        }
+        Ok(frames)
+    }
+
     /// Send a close frame and flush it. Errors from an already-dead socket are ignored
     /// by the caller; this only tries.
     pub async fn close(&mut self) {

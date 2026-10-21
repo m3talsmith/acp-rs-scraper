@@ -22,7 +22,7 @@ fn repost_from_the_post_menu_is_blocked() {
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("nothing was published"), "{status}");
+    assert!(status.contains("are not sent"), "{status}");
     assert!(status.contains("the repost form is not built"), "{status}");
     assert!(status.contains("/rs/post/new?repost="), "{status}");
     assert!(status.contains("capture still needed"), "{status}");

@@ -10,7 +10,7 @@ This walkthrough is the Getting started topic in Help (`?` or F1, then search `g
 
 `architecture/SPECS.md` and `architecture/PLAN-2.0-TUI.md` still describe the 2.0 design. The client has moved on. This walkthrough follows the app. Hover a control for a short explanation. The `?` on that tooltip opens the Help topic for that action.
 
-Publish does not send. New post and Reply can list local files, and `--dry-run` prints the form. Validate, save, and file bytes stay behind the capture gate.
+A text post or reply is sent. New post and Reply can list local files, and a post that still has files is refused. `--dry-run` prints the frames and does not connect. Uploads, votes, subscribes, deletes, edits, and reposts stay gated.
 
 ## Install
 
@@ -75,13 +75,13 @@ Library › Export writes JSON or HTML for the selected nicks, the current view,
 
 ## Compose, dry-run
 
-`n` starts a new post. On an open post, `r` replies and `Q` quotes. Cancel is the default button. Publish does not upload.
+`n` starts a new post. On an open post, `r` replies and `Q` quotes. Cancel is the default button. Publish sends the text. A post that still has files is refused, and those files are not uploaded.
 
 ```
-acprs --new-post --dry-run
+acprs --new-post "Title" --body "hello" --dry-run
 ```
 
-On a terminal that is not the TUI, a real publish attempt asks `Publish? [y/N]`. `--dry-run` does not ask, and it does not send.
+On a terminal that is not the TUI, a real publish asks `Publish? [y/N]`. Answering yes sends validate, then save, once, and prints the new post id and URL. `--dry-run` does not ask, and it does not connect. The first live check is [LIVE-PUBLISH-TEST.md](LIVE-PUBLISH-TEST.md).
 
 ## Help and About
 

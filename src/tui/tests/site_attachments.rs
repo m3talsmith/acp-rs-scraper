@@ -78,7 +78,7 @@ fn more_than_four_opens_a_picker_and_four_or_fewer_does_not() {
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal) };
     let text = m.lines.join("\n");
-    assert!(text.contains("nothing was published"), "{text}");
+    assert!(text.contains("nothing was sent"), "{text}");
     assert!(text.contains("local-only media one.jpg"), "{text}");
     assert!(!text.contains("first 4 of 6"), "{text}");
     key(&mut a, KeyCode::Enter);
@@ -89,7 +89,7 @@ fn more_than_four_opens_a_picker_and_four_or_fewer_does_not() {
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Message(m)) = &a.modal else { panic!("4 files skip the picker: {:?}", a.modal) };
     let text = m.lines.join("\n");
-    assert!(text.contains("nothing was published"), "{text}");
+    assert!(text.contains("nothing was sent"), "{text}");
     assert!(text.contains("attachments (local only, not uploaded)"), "{text}");
     assert!(text.contains("one.jpg") && text.contains("four.webp"), "{text}");
     assert!(!text.contains("selected for Red Star"), "{text}");
@@ -186,7 +186,7 @@ fn an_audio_file_is_not_selectable_and_a_mix_offers_only_images_and_videos() {
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Message(m)) = &a.modal else { panic!("4 images plus audio skip the picker: {:?}", a.modal) };
     let text = m.lines.join("\n");
-    assert!(text.contains("nothing was published"), "{text}");
+    assert!(text.contains("nothing was sent"), "{text}");
     assert!(text.contains("local-only file talk.mp3"), "{text}");
     assert!(text.contains("site media one.jpg"), "{text}");
     assert!(!text.contains("selected for Red Star"), "{text}");
