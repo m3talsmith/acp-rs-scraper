@@ -10,7 +10,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Reply edit.** A confirmed reply edit sends validate, then save, once, from `--edit` and the compose box. The open is the captured redirect to `/rs/post/ID/edit`. The form is `method=put`, `data-mode=reply`, and the only field is `form[body_input]`. `--body` or `--body-file` is required. `--dry-run` prints those frames and opens no connection. The command line asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel, then asks for `yes`. The one-hour window still refuses an older post before a connection. A quote already on the reply is not copied. Votes, subscribes, deletes, reposts, top-level post edits, and attachment replace stay prepared, gated.
+- **Reply edit.** A confirmed reply edit sends validate, then save, once, from `--edit` and the compose box. The open is the captured redirect to `/rs/post/ID/edit`. The form is `method=put`, `data-mode=reply`, and the only field is `form[body_input]`. `--body` or `--body-file` is required. `--dry-run` prints those frames and opens no connection. The command line asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel, then asks for `yes`. The one-hour window still refuses an older post before a connection. A quote already on the reply is not copied. Votes, subscribes, deletes, reposts, and top-level post edits stay prepared, gated. The site does not support changing attachments on an edit. `--attachment` with `--edit` is refused before a connection.
 
 ## [3.32.0] - 2026-10-21
 

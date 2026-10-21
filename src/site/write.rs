@@ -517,9 +517,9 @@ pub fn dry_run_text(plan: &WritePlan) -> String {
 /// The guarded entry for a write that must not open a socket.
 ///
 /// Text publish and a reply edit do not call this. Vote, subscribe, delete,
-/// repost, a top-level post edit, attachment replace, and `--capture-reply`
-/// do. Under test, a URL on `acp.us` panics so a future edit cannot reach
-/// the site from the harness.
+/// repost, a top-level post edit, and `--capture-reply` do. Under test, a
+/// URL on `acp.us` panics so a future edit cannot reach the site from the
+/// harness.
 pub fn refuse_live_write(url: &str) -> Result<()> {
     check_test_host(url);
     bail!("{CAPTURE_BLOCK}");
@@ -545,7 +545,7 @@ pub(crate) fn check_test_host(_url: &str) {}
 ///
 /// Text posts and replies are published. Uploads and the uncaptured
 /// interactions are not.
-pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. A reply edit sends validate, then save, once. Votes, subscribes, deletes, reposts, top-level post edits, and attachment replace are not sent. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
+pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. A reply edit sends validate, then save, once. Votes, subscribes, deletes, reposts, and top-level post edits are not sent. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
 
 /// `--capture-reply` stops here. It does not copy `session.json` or open a page.
 pub fn capture_stub_message(thread: &str) -> String {

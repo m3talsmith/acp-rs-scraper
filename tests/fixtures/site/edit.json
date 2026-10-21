@@ -38,10 +38,10 @@
     "success": "live_redirect to /rs/post/THREAD/REPLY"
   },
   "not_copied": "a postRef already on the reply is not copied into the new body",
+  "attachments_on_edit": "The site does not support changing attachments on an edit. This is not a capture.",
   "still_needed": [
     "Change only the title of a top-level post, then save. The survey route is https://acp.us/rs/post/POST/edit",
     "Change only the body of a top-level post, then save",
-    "Edit: replace attachment. Record the removal frame and the allow_upload, lvu, chunk, and progress frames",
     "The refusal frame when a post is older than one hour. The one-hour window stays a product constraint"
   ]
 }

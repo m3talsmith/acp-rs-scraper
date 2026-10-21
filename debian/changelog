@@ -1,6 +1,6 @@
 acp-red-star (3.33.0) unstable; urgency=medium
 
-  * Package 3.33.0. A reply edit sends validate, then save, once. Top-level post edits, attachment replace, votes, subscribes, deletes, and reposts stay gated.
+  * Package 3.33.0. A reply edit sends validate, then save, once. Top-level post edits, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.
 
  -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 21:30:00 +0000
 

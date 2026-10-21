@@ -57,7 +57,7 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 
 %changelog
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.33.0-1
-- Package 3.33.0. A reply edit sends validate, then save, once.
+- Package 3.33.0. A reply edit sends validate, then save, once. The site does not support changing attachments on an edit.
 
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.32.0-1
 - Package 3.32.0. Versions 3.6.0 through 3.31.0 are in CHANGELOG.md and are not separate package releases.

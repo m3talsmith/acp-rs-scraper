@@ -1,8 +1,9 @@
 //! Reply edit. The captured page is a redirect join to `/rs/post/{id}/edit`.
 //!
 //! A confirmed reply sends validate, then save, once. The only field is
-//! `form[body_input]`. A top-level post edit and an attachment replace stay
-//! gated. The one-hour window is a product constraint.
+//! `form[body_input]`. A top-level post edit stays gated. The site does not
+//! support changing attachments on an edit. The one-hour window is a product
+//! constraint.
 
 use super::write::{
     captured_form_value, collapse_blank_lines, reply_event, WriteError, CAPTURE_BLOCK,
@@ -11,6 +12,9 @@ use crate::prelude::*;
 
 /// An edit stays open for one hour after the post.
 pub const EDIT_WINDOW_SECS: i64 = 3600;
+
+/// `--attachment` with `--edit`. The site has no control for this, so nothing is sent.
+pub const ATTACHMENT_EDIT_REFUSAL: &str = "The site does not support changing attachments on an edit. Nothing was sent.";
 
 /// Whether the one-hour window is still open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -112,7 +116,7 @@ pub fn prepare(id: &str, body: &str, inserted_unix: Option<i64>, now_unix: i64, 
             "mention-query, view-post, refresh-posts, and lv:clear-flash are not sent.".into(),
             "join_ref, ref, and the LiveView topic are assigned on join. The printed frames use placeholders.".into(),
             "a top-level post edit is refused after the edit page opens. These frames are not sent for it.".into(),
-            "attachment replace is not captured.".into(),
+            "The site does not support changing attachments on an edit.".into(),
             "cid is the form's phx-target, else 1.".into(),
         ],
         window,

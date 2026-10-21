@@ -15,7 +15,7 @@ published AaFe-qikeQyiWLMA1vwnNA
 https://acp.us/rs/post/AaFe-qikeQyiWLMA1vwnNA
 ```
 
-Text and a PNG are verified. A PDF and a video have not been posted from this client yet. A reply edit is implemented and has not been tried live. Vote, subscribe, delete, repost, a top-level post edit, and attachment replace stay gated.
+Text and a PNG are verified. A PDF and a video have not been posted from this client yet. A reply edit is implemented and has not been tried live. Vote, subscribe, delete, repost, and a top-level post edit stay gated. The site does not support changing attachments on an edit.
 
 ## Before you start
 
@@ -199,11 +199,9 @@ The prompt is `Edit? [y/N]`, then `Type yes`. `--dry-run` prints validate, then 
 
 Still gated. On the website, within one hour of a post you own: change only the title, save, then change only the body, save. The survey route is `https://acp.us/rs/post/POST/edit`. The reply capture did not include `form[title]`. This client opens the edit page and refuses when it sees a title field. Nothing is sent. The title typo on the check post was already corrected on the website. A title-only capture is a further change, or the HAR of that website edit if the websocket was saved.
 
-### Edit: replace attachment
+### Attachments on an edit
 
-Still gated. Do not run this in the client. On the check post that already has the PNG, in the browser: Edit, remove the existing image, upload a different small image, then save. Record the removal frame and the new file's `allow_upload`, `lvu` join, chunks, and `progress`.
-
-When that capture is in the tree, the edit flow reuses the upload path from the attachment work and sends the removal frame the capture shows, then validate and save. `--attachment` with `--edit` is refused until then.
+The site does not support changing attachments on an edit. Adding or removing an attachment in edit mode is not a control on the site, so there is nothing to record. `--attachment` with `--edit` is refused before a connection. The message is `The site does not support changing attachments on an edit. Nothing was sent.`
 
 ### Repost
 

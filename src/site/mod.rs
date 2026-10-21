@@ -5,8 +5,9 @@
 //! live here. A confirmed post or reply uploads the site copy, then sends
 //! validate, then save, once. Images, videos, and PDFs are the site copy, at
 //! most 4. A confirmed reply edit sends validate, then save, once. Vote,
-//! subscribe, delete, repost, a top-level post edit, and attachment replace
-//! stay behind [`write::CAPTURE_BLOCK`]. The one-hour window still refuses an
+//! subscribe, delete, repost, and a top-level post edit stay behind
+//! [`write::CAPTURE_BLOCK`]. The site does not support changing attachments
+//! on an edit. The one-hour window still refuses an
 //! older edit before a connection. `--dry-run` opens no connection.
 
 mod attach;
@@ -131,7 +132,7 @@ pub async fn run_cli(args: &Args) -> Result<()> {
             bail!("a reply edit takes the body only. A quote is not added. Nothing was sent.");
         }
         if !args.attachment.is_empty() {
-            bail!("attachment replace is not captured. Nothing was sent.");
+            bail!("{}", edit::ATTACHMENT_EDIT_REFUSAL);
         }
         let body = match (&args.body, &args.body_file) {
             (Some(_), Some(_)) => bail!("pass --body or --body-file, not both"),
@@ -264,8 +265,8 @@ mod tests {
         assert!(notes.contains("click Delete"));
         assert!(notes.contains("https://acp.us/rs/post/POST/edit"));
         assert!(notes.contains("Change only the title"));
-        assert!(notes.contains("Edit: replace attachment"));
-        assert!(notes.contains("allow_upload"));
+        assert!(notes.contains("does not support changing attachments"));
+        assert!(!notes.contains("Edit: replace attachment"), "{notes}");
         assert!(notes.contains("/rs/post/new?repost=POST"));
         assert!(notes.contains("short quote"));
         let edit: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/edit.json")).unwrap();

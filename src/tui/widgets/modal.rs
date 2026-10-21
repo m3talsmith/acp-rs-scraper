@@ -206,7 +206,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     }
     let note = m.error.clone().unwrap_or_else(|| {
         if edit_reply {
-            "A reply edit replaces the body. A quote already on the reply is not kept. Attachment replace is not sent.".into()
+            "A reply edit replaces the body. A quote already on the reply is not kept. The site does not support changing attachments on an edit.".into()
         } else {
             "Attach lists local files. Images, videos, and PDFs upload when you publish. Other files stay on this machine.".into()
         }
