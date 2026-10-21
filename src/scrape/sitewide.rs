@@ -4,7 +4,7 @@
 //! stops for `--limit` or `--scrape-budget` continues on the next run. After a
 //! finished run, the next one is incremental: newest-first feeds stop when a
 //! page is already known, and recent threads are read again for new replies.
-//! Nothing here publishes. [`crate::site::CAPTURE_BLOCK`] is unchanged.
+//! Nothing here publishes. Text posts are a separate path.
 
 use std::collections::HashSet;
 use std::future::Future;
@@ -785,7 +785,8 @@ mod tests {
         ).unwrap();
         assert_eq!(mime, "image/jpeg");
         assert!(seed_links(ORIGIN).iter().all(|l| l.url.starts_with(ORIGIN) && (l.url.contains("/rs") || l.url.ends_with("/robots.txt"))));
-        assert!(crate::site::CAPTURE_BLOCK.contains("nothing was published"));
+        assert!(crate::site::CAPTURE_BLOCK.contains("text posts and replies are published"));
+        assert!(crate::site::CAPTURE_BLOCK.contains("are not sent"));
     }
 
     #[tokio::test]

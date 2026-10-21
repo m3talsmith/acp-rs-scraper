@@ -17,7 +17,7 @@ pub enum ComposeFocus {
     Body,
     /// The completion list.
     Complete,
-    /// A local file path. Enter adds it. Nothing is uploaded.
+    /// A local file path. Enter adds it. The site copy uploads on publish.
     Attach,
     /// Which images or videos go to Red Star. Other types are shown and cannot be checked.
     SitePick,

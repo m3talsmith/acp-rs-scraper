@@ -1,4 +1,4 @@
-//! Compose: Cancel sends nothing, Publish is gated, `r` on a comment pre-fills the ref.
+//! Compose: Cancel sends nothing, a text Publish is queued, a file is refused.
 
 use super::*;
 use crate::tui::input::on_key;
@@ -48,12 +48,12 @@ fn new_post_cancel_sends_nothing_and_publish_is_gated() {
     assert_eq!(m.title, "T");
     assert!(m.body.starts_with("hi"), "{}", m.body);
     key(&mut a, KeyCode::Enter);
-    let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal); };
-    let text = m.lines.join("\n");
-    assert!(text.contains("nothing was published"), "{text}");
+    assert!(a.modal.is_none(), "the compose box closes while the send runs: {:?}", a.modal);
+    assert!(a.status.iter().any(|s| s.contains("publishing")), "{:?}", a.status);
+    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::Publish(_))));
     assert!(a.last_write_unix.is_some());
     let screen = render(&mut a);
-    assert!(screen.contains("Write") || screen.contains("nothing was published"), "{screen}");
+    assert!(!screen.contains("nothing was published"), "{screen}");
 }
 
 #[test]
@@ -113,9 +113,14 @@ fn reply_on_a_root_post_uses_the_thread_as_post_ref() {
         let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
         m.draft(0, None, true)
     };
-    let err = crate::site::decide(&draft, true, false).unwrap_err();
-    assert!(err.message.contains("nothing was published"), "{}", err.message);
-    assert!(err.message.contains("no connection opened"), "{}", err.message);
+    let crate::site::Gate::Send(plan) = crate::site::decide(&draft, true, false).unwrap() else {
+        panic!("a text reply is ready to send");
+    };
+    let payloads = crate::site::event_payloads(&plan);
+    assert_eq!(payloads.len(), 2);
+    assert_eq!(payloads[0]["event"], "validate");
+    assert_eq!(payloads[1]["event"], "save");
+    assert!(plan.attachments.is_empty());
 }
 
 #[test]
@@ -177,10 +182,9 @@ fn attach_line_lists_a_local_file_and_publish_stays_gated() {
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Enter);
-    let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal); };
-    let text = m.lines.join("\n");
-    assert!(text.contains("nothing was published"), "{text}");
-    assert!(text.contains("photo.jpg"), "{text}");
+    assert!(a.modal.is_none(), "publish closes the compose box: {:?}", a.modal);
+    assert!(a.status.iter().any(|s| s.contains("publishing")), "{:?}", a.status);
+    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::Publish(_))));
     assert!(a.last_write_unix.is_some());
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -226,7 +230,9 @@ fn reply_attach_line_accepts_a_pdf_and_drops_it_on_backspace() {
     assert!(m.error.is_none(), "{:?}", m.error);
     assert_eq!(m.attachments.len(), 2, "a text file stays attached locally");
     let plan = crate::site::prepare(&m.draft(0, None, true)).unwrap();
-    assert!(plan.attachments.iter().all(|a| !a.on_site), "pdf and text stay off the site");
+    assert!(plan.attachments[0].on_site, "a pdf is uploaded");
+    assert!(!plan.attachments[1].on_site, "a text file stays off the site");
+    assert_eq!(plan.attachments[0].kind.input_name(), "file_attachments");
     assert!(m.attach_path.is_empty());
     key(&mut a, KeyCode::Backspace);
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };

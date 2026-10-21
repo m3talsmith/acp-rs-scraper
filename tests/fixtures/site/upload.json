@@ -1,0 +1,90 @@
+{
+  "source": "Synthetic stand-in for a redacted Chrome capture of one new post with uploads on 2026-10-21. Names, refs, and tokens are invented. The capture's signed values, cookies, and file bytes are not in this file.",
+  "serializer": "Phoenix V2 array [join_ref, ref, topic, event, payload]. allow_upload and progress are top-level channel events. A chunk is a binary push, not JSON.",
+  "allow_upload": {
+    "event": "allow_upload",
+    "payload": {
+      "ref": "phx-UPLOADREF",
+      "entries": [
+        {
+          "last_modified": 1700000000000,
+          "name": "photo.jpg",
+          "relative_path": "",
+          "size": 1200,
+          "type": "image/jpeg",
+          "ref": "0"
+        },
+        {
+          "last_modified": 1700000000000,
+          "name": "clip.mp4",
+          "relative_path": "",
+          "size": 128000,
+          "type": "video/mp4",
+          "ref": "1"
+        }
+      ],
+      "cid": 1
+    }
+  },
+  "allow_reply": {
+    "status": "ok",
+    "response": {
+      "config": {
+        "chunk_size": 64000,
+        "chunk_timeout": 10000,
+        "max_entries": 4,
+        "max_file_size": 250000000
+      },
+      "ref": "phx-UPLOADREF",
+      "errors": {},
+      "entries": {
+        "0": "synthetic-token-entry-0",
+        "1": "synthetic-token-entry-1"
+      }
+    }
+  },
+  "lvu_join": ["10", "10", "lvu:0", "phx_join", {"token": "synthetic-token-entry-0"}],
+  "progress": {
+    "event": null,
+    "ref": "phx-UPLOADREF",
+    "entry_ref": "0",
+    "progress": 100,
+    "cid": 1
+  },
+  "save_has_uploads_key": false,
+  "pdf": {
+    "name": "notes.pdf",
+    "type": "application/pdf",
+    "input": "file_attachments",
+    "accept": ".pdf",
+    "ref": "phx-PDFREF",
+    "entry_ref": "0",
+    "allow_upload": {
+      "ref": "phx-PDFREF",
+      "entries": [
+        {
+          "last_modified": 1700000000000,
+          "name": "notes.pdf",
+          "relative_path": "",
+          "size": 800,
+          "type": "application/pdf",
+          "ref": "0"
+        }
+      ],
+      "cid": 1
+    }
+  },
+  "errors_example": {
+    "status": "ok",
+    "response": {
+      "config": {
+        "chunk_size": 64000,
+        "chunk_timeout": 10000,
+        "max_entries": 4,
+        "max_file_size": 250000000
+      },
+      "errors": {"0": ["too_large"]},
+      "entries": {}
+    }
+  }
+}

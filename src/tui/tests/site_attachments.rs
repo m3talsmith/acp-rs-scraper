@@ -76,23 +76,28 @@ fn more_than_four_opens_a_picker_and_four_or_fewer_does_not() {
     m.error = None;
     key(&mut a, KeyCode::Char(' '));
     key(&mut a, KeyCode::Enter);
-    let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal) };
-    let text = m.lines.join("\n");
-    assert!(text.contains("nothing was published"), "{text}");
-    assert!(text.contains("local-only media one.jpg"), "{text}");
-    assert!(!text.contains("first 4 of 6"), "{text}");
-    key(&mut a, KeyCode::Enter);
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert!(a.status.iter().any(|s| s.contains("publishing")), "{:?}", a.status);
+    let plan = a.effects.iter().find_map(|e| match e {
+        crate::tui::state::Effect::Publish(p) => Some(p),
+        _ => None,
+    }).expect("publish");
+    assert!(plan.attachments.iter().any(|f| f.name == "one.jpg" && !f.on_site));
+    assert!(plan.site_notice.is_none(), "{:?}", plan.site_notice);
     let _ = std::fs::remove_dir_all(&dir);
 
     let (dir, paths) = files("four", &["one.jpg", "two.png", "three.gif", "four.webp"]);
     let mut a = composing(paths);
     key(&mut a, KeyCode::Enter);
-    let Some(Modal::Message(m)) = &a.modal else { panic!("4 files skip the picker: {:?}", a.modal) };
-    let text = m.lines.join("\n");
-    assert!(text.contains("nothing was published"), "{text}");
-    assert!(text.contains("attachments (local only, not uploaded)"), "{text}");
-    assert!(text.contains("one.jpg") && text.contains("four.webp"), "{text}");
-    assert!(!text.contains("selected for Red Star"), "{text}");
+    assert!(a.modal.is_none(), "4 files skip the picker: {:?}", a.modal);
+    assert!(a.status.iter().any(|s| s.contains("publishing")), "{:?}", a.status);
+    let plan = a.effects.iter().find_map(|e| match e {
+        crate::tui::state::Effect::Publish(p) => Some(p),
+        _ => None,
+    }).expect("publish");
+    assert!(plan.attachments.iter().all(|f| f.on_site));
+    assert!(plan.attachments.iter().any(|f| f.name == "one.jpg"));
+    assert!(plan.attachments.iter().any(|f| f.name == "four.webp"));
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -184,11 +189,13 @@ fn an_audio_file_is_not_selectable_and_a_mix_offers_only_images_and_videos() {
     let (dir, paths) = files("under", &["one.jpg", "two.png", "three.gif", "four.webp", "talk.mp3"]);
     let mut a = composing(paths);
     key(&mut a, KeyCode::Enter);
-    let Some(Modal::Message(m)) = &a.modal else { panic!("4 images plus audio skip the picker: {:?}", a.modal) };
-    let text = m.lines.join("\n");
-    assert!(text.contains("nothing was published"), "{text}");
-    assert!(text.contains("local-only file talk.mp3"), "{text}");
-    assert!(text.contains("site media one.jpg"), "{text}");
-    assert!(!text.contains("selected for Red Star"), "{text}");
+    assert!(a.modal.is_none(), "4 images plus audio skip the picker: {:?}", a.modal);
+    let plan = a.effects.iter().find_map(|e| match e {
+        crate::tui::state::Effect::Publish(p) => Some(p),
+        _ => None,
+    }).expect("publish");
+    assert!(plan.attachments.iter().any(|f| f.name == "talk.mp3" && !f.on_site));
+    assert!(plan.attachments.iter().any(|f| f.name == "one.jpg" && f.on_site));
+    assert!(plan.site_notice.is_none(), "{:?}", plan.site_notice);
     let _ = std::fs::remove_dir_all(&dir);
 }

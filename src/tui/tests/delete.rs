@@ -38,7 +38,7 @@ fn delete_requires_yes_and_then_blocks() {
     }
     key(&mut a, KeyCode::Enter);
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("nothing was published"), "{status}");
+    assert!(status.contains("are not sent"), "{status}");
     assert!(status.contains("\"event\": \"delete-post\""), "{status}");
     assert!(status.contains("capture still needed"), "{status}");
     assert!(!status.contains("https://acp.us"), "{status}");

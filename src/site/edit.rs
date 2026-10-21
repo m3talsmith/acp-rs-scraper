@@ -119,7 +119,7 @@ mod tests {
         assert!(unknown.contains("not checked"), "{unknown}");
         assert_eq!(present("POST", Some(now), now, false, false).unwrap(), "nothing sent");
         let blocked = present("POST", Some(now), now, true, false).unwrap_err();
-        assert!(blocked.message.contains("nothing was published"), "{}", blocked.message);
+        assert!(blocked.message.contains("are not sent"), "{}", blocked.message);
         assert!(blocked.message.contains("the edit form is not built"), "{}", blocked.message);
     }
 }

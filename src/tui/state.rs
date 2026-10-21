@@ -245,6 +245,8 @@ pub enum Effect {
     ExportTheme(crate::themes::ThemeFile),
     /// Download a theme from the repo into the themes folder (`true`: asked for by hand).
     DownloadTheme(String, bool),
+    /// Send one text post or reply. The event loop joins the compose page.
+    Publish(crate::site::WritePlan),
     /// Leave; `cancel_job` kills a running job first (else it is detached).
     Quit {
         /// Kill the job before leaving.
@@ -758,6 +760,17 @@ impl App {
     pub fn error(&mut self, title: &str, text: &str) {
         self.push_status(format!("error: {text}"));
         self.modal = Some(Modal::Message(MessageModal::error(title, text)));
+    }
+
+    /// The compose publish finished. Success names the post. A rejection is not retried.
+    pub fn publish_finished(&mut self, result: std::result::Result<String, String>) {
+        match result {
+            Ok(text) => {
+                self.push_status(text.clone());
+                self.modal = Some(Modal::Message(MessageModal::info("Published", &text)));
+            }
+            Err(text) => self.error("Publish", &text),
+        }
     }
 
     // ------------------------------------------------------------ nicks
@@ -2523,9 +2536,16 @@ impl App {
                 let now = chrono::Utc::now().timestamp();
                 let draft = c.draft(now, self.last_write_unix, true);
                 match crate::site::decide(&draft, true, false) {
-                    Ok(text) => self.push_status(text),
+                    Ok(crate::site::Gate::Done(text)) => self.push_status(text),
+                    Ok(crate::site::Gate::Send(plan)) => {
+                        self.last_write_unix = Some(now);
+                        self.push_status("publishing…");
+                        self.effects.push(Effect::Publish(plan));
+                    }
                     Err(e) => {
-                        if e.message.contains("nothing was published") { self.last_write_unix = Some(now); }
+                        if e.message.contains("nothing was sent") {
+                            self.last_write_unix = Some(now);
+                        }
                         self.error("Write", &e.message);
                     }
                 }

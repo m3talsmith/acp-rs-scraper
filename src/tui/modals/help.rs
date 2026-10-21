@@ -101,22 +101,23 @@ fn help_topics() -> Vec<String> {
         "",
         "[[site-attachments]]",
         "Site attachments",
-        "  Red Star takes up to 4 images or videos on a post (image/* and video/*). This app",
-        "  does not have that limit. Local compose, the archive, and the network keep every",
-        "  file. Audio, documents, and anything else stay local. They show in the picker greyed",
-        "  out, with the reason, and they are never sent to the site.",
-        "  When a post or reply has more than 4 images or videos and Publish is chosen, the",
-        "  compose box asks which 4 go to Red Star. The first four images or videos start",
+        "  Red Star takes up to 4 images, videos, or PDFs on a post. This app does not",
+        "  have that limit. Local compose, the archive, and the network keep every file.",
+        "  Audio and other documents stay local. They show in the picker greyed out, with",
+        "  the reason, and they are not uploaded. A PDF counts toward the 4 and is sent",
+        "  on the file input. The live form's accept list and size limits still apply.",
+        "  When a post or reply has more than 4 of those files and Publish is chosen, the",
+        "  compose box asks which 4 go to Red Star. The first four start",
         "  checked. The line shows n/4 selected for Red Star. Space checks or unchecks the",
-        "  highlighted image or video. Space on a greyed row does not check it. More than 4",
+        "  highlighted image, video, or PDF. Space on a greyed row does not check it. More than 4",
         "  cannot be checked. Fewer than 4 is allowed, including none. Enter confirms.",
-        "  Esc leaves the picker and does not publish. With 4 or fewer images or videos the",
-        "  picker is skipped, and any other type still stays local.",
+        "  Esc leaves the picker and does not publish. With 4 or fewer images, videos, or PDFs",
+        "  the picker is skipped. Audio and other documents still stay local.",
         "  On the command line, --site-attachments takes 1-based indexes, for example",
-        "  --site-attachments 1,3,5,6. At most 4 indexes, and each one has to be an image or",
-        "  a video in the attachment list. Naming an audio file, a pdf, or another type fails",
-        "  and names that file. Omit the flag and the first 4 images or videos are the site",
-        "  copy; other types are skipped. The notice names the files left off the site.",
+        "  --site-attachments 1,3,5,6. At most 4 indexes, and each one has to be an image,",
+        "  a video, or a PDF. Naming an audio file or another type fails and names that",
+        "  file. Omit the flag and the first 4 images, videos, or PDFs are the site copy;",
+        "  other types are skipped. The notice names the files left off the site.",
         "  The post detail shows On Red Star: 4 of 6. ? on the picker opens this topic.",
         "",
         "[[color]]",
@@ -151,8 +152,9 @@ fn area_topics() -> Vec<String> {
     ]);
     push_topic(&mut v, "compose", "Compose", &[
         "  n is a new post. On an open post, r replies and Q quotes.",
-        "  Cancel is the default. Publish does not send. --dry-run prints the form.",
-        "  Attach lists local files. The capture gate still blocks validate, save, and uploads.",
+        "  Cancel is the default. A text post or reply sends validate, then save, once.",
+        "  --dry-run prints the frames and does not connect. The reply names the new post.",
+        "  Attach lists local files. Images, videos, and PDFs upload, then the text is sent.",
     ]);
     push_topic(&mut v, "research", "Research", &[
         "  r, or the ◈ on a card, adds the current post to a research project.",
@@ -175,7 +177,7 @@ fn area_topics() -> Vec<String> {
         "  and recent threads are read again for new replies. --full walks everything.",
         "  Sync › Whole site is that incremental update. Rules and alerts run on the new rows.",
         "  The status line shows pages, posts, and how many are left.",
-        "  Finish and failure raise a notice. Nothing is published. The capture gate stays.",
+        "  Finish and failure raise a notice. This crawl does not publish.",
     ]);
     push_topic(&mut v, "rules", "Rules", &[
         "  Sync › Rules lists system rules and user rules. Lower priority runs first.",
@@ -212,7 +214,7 @@ fn area_topics() -> Vec<String> {
     push_topic(&mut v, "rules-action", "Rule action", &[
         "  notify prints a line for the job log. bookmark, tag, research, and export change local data.",
         "  Notify has no cap. A post fires at most once per rule.",
-        "  Nothing is sent to the site. Publish stays behind the capture gate.",
+        "  A rule does not publish to the site.",
     ]);
     push_topic(&mut v, "rules-priority", "Rule priority", &[
         "  Lower priority runs first, system rules and user rules together.",

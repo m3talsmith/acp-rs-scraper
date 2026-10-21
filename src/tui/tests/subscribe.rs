@@ -22,7 +22,7 @@ fn subscribe_from_the_post_menu_is_blocked() {
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("nothing was published"), "{status}");
+    assert!(status.contains("are not sent"), "{status}");
     assert!(status.contains("\"event\": \"subscribe\""), "{status}");
     assert!(status.contains("state 1"), "{status}");
     assert!(status.contains("capture still needed"), "{status}");

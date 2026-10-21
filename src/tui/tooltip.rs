@@ -110,7 +110,7 @@ fn modal_tip(app: &App, h: ModalHit) -> Option<Tip> {
     let ModalHit::Button(i) = h else { return None };
     let (text, topic) = match &app.modal {
         Some(crate::tui::modals::Modal::Compose(_)) => {
-            if i == 0 { ("Cancel", "compose") } else { ("Publish. Nothing is sent.", "compose") }
+            if i == 0 { ("Cancel", "compose") } else { ("Publish. The site copy uploads, then the text is sent.", "compose") }
         }
         Some(crate::tui::modals::Modal::About(_)) => ("Close About (Esc)", "about-credits"),
         Some(crate::tui::modals::Modal::Help(_)) => ("Close Help (Esc)", "keys"),
