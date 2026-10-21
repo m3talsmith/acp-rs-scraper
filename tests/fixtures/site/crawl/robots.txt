@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /rs/private
+Crawl-delay: 1

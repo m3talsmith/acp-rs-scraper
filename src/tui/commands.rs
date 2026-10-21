@@ -444,6 +444,7 @@ fn sync_item() -> MenuCommand {
         opt("nicks", "Nicks", "--sync --nicks (blank: selected nicks)", false, text("")),
         opt("mentions", "Mentions", "--no-mentions when off", false, check(false)),
         opt("bookmarks", "Bookmarks", "--no-bookmarks when off", false, check(true)),
+        opt_topic("whole_site", "Whole site", "--sync --scrape-all", "whole-site", false, check(false)),
         opt("now", "Sync now", "--sync", false, button(Action::SyncNow)),
         opt("save", "Save as default", "~/.acp/preferences.toml [sync]", false, button(Action::SaveSyncPrefs)),
         opt_topic("rules", "Rules…", "--rules-list", "rules", false, button(Action::OpenRules)),
@@ -495,6 +496,8 @@ fn scrape_item() -> MenuCommand {
         opt("refetch", "Refetch truncated", "--refetch-truncated", false, check(false)),
         opt("output", "Output file", "--output (blank: database only)  Tab completes", false, text("")),
         opt("format", "Format", "--format", false, choice(FORMAT_CHOICES)),
+        opt_topic("whole_site", "Whole site", "--scrape-all", "whole-site", false, check(false)),
+        opt_topic("budget", "Time budget", "--scrape-budget seconds (blank: none)", "whole-site", false, text("")),
         opt("start", "Start Scanning", "", false, button(Action::StartScan)),
     ])
 }
@@ -583,6 +586,7 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
         (CommandId::Discover, _) => Some("discover"),
         (CommandId::View, "notifications") => Some("notifications"),
+        (CommandId::Scrape, "whole_site") | (CommandId::Scrape, "budget") | (CommandId::Sync, "whole_site") => Some("whole-site"),
         _ => None,
     }
 }
@@ -694,15 +698,20 @@ impl Menu {
     /// argv for Start Scanning (headless scrape of the chosen nicks).
     pub fn scrape_argv(&self, selected: &[String]) -> std::result::Result<Vec<String>, String> {
         use CommandId::Scrape as S;
+        let whole = self.check(S, "whole_site");
         let t = self.text(S, "nicks");
         let nicks = if t.is_empty() { selected.to_vec() } else { parse_nicks(&t)?.0 };
-        if nicks.is_empty() { return Err("Scrape needs at least one nick: type them in Scrape › Nicks or select nicks on the left".into()); }
-        let mut v = vec![ARGV0.to_string(), "--nicks".into(), nicks.join(",")];
-        if self.choice(S, "mode") == "Trending" { v.push("--trending".into()); } else { v.push("--latest".into()); }
-        if !self.check(S, "mentions") { v.push("--no-mentions".into()); }
-        if self.check(S, "said_by") { v.push("--said-by".into()); }
-        if self.choice(S, "profile_feed") == "Top" { v.extend(["--profile-feed".into(), "top".into()]); }
-        if self.choice(S, "order") == "Oldest" { v.extend(["--order".into(), "oldest".into()]); }
+        if nicks.is_empty() && !whole { return Err("Scrape needs at least one nick, or Whole site: type them in Scrape › Nicks or select nicks on the left".into()); }
+        let mut v = vec![ARGV0.to_string()];
+        if whole { v.push("--scrape-all".into()); }
+        if !nicks.is_empty() {
+            v.extend(["--nicks".into(), nicks.join(",")]);
+            if self.choice(S, "mode") == "Trending" { v.push("--trending".into()); } else { v.push("--latest".into()); }
+            if !self.check(S, "mentions") { v.push("--no-mentions".into()); }
+            if self.check(S, "said_by") { v.push("--said-by".into()); }
+            if self.choice(S, "profile_feed") == "Top" { v.extend(["--profile-feed".into(), "top".into()]); }
+            if self.choice(S, "order") == "Oldest" { v.extend(["--order".into(), "oldest".into()]); }
+        }
         let lim = self.text(S, "limit");
         if !lim.is_empty() {
             let n: usize = lim.parse().map_err(|_| format!("Post limit must be a number, not {lim:?}"))?;
@@ -713,6 +722,16 @@ impl Menu {
         if !cl.is_empty() {
             let n: usize = cl.parse().map_err(|_| format!("Crawl limit must be a number, not {cl:?}"))?;
             if n != DEFAULT_CRAWL_LIMIT { v.extend(["--crawl-limit".into(), n.to_string()]); }
+        }
+        if whole {
+            let budget = self.text(S, "budget");
+            if !budget.is_empty() {
+                let n: u64 = budget.parse().map_err(|_| format!("Time budget must be a number of seconds, not {budget:?}"))?;
+                if n == 0 { return Err("Time budget must be at least 1 second".into()); }
+                v.extend(["--scrape-budget".into(), n.to_string()]);
+            }
+        } else if !self.text(S, "budget").is_empty() {
+            return Err("Time budget is for Whole site".into());
         }
         if !self.check(S, "attachments") { v.push("--no-attachments".into()); }
         if self.check(S, "full") { v.push("--full".into()); }
@@ -906,10 +925,12 @@ impl Menu {
         let t = self.text(Y, "nicks");
         let nicks = if t.is_empty() { selected.to_vec() } else { parse_nicks(&t)?.0 };
         let bm = self.check(Y, "bookmarks");
-        if nicks.is_empty() && !bm { return Err("nothing to sync: tick Sync › Bookmarks, or type nicks in Sync › Nicks / select nicks".into()); }
+        let whole = self.check(Y, "whole_site");
+        if nicks.is_empty() && !bm && !whole { return Err("nothing to sync: tick Sync › Bookmarks or Whole site, or type nicks in Sync › Nicks / select nicks".into()); }
         let mut v = vec![ARGV0.to_string(), "--sync".into()];
         if !nicks.is_empty() { v.extend(["--nicks".into(), nicks.join(",")]); if !self.check(Y, "mentions") { v.push("--no-mentions".into()); } }
         if !bm { v.push("--no-bookmarks".into()); }
+        if whole { v.push("--scrape-all".into()); }
         v.extend(self.debug_args());
         validate(v)
     }

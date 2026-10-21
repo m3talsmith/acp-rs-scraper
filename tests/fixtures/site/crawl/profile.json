@@ -1,0 +1,20 @@
+{
+  "posts": [
+    {
+      "id": "POST0001",
+      "thread_id": "POST0001",
+      "inserted_at": "2026-10-21T00:00:00Z",
+      "title": "Hello",
+      "author": {"username": "ada"},
+      "body": "hello #strike"
+    },
+    {
+      "id": "POST0004",
+      "thread_id": "POST0004",
+      "inserted_at": "2026-10-18T00:00:00Z",
+      "title": "Profile only",
+      "author": {"username": "ada"},
+      "body": "only on the profile"
+    }
+  ]
+}

@@ -229,6 +229,33 @@ pub const RULES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS rules (
             fired_at TEXT NOT NULL
         );";
 
+/// Whole-site crawl frontier (3.34.0). One row per URL. `status` is `pending`,
+/// `done`, or `error`. `wait_until` is a unix millisecond; a retry waits until then.
+/// `chronological` feeds stop early once a page is already known. Ranked feeds do not.
+pub const CRAWL_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS crawl_frontier (
+            url TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            chronological INTEGER NOT NULL DEFAULT 0,
+            priority INTEGER NOT NULL DEFAULT 2,
+            status TEXT NOT NULL,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            wait_until INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS crawl_recent (
+            url TEXT PRIMARY KEY
+        );
+        CREATE TABLE IF NOT EXISTS crawl_checkpoint (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            running INTEGER NOT NULL DEFAULT 0,
+            finished_at TEXT,
+            posts_saved INTEGER NOT NULL DEFAULT 0,
+            pages INTEGER NOT NULL DEFAULT 0,
+            crawl_delay_ms INTEGER NOT NULL DEFAULT 0,
+            disallow TEXT NOT NULL DEFAULT ''
+        );";
+
 /// Backup bookkeeping inside the database. The archive files themselves live outside it.
 pub const BACKUPS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS backups (
             id INTEGER PRIMARY KEY,

@@ -96,6 +96,10 @@ impl Notice {
             (NoticeKind::Error, rest)
         } else if let Some(rest) = strip_prefix_ignore_case(line, "warning") {
             (NoticeKind::Warning, rest)
+        } else if let Some(rest) = strip_prefix_ignore_case(line, "sync") {
+            (NoticeKind::Sync, rest)
+        } else if let Some(rest) = strip_prefix_ignore_case(line, "job") {
+            (NoticeKind::Job, rest)
         } else {
             return None;
         };
@@ -477,5 +481,8 @@ mod tests {
         let w = Notice::from_status_line("Warning: kept").unwrap();
         assert_eq!(w.kind, NoticeKind::Warning);
         assert_eq!(w.body, "kept");
+        let job = Notice::from_status_line("Job: whole site finished. 2 new posts across 3 pages.").unwrap();
+        assert_eq!(job.kind, NoticeKind::Job);
+        assert!(job.body.contains("finished"));
     }
 }
