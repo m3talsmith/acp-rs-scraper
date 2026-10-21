@@ -30,7 +30,7 @@ Follow them on every change. When a rule conflicts with a task prompt, ask Micha
 - Rust 2024 edition, GPL-3.0-or-later.
 - **All TUI styling goes through Michael's [`ratatui-lipgloss`](https://crates.io/crates/ratatui-lipgloss) crate** (the published crates.io version). If it's missing a feature, report the gap to Michael rather than quietly working around it.
 - The header uses `tui-big-text`.
-- Installs build from source; no prebuilt binaries.
+- Installs come from GitHub Releases binaries or building from source.
 - Themes: TOML files in `~/.acp/themes/`. Keep the theme system in sync with grokbot-tui: when themes change here, note it so the change can be ported there (and vice versa).
 - Decentralization uses libp2p.
 
