@@ -256,6 +256,12 @@ pub const CRAWL_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS crawl_frontier (
             disallow TEXT NOT NULL DEFAULT ''
         );";
 
+/// A post deleted on the site. The `posts` row stays. Created on use.
+pub const TOMBSTONES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_tombstones (
+            post_id TEXT PRIMARY KEY,
+            deleted_at TEXT NOT NULL
+        );";
+
 /// Backup bookkeeping inside the database. The archive files themselves live outside it.
 pub const BACKUPS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS backups (
             id INTEGER PRIMARY KEY,

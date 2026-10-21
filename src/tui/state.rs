@@ -82,6 +82,8 @@ pub struct DetailFrame {
     pub link_cursor: usize,
     /// Reply order. `s` cycles newest → oldest → top.
     pub sort: ThreadSort,
+    /// The site deleted this post. The body stays.
+    pub deleted: bool,
     /// First visible line.
     pub scroll: u16,
     /// Scroll so the selected link is visible on the next render.
@@ -249,6 +251,32 @@ pub enum Effect {
     Publish(crate::site::WritePlan),
     /// Send one reply edit. The event loop opens the edit page, then validates and saves once.
     EditReply(crate::site::edit::ReplyEdit),
+    /// Send one top-level post edit.
+    EditPost(crate::site::edit::PostEdit),
+    /// Send one quote repost.
+    Repost(crate::site::repost::RepostPlan),
+    /// Send one vote hook.
+    Vote {
+        /// Post id.
+        id: String,
+        /// `1`, `0`, or `-1`.
+        state: String,
+    },
+    /// Send one subscribe hook. State is `1`.
+    Subscribe {
+        /// Thread id.
+        id: String,
+    },
+    /// Send one site bookmark hook. State is `1`.
+    Bookmark {
+        /// Post id.
+        id: String,
+    },
+    /// Send one delete hook.
+    Delete {
+        /// Post id.
+        id: String,
+    },
     /// Leave; `cancel_job` kills a running job first (else it is detached).
     Quit {
         /// Kill the job before leaving.
@@ -459,6 +487,8 @@ pub struct App {
     pub pending_job: Option<(JobKind, Vec<String>)>,
     /// Bookmarked post ids (local changes show at once; a side job stores them).
     pub marks: HashSet<String>,
+    /// Posts deleted on the site. The row stays and is drawn with a tombstone.
+    pub tombstones: HashSet<String>,
     /// Body layout.
     pub view_mode: ViewMode,
     /// Grid columns at the last draw (↑/↓ move a row).
@@ -608,7 +638,7 @@ impl App {
             menu: MenuState { menu: Menu::new(args), item: 0, open: None, anchor: None, opt: 0, editing: false, path_matches: Vec::new(), path_at: 0 },
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
-            job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
+            job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), tombstones: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, paused_login: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None,
@@ -623,6 +653,7 @@ impl App {
         app.load_notices();
         app.refresh_nicks();
         app.reload_marks();
+        app.tombstones = crate::storage::db::tombstone_ids();
         let restored = app.load_actions();
         app.record_ready = true;
         if !restored { app.persist_actions(); }
@@ -768,6 +799,9 @@ impl App {
     pub fn publish_finished(&mut self, result: std::result::Result<String, String>) {
         match result {
             Ok(text) => {
+                if let Some(id) = text.strip_prefix("deleted ").and_then(|rest| rest.split_whitespace().next()) {
+                    self.tombstones.insert(id.to_string());
+                }
                 self.push_status(text.clone());
                 self.modal = Some(Modal::Message(MessageModal::info("Published", &text)));
             }
@@ -1004,7 +1038,7 @@ impl App {
             "Vote",
             vec![
                 format!("{label} {}?", post.post_id),
-                "Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+                "Cancel is the default. A confirm sends the vote once.".into(),
             ],
             label,
             ConfirmAction::Vote(post.post_id, state.into()),
@@ -1027,7 +1061,7 @@ impl App {
         let (nicks, tags) = self.compose_sources();
         self.modal = Some(Modal::Compose(ComposeModal::reply(&thread, None, Some(post.content.clone()), Some(post.post_id.clone()), nicks, tags)));
     }
-    /// Post menu › Edit. The hour is checked first. A root post stays gated. A reply opens the body editor on Cancel.
+    /// Post menu › Edit. The hour is checked first. A reply edits the body. A root post edits the title and body.
     fn edit_post(&mut self, id: &str) {
         if !self.writes_are_on() {
             self.show_writes_off();
@@ -1040,23 +1074,10 @@ impl App {
             self.error("Edit", "an edit stays open for one hour after the post. Nothing was sent.");
             return;
         }
+        let (nicks, tags) = self.compose_sources();
         let is_reply = post.as_ref().is_some_and(|p| !p.parent_post_id.is_empty());
-        if is_reply {
-            let (nicks, tags) = self.compose_sources();
-            self.modal = Some(Modal::Compose(ComposeModal::edit_reply(id, nicks, tags)));
-            return;
-        }
-        let mut confirm = ConfirmModal::new(
-            "Edit",
-            vec![
-                format!("Edit {id}?"),
-                "Type yes. A top-level post edit has not been captured, so a confirm still sends nothing.".into(),
-            ],
-            "Edit",
-            ConfirmAction::Edit(id.to_string()),
-        );
-        confirm.strict = true;
-        self.modal = Some(Modal::Confirm(confirm));
+        let compose = if is_reply { ComposeModal::edit_reply(id, nicks, tags) } else { ComposeModal::edit_post(id, nicks, tags) };
+        self.modal = Some(Modal::Compose(compose));
     }
     /// Post menu › View reposts.
     pub fn open_reposts(&mut self, id: &str) {
@@ -1927,8 +1948,9 @@ impl App {
         for tag in extract_tags(&post.body_json, &post.content) {
             links.push(Link { kind: LinkKind::Tag, id: tag, target: None });
         }
+        let deleted = self.tombstones.contains(&post.post_id);
         DetailFrame { attachments, post, links,
-            link_cursor: 0, scroll: 0, follow_link: false, notice: None, sort: ThreadSort::Newest }
+            link_cursor: 0, scroll: 0, follow_link: false, notice: None, sort: ThreadSort::Newest, deleted }
     }
     /// Open the n-th post of the view as the root detail (replacing any open stack).
     pub fn open_post(&mut self, i: usize) {
@@ -2511,23 +2533,48 @@ impl App {
                 ConfirmAction::Job(k, argv) => self.start_job(k, argv),
                 ConfirmAction::Quit => self.effects.push(Effect::Quit { cancel_job: c.chosen == 1 }),
                 ConfirmAction::Delete(id) => match crate::site::delete::present(&id, true, false) {
-                    Ok(text) => self.push_status(text),
+                    Ok(crate::site::hook::HookGate::Send(call)) => {
+                        self.push_status("deleting…");
+                        self.effects.push(Effect::Delete { id: call.id });
+                    }
+                    Ok(crate::site::hook::HookGate::Done(text)) => self.push_status(text),
                     Err(e) => self.error("Delete", &e.message),
                 },
                 ConfirmAction::Vote(id, state) => match crate::site::vote::present(&id, &state, true, false) {
-                    Ok(text) => self.push_status(text),
+                    Ok(crate::site::hook::HookGate::Send(call)) => {
+                        self.push_status("voting…");
+                        self.effects.push(Effect::Vote { id: call.id, state });
+                    }
+                    Ok(crate::site::hook::HookGate::Done(text)) => self.push_status(text),
                     Err(e) => self.error("Vote", &e.message),
                 },
                 ConfirmAction::Subscribe(id) => match crate::site::subscribe::present(&id, "1", true, false) {
-                    Ok(text) => self.push_status(text),
+                    Ok(crate::site::hook::HookGate::Send(call)) => {
+                        self.push_status("subscribing…");
+                        self.effects.push(Effect::Subscribe { id: call.id });
+                    }
+                    Ok(crate::site::hook::HookGate::Done(text)) => self.push_status(text),
                     Err(e) => self.error("Subscribe", &e.message),
                 },
-                ConfirmAction::Edit(id) => {
+                ConfirmAction::Bookmark(id) => match crate::site::bookmark::present(&id, true, false) {
+                    Ok(crate::site::hook::HookGate::Send(call)) => {
+                        self.push_status("bookmarking…");
+                        self.effects.push(Effect::Bookmark { id: call.id });
+                    }
+                    Ok(crate::site::hook::HookGate::Done(text)) => self.push_status(text),
+                    Err(e) => self.error("Bookmark", &e.message),
+                },
+                ConfirmAction::EditPost { id, title, body } => {
                     let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
                     let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
                     let now = chrono::Utc::now().timestamp();
-                    match crate::site::edit::post_blocked(&id, inserted, now, true, false) {
-                        Ok(text) => self.push_status(text),
+                    let title = if title.trim().is_empty() { None } else { Some(title.as_str()) };
+                    let body = if body.trim().is_empty() { None } else { Some(body.as_str()) };
+                    match crate::site::edit::prepare_post(&id, title, body, inserted, now, true) {
+                        Ok(plan) => {
+                            self.push_status("publishing…");
+                            self.effects.push(Effect::EditPost(plan));
+                        }
                         Err(e) => self.error("Edit", &e.message),
                     }
                 }
@@ -2543,8 +2590,12 @@ impl App {
                         Err(e) => self.error("Edit", &e.message),
                     }
                 }
-                ConfirmAction::Repost(id) => match crate::site::repost::present(&id, true, false) {
-                    Ok(text) => self.push_status(text),
+                ConfirmAction::Repost { id, title, body } => match crate::site::repost::present(&id, &title, &body, true, false) {
+                    Ok(crate::site::repost::RepostGate::Send(plan)) => {
+                        self.push_status("publishing…");
+                        self.effects.push(Effect::Repost(plan));
+                    }
+                    Ok(crate::site::repost::RepostGate::Done(text)) => self.push_status(text),
                     Err(e) => self.error("Repost", &e.message),
                 },
             },
@@ -2559,7 +2610,7 @@ impl App {
                             "Subscribe",
                             vec![
                                 format!("Subscribe to {}?", m.post_id),
-                                "Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+                                "Cancel is the default. A confirm sends subscribe once. Unsubscribe is not sent.".into(),
                             ],
                             "Subscribe",
                             ConfirmAction::Subscribe(m.post_id),
@@ -2574,7 +2625,7 @@ impl App {
                             "Delete post",
                             vec![
                                 format!("Delete {}?", m.post_id),
-                                "Type yes. On the site, open the post menu and click Delete, cancel once, then confirm a throwaway post. Nothing is sent here.".into(),
+                                "Type yes. A confirm sends delete-post once. The local copy stays, with a tombstone.".into(),
                             ],
                             "Delete",
                             ConfirmAction::Delete(m.post_id),
@@ -2588,14 +2639,22 @@ impl App {
                     if !self.writes_are_on() {
                         self.show_writes_off();
                     } else {
+                        let (nicks, tags) = self.compose_sources();
+                        self.modal = Some(Modal::Compose(ComposeModal::repost(&m.post_id, nicks, tags)));
+                    }
+                }
+                PostAction::Bookmark => {
+                    if !self.writes_are_on() {
+                        self.show_writes_off();
+                    } else {
                         self.modal = Some(Modal::Confirm(ConfirmModal::new(
-                            "Repost",
+                            "Bookmark",
                             vec![
-                                format!("Repost {}?", m.post_id),
-                                "Cancel is the default. The repost form has not been captured, so a confirm still sends nothing.".into(),
+                                format!("Bookmark {} on the site?", m.post_id),
+                                "Cancel is the default. A confirm sends bookmark state 1. Clearing a site bookmark is not sent.".into(),
                             ],
-                            "Repost",
-                            ConfirmAction::Repost(m.post_id),
+                            "Bookmark",
+                            ConfirmAction::Bookmark(m.post_id),
                         )));
                     }
                 }
@@ -2611,13 +2670,40 @@ impl App {
                         vec![
                             format!("Edit reply {id}?"),
                             "Type yes. This sends validate, then save, once.".into(),
-                            "The body replaces the reply. A quote already on it is not kept.".into(),
+                            "The body replaces the reply. A quote already on it is kept.".into(),
                         ],
                         "Edit",
                         ConfirmAction::EditReply { id: id.clone(), body: c.body.clone() },
                     );
                     confirm.strict = true;
                     self.modal = Some(Modal::Confirm(confirm));
+                    return;
+                }
+                if let crate::tui::modals::ComposeKind::EditPost { id } = &c.kind {
+                    let mut confirm = ConfirmModal::new(
+                        "Edit",
+                        vec![
+                            format!("Edit post {id}?"),
+                            "Type yes. This sends validate, then save, once.".into(),
+                            "A blank title or body is the one already on the post.".into(),
+                        ],
+                        "Edit",
+                        ConfirmAction::EditPost { id: id.clone(), title: c.title.clone(), body: c.body.clone() },
+                    );
+                    confirm.strict = true;
+                    self.modal = Some(Modal::Confirm(confirm));
+                    return;
+                }
+                if let crate::tui::modals::ComposeKind::Repost { id } = &c.kind {
+                    self.modal = Some(Modal::Confirm(ConfirmModal::new(
+                        "Repost",
+                        vec![
+                            format!("Repost {id}?"),
+                            "Cancel is the default. This sends validate, then save, once.".into(),
+                        ],
+                        "Repost",
+                        ConfirmAction::Repost { id: id.clone(), title: c.title.clone(), body: c.body.clone() },
+                    )));
                     return;
                 }
                 let now = chrono::Utc::now().timestamp();

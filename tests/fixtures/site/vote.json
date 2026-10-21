@@ -1,6 +1,6 @@
 {
-  "capture_status": "missing",
-  "source": "architecture/PLAN-3.0-CLIENT.md row 29, from the JS survey. Not a live capture. Placeholders are not used because this file has no session material.",
+  "capture_status": "captured",
+  "source": "Masked from a redacted LiveView capture. The id is synthetic. Cookies and tokens are not in this file.",
   "event": "vote",
   "states": ["1", "0", "-1"],
   "documented_hook": {
@@ -8,9 +8,9 @@
     "event": "vote",
     "value": {"id": "POST", "state": "1"}
   },
-  "needed": [
-    "On /rs/post/POST click the upvote control, click it again to clear, then click downvote. Record each websocket event and phx_reply",
-    "The reply must show score, vote, and upvote_percentage for state 1, 0, and -1, and whether the payload is a hook and which component it targets",
-    "A rejection, if one is cheap to cause, and whether the socket rate-limits the click"
-  ]
+  "reply": {
+    "1": {"vote": "upvote", "score": 2, "upvote_percentage": 100},
+    "0": {"vote": null, "score": 1, "upvote_percentage": 100},
+    "-1": {"vote": "downvote", "score": 0, "upvote_percentage": 50}
+  }
 }

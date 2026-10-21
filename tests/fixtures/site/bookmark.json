@@ -1,0 +1,12 @@
+{
+  "capture_status": "captured",
+  "source": "Masked from a redacted LiveView capture. The id is synthetic. State 0 was not in the capture. Share is not a frame.",
+  "event": "bookmark",
+  "documented_hook": {
+    "type": "hook",
+    "event": "bookmark",
+    "value": {"id": "POST", "state": "1"}
+  },
+  "reply": {"bookmarked": true, "bookmarks_count": 1},
+  "missing": "hook bookmark with state \"0\""
+}

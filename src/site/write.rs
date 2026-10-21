@@ -4,7 +4,9 @@
 //! `form[thread_id]` and `form[body_input]`. Validate carries `meta._target`
 //! and `uploads: {}`. Save carries an empty `meta` and no `uploads` key.
 //! A confirmed post or reply uploads the site copy, then sends validate, then
-//! save, once. Vote, subscribe, delete, edit, and repost stay gated.
+//! save, once. A vote, a site bookmark, a subscribe, a delete, a post edit,
+//! and a quote repost are sent. Unsubscribe, a plain repost, and clearing a
+//! site bookmark are not. Share is not a write.
 //! `--dry-run` still opens no connection.
 
 use super::attach::{self, PlannedAttachment};
@@ -416,12 +418,12 @@ pub(crate) fn captured_form_value(fields: &[(String, String)]) -> String {
 }
 
 /// One captured form event. Validate carries `_target` and an empty `uploads` object. Save does not.
-pub(crate) fn reply_event(ref_id: &str, event: &str, cid: u64, value: &str, validate: bool) -> Value {
+pub(crate) fn form_event(ref_id: &str, event: &str, cid: u64, value: &str, target: &str, validate: bool) -> Value {
     let payload = if validate {
         json!({
             "type": "form",
             "event": event,
-            "meta": {"_target": "form[body_input]"},
+            "meta": {"_target": target},
             "uploads": {},
             "cid": cid,
             "value": value,
@@ -436,6 +438,11 @@ pub(crate) fn reply_event(ref_id: &str, event: &str, cid: u64, value: &str, vali
         })
     };
     json!(["1", ref_id, "lv:<id>", "event", payload])
+}
+
+/// A reply or quote-repost form event. Validate targets `form[body_input]`.
+pub(crate) fn reply_event(ref_id: &str, event: &str, cid: u64, value: &str, validate: bool) -> Value {
+    form_event(ref_id, event, cid, value, "form[body_input]", validate)
 }
 
 /// Two LiveView form events, validate then save. No third frame is built:
@@ -545,7 +552,7 @@ pub(crate) fn check_test_host(_url: &str) {}
 ///
 /// Text posts and replies are published. Uploads and the uncaptured
 /// interactions are not.
-pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. A reply edit sends validate, then save, once. Votes, subscribes, deletes, reposts, and top-level post edits are not sent. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
+pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. A reply edit sends validate, then save, once, and keeps a leading quote. A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent. An unsubscribe, a plain repost with an empty comment, and clearing a site bookmark are not sent. Share is not a write. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
 
 /// `--capture-reply` stops here. It does not copy `session.json` or open a page.
 pub fn capture_stub_message(thread: &str) -> String {

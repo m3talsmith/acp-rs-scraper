@@ -11,14 +11,23 @@ pub enum ConfirmAction {
     Job(crate::tui::jobs::JobKind, Vec<String>),
     /// Quit; button 0 detaches the job, button 1 cancels it first.
     Quit,
-    /// Delete a post. The send stays gated.
+    /// Delete a post. Confirm sends `delete-post` once.
     Delete(String),
-    /// Upvote, clear, or downvote. The send stays gated.
+    /// Upvote, clear, or downvote. Confirm sends the hook once.
     Vote(String, String),
-    /// Subscribe. The send stays gated.
+    /// Subscribe. Confirm sends state `1`.
     Subscribe(String),
-    /// Edit a top-level post. The form is not built. The send stays gated.
-    Edit(String),
+    /// Bookmark on the site. Confirm sends state `1`.
+    Bookmark(String),
+    /// Edit a top-level post. Confirm sends validate, then save, once.
+    EditPost {
+        /// Post id.
+        id: String,
+        /// New title. Empty means the mounted title.
+        title: String,
+        /// New markdown body. Empty means the mounted document.
+        body: String,
+    },
     /// Edit a reply. Confirm sends validate, then save, once.
     EditReply {
         /// Reply id.
@@ -26,8 +35,15 @@ pub enum ConfirmAction {
         /// Markdown body that replaces the document.
         body: String,
     },
-    /// Repost. The form is not built. The send stays gated.
-    Repost(String),
+    /// Quote repost. Confirm sends validate, then save, once.
+    Repost {
+        /// Post being reposted.
+        id: String,
+        /// Title sent with the comment.
+        title: String,
+        /// Comment body.
+        body: String,
+    },
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.

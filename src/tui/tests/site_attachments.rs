@@ -137,7 +137,7 @@ fn detail_names_the_site_subset_and_skips_research_files() {
         local_path: PathBuf::from(format!("/nonexistent/{i}.jpg")), mime_type: "image/jpeg".into(), on_site: i < 4,
     }).collect();
     let links: Vec<Link> = atts.iter().map(|a| Link { kind: LinkKind::Attachment, id: a.local_path.display().to_string(), target: None }).collect();
-    let frame = DetailFrame { post: p.clone(), attachments: atts, links, link_cursor: 0, sort: ThreadSort::Newest, scroll: 0, follow_link: false, notice: None };
+    let frame = DetailFrame { post: p.clone(), attachments: atts, links, link_cursor: 0, sort: ThreadSort::Newest, scroll: 0, follow_link: false, notice: None, deleted: false };
     let (lines, _, _, _) = detail_layout(&frame, 80, &Theme::acp(), 0);
     let text = line_text(&lines);
     assert!(text.contains("On Red Star: 4 of 6"), "{text}");
@@ -147,7 +147,7 @@ fn detail_names_the_site_subset_and_skips_research_files() {
         local_path: PathBuf::from("/nonexistent/x.jpg"), mime_type: "image/jpeg".into(), on_site: false,
     }];
     let links = vec![Link { kind: LinkKind::Attachment, id: "/nonexistent/x.jpg".into(), target: None }];
-    let frame = DetailFrame { post: p, attachments: atts, links, link_cursor: 0, sort: ThreadSort::Newest, scroll: 0, follow_link: false, notice: None };
+    let frame = DetailFrame { post: p, attachments: atts, links, link_cursor: 0, sort: ThreadSort::Newest, scroll: 0, follow_link: false, notice: None, deleted: false };
     let (lines, _, _, _) = detail_layout(&frame, 80, &Theme::acp(), 0);
     let text = line_text(&lines);
     assert!(!text.contains("On Red Star"), "{text}");

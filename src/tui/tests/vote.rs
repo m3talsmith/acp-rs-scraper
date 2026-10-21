@@ -23,21 +23,15 @@ fn plus_prepares_an_upvote_and_does_not_send_it() {
     assert!(a.modal.is_none());
     key(&mut a, KeyCode::Char('+'));
     key(&mut a, KeyCode::Char('y'));
-    let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal); };
-    assert!(m.title.contains("Vote"), "{}", m.title);
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::Vote { state, .. } if state == "1")));
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("are not sent"), "{status}");
-    assert!(status.contains("\"event\": \"vote\""), "{status}");
-    assert!(status.contains("state 1"), "{status}");
-    assert!(status.contains("capture still needed"), "{status}");
-    assert!(status.contains("/rs/post/POST"), "{status}");
+    assert!(status.contains("voting"), "{status}");
     assert!(!status.contains("https://acp.us"), "{status}");
-    a.modal = None;
+    a.effects.clear();
     key(&mut a, KeyCode::Char('-'));
     let Some(Modal::Confirm(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert_eq!(m.focus, 1);
     key(&mut a, KeyCode::Char('y'));
-    let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("state -1"), "{status}");
-    assert!(status.contains("are not sent"), "{status}");
+    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::Vote { state, .. } if state == "-1")));
 }

@@ -573,3 +573,49 @@ pub fn open_db_flags(db: &Path, flags: OpenFlags) -> Result<Connection> {
     c.busy_timeout(std::time::Duration::from_secs(10))?;
     Ok(c)
 }
+
+/// Record that `post_id` was deleted on the site. The posts row is left in place.
+///
+/// A missing database, a locked file, or a failed statement is ignored. The
+/// delete on the site has already happened.
+pub fn note_tombstone(post_id: &str) -> Result<()> {
+    let Ok(home) = crate::config::home() else { return Ok(()) };
+    let path = crate::config::database_path(&home);
+    if !path.exists() {
+        return Ok(());
+    }
+    let Ok(c) = open_db(&path) else { return Ok(()) };
+    if c.execute_batch(TOMBSTONES_SCHEMA).is_err() {
+        return Ok(());
+    }
+    let now = chrono::Utc::now().to_rfc3339();
+    let _ = c.execute(
+        "INSERT OR REPLACE INTO post_tombstones (post_id, deleted_at) VALUES (?1, ?2)",
+        params![post_id, now],
+    );
+    Ok(())
+}
+
+/// Post ids with a local tombstone. Empty when the database or the table is absent.
+pub fn tombstone_ids() -> HashSet<String> {
+    let mut out = HashSet::new();
+    let Ok(home) = crate::config::home() else { return out };
+    let path = crate::config::database_path(&home);
+    if !path.exists() {
+        return out;
+    }
+    let Ok(c) = open_db(&path) else { return out };
+    let has: bool = c
+        .query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='post_tombstones'", [], |r| r.get::<_, i64>(0))
+        .unwrap_or(0)
+        > 0;
+    if !has {
+        return out;
+    }
+    let Ok(mut st) = c.prepare("SELECT post_id FROM post_tombstones") else { return out };
+    let Ok(rows) = st.query_map([], |r| r.get::<_, String>(0)) else { return out };
+    for id in rows.flatten() {
+        out.insert(id);
+    }
+    out
+}

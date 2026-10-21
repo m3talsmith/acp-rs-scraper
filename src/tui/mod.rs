@@ -376,6 +376,90 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                         let _ = tx.send(Msg::Published(r));
                     });
                 }
+                Effect::EditPost(plan) => {
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    tokio::spawn(async move {
+                        let r = crate::site::edit::publish_post(&http, &jar, &plan)
+                            .await
+                            .map(|p| format!("published {}\n{}", p.id, p.url))
+                            .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
+                        let _ = tx.send(Msg::Published(r));
+                    });
+                }
+                Effect::Repost(plan) => {
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    tokio::spawn(async move {
+                        let r = crate::site::repost::publish_repost(&http, &jar, &plan)
+                            .await
+                            .map(|p| format!("published {}\n{}", p.id, p.url))
+                            .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
+                        let _ = tx.send(Msg::Published(r));
+                    });
+                }
+                Effect::Vote { id, state } => {
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    tokio::spawn(async move {
+                        let r = async {
+                            let call = match crate::site::vote::present(&id, &state, true, false) {
+                                Ok(crate::site::hook::HookGate::Send(call)) => call,
+                                Ok(crate::site::hook::HookGate::Done(text)) => return Ok(text),
+                                Err(e) => return Err(e.message),
+                            };
+                            let reply = crate::site::hook::publish_hook(&http, &jar, &call).await.map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")))?;
+                            Ok(crate::site::hook::vote_summary(&id, &state, &reply))
+                        }
+                        .await;
+                        let _ = tx.send(Msg::Published(r));
+                    });
+                }
+                Effect::Subscribe { id } => {
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    tokio::spawn(async move {
+                        let r = async {
+                            let call = match crate::site::subscribe::present(&id, "1", true, false) {
+                                Ok(crate::site::hook::HookGate::Send(call)) => call,
+                                Ok(crate::site::hook::HookGate::Done(text)) => return Ok(text),
+                                Err(e) => return Err(e.message),
+                            };
+                            let reply = crate::site::hook::publish_hook(&http, &jar, &call).await.map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")))?;
+                            Ok(crate::site::hook::subscribe_summary(&id, &reply))
+                        }
+                        .await;
+                        let _ = tx.send(Msg::Published(r));
+                    });
+                }
+                Effect::Bookmark { id } => {
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    tokio::spawn(async move {
+                        let r = async {
+                            let call = match crate::site::bookmark::present(&id, true, false) {
+                                Ok(crate::site::hook::HookGate::Send(call)) => call,
+                                Ok(crate::site::hook::HookGate::Done(text)) => return Ok(text),
+                                Err(e) => return Err(e.message),
+                            };
+                            let reply = crate::site::hook::publish_hook(&http, &jar, &call).await.map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")))?;
+                            Ok(crate::site::hook::bookmark_summary(&id, &reply))
+                        }
+                        .await;
+                        let _ = tx.send(Msg::Published(r));
+                    });
+                }
+                Effect::Delete { id } => {
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    tokio::spawn(async move {
+                        let r = async {
+                            let call = match crate::site::delete::present(&id, true, false) {
+                                Ok(crate::site::hook::HookGate::Send(call)) => call,
+                                Ok(crate::site::hook::HookGate::Done(text)) => return Ok(text),
+                                Err(e) => return Err(e.message),
+                            };
+                            let reply = crate::site::hook::publish_hook(&http, &jar, &call).await.map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")))?;
+                            crate::site::hook::delete_summary(&id, &reply).map_err(|e| e.message)
+                        }
+                        .await;
+                        let _ = tx.send(Msg::Published(r));
+                    });
+                }
                 Effect::DownloadTheme(name, manual) => {
                     let Some(dir) = app.themes_dir.clone() else { continue };
                     let tx = msg_tx.clone();

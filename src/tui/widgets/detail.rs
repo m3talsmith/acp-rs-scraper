@@ -17,11 +17,26 @@ pub fn badge(p: &Post, t: &Theme) -> Span<'static> {
     }
 }
 
+/// `🪦` when the locale names UTF, otherwise `[RIP]`.
+pub fn tombstone_label() -> &'static str {
+    let locales = [std::env::var("LC_ALL"), std::env::var("LC_CTYPE"), std::env::var("LANG")];
+    if locales.iter().flatten().any(|s| s.to_ascii_lowercase().contains("utf")) { "🪦" } else { "[RIP]" }
+}
+
 /// `[badge] @nick · posted_at · post_id`.
 pub fn meta_line(p: &Post, t: &Theme) -> Line<'static> {
-    let mut v = vec![badge(p, t), Span::raw(" "),
+    meta_line_deleted(p, t, false)
+}
+
+/// [`meta_line`], with a tombstone when the site deleted the post. The body stays.
+pub fn meta_line_deleted(p: &Post, t: &Theme, deleted: bool) -> Line<'static> {
+    let mut v = Vec::new();
+    if deleted {
+        v.push(Span::styled(format!("{} ", tombstone_label()), t.accent_bold()));
+    }
+    v.extend([badge(p, t), Span::raw(" "),
         Span::styled(format!("@{}", p.nick), t.bold()),
-        Span::styled(format!(" · {} · {}", p.posted_at, p.post_id), t.muted())];
+        Span::styled(format!(" · {} · {}", p.posted_at, p.post_id), t.muted())]);
     if p.truncated { v.push(Span::styled(" · shortened (run --refetch-truncated)", t.muted())); }
     Line::from(v)
 }
@@ -34,7 +49,7 @@ pub fn snippet(p: &Post) -> String {
 
 /// Two-row header of a collapsed frame.
 pub fn header_lines(f: &DetailFrame, width: usize, t: &Theme) -> Vec<Line<'static>> {
-    vec![meta_line(&f.post, t), Line::styled(ellipsize(&snippet(&f.post), width), t.muted())]
+    vec![meta_line_deleted(&f.post, t, f.deleted), Line::styled(ellipsize(&snippet(&f.post), width), t.muted())]
 }
 
 fn link_label(kind: LinkKind) -> &'static str {
@@ -61,7 +76,7 @@ pub type DetailLayout = (Vec<Line<'static>>, Vec<(usize, usize)>, ImageSlots, Ve
 pub fn detail_layout(f: &DetailFrame, width: usize, t: &Theme, img_rows: u16)
     -> DetailLayout {
     let mut slots = Vec::new();
-    let mut lines = vec![meta_line(&f.post, t)];
+    let mut lines = vec![meta_line_deleted(&f.post, t, f.deleted)];
     let mut links = Vec::new();
     let link_line = |i: usize, lines: &mut Vec<Line<'static>>, links: &mut Vec<(usize, usize)>| {
         let l = &f.links[i];

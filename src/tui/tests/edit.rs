@@ -45,16 +45,13 @@ fn a_recent_post_asks_for_yes_and_then_blocks() {
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);
-    let Some(crate::tui::modals::Modal::Confirm(m)) = &a.modal else { panic!("{:?}", a.modal); };
-    assert!(m.strict);
-    assert_eq!(m.focus, 1, "Cancel is the default");
-    for c in ['y', 'e', 's'] {
-        key(&mut a, KeyCode::Char(c));
-    }
+    let Some(crate::tui::modals::Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert!(matches!(m.kind, crate::tui::modals::ComposeKind::EditPost { .. }));
+    assert_eq!(m.focus, crate::tui::modals::ComposeFocus::Cancel);
     key(&mut a, KeyCode::Enter);
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert!(a.effects.is_empty());
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("the edit form is not built"), "{status}");
-    assert!(status.contains("are not sent"), "{status}");
-    assert!(status.contains("/rs/post/POST/edit"), "{status}");
+    assert!(status.contains("nothing sent"), "{status}");
     assert!(!status.contains("https://acp.us"), "{status}");
 }

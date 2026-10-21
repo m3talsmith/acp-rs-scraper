@@ -1,3 +1,9 @@
+acp-red-star (3.39.0) unstable; urgency=medium
+
+  * Package 3.39.0. A reply edit keeps a leading quote. A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent. Unsubscribe, a plain repost, and clearing a site bookmark are not sent.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 22:30:00 +0000
+
 acp-red-star (3.33.0) unstable; urgency=medium
 
   * Package 3.33.0. A reply edit sends validate, then save, once. Top-level post edits, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.

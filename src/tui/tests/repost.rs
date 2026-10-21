@@ -21,13 +21,13 @@ fn repost_from_the_post_menu_is_blocked() {
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);
-    let Some(crate::tui::modals::Modal::Confirm(m)) = &a.modal else { panic!("{:?}", a.modal); };
-    assert_eq!(m.focus, 1, "Cancel is the default");
-    key(&mut a, KeyCode::Char('y'));
+    let Some(crate::tui::modals::Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert!(matches!(m.kind, crate::tui::modals::ComposeKind::Repost { .. }));
+    assert_eq!(m.focus, crate::tui::modals::ComposeFocus::Cancel);
+    key(&mut a, KeyCode::Enter);
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert!(a.effects.is_empty());
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("are not sent"), "{status}");
-    assert!(status.contains("the repost form is not built"), "{status}");
-    assert!(status.contains("/rs/post/new?repost="), "{status}");
-    assert!(status.contains("capture still needed"), "{status}");
+    assert!(status.contains("nothing sent"), "{status}");
     assert!(!status.contains("https://acp.us"), "{status}");
 }

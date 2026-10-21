@@ -24,11 +24,9 @@ fn subscribe_from_the_post_menu_is_blocked() {
     let Some(Modal::Confirm(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert_eq!(m.focus, 1, "Cancel is the default");
     key(&mut a, KeyCode::Char('y'));
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::Subscribe { .. })));
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
-    assert!(status.contains("are not sent"), "{status}");
-    assert!(status.contains("\"event\": \"subscribe\""), "{status}");
-    assert!(status.contains("state 1"), "{status}");
-    assert!(status.contains("capture still needed"), "{status}");
-    assert!(status.contains("/rs/post/THREAD"), "{status}");
+    assert!(status.contains("subscribing"), "{status}");
     assert!(!status.contains("https://acp.us"), "{status}");
 }

@@ -1,16 +1,13 @@
 {
-  "capture_status": "missing",
-  "source": "architecture/PLAN-3.0-CLIENT.md row 31, from the JS survey. Not a live capture.",
+  "capture_status": "captured",
+  "source": "Masked from a redacted LiveView capture. The id is synthetic. State 0 was not in the capture.",
   "event": "subscribe",
-  "states": ["1", "0"],
+  "states": ["1"],
   "documented_hook": {
     "type": "hook",
     "event": "subscribe",
     "value": {"id": "THREAD", "state": "1"}
   },
-  "needed": [
-    "On /rs/post/THREAD click the subscribe control, then click it again to clear. Record both websocket events and phx_replies",
-    "Note whether id is the thread id. The reply must set subscribed true, then false",
-    "The server error when a subscribe is rejected, and whether the payload is a hook and which component it targets"
-  ]
+  "reply": {"subscribed": true},
+  "missing": "hook subscribe with state \"0\" (unsubscribe)"
 }

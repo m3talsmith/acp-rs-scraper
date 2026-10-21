@@ -15,7 +15,7 @@ published AaFe-qikeQyiWLMA1vwnNA
 https://acp.us/rs/post/AaFe-qikeQyiWLMA1vwnNA
 ```
 
-Text and a PNG are verified. A PDF and a video have not been posted from this client yet. A reply edit is implemented and has not been tried live. Vote, subscribe, delete, repost, and a top-level post edit stay gated. The site does not support changing attachments on an edit.
+Text and a PNG are verified. A PDF and a video have not been posted from this client yet. A reply edit, a vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are implemented and have not been tried live. Unsubscribe, a plain repost, and clearing a site bookmark are not sent. The site does not support changing attachments on an edit.
 
 ## Before you start
 
@@ -160,9 +160,9 @@ Audio and other documents are kept locally and named as not uploaded. They shoul
 
 ## Interactions
 
-These five stay gated. Do not confirm them in the client. A confirm stops, and nothing is sent. `--dry-run` prints the stub and does not connect. Record the clicks in [architecture/INTERACTIONS-CAPTURE.md](../architecture/INTERACTIONS-CAPTURE.md) first. The order below is the client check to run only after those frames are in the tree. Until then, each command refuses.
+These send once after confirm. They have not been tried live. `--dry-run` prints the frames and does not connect. Unsubscribe, a plain repost with an empty comment, and clearing a site bookmark still refuse. The missing frames are [architecture/INTERACTIONS-CAPTURE.md](../architecture/INTERACTIONS-CAPTURE.md).
 
-Use the check post from the text step above. Wait out the 30 second gap between attempts once these actually send. They do not send today, so the gap does not start.
+Use the check post from the text step above. The 30 second gap is for a new post or reply, not for these.
 
 ### Vote, then clear it
 
@@ -172,17 +172,25 @@ Use the check post from the text step above. Wait out the 30 second gap between 
 ./target/release/acprs --vote POST --vote-state 0
 ```
 
-`--vote` without `--vote-state` prepares an upvote (`1`). `--vote-state 0` clears it. `--vote-state -1` prepares a downvote. The terminal asks `Vote? [y/N]`. In the full-screen client, `+` and `-` open the same question, and Cancel is the default. Today the answer is a refusal that names `/rs/post/POST` and the upvote control. When the frame exists, the reply should show the new `score`, `vote`, and `upvote_percentage`. Check those on the site before you vote again. Do not retry a refusal automatically.
+`--vote` without `--vote-state` sends an upvote (`1`). `--vote-state 0` clears it. `--vote-state -1` sends a downvote. The terminal asks `Vote? [y/N]`. In the full-screen client, `+` and `-` open the same question, and Cancel is the default. The reply should show the new `score`, `vote`, and `upvote_percentage`. Check those on the site before you vote again. Do not retry a refusal automatically.
 
-### Subscribe, then clear it
+### Subscribe
 
 ```bash
 ./target/release/acprs --subscribe THREAD --dry-run
 ./target/release/acprs --subscribe THREAD
-./target/release/acprs --subscribe THREAD --subscribe-state 0
 ```
 
-The prompt is `Subscribe? [y/N]`. Post menu (`p`) › Subscribe asks the same way and starts on Cancel. Today it refuses and names `/rs/post/THREAD`. When the frame exists, the reply should show `subscribed` true, then false.
+The prompt is `Subscribe? [y/N]`. Post menu (`p`) › Subscribe asks the same way and starts on Cancel. The reply should show `subscribed` true. `--subscribe-state 0` is refused, including on a dry-run. The missing frame is a subscribe hook with state `0`.
+
+### Bookmark on the site
+
+```bash
+./target/release/acprs --site-bookmark POST --dry-run
+./target/release/acprs --site-bookmark POST
+```
+
+The prompt is `Bookmark? [y/N]`. This is not the local `--bookmark`. Clearing a site bookmark is not sent. `--sync-bookmarks` still pushes a removal with state `0`, which the capture did not contain.
 
 ### Edit a reply
 
@@ -193,24 +201,31 @@ Do this within one hour of a reply you own. Pass `--posted-at` as unix seconds s
 ./target/release/acprs --edit REPLY --body "updated reply" --posted-at UNIX
 ```
 
-The prompt is `Edit? [y/N]`, then `Type yes`. `--dry-run` prints validate, then save, and does not connect. A confirmed edit sends those two frames once. A post older than one hour is refused before that. The body replaces the document. A quote already on the reply is not copied. This has not been tried live.
+The prompt is `Edit? [y/N]`, then `Type yes`. `--dry-run` prints validate, then save, and does not connect. It says an existing quote is kept and is not shown. A confirmed edit sends those two frames once. A leading quote on the reply is kept. A post older than one hour is refused before that. This has not been tried live.
 
 ### Edit a top-level post
 
-Still gated. On the website, within one hour of a post you own: change only the title, save, then change only the body, save. The survey route is `https://acp.us/rs/post/POST/edit`. The reply capture did not include `form[title]`. This client opens the edit page and refuses when it sees a title field. Nothing is sent. The title typo on the check post was already corrected on the website. A title-only capture is a further change, or the HAR of that website edit if the websocket was saved.
+Within one hour of a post you own. A field you omit is the one already on the post. `--dry-run` says that field is kept and is not shown, and does not connect.
+
+```bash
+./target/release/acprs --edit POST --edit-title "Kept title" --dry-run
+./target/release/acprs --edit POST --body "updated" --posted-at UNIX
+```
+
+The prompt is `Edit? [y/N]`, then `Type yes`. Both `form[title]` and `form[body_input]` are sent.
 
 ### Attachments on an edit
 
 The site does not support changing attachments on an edit. Adding or removing an attachment in edit mode is not a control on the site, so there is nothing to record. `--attachment` with `--edit` is refused before a connection. The message is `The site does not support changing attachments on an edit. Nothing was sent.`
 
-### Repost
+### Quote repost
 
 ```bash
-./target/release/acprs --repost POST --dry-run
-./target/release/acprs --repost POST
+./target/release/acprs --repost POST --repost-title "Noted" --body "updated" --dry-run
+./target/release/acprs --repost POST --repost-title "Noted" --body "updated"
 ```
 
-The prompt is `Repost? [y/N]`. The dry-run names `/rs/post/new?repost=POST` and says the form is not built. When a capture shows an empty comment and a short quote, the client can honor that optional comment. It does not send a repost now.
+The prompt is `Repost? [y/N]`. The save sends `form[quoted_post_id]`, `form[title]`, and `form[body_input]`. A plain repost with an empty comment is not sent. The missing frame is a save on `/rs/post/new?repost=ID` with an empty `form[body_input]`.
 
 ### Delete the check post from the client
 
@@ -219,7 +234,7 @@ The prompt is `Repost? [y/N]`. The dry-run names `/rs/post/new?repost=POST` and 
 ./target/release/acprs --delete POST
 ```
 
-The prompt is `Delete? [y/N]`, then `Type yes`. Post menu › Delete asks you to type yes and starts on Cancel. Today it refuses. The website delete below is still how you remove the check post.
+The prompt is `Delete? [y/N]`, then `Type yes`. Post menu › Delete asks you to type yes and starts on Cancel. A confirmed delete sends `delete-post` once. The local copy stays and shows a tombstone. The website delete below still removes the check post from the site if you want it gone there too.
 
 ## If the site refuses it
 

@@ -44,6 +44,16 @@ pub enum ComposeKind {
         /// Reply id.
         id: String,
     },
+    /// Edit a top-level post. Title and body. No attachments. Cancel is the default.
+    EditPost {
+        /// Post id.
+        id: String,
+    },
+    /// Quote repost. Title and comment. No attachments. Cancel is the default.
+    Repost {
+        /// Post being reposted.
+        id: String,
+    },
 }
 
 /// The compose modal.
@@ -104,6 +114,16 @@ impl ComposeModal {
         Self::blank(ComposeKind::EditReply { id: id.into() }, nicks, tags)
     }
 
+    /// Edit a top-level post. Focus starts on Cancel.
+    pub fn edit_post(id: &str, nicks: Vec<NickHint>, tags: Vec<String>) -> Self {
+        Self::blank(ComposeKind::EditPost { id: id.into() }, nicks, tags)
+    }
+
+    /// Quote-repost a post. Focus starts on Cancel.
+    pub fn repost(id: &str, nicks: Vec<NickHint>, tags: Vec<String>) -> Self {
+        Self::blank(ComposeKind::Repost { id: id.into() }, nicks, tags)
+    }
+
     fn blank(kind: ComposeKind, nicks: Vec<NickHint>, tags: Vec<String>) -> Self {
         ComposeModal {
             kind,
@@ -129,7 +149,7 @@ impl ComposeModal {
     /// The draft the safety layer checks. The clock is the caller's.
     pub fn draft(&self, now_unix: i64, last_write_unix: Option<i64>, writes_on: bool) -> Draft {
         let (thread, in_reply_to) = match &self.kind {
-            ComposeKind::NewPost | ComposeKind::EditReply { .. } => (None, None),
+            ComposeKind::NewPost | ComposeKind::EditReply { .. } | ComposeKind::EditPost { .. } | ComposeKind::Repost { .. } => (None, None),
             ComposeKind::Reply { thread, in_reply_to } => (Some(thread.clone()), in_reply_to.clone()),
         };
         Draft {
@@ -159,11 +179,11 @@ impl ComposeModal {
 
     fn order(&self) -> Vec<ComposeFocus> {
         let mut v = Vec::new();
-        if matches!(self.kind, ComposeKind::NewPost) {
+        if matches!(self.kind, ComposeKind::NewPost | ComposeKind::EditPost { .. } | ComposeKind::Repost { .. }) {
             v.push(ComposeFocus::Title);
         }
         v.push(ComposeFocus::Body);
-        if !matches!(self.kind, ComposeKind::EditReply { .. }) {
+        if !matches!(self.kind, ComposeKind::EditReply { .. } | ComposeKind::EditPost { .. } | ComposeKind::Repost { .. }) {
             v.push(ComposeFocus::Attach);
         }
         if self.site_pick.is_some() {
@@ -337,6 +357,27 @@ impl ComposeModal {
             }
             return Some(ModalResult::ClosedSubmitted);
         }
+        if matches!(self.kind, ComposeKind::EditPost { .. }) {
+            if self.title.trim().is_empty() && self.body.trim().is_empty() {
+                self.error = Some("a top-level edit needs a title or a body".into());
+                self.focus = ComposeFocus::Title;
+                return None;
+            }
+            return Some(ModalResult::ClosedSubmitted);
+        }
+        if matches!(self.kind, ComposeKind::Repost { .. }) {
+            if self.title.trim().is_empty() {
+                self.error = Some("the captured repost save includes a title. Nothing was sent.".into());
+                self.focus = ComposeFocus::Title;
+                return None;
+            }
+            if self.body.trim().is_empty() {
+                self.error = Some(crate::site::repost::PLAIN_REPOST_MISSING.into());
+                self.focus = ComposeFocus::Body;
+                return None;
+            }
+            return Some(ModalResult::ClosedSubmitted);
+        }
         if self.eligible_site_count() > crate::config::SITE_MAX_ATTACHMENTS && self.site_pick.is_none() {
             self.open_site_picker();
             return None;
@@ -366,6 +407,8 @@ impl ModalState for ComposeModal {
             ComposeKind::NewPost => "New post".into(),
             ComposeKind::Reply { .. } => "Reply".into(),
             ComposeKind::EditReply { .. } => "Edit reply".into(),
+            ComposeKind::EditPost { .. } => "Edit post".into(),
+            ComposeKind::Repost { .. } => "Repost".into(),
         }
     }
 
@@ -516,7 +559,7 @@ impl ModalState for ComposeModal {
         match h {
             ModalHit::Button(0) => Some(ModalResult::ClosedCancelled),
             ModalHit::Button(1) => self.try_publish(),
-            ModalHit::Field(0) if matches!(self.kind, ComposeKind::NewPost) => {
+            ModalHit::Field(0) if matches!(self.kind, ComposeKind::NewPost | ComposeKind::EditPost { .. } | ComposeKind::Repost { .. }) => {
                 self.focus = ComposeFocus::Title;
                 None
             }

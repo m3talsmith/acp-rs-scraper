@@ -195,6 +195,42 @@ async fn edit_counts(w: &mut E2e, validates: i64, saves: i64) {
     assert_eq!(i.edit_saves as i64, saves, "saves");
 }
 
+#[then(expr = "the site received {int} post-edit validates and {int} post-edit saves")]
+async fn post_edit_counts(w: &mut E2e, validates: i64, saves: i64) {
+    let i = w.mock().inner.lock().unwrap();
+    assert_eq!(i.post_edit_validates as i64, validates, "post validates");
+    assert_eq!(i.post_edit_saves as i64, saves, "post saves");
+}
+
+#[then(expr = "the post-edit save value contains {string}")]
+async fn post_edit_save_value(w: &mut E2e, s: String) {
+    let i = w.mock().inner.lock().unwrap();
+    assert_eq!(i.post_edit_validate_value, i.post_edit_save_value, "validate and save differed");
+    assert!(i.post_edit_save_value.contains(&s), "save value lacks {s:?}: {}", i.post_edit_save_value);
+}
+
+#[then(expr = "the site received {int} vote hooks")]
+async fn vote_hooks(w: &mut E2e, n: i64) {
+    assert_eq!(w.mock().inner.lock().unwrap().votes.len() as i64, n);
+}
+
+#[then(expr = "the site received {int} subscribe hooks")]
+async fn subscribe_hooks(w: &mut E2e, n: i64) {
+    assert_eq!(w.mock().inner.lock().unwrap().subscribes as i64, n);
+}
+
+#[then(expr = "the site received {int} delete hooks")]
+async fn delete_hooks(w: &mut E2e, n: i64) {
+    assert_eq!(w.mock().inner.lock().unwrap().deletes as i64, n);
+}
+
+#[then(expr = "the site received {int} repost validates and {int} repost saves")]
+async fn repost_counts(w: &mut E2e, validates: i64, saves: i64) {
+    let i = w.mock().inner.lock().unwrap();
+    assert_eq!(i.repost_validates as i64, validates);
+    assert_eq!(i.repost_saves as i64, saves);
+}
+
 #[then(expr = "the reply-edit save value contains {string}")]
 async fn edit_save_value(w: &mut E2e, s: String) {
     let i = w.mock().inner.lock().unwrap();

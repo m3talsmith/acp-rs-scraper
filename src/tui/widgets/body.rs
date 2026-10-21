@@ -5,7 +5,7 @@ use crate::branding::{slogan_style, SLOGAN};
 use crate::config::{DETAIL_HEADER_ROWS, TUI_SUBTITLE};
 use crate::tui::layout::{CARD_ROWS, card_height, carousel, detail_split, ellipsize, grid_cells, grid_rows, modal_rect, stack_layout, wrap};
 use crate::tui::state::{AnimKind, App, Focus, Hit, ViewMode};
-use crate::tui::widgets::detail::{badge, detail_layout, header_lines, meta_line, snippet};
+use crate::tui::widgets::detail::{badge, detail_layout, header_lines, meta_line_deleted, snippet};
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use crate::tui::theme::Gloss;
@@ -134,7 +134,7 @@ fn card(f: &mut Frame, app: &mut App, i: usize, cr: Rect, sel: bool) {
     let t = app.theme;
     let Some(p) = app.view().posts.get(i).cloned() else { return };
     let focused = app.focus == Focus::Body;
-    let b = boxed(&t.card(sel, focused)).title(meta_line(&p, &t));
+    let b = boxed(&t.card(sel, focused)).title(meta_line_deleted(&p, &t, app.tombstones.contains(&p.post_id)));
     let inner = b.inner(cr);
     f.render_widget(b, cr);
     let lines: Vec<Line> = crate::tui::markdown::render(post_text(&p).trim(), inner.width as usize, &t).into_iter()
@@ -294,7 +294,13 @@ fn compact(f: &mut Frame, app: &mut App, i: usize, r: Rect) {
     let w = r.width as usize;
     let head = format!(" @{} · {} ", p.nick, p.posted_at.get(..16).unwrap_or(&p.posted_at));
     let rest = ellipsize(&snippet(&p), w.saturating_sub(head.len() + 8));
-    let mark = if app.is_marked(&p.post_id) { "★" } else { " " };
+    let mark = if app.tombstones.contains(&p.post_id) {
+        crate::tui::widgets::detail::tombstone_label()
+    } else if app.is_marked(&p.post_id) {
+        "★"
+    } else {
+        " "
+    };
     f.render_widget(Paragraph::new(Line::from(vec![Span::styled(mark, t.accent_bold()), badge(&p, &t), Span::styled(head, t.muted()), Span::raw(rest)])), r);
     app.hits.push((r, Hit::Post(i)));
 }

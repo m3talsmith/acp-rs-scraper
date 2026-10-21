@@ -24,7 +24,7 @@ contains other members' notification text, so it is not in this directory. The f
 The reply tests load these three files. They compare the composed validate and save
 payloads to the captured frames. They do not open a socket.
 
-`vote.json`, `subscribe.json`, `delete.json`, and `repost.json` are not captures. Each says `capture_status: missing`. `edit.json` is a masked reply-body edit: synthetic ids, the body `Updated reply.`, and no tokens. A top-level post edit is still listed under `still_needed`. The site does not support changing attachments on an edit, so that is not listed. The clicks still to record are `architecture/INTERACTIONS-CAPTURE.md`.
+`vote.json`, `subscribe.json`, `delete.json`, `bookmark.json`, and `repost.json` are masked stand-ins for the captured hooks and the quote-repost save. Synthetic ids only. `subscribe.json` records state `1`; state `0` is named under `missing`. `bookmark.json` records state `1`; clearing a bookmark is named under `missing`. `repost.json` records a quote repost; an empty `form[body_input]` is named under `missing`. `edit.json` is a masked reply-body edit: synthetic ids, the body `Updated reply.`, and no tokens. A leading `postRef` is kept when the editor has one. The site does not support changing attachments on an edit, so that is not listed. The frames still missing are `architecture/INTERACTIONS-CAPTURE.md`.
 
 `upload.json` is not a slice of a capture. It is a minimized stand-in for the
 2026-10-21 upload notes in `architecture/UPLOAD-CAPTURE.md`: invented names,

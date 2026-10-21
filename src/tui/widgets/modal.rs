@@ -128,7 +128,10 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     let mut y = inner.y;
     let btn_y = inner.y + inner.height.saturating_sub(1);
     let edit_reply = matches!(m.kind, ComposeKind::EditReply { .. });
-    if matches!(m.kind, ComposeKind::NewPost) {
+    let edit_post = matches!(m.kind, ComposeKind::EditPost { .. });
+    let repost = matches!(m.kind, ComposeKind::Repost { .. });
+    let no_attach = edit_reply || edit_post || repost;
+    if matches!(m.kind, ComposeKind::NewPost | ComposeKind::EditPost { .. } | ComposeKind::Repost { .. }) {
         let st = if m.focus == ComposeFocus::Title { t.accent_bold() } else { t.plain() };
         f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Title: {}", m.title), inner.width as usize), st)), row(y));
         app.hits.push((row(y), Hit::Modal(ModalHit::Field(0))));
@@ -139,7 +142,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Body: {body}"), inner.width as usize), st)), row(y));
     app.hits.push((row(y), Hit::Modal(ModalHit::Field(1))));
     y += 1;
-    if !edit_reply {
+    if !no_attach {
         let st = if m.focus == ComposeFocus::Attach { t.accent_bold() } else { t.plain() };
         let shown = if m.attach_path.is_empty() { "path · Tab completes · Enter adds".into() } else { m.attach_path.clone() };
         f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Attach: {shown}"), inner.width as usize), st)), row(y));
@@ -206,7 +209,11 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     }
     let note = m.error.clone().unwrap_or_else(|| {
         if edit_reply {
-            "A reply edit replaces the body. A quote already on the reply is not kept. The site does not support changing attachments on an edit.".into()
+            "A reply edit replaces the body. A quote already on the reply is kept. It is not shown until the editor opens. The site does not support changing attachments on an edit.".into()
+        } else if edit_post {
+            "A blank title or body is the one already on the post. It is kept and is not shown until the editor opens. The site does not support changing attachments on an edit.".into()
+        } else if repost {
+            "A quote repost needs a title and a comment. A plain repost with an empty comment is not sent.".into()
         } else {
             "Attach lists local files. Images, videos, and PDFs upload when you publish. Other files stay on this machine.".into()
         }

@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.33.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.39.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,11 +23,11 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.33.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.39.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
 **3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.32.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
-**3.33.0** edits a reply. `--edit REPLY --body TEXT` sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel. `--dry-run` prints the frames and does not connect. The one-hour window still applies. A top-level post edit, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.
+**3.33.0** edits a reply. `--edit REPLY --body TEXT` sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel. `--dry-run` prints the frames and does not connect. The one-hour window still applies. **3.33.1** keeps a leading quote on that reply. **3.34.0** sends a vote. **3.35.0** sends a site bookmark. **3.36.0** sends a subscribe. **3.37.0** sends a delete and keeps a local tombstone. **3.38.0** edits a top-level post. **3.39.0** sends a quote repost. Unsubscribe, a plain repost, and clearing a site bookmark are not sent. Share is not a write. The site does not support changing attachments on an edit.
 
 **3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed text post or reply sends validate, then save, once, and prints the new post id and URL. The site copy uploads first (3.32.0). Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
 
@@ -127,27 +127,36 @@ Writing:
           Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. A confirmed reply uploads the site copy, then sends the captured validate and save frames. Same confirm and dry-run rules as `--new-post`
 
       --repost <POST>
-          Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. The terminal asks `Repost? [y/N]`. `--dry-run` prints the route and does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list
+          Quote-repost a post. The route is `/rs/post/new?repost=POST`. Needs `--repost-title` and `--body` or `--body-file`. A confirmed repost sends validate, then save, once. The terminal asks `Repost? [y/N]`. `--dry-run` prints the frames and does not connect. A plain repost with an empty comment is not sent. This is not `--reposts`, which only reads the list
+
+      --repost-title <TITLE>
+          With `--repost`. Title sent with the comment. The captured save includes one
 
       --edit <POST>
-          Edit a reply (`/rs/post/ID/edit`). Needs `--body` or `--body-file`. A confirmed edit sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The hour is one hour after `--posted-at` (unix seconds); without it the hour is not checked. `--dry-run` prints the frames and does not connect. A top-level post edit is not sent. The site does not support changing attachments on an edit
+          Edit a post (`/rs/post/ID/edit`). A reply needs `--body` or `--body-file` and sends validate, then save, once. A leading quote is kept. A top-level post takes `--edit-title` and/or a body; a field you omit is the one already on the post. The terminal asks `Edit? [y/N]`, then `Type yes`. The hour is one hour after `--posted-at` (unix seconds); without it the hour is not checked. `--dry-run` prints the frames and does not connect. The site does not support changing attachments on an edit
+
+      --edit-title <TITLE>
+          With `--edit`. New title of a top-level post. Omit the body and the mounted document is kept
 
       --posted-at <UNIX>
           With `--edit`. Unix seconds of the post's `posted_at`. Used only for the one-hour window
 
       --delete <POST>
-          Delete a post. The terminal asks `Delete? [y/N]`, then `Type yes`. `--yes` confirms both. `--dry-run` prints the documented hook and does not connect. A confirmed delete does not send: the live frame has not been captured
+          Delete a post. The terminal asks `Delete? [y/N]`, then `Type yes`. `--yes` confirms both. A confirmed delete sends `delete-post` once. The local copy stays, with a tombstone. `--dry-run` prints the hook and does not connect
 
       --subscribe <THREAD>
-          Subscribe to a thread. STATE is `1` (subscribe) or `0` (clear). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed subscribe does not send: the live frame has not been captured
+          Subscribe to a thread. STATE `1` is sent. STATE `0` (unsubscribe) was not captured and is refused, including on a dry-run. The default is `1`. The terminal asks `Subscribe? [y/N]`. `--dry-run` prints the hook and does not connect
 
       --subscribe-state <STATE>
           With `--subscribe`. `1` or `0`
           
           [possible values: 1, 0]
 
+      --site-bookmark <POST>
+          Bookmark a post on the site. Sends the bookmark hook with state `1`. Clearing a site bookmark (state `0`) is not sent. This is not the local `--bookmark`. The terminal asks `Bookmark? [y/N]`. `--dry-run` prints the hook and does not connect
+
       --vote <POST>
-          Vote on a post. STATE is `1` (upvote), `0` (clear), or `-1` (downvote). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed vote does not send: the live frame has not been captured
+          Vote on a post. STATE is `1` (upvote), `0` (clear), or `-1` (downvote). The default is `1`. A confirmed vote sends the hook once. The terminal asks `Vote? [y/N]`. `--dry-run` prints the hook and does not connect
 
       --vote-state <STATE>
           With `--vote`. `1`, `0`, or `-1`
@@ -589,7 +598,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.33.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.39.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |

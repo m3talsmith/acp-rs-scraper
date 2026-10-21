@@ -1,18 +1,22 @@
 //! Write core (3.4.0), attachments (3.5.0), text publish (3.31.0), uploads (3.32.0),
-//! and reply edit (3.33.0).
+//! reply edit (3.33.0), and the captured interactions that follow it.
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the reply frames
 //! live here. A confirmed post or reply uploads the site copy, then sends
 //! validate, then save, once. Images, videos, and PDFs are the site copy, at
-//! most 4. A confirmed reply edit sends validate, then save, once. Vote,
-//! subscribe, delete, repost, and a top-level post edit stay behind
-//! [`write::CAPTURE_BLOCK`]. The site does not support changing attachments
-//! on an edit. The one-hour window still refuses an
-//! older edit before a connection. `--dry-run` opens no connection.
+//! most 4. A confirmed reply edit sends validate, then save, once, and keeps a
+//! leading quote. A vote, a site bookmark, a subscribe, a delete, a top-level
+//! post edit, and a quote repost are sent. Unsubscribe, a plain repost, and
+//! clearing a site bookmark stay behind [`write::CAPTURE_BLOCK`]. Share is not
+//! a write. The site does not support changing attachments on an edit. The
+//! one-hour window still refuses an older edit before a connection.
+//! `--dry-run` opens no connection.
 
 mod attach;
+pub mod bookmark;
 pub mod delete;
 pub mod edit;
+pub mod hook;
 pub mod repost;
 pub mod subscribe;
 pub mod vote;
@@ -52,6 +56,7 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.edit.is_some()
         || args.subscribe.is_some()
         || args.vote.is_some()
+        || args.site_bookmark.is_some()
 }
 
 /// `y/N`, then `yes`. `--yes` covers both. A dry-run does not ask.
@@ -99,8 +104,14 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         let state = args.vote_state.as_deref().unwrap_or("1");
         let confirmed = confirm_write(args, "Vote? [y/N] ")?;
         return match vote::present(id.trim(), state, confirmed, args.dry_run) {
-            Ok(text) => {
+            Ok(hook::HookGate::Done(text)) => {
                 println!("{text}");
+                Ok(())
+            }
+            Ok(hook::HookGate::Send(call)) => {
+                let (http, jar) = open_write_session().await?;
+                let reply = hook::publish_hook(&http, &jar, &call).await?;
+                println!("{}", hook::vote_summary(id.trim(), state, &reply));
                 Ok(())
             }
             Err(e) => bail!("{e}"),
@@ -110,8 +121,30 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         let state = args.subscribe_state.as_deref().unwrap_or("1");
         let confirmed = confirm_write(args, "Subscribe? [y/N] ")?;
         return match subscribe::present(id.trim(), state, confirmed, args.dry_run) {
-            Ok(text) => {
+            Ok(hook::HookGate::Done(text)) => {
                 println!("{text}");
+                Ok(())
+            }
+            Ok(hook::HookGate::Send(call)) => {
+                let (http, jar) = open_write_session().await?;
+                let reply = hook::publish_hook(&http, &jar, &call).await?;
+                println!("{}", hook::subscribe_summary(id.trim(), &reply));
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.site_bookmark.as_deref() {
+        let confirmed = confirm_write(args, "Bookmark? [y/N] ")?;
+        return match bookmark::present(id.trim(), confirmed, args.dry_run) {
+            Ok(hook::HookGate::Done(text)) => {
+                println!("{text}");
+                Ok(())
+            }
+            Ok(hook::HookGate::Send(call)) => {
+                let (http, jar) = open_write_session().await?;
+                let reply = hook::publish_hook(&http, &jar, &call).await?;
+                println!("{}", hook::bookmark_summary(id.trim(), &reply));
                 Ok(())
             }
             Err(e) => bail!("{e}"),
@@ -120,8 +153,14 @@ pub async fn run_cli(args: &Args) -> Result<()> {
     if let Some(id) = args.delete.as_deref() {
         let confirmed = confirm_strict(args, "Delete? [y/N] ")?;
         return match delete::present(id.trim(), confirmed, args.dry_run) {
-            Ok(text) => {
+            Ok(hook::HookGate::Done(text)) => {
                 println!("{text}");
+                Ok(())
+            }
+            Ok(hook::HookGate::Send(call)) => {
+                let (http, jar) = open_write_session().await?;
+                let reply = hook::publish_hook(&http, &jar, &call).await?;
+                println!("{}", hook::delete_summary(id.trim(), &reply).map_err(|e| anyhow!("{e}"))?);
                 Ok(())
             }
             Err(e) => bail!("{e}"),
@@ -142,6 +181,23 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         };
         let confirmed = confirm_strict(args, "Edit? [y/N] ")?;
         let now = chrono::Utc::now().timestamp();
+        if args.edit_title.is_some() {
+            let title = args.edit_title.as_deref();
+            let body_opt = if body.trim().is_empty() { None } else { Some(body.as_str()) };
+            return match edit::gate_post(id.trim(), title, body_opt, args.posted_at, now, confirmed, args.dry_run, writes_enabled()) {
+                Ok(edit::PostEditGate::Done(text)) => {
+                    println!("{text}");
+                    Ok(())
+                }
+                Ok(edit::PostEditGate::Send(plan)) => {
+                    let (http, jar) = open_write_session().await?;
+                    let published = edit::publish_post(&http, &jar, &plan).await?;
+                    println!("published {}\n{}", published.id, published.url);
+                    Ok(())
+                }
+                Err(e) => bail!("{e}"),
+            };
+        }
         return match edit::gate(id.trim(), &body, args.posted_at, now, confirmed, args.dry_run, writes_enabled()) {
             Ok(edit::EditGate::Done(text)) => {
                 println!("{text}");
@@ -175,9 +231,22 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         } else {
             false
         };
-        return match repost::present(id.trim(), confirmed, args.dry_run) {
-            Ok(text) => {
+        let title = args.repost_title.as_deref().unwrap_or("");
+        let body = match (&args.body, &args.body_file) {
+            (Some(_), Some(_)) => bail!("pass --body or --body-file, not both"),
+            (Some(s), None) => s.clone(),
+            (None, Some(path)) => std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?,
+            (None, None) => String::new(),
+        };
+        return match repost::present(id.trim(), title, &body, confirmed, args.dry_run) {
+            Ok(repost::RepostGate::Done(text)) => {
                 println!("{text}");
+                Ok(())
+            }
+            Ok(repost::RepostGate::Send(plan)) => {
+                let (http, jar) = open_write_session().await?;
+                let published = repost::publish_repost(&http, &jar, &plan).await?;
+                println!("published {}\n{}", published.id, published.url);
                 Ok(())
             }
             Err(e) => bail!("{e}"),
@@ -250,38 +319,46 @@ fn cli_warning_session(err: &anyhow::Error) {
     eprintln!("ignoring saved session: {err:#}");
 }
 
+async fn open_write_session() -> Result<(reqwest::Client, Arc<Jar>)> {
+    let jar = Arc::new(Jar::default());
+    if let Err(e) = load_session(&jar) {
+        cli_warning_session(&e);
+    }
+    let http = client(jar.clone())?;
+    login(&http, &jar).await?;
+    Ok((http, jar))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn interactions_stay_gated_until_the_click_is_captured() {
+    fn captured_interactions_name_the_frames_that_are_still_missing() {
         let notes = include_str!("../../architecture/INTERACTIONS-CAPTURE.md");
-        assert!(notes.contains("stay behind `CAPTURE_BLOCK`"), "{notes}");
         assert!(notes.contains("https://acp.us/rs/post/POST"));
-        assert!(notes.contains("upvote control"));
-        assert!(notes.contains("https://acp.us/rs/post/THREAD"));
-        assert!(notes.contains("subscribe control"));
-        assert!(notes.contains("click Delete"));
-        assert!(notes.contains("https://acp.us/rs/post/POST/edit"));
-        assert!(notes.contains("Change only the title"));
         assert!(notes.contains("does not support changing attachments"));
         assert!(!notes.contains("Edit: replace attachment"), "{notes}");
+        assert!(notes.contains("state \"0\""));
+        assert!(notes.contains("empty form[body_input]"));
+        assert!(notes.contains("Share is not a write"));
         assert!(notes.contains("/rs/post/new?repost=POST"));
-        assert!(notes.contains("short quote"));
+        assert!(CAPTURE_BLOCK.contains("are not sent"));
+        assert!(CAPTURE_BLOCK.contains("text posts and replies are published"));
         let edit: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/edit.json")).unwrap();
         assert_eq!(edit["capture_status"], "reply_body");
-        assert!(edit["still_needed"].as_array().unwrap().iter().any(|l| l.as_str().unwrap().contains("title")));
         for (name, raw) in [
             ("vote", include_str!("../../tests/fixtures/site/vote.json")),
             ("subscribe", include_str!("../../tests/fixtures/site/subscribe.json")),
             ("delete", include_str!("../../tests/fixtures/site/delete.json")),
-            ("repost", include_str!("../../tests/fixtures/site/repost.json")),
+            ("bookmark", include_str!("../../tests/fixtures/site/bookmark.json")),
         ] {
             let doc: Value = serde_json::from_str(raw).unwrap();
-            assert_eq!(doc["capture_status"], "missing", "{name}");
-            assert!(CAPTURE_BLOCK.contains("are not sent"));
+            assert_eq!(doc["capture_status"], "captured", "{name}");
         }
+        let repost: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/repost.json")).unwrap();
+        assert_eq!(repost["capture_status"], "quote");
+        assert!(repost["missing"].as_str().unwrap().contains("empty form[body_input]"));
     }
 
     fn draft() -> Draft {

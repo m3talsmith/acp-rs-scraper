@@ -10,14 +10,16 @@ pub enum PostAction {
     Reposts,
     /// `/rs/post/{thread}/{id}/edits`, shown as a diff.
     Edits,
-    /// Prepare `subscribe` with state `1`. Nothing is sent.
+    /// Ask, then send `subscribe` with state `1`.
     Subscribe,
-    /// Ask for `yes`, then prepare `delete-post`. Nothing is sent.
+    /// Ask for `yes`, then send `delete-post`.
     Delete,
-    /// Prepare an edit. The form is not built, and nothing is sent.
+    /// Open the edit composer. A confirm sends validate, then save, once.
     Edit,
-    /// Prepare a repost. The form is not built, and nothing is sent.
+    /// Open the quote-repost composer. A confirm sends validate, then save, once.
     Repost,
+    /// Ask, then send a site bookmark with state `1`.
+    Bookmark,
 }
 
 impl PostAction {
@@ -30,6 +32,7 @@ impl PostAction {
             PostAction::Delete => "Delete",
             PostAction::Edit => "Edit",
             PostAction::Repost => "Repost",
+            PostAction::Bookmark => "Bookmark on the site",
         }
     }
 }
@@ -50,7 +53,7 @@ pub struct PostMenu {
 impl PostMenu {
     /// Menu for `post_id` in thread `thread_id`.
     pub fn new(post_id: &str, thread_id: &str) -> Self {
-        PostMenu { post_id: post_id.into(), thread_id: thread_id.into(), items: vec![PostAction::Reposts, PostAction::Edits, PostAction::Subscribe, PostAction::Delete, PostAction::Edit, PostAction::Repost], cursor: 0 }
+        PostMenu { post_id: post_id.into(), thread_id: thread_id.into(), items: vec![PostAction::Reposts, PostAction::Edits, PostAction::Subscribe, PostAction::Delete, PostAction::Edit, PostAction::Repost, PostAction::Bookmark], cursor: 0 }
     }
     /// The selected action.
     pub fn action(&self) -> PostAction { self.items[self.cursor.min(self.items.len().saturating_sub(1))] }

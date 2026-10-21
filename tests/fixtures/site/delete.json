@@ -1,15 +1,13 @@
 {
-  "capture_status": "missing",
-  "source": "architecture/PLAN-3.0-CLIENT.md row 28, from the JS survey (hook delete-post {id} after confirm()). Not a live capture.",
+  "capture_status": "captured",
+  "source": "Masked from a redacted LiveView capture. The id is synthetic. Cancel produced no websocket frame.",
   "event": "delete-post",
   "documented_hook": {
     "type": "hook",
     "event": "delete-post",
     "value": {"id": "POST"}
   },
-  "needed": [
-    "On /rs/post/POST of a post you own, open the site's post menu and click Delete. Cancel the site dialog once, then confirm on a throwaway post",
-    "Record the websocket event, the dialog text, the phx_reply, any feed:delete or tombstone diff, and whether the body stays readable",
-    "Note whether the payload is a hook and which component it targets"
-  ]
+  "cancel": "no frame",
+  "success": {"live_redirect": {"kind": "push", "to": "/rs"}},
+  "local": "the post stays in the database and is shown with a tombstone"
 }
