@@ -21,6 +21,9 @@ fn repost_from_the_post_menu_is_blocked() {
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);
+    let Some(crate::tui::modals::Modal::Confirm(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.focus, 1, "Cancel is the default");
+    key(&mut a, KeyCode::Char('y'));
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
     assert!(status.contains("are not sent"), "{status}");
     assert!(status.contains("the repost form is not built"), "{status}");

@@ -1,12 +1,14 @@
-//! Write core (3.4.0), attachments (3.5.0), text publish (3.35.0), and uploads (3.36.0).
+//! Write core (3.4.0), attachments (3.5.0), text publish (3.31.0), uploads (3.32.0),
+//! and reply edit (3.33.0).
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the reply frames
 //! live here. A confirmed post or reply uploads the site copy, then sends
 //! validate, then save, once. Images, videos, and PDFs are the site copy, at
-//! most 4. Vote, subscribe, delete, edit, and repost stay behind
-//! [`write::CAPTURE_BLOCK`]. Edit keeps the one-hour window and does not build
-//! the form. Repost names the documented route and does not build the form.
-//! `--dry-run` opens no connection.
+//! most 4. A confirmed reply edit sends validate, then save, once. Vote,
+//! subscribe, delete, repost, and a top-level post edit stay behind
+//! [`write::CAPTURE_BLOCK`]. The site does not support changing attachments
+//! on an edit. The one-hour window still refuses an
+//! older edit before a connection. `--dry-run` opens no connection.
 
 mod attach;
 pub mod delete;
@@ -50,6 +52,24 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.edit.is_some()
         || args.subscribe.is_some()
         || args.vote.is_some()
+}
+
+/// `y/N`, then `yes`. `--yes` covers both. A dry-run does not ask.
+fn confirm_strict(args: &Args, prompt: &str) -> Result<bool> {
+    if !confirm_write(args, prompt)? {
+        return Ok(false);
+    }
+    if args.yes {
+        return Ok(true);
+    }
+    if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        eprint!("Type yes: ");
+        io::stderr().flush()?;
+        let mut line = String::new();
+        io::stdin().read_line(&mut line)?;
+        return Ok(line.trim() == "yes");
+    }
+    Ok(false)
 }
 
 fn confirm_write(args: &Args, prompt: &str) -> Result<bool> {
@@ -98,19 +118,7 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         };
     }
     if let Some(id) = args.delete.as_deref() {
-        let confirmed = if args.dry_run {
-            false
-        } else if args.yes {
-            true
-        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-            eprint!("Delete? Type yes: ");
-            io::stderr().flush()?;
-            let mut line = String::new();
-            io::stdin().read_line(&mut line)?;
-            line.trim() == "yes"
-        } else {
-            false
-        };
+        let confirmed = confirm_strict(args, "Delete? [y/N] ")?;
         return match delete::present(id.trim(), confirmed, args.dry_run) {
             Ok(text) => {
                 println!("{text}");
@@ -120,23 +128,34 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         };
     }
     if let Some(id) = args.edit.as_deref() {
-        let confirmed = if args.dry_run {
-            false
-        } else if args.yes {
-            true
-        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-            eprint!("Edit? [y/N] ");
-            io::stderr().flush()?;
-            let mut line = String::new();
-            io::stdin().read_line(&mut line)?;
-            matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
-        } else {
-            false
+        if args.quote.is_some() {
+            bail!("a reply edit takes the body only. A quote is not added. Nothing was sent.");
+        }
+        if !args.attachment.is_empty() {
+            bail!("{}", edit::ATTACHMENT_EDIT_REFUSAL);
+        }
+        let body = match (&args.body, &args.body_file) {
+            (Some(_), Some(_)) => bail!("pass --body or --body-file, not both"),
+            (Some(s), None) => s.clone(),
+            (None, Some(path)) => std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?,
+            (None, None) => String::new(),
         };
+        let confirmed = confirm_strict(args, "Edit? [y/N] ")?;
         let now = chrono::Utc::now().timestamp();
-        return match edit::present(id.trim(), args.posted_at, now, confirmed, args.dry_run) {
-            Ok(text) => {
+        return match edit::gate(id.trim(), &body, args.posted_at, now, confirmed, args.dry_run, writes_enabled()) {
+            Ok(edit::EditGate::Done(text)) => {
                 println!("{text}");
+                Ok(())
+            }
+            Ok(edit::EditGate::Send(plan)) => {
+                let jar = Arc::new(Jar::default());
+                if let Err(e) = load_session(&jar) {
+                    cli_warning_session(&e);
+                }
+                let http = client(jar.clone())?;
+                login(&http, &jar).await?;
+                let published = edit::publish_reply_edit(&http, &jar, &plan).await?;
+                println!("published {}\n{}", published.id, published.url);
                 Ok(())
             }
             Err(e) => bail!("{e}"),
@@ -234,6 +253,36 @@ fn cli_warning_session(err: &anyhow::Error) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interactions_stay_gated_until_the_click_is_captured() {
+        let notes = include_str!("../../architecture/INTERACTIONS-CAPTURE.md");
+        assert!(notes.contains("stay behind `CAPTURE_BLOCK`"), "{notes}");
+        assert!(notes.contains("https://acp.us/rs/post/POST"));
+        assert!(notes.contains("upvote control"));
+        assert!(notes.contains("https://acp.us/rs/post/THREAD"));
+        assert!(notes.contains("subscribe control"));
+        assert!(notes.contains("click Delete"));
+        assert!(notes.contains("https://acp.us/rs/post/POST/edit"));
+        assert!(notes.contains("Change only the title"));
+        assert!(notes.contains("does not support changing attachments"));
+        assert!(!notes.contains("Edit: replace attachment"), "{notes}");
+        assert!(notes.contains("/rs/post/new?repost=POST"));
+        assert!(notes.contains("short quote"));
+        let edit: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/edit.json")).unwrap();
+        assert_eq!(edit["capture_status"], "reply_body");
+        assert!(edit["still_needed"].as_array().unwrap().iter().any(|l| l.as_str().unwrap().contains("title")));
+        for (name, raw) in [
+            ("vote", include_str!("../../tests/fixtures/site/vote.json")),
+            ("subscribe", include_str!("../../tests/fixtures/site/subscribe.json")),
+            ("delete", include_str!("../../tests/fixtures/site/delete.json")),
+            ("repost", include_str!("../../tests/fixtures/site/repost.json")),
+        ] {
+            let doc: Value = serde_json::from_str(raw).unwrap();
+            assert_eq!(doc["capture_status"], "missing", "{name}");
+            assert!(CAPTURE_BLOCK.contains("are not sent"));
+        }
+    }
 
     fn draft() -> Draft {
         Draft {

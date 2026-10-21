@@ -14,7 +14,7 @@
 //! - [`auth`]: email + one-time-code login, saved preferences.
 //! - [`liveview`]: LiveView websocket client and diff renderer.
 //! - [`scrape`]: profile/site feeds, threads, "Posts and replies" filter, mentions.
-//! - [`site`]: New post and Reply (3.4.0), with local attachments (3.5.0). Text publish sends validate and save (3.35.0). The site copy of images, videos, and PDFs uploads first (3.36.0). Votes, subscribes, deletes, edits, and reposts stay gated.
+//! - [`site`]: New post and Reply (3.4.0), with local attachments (3.5.0). Text publish sends validate and save (3.31.0). The site copy of images, videos, and PDFs uploads first (3.32.0). A reply edit sends validate and save (3.33.0). Votes, subscribes, deletes, reposts, and top-level post edits stay gated. The site does not support changing attachments on an edit.
 //! - [`media`]: attachment discovery and download.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.

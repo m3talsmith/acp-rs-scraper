@@ -1,12 +1,47 @@
 {
-  "capture_status": "missing",
-  "source": "architecture/PLAN-3.0-CLIENT.md row 27 says the edit page is probably the same editor. That form was not captured. The one-hour window is a product constraint, not a field in the reply capture.",
-  "payload": null,
+  "capture_status": "reply_body",
+  "source": "Masked from a redacted LiveView capture of one reply-body edit. Cookies, tokens, and the original prose are not in this file. The ids and the body are synthetic.",
   "window_secs": 3600,
-  "needed": [
-    "The LiveView join for /rs/post/{id}/edit, including the form id, phx-submit, phx-change, and cid",
-    "The validate and save payloads, and whether the body still starts with postRef",
-    "The server reply when the edit is outside the one-hour window",
-    "The phx_reply or thread:update-post after a successful edit"
+  "open": {
+    "leave": "phx_leave",
+    "join": "phx_join",
+    "redirect": "/rs/post/REPLY/edit",
+    "sticky": false,
+    "params": ["_csrf_token", "_mounts", "_live_referer"],
+    "omitted": ["_track_static"]
+  },
+  "page": {
+    "form_id": "js-postForm-form",
+    "method": "put",
+    "data_mode": "reply",
+    "phx_submit": "save",
+    "phx_change": "validate",
+    "phx_target": 1,
+    "fields": ["form[body_input]"]
+  },
+  "validate": {
+    "event": "validate",
+    "meta": {"_target": "form[body_input]"},
+    "uploads": {},
+    "cid": 1,
+    "value": "form[body_input]=%7B%22type%22%3A%22doc%22%2C%22content%22%3A%5B%7B%22type%22%3A%22paragraph%22%2C%22content%22%3A%5B%7B%22type%22%3A%22text%22%2C%22text%22%3A%22Updated%20reply.%22%7D%5D%7D%5D%7D"
+  },
+  "save": {
+    "event": "save",
+    "meta": {},
+    "cid": 1,
+    "uploads_key": false,
+    "value": "form[body_input]=%7B%22type%22%3A%22doc%22%2C%22content%22%3A%5B%7B%22type%22%3A%22paragraph%22%2C%22content%22%3A%5B%7B%22type%22%3A%22text%22%2C%22text%22%3A%22Updated%20reply.%22%7D%5D%7D%5D%7D"
+  },
+  "after_save": {
+    "trailing_validate": "not sent; the captured browser sent one and got unmatched topic",
+    "success": "live_redirect to /rs/post/THREAD/REPLY"
+  },
+  "not_copied": "a postRef already on the reply is not copied into the new body",
+  "attachments_on_edit": "The site does not support changing attachments on an edit. This is not a capture.",
+  "still_needed": [
+    "Change only the title of a top-level post, then save. The survey route is https://acp.us/rs/post/POST/edit",
+    "Change only the body of a top-level post, then save",
+    "The refusal frame when a post is older than one hour. The one-hour window stays a product constraint"
   ]
 }

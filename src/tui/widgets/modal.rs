@@ -127,6 +127,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     let row = |y: u16| Rect { y, height: 1, ..inner };
     let mut y = inner.y;
     let btn_y = inner.y + inner.height.saturating_sub(1);
+    let edit_reply = matches!(m.kind, ComposeKind::EditReply { .. });
     if matches!(m.kind, ComposeKind::NewPost) {
         let st = if m.focus == ComposeFocus::Title { t.accent_bold() } else { t.plain() };
         f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Title: {}", m.title), inner.width as usize), st)), row(y));
@@ -138,11 +139,13 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Body: {body}"), inner.width as usize), st)), row(y));
     app.hits.push((row(y), Hit::Modal(ModalHit::Field(1))));
     y += 1;
-    let st = if m.focus == ComposeFocus::Attach { t.accent_bold() } else { t.plain() };
-    let shown = if m.attach_path.is_empty() { "path · Tab completes · Enter adds".into() } else { m.attach_path.clone() };
-    f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Attach: {shown}"), inner.width as usize), st)), row(y));
-    app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
-    y += 1;
+    if !edit_reply {
+        let st = if m.focus == ComposeFocus::Attach { t.accent_bold() } else { t.plain() };
+        let shown = if m.attach_path.is_empty() { "path · Tab completes · Enter adds".into() } else { m.attach_path.clone() };
+        f.render_widget(Paragraph::new(Span::styled(clip(&format!(" Attach: {shown}"), inner.width as usize), st)), row(y));
+        app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
+        y += 1;
+    }
     if let Some(pick) = &m.site_pick {
         let max = crate::config::SITE_MAX_ATTACHMENTS;
         let n = pick.iter().filter(|on| **on).count();
@@ -201,7 +204,13 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
             y += 1;
         }
     }
-    let note = m.error.clone().unwrap_or_else(|| "Attach lists local files. Images, videos, and PDFs upload when you publish. Other files stay on this machine.".into());
+    let note = m.error.clone().unwrap_or_else(|| {
+        if edit_reply {
+            "A reply edit replaces the body. A quote already on the reply is not kept. The site does not support changing attachments on an edit.".into()
+        } else {
+            "Attach lists local files. Images, videos, and PDFs upload when you publish. Other files stay on this machine.".into()
+        }
+    });
     if y < btn_y {
         f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
     }

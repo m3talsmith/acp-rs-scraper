@@ -366,6 +366,16 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                         let _ = tx.send(Msg::Published(r));
                     });
                 }
+                Effect::EditReply(plan) => {
+                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                    tokio::spawn(async move {
+                        let r = crate::site::edit::publish_reply_edit(&http, &jar, &plan)
+                            .await
+                            .map(|p| format!("published {}\n{}", p.id, p.url))
+                            .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
+                        let _ = tx.send(Msg::Published(r));
+                    });
+                }
                 Effect::DownloadTheme(name, manual) => {
                     let Some(dir) = app.themes_dir.clone() else { continue };
                     let tx = msg_tx.clone();

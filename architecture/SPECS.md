@@ -247,7 +247,7 @@ default, a stable CLI↔TUI contract, and testable behavior.
   already pass `--nick`, `--search`, `--export`, etc. keep their behavior.
 - Bump minor for later TUI-only polish after 2.0 lands.
 
-The client has moved on from this 2.0 note. Text posts and replies are sent (plan 3.35.0): validate, then save, once, from the command line and the compose box. Plan 3.36.0 uploads the site copy first (images, videos, and PDFs, at most 4), using the captured `allow_upload` / `lvu` channel. `--dry-run` prints the frames and the upload plan and does not connect. Votes, subscribes, deletes, edits, and reposts are not sent. The crate version stays 3.5.0. The hand check is [docs/LIVE-PUBLISH-TEST.md](../docs/LIVE-PUBLISH-TEST.md). The upload notes are [UPLOAD-CAPTURE.md](./UPLOAD-CAPTURE.md).
+The client has moved on from this 2.0 note. Text posts and replies are sent (crate 3.31.0): validate, then save, once, from the command line and the compose box. Crate 3.32.0 uploads the site copy first (images, videos, and PDFs, at most 4), using the captured `allow_upload` / `lvu` channel. Crate 3.33.0 sends a reply edit the same way: validate, then save, once. `--dry-run` prints the frames and the upload plan and does not connect. Votes, subscribes, deletes, reposts, and top-level post edits are not sent. The site does not support changing attachments on an edit. The clicks still to record are [INTERACTIONS-CAPTURE.md](./INTERACTIONS-CAPTURE.md). The hand check is [docs/LIVE-PUBLISH-TEST.md](../docs/LIVE-PUBLISH-TEST.md). The upload notes are [UPLOAD-CAPTURE.md](./UPLOAD-CAPTURE.md).
 
 ## Default entry & CLI contract
 

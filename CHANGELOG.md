@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.33.0] - 2026-10-21
+
+### Added
+
+- **Reply edit.** A confirmed reply edit sends validate, then save, once, from `--edit` and the compose box. The open is the captured redirect to `/rs/post/ID/edit`. The form is `method=put`, `data-mode=reply`, and the only field is `form[body_input]`. `--body` or `--body-file` is required. `--dry-run` prints those frames and opens no connection. The command line asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel, then asks for `yes`. The one-hour window still refuses an older post before a connection. A quote already on the reply is not copied. Votes, subscribes, deletes, reposts, and top-level post edits stay prepared, gated. The site does not support changing attachments on an edit. `--attachment` with `--edit` is refused before a connection.
+
 ## [3.32.0] - 2026-10-21
 
 ### Added
@@ -14,6 +20,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Live text and image publish.** Michael confirmed a text post with one PNG from commit `61c58300`, at the `Publish? [y/N]` prompt, without `--yes`. The client printed `Already logged in.`, `uploading social-red-star.png 100%`, and `published AaFe-qikeQyiWLMA1vwnNA` (`https://acp.us/rs/post/AaFe-qikeQyiWLMA1vwnNA`). A PDF upload and a video upload have not been tried live. The note is [docs/LIVE-PUBLISH-TEST.md](docs/LIVE-PUBLISH-TEST.md).
 - Working rules for agents are in `AGENTS.md`. The X and YouTube design is in `architecture/PLAN-SCRAPERS.md`. Neither is a feature of this version.
 
 ## [3.31.0] - 2026-10-21
