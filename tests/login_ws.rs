@@ -28,6 +28,33 @@ struct Ctl {
     /// `"hb"` and `"verify"`, in order.
     events: Vec<&'static str>,
     close_next_verify: bool,
+    /// Verify pushes the sign-in form as a `diff`, then closes, with no `phx_reply`.
+    diff_then_close: bool,
+    /// Blind OTP (no `user[token]=from-form`) is rejected.
+    require_form_token: bool,
+    /// A new socket is refused while another handler is still running.
+    one_at_a_time: bool,
+    /// Verify sends Close but stays in the read loop until the client drops the socket.
+    hold_close: bool,
+    open: usize,
+    /// Handlers that connected while `one_at_a_time` was already on.
+    gated_open: usize,
+    rejected: usize,
+    pongs: usize,
+    ping_after_email: bool,
+    /// Heartbeats are recorded but not answered while `joins` is still this value.
+    /// `None` answers every heartbeat. Set it to the current join count so only
+    /// the socket that is already up goes quiet; the reconnect is answered.
+    silence_at_joins: Option<usize>,
+    /// Email reply is the live code form: keyed comprehension, form csrf, `user[otp]`.
+    keyed_otp: bool,
+    /// OTP POST must carry the form csrf, `user[otp]`, remember-me, and `return_to`.
+    strict_otp: bool,
+    /// The next OTP POST is rejected with a flash, even when the fields are right.
+    reject_once: bool,
+    email_sends: usize,
+    posts: Vec<String>,
+    flash: Option<String>,
 }
 
 fn lv_page() -> String {
@@ -41,18 +68,74 @@ fn logged_in(h: &HeaderMap) -> bool {
 
 async fn site(headers: HeaderMap) -> Response {
     if !logged_in(&headers) {
-        return (StatusCode::FOUND, [(header::LOCATION, "/auth")]).into_response();
+        return (StatusCode::FOUND, [(header::LOCATION, "/auth?return_to=%2Frs")]).into_response();
     }
     ([(header::CONTENT_TYPE, "text/html")], "<html><body>feed</body></html>").into_response()
 }
 
-async fn auth_page() -> Response {
-    ([(header::CONTENT_TYPE, "text/html")], lv_page()).into_response()
+async fn auth_page(State(ctl): State<Arc<Mutex<Ctl>>>) -> Response {
+    let flash = ctl.lock().unwrap().flash.take();
+    let mut html = lv_page();
+    if let Some(f) = flash {
+        let p = format!(r#"<p class="alert alert-danger" role="alert">{f}</p>"#);
+        html = html.replace("</body>", &format!("{p}</body>"));
+    }
+    ([(header::CONTENT_TYPE, "text/html")], html).into_response()
 }
 
-async fn sign_in(body: String) -> Response {
-    let ok = body.split('&').any(|kv| kv == format!("user%5Bcode%5D={CODE}") || kv == format!("user[code]={CODE}"));
-    if !ok { return (StatusCode::FORBIDDEN, "bad code").into_response(); }
+fn has_pair(body: &str, key_enc: &str, key_raw: &str, val: &str) -> bool {
+    body.split('&').any(|kv| kv == format!("{key_enc}={val}") || kv == format!("{key_raw}={val}"))
+}
+
+fn strict_otp_ok(body: &str) -> bool {
+    let csrf = has_pair(body, "_csrf_token", "_csrf_token", "form-csrf") && !body.contains("_csrf_token=mock-csrf");
+    let otp = has_pair(body, "user%5Botp%5D", "user[otp]", CODE);
+    let remember = has_pair(body, "user%5Bremember_me%5D", "user[remember_me]", "true");
+    let ret = body.split('&').any(|kv| kv == "return_to=%2Frs" || kv == "return_to=/rs" || kv == "return_to=%2frs");
+    csrf && otp && remember && ret
+}
+
+fn keyed_code_diff() -> Value {
+    let inner = concat!(
+        r#"<input type="hidden" name="_csrf_token" value="form-csrf">"#,
+        r#"<input type="hidden" name="user[email]" value="">"#,
+        r#"<input type="text" name="user[otp]">"#,
+        r#"<input type="hidden" name="user[remember_me]" value="true">"#,
+        r#"<input type="hidden" name="marketing_opt_in" value="false">"#,
+    );
+    json!({
+        "c": {
+            "1": {
+                "s": 0,
+                "k": { "0": {"0": inner}, "kc": 1 },
+                "p": {"0": [
+                    "<form action=\"/auth/user/otp/sign_in\" method=\"post\" phx-target=\"1\" phx-submit=\"submit-code\" phx-disable-with=\"Signing in...\">",
+                    "</form>"
+                ]}
+            }
+        }
+    })
+}
+
+async fn sign_in(State(ctl): State<Arc<Mutex<Ctl>>>, body: String) -> Response {
+    let (require, strict, reject) = {
+        let mut c = ctl.lock().unwrap();
+        c.posts.push(body.clone());
+        let reject = c.reject_once;
+        if reject { c.reject_once = false; }
+        (c.require_form_token, c.strict_otp, reject)
+    };
+    let legacy_ok = {
+        let code_ok = has_pair(&body, "user%5Bcode%5D", "user[code]", CODE);
+        let token_ok = !require || has_pair(&body, "user%5Btoken%5D", "user[token]", "from-form");
+        code_ok && token_ok
+    };
+    let bad = reject || if strict { !strict_otp_ok(&body) } else { !legacy_ok };
+    if bad && (strict || reject) {
+        ctl.lock().unwrap().flash = Some("invalid or expired code".into());
+        return (StatusCode::FOUND, [(header::LOCATION, "/auth")]).into_response();
+    }
+    if bad { return (StatusCode::FORBIDDEN, "bad code").into_response(); }
     (StatusCode::FOUND, [(header::SET_COOKIE, format!("{SESSION}=ok; Path=/; HttpOnly")), (header::LOCATION, "/rs".to_string())]).into_response()
 }
 
@@ -65,45 +148,117 @@ async fn live(State(ctl): State<Arc<Mutex<Ctl>>>, ws: WebSocketUpgrade) -> Respo
 }
 
 async fn lv_conn(ctl: Arc<Mutex<Ctl>>, mut ws: WebSocket) {
-    while let Some(Ok(Message::Text(t))) = ws.next().await {
-        let Ok(msg) = serde_json::from_str::<Value>(t.as_str()) else { continue };
-        let event = msg[3].as_str().unwrap_or("");
-        if event == "heartbeat" {
-            ctl.lock().unwrap().events.push("hb");
-            if ws.send(phx_reply(&msg, json!({}))).await.is_err() { break; }
-            continue;
+    let gated = ctl.lock().unwrap().one_at_a_time;
+    if gated {
+        let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+        loop {
+            if ctl.lock().unwrap().gated_open == 0 { break; }
+            if tokio::time::Instant::now() >= deadline {
+                ctl.lock().unwrap().rejected += 1;
+                let _ = ws.send(Message::Close(None)).await;
+                return;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
         }
-        let out = match event {
-            "phx_join" => {
-                ctl.lock().unwrap().joins += 1;
-                let form = r#"<form phx-submit="send-login-email" phx-target="1"><input type="email" name="user[email]"></form>"#;
-                phx_reply(&msg, json!({"rendered": {"s": [form]}}))
+    }
+    {
+        let mut c = ctl.lock().unwrap();
+        c.open += 1;
+        if c.one_at_a_time { c.gated_open += 1; }
+    }
+    let _slot = OpenSlot { ctl: ctl.clone(), gated: ctl.lock().unwrap().one_at_a_time };
+    while let Some(Ok(msg)) = ws.next().await {
+        match msg {
+            Message::Pong(_) => { ctl.lock().unwrap().pongs += 1; }
+            Message::Ping(p) => { if ws.send(Message::Pong(p)).await.is_err() { break; } }
+            Message::Close(_) => break,
+            Message::Text(t) => {
+                if handle_text(&ctl, &mut ws, t.as_str()).await { break; }
             }
-            "event" => {
-                let kind = msg[4]["event"].as_str().unwrap_or("");
-                match kind {
-                    "send-login-email" => phx_reply(&msg, json!({"diff": {"s": [r#"<form phx-submit="verify-code"><input type="text" name="user[code]"></form>"#]}})),
-                    "verify-code" => {
-                        let close = {
-                            let mut c = ctl.lock().unwrap();
-                            c.verifies += 1;
-                            c.events.push("verify");
-                            let close = c.close_next_verify;
-                            if close { c.close_next_verify = false; }
-                            close
-                        };
-                        if close {
-                            let _ = ws.send(Message::Close(None)).await;
-                            return;
-                        }
-                        phx_reply(&msg, json!({"diff": {"s": [r#"<form phx-trigger-action action="/auth/user/otp/sign_in" method="post"><input type="hidden" name="user[email]" value=""><input type="hidden" name="user[code]" value=""></form>"#]}}))
-                    }
-                    _ => phx_reply(&msg, json!({"diff": {}})),
-                }
-            }
-            _ => phx_reply(&msg, json!({})),
+            _ => {}
+        }
+    }
+}
+
+/// `true` means the handler should stop reading.
+async fn handle_text(ctl: &Arc<Mutex<Ctl>>, ws: &mut WebSocket, text: &str) -> bool {
+    let Ok(msg) = serde_json::from_str::<Value>(text) else { return false };
+    let event = msg[3].as_str().unwrap_or("");
+    if event == "heartbeat" {
+        let answer = {
+            let mut c = ctl.lock().unwrap();
+            c.events.push("hb");
+            c.silence_at_joins != Some(c.joins)
         };
-        if ws.send(out).await.is_err() { break; }
+        if !answer { return false; }
+        return ws.send(phx_reply(&msg, json!({}))).await.is_err();
+    }
+    let kind = msg[4]["event"].as_str().unwrap_or("");
+    let out = match event {
+        "phx_join" => {
+            ctl.lock().unwrap().joins += 1;
+            let form = r#"<form phx-submit="send-login-email" phx-target="1"><input type="email" name="user[email]"></form>"#;
+            phx_reply(&msg, json!({"rendered": {"s": [form]}}))
+        }
+        "event" if kind == "send-login-email" => {
+            let (ping, keyed) = {
+                let mut c = ctl.lock().unwrap();
+                c.email_sends += 1;
+                (c.ping_after_email, c.keyed_otp)
+            };
+            let reply = if keyed {
+                phx_reply(&msg, json!({"diff": keyed_code_diff()}))
+            } else {
+                phx_reply(&msg, json!({"diff": {"s": [r#"<form phx-submit="verify-code"><input type="text" name="user[code]"></form>"#]}}))
+            };
+            if ws.send(reply).await.is_err() { return true; }
+            if ping && ws.send(Message::Ping(vec![9, 9, 9].into())).await.is_err() { return true; }
+            return false;
+        }
+        "event" if kind == "verify-code" => {
+            let (close, diff_close, hold) = {
+                let mut c = ctl.lock().unwrap();
+                c.verifies += 1;
+                c.events.push("verify");
+                let close = c.close_next_verify;
+                if close { c.close_next_verify = false; }
+                let diff_close = c.diff_then_close;
+                let hold = c.hold_close;
+                (close, diff_close, hold)
+            };
+            if diff_close {
+                let form = r#"<form phx-trigger-action action="/auth/user/otp/sign_in" method="post"><input type="hidden" name="user[email]" value=""><input type="hidden" name="user[code]" value=""><input type="hidden" name="user[token]" value="from-form"></form>"#;
+                let diff = json!([Value::Null, Value::Null, msg[2], "diff", {"s": [form]}]);
+                let _ = ws.send(Message::Text(diff.to_string().into())).await;
+                let _ = ws.send(Message::Close(None)).await;
+                return true;
+            }
+            if close || hold {
+                let _ = ws.send(Message::Close(None)).await;
+                if hold {
+                    while let Some(Ok(incoming)) = ws.next().await {
+                        if matches!(incoming, Message::Close(_)) { break; }
+                    }
+                }
+                return true;
+            }
+            phx_reply(&msg, json!({"diff": {"s": [r#"<form phx-trigger-action action="/auth/user/otp/sign_in" method="post"><input type="hidden" name="user[email]" value=""><input type="hidden" name="user[code]" value=""></form>"#]}}))
+        }
+        "event" => phx_reply(&msg, json!({"diff": {}})),
+        _ => phx_reply(&msg, json!({})),
+    };
+    ws.send(out).await.is_err()
+}
+
+struct OpenSlot {
+    ctl: Arc<Mutex<Ctl>>,
+    gated: bool,
+}
+impl Drop for OpenSlot {
+    fn drop(&mut self) {
+        let mut c = self.ctl.lock().unwrap();
+        c.open = c.open.saturating_sub(1);
+        if self.gated { c.gated_open = c.gated_open.saturating_sub(1); }
     }
 }
 
@@ -136,7 +291,10 @@ async fn emailed_code() -> Result<String> {
 }
 
 async fn begin_at(home: &std::path::Path) -> LoginSession {
-    unsafe { std::env::set_var("HOME", home); }
+    unsafe {
+        std::env::set_var("HOME", home);
+        std::env::set_var("ACP_HOME", home);
+    }
     let jar = Arc::new(Jar::default());
     let http = client(jar.clone()).unwrap();
     match LoginSession::start(&http, &jar, Some("ada@example.test".into())).await.unwrap() {
@@ -184,4 +342,155 @@ async fn login_heartbeats_retries_a_closed_socket_and_keeps_a_wrong_code() {
     assert!(!ctl.lock().unwrap().close_next_verify);
     let saved = std::fs::read_to_string(session_file(&home)).unwrap();
     assert!(saved.contains(SESSION), "{saved}");
+
+    // `ACP_HOME` is the data root. An empty value falls back to `$HOME`.
+    let isolated = fresh_home("acp-home");
+    unsafe {
+        std::env::set_var("HOME", "/tmp/acp-real-home-not-used");
+        std::env::set_var("ACP_HOME", &isolated);
+    }
+    assert_eq!(acp_red_star::config::home().unwrap(), isolated);
+    let hint = acp_red_star::auth::session::session_login_hint();
+    assert!(hint.contains(&isolated.display().to_string()), "{hint}");
+    assert!(!hint.contains("~/.acp/session.json"), "{hint}");
+    unsafe { std::env::set_var("ACP_HOME", ""); }
+    assert_eq!(acp_red_star::config::home().unwrap(), std::path::PathBuf::from("/tmp/acp-real-home-not-used"));
+
+    // The site renders the sign-in form, then closes the socket, and rejects a
+    // blind OTP post. The client must POST the form it already rendered.
+    {
+        let mut c = ctl.lock().unwrap();
+        c.diff_then_close = true;
+        c.require_form_token = true;
+        c.events.clear();
+    }
+    let home = fresh_home("trigger");
+    let mut session = begin_at(&home).await;
+    session.submit_code(CODE).await.unwrap();
+    let saved = std::fs::read_to_string(session_file(&home)).unwrap();
+    assert!(saved.contains(SESSION), "{saved}");
+    drop(session);
+    {
+        let mut c = ctl.lock().unwrap();
+        c.diff_then_close = false;
+        c.require_form_token = false;
+        c.one_at_a_time = true;
+        c.hold_close = true;
+        c.rejected = 0;
+        c.gated_open = 0;
+    }
+
+    // The old socket stays counted until this client closes it. Reconnect must
+    // close first or the new join is refused.
+    let joins_before = ctl.lock().unwrap().joins;
+    let home = fresh_home("one-socket");
+    let mut session = begin_at(&home).await;
+    session.submit_code(CODE).await.unwrap();
+    let rejected = ctl.lock().unwrap().rejected;
+    let joins = ctl.lock().unwrap().joins;
+    assert_eq!(rejected, 0, "the new join was refused while the old socket was still open");
+    assert!(joins > joins_before + 1, "verify closes the first socket and a second join finishes the login (joins {joins_before} -> {joins})");
+    assert!(session_file(&home).is_file());
+    ctl.lock().unwrap().one_at_a_time = false;
+    ctl.lock().unwrap().hold_close = false;
+
+    // The TUI waits on a channel, on this same runtime, and still heartbeats.
+    {
+        let mut c = ctl.lock().unwrap();
+        c.ping_after_email = true;
+        c.pongs = 0;
+        c.events.clear();
+    }
+    let home = fresh_home("tui-task");
+    let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel::<String>();
+    let mut session = begin_at(&home).await;
+    session.set_heartbeat(Duration::from_millis(40));
+    let task = tokio::spawn(async move {
+        let mut cmd_rx = cmd_rx;
+        let code = session.pump_until(cmd_rx.recv()).await.map_err(|e| format!("{e:#}"))?.ok_or("login cancelled")?;
+        session.submit_code(&code).await.map_err(|e| format!("{e:#}"))
+    });
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    let beats = ctl.lock().unwrap().events.iter().filter(|e| **e == "hb").count();
+    assert!(beats >= 2, "the TUI wait heartbeats before the code is sent");
+    cmd_tx.send(CODE.to_string()).unwrap();
+    task.await.unwrap().unwrap();
+    assert!(ctl.lock().unwrap().pongs >= 1, "a protocol ping during the wait is answered");
+    assert!(std::fs::read_to_string(session_file(&home)).unwrap().contains(SESSION));
+
+    // The socket accepts heartbeat writes and then stops answering. The client
+    // must notice, reconnect, and not send another email. The code form is a
+    // keyed comprehension whose statics live in `p`. The fallback POST uses
+    // that form's csrf and `user[otp]`, not the page token and `user[code]`.
+    {
+        let mut c = ctl.lock().unwrap();
+        c.ping_after_email = false;
+        c.one_at_a_time = false;
+        c.hold_close = false;
+        c.diff_then_close = false;
+        c.require_form_token = false;
+        c.close_next_verify = false;
+        c.keyed_otp = true;
+        c.silence_at_joins = None;
+        c.strict_otp = true;
+        c.reject_once = false;
+        c.email_sends = 0;
+        c.posts.clear();
+        c.events.clear();
+        c.flash = None;
+    }
+    let home = fresh_home("dead-hb");
+    let mut session = begin_at(&home).await;
+    let (joins_after_start, emails_after_start) = {
+        let c = ctl.lock().unwrap();
+        (c.joins, c.email_sends)
+    };
+    assert_eq!(emails_after_start, 1, "the email is sent once, when the code is requested");
+    ctl.lock().unwrap().silence_at_joins = Some(joins_after_start);
+    session.set_heartbeat(Duration::from_millis(40));
+    let code = session.pump_until(emailed_code()).await.unwrap().unwrap();
+    let (emails, joins, events) = {
+        let c = ctl.lock().unwrap();
+        (c.email_sends, c.joins, c.events.clone())
+    };
+    assert_eq!(emails, 1, "a dead socket must not send another login email: {events:?}");
+    assert!(joins > joins_after_start, "an unanswered heartbeat reconnects (joins {joins_after_start} -> {joins})");
+    let posted = session.submit_code(&code).await;
+    let body = ctl.lock().unwrap().posts.last().cloned().unwrap_or_default();
+    assert!(body.contains("_csrf_token=form-csrf"), "form csrf missing: {body}");
+    assert!(!body.contains("_csrf_token=mock-csrf"), "page csrf was posted: {body}");
+    assert!(
+        body.contains(&format!("user%5Botp%5D={CODE}")) || body.contains(&format!("user[otp]={CODE}")),
+        "otp field missing: {body}"
+    );
+    assert!(!body.contains("user%5Bcode%5D") && !body.contains("user[code]"), "old code field was posted: {body}");
+    assert!(
+        body.contains("user%5Bremember_me%5D=true") || body.contains("user[remember_me]=true"),
+        "remember_me missing: {body}"
+    );
+    assert!(body.contains("marketing_opt_in=false"), "marketing field missing: {body}");
+    assert!(
+        body.contains("return_to=%2Frs") || body.contains("return_to=/rs"),
+        "return_to missing: {body}"
+    );
+    posted.unwrap();
+    assert!(std::fs::read_to_string(session_file(&home)).unwrap().contains(SESSION));
+
+    // A correct POST that the server rejects (redirect back to /auth) surfaces the flash
+    // and does not write a session. The same attempt can then sign in.
+    {
+        let mut c = ctl.lock().unwrap();
+        c.silence_at_joins = None;
+        c.reject_once = true;
+        c.posts.clear();
+        c.email_sends = 0;
+    }
+    let home = fresh_home("flash");
+    let mut session = begin_at(&home).await;
+    let err = session.submit_code(CODE).await.unwrap_err();
+    assert!(err.to_string().contains("invalid or expired code"), "{err:#}");
+    assert!(!err.to_string().contains(CODE), "the one-time code leaked into the error: {err:#}");
+    assert!(!session_file(&home).exists(), "a rejected sign-in does not write a session");
+    session.submit_code(CODE).await.unwrap();
+    assert!(session_file(&home).is_file());
 }

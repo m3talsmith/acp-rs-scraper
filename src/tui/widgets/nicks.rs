@@ -9,6 +9,11 @@ use ratatui::widgets::Paragraph;
 /// Draw the nick bar into `r`.
 pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
+    if !app.nicks_open || r.width <= 2 {
+        f.render_widget(Paragraph::new(Span::styled("›", t.bar().bold(true))), r);
+        app.hits.push((r, Hit::ToggleNicks));
+        return;
+    }
     let count = if app.nick_filter_active() { format!("{}/{}", app.nicks.len(), app.all_nicks.len()) } else { app.nicks.len().to_string() };
     let window = match (app.nick_order, app.nick_limit) {
         (crate::prelude::ScrapeOrder::Newest, None) => String::new(),
@@ -97,5 +102,10 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
             Span::styled(format!(" {count}"), if cur && app.focus == Focus::Nicks { st } else { t.muted() })]);
         f.render_widget(Paragraph::new(line), rr);
         app.hits.push((rr, Hit::Nick(i)));
+    }
+    if r.width > 2 && r.height > 0 {
+        let tab = Rect { x: r.x + r.width - 1, y: r.y, width: 1, height: 1 };
+        f.render_widget(Paragraph::new(Span::styled("‹", t.bar())), tab);
+        app.hits.push((tab, Hit::ToggleNicks));
     }
 }

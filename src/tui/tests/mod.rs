@@ -23,6 +23,7 @@ mod theme;
 mod sync;
 mod views;
 mod history;
+mod history_bar;
 mod nick_filter;
 mod order;
 mod site_attachments;
@@ -32,6 +33,7 @@ mod session;
 mod theming;
 mod editor;
 mod eggs;
+mod help_about;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;
