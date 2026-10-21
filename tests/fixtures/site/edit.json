@@ -1,0 +1,12 @@
+{
+  "capture_status": "missing",
+  "source": "architecture/PLAN-3.0-CLIENT.md row 27 says the edit page is probably the same editor. That form was not captured. The one-hour window is a product constraint, not a field in the reply capture.",
+  "payload": null,
+  "window_secs": 3600,
+  "needed": [
+    "The LiveView join for /rs/post/{id}/edit, including the form id, phx-submit, phx-change, and cid",
+    "The validate and save payloads, and whether the body still starts with postRef",
+    "The server reply when the edit is outside the one-hour window",
+    "The phx_reply or thread:update-post after a successful edit"
+  ]
+}

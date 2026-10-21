@@ -4,6 +4,7 @@
 mod commands;
 mod compose;
 mod delete;
+mod edit;
 mod subscribe;
 mod vote;
 mod bookmarks;

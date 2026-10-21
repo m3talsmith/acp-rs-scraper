@@ -866,6 +866,20 @@ impl App {
         let (nicks, tags) = self.compose_sources();
         self.modal = Some(Modal::Compose(ComposeModal::reply(&thread, None, Some(post.content.clone()), Some(post.post_id.clone()), nicks, tags)));
     }
+    /// Post menu › Edit. The form is not built. A post older than one hour is refused.
+    fn edit_post(&mut self, id: &str) {
+        if !self.writes_are_on() {
+            self.show_writes_off();
+            return;
+        }
+        let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
+        let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
+        let now = chrono::Utc::now().timestamp();
+        match crate::site::edit::present(id, inserted, now, true, false) {
+            Ok(text) => self.push_status(text),
+            Err(e) => self.error("Edit", &e.message),
+        }
+    }
     /// Post menu › View reposts.
     pub fn open_reposts(&mut self, id: &str) {
         match self.menu.menu.reposts_argv(id) {
@@ -2337,6 +2351,7 @@ impl App {
                         self.modal = Some(Modal::Confirm(confirm));
                     }
                 }
+                PostAction::Edit => self.edit_post(&m.post_id),
             },
             (Modal::Compose(c), ModalResult::ClosedCancelled) => {
                 self.push_status("nothing sent");
