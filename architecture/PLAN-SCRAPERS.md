@@ -1,7 +1,7 @@
 # Plan: read-only X and YouTube sources for ACP Red Star
 
 Status: **design only, for Michael's review.** Nothing in this file is implemented.
-Target path in the repo: `architecture/SCRAPER-PLAN.md`. This draft was written on the agent box. It was not committed or pushed.
+Target path in the repo: `architecture/PLAN-SCRAPERS.md`. This draft was written on the agent box. It was not committed or pushed.
 Base: `main` at `28759588` (crate `3.5.0`, about 12 features under `[Unreleased]`).
 Companion docs: [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) (§6 Feeds, §7.5 records, §7.14.13 rules and alerts, §7.14.14 post source) and [PLAN-4.0.md](./PLAN-4.0.md) (the research corpus).
 
