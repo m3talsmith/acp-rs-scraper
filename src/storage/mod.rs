@@ -2,6 +2,7 @@
 
 pub mod db;
 pub mod history;
+pub mod notices;
 pub mod schema;
 
 #[cfg(test)]

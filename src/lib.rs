@@ -33,6 +33,7 @@
 
 #[macro_use]
 pub mod logging;
+pub mod notify;
 pub mod app;
 pub mod auth;
 pub mod branding;

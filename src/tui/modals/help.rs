@@ -183,6 +183,17 @@ fn area_topics() -> Vec<String> {
         "  https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf",
         "  https://acp.us/join is at the top and the bottom of that section only.",
     ]);
+    push_topic(&mut v, "notifications", "Notifications", &[
+        "  View › Notifications opens the saved list. It is not the site Notifications pane.",
+        "  Toasts stack with no cap. When they would use more than a quarter of the screen,",
+        "  as many as fit stay up and View all opens this same page.",
+        "  Newest first. o switches to oldest. f filters by kind. / searches the title and the text.",
+        "  x clears the highlighted row. Clear all deletes every saved notice.",
+        "  They are stored in the encrypted database and are still there after a restart.",
+        "  Opening this page, View all, search, order, and clearing a notice are not action-bar steps.",
+        "  Do not disturb and each kind silence the toast and the desktop notification together.",
+        "  The list still keeps those rows. Space toggles do not disturb.",
+    ]);
     push_topic(&mut v, "actions", "Action history", &[
         "  The right bar lists every step that led to this view. It does not drop old steps.",
         "  The wheel scrolls the list. With the bar focused, the arrows, PgUp, and PgDn scroll it too.",

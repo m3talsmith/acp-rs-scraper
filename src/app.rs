@@ -3,6 +3,16 @@
 
 use crate::prelude::*;
 
+/// A warning on stderr, in the notice form and as the existing `warning:` line.
+fn cli_warning(args: &Args, body: &str) {
+    err!("warning: {body}");
+    let color = !colors_suppressed(args.color.unwrap_or_default(), no_color_set());
+    crate::notify::print_stderr(
+        &crate::notify::Notice::new(crate::notify::NoticeKind::Warning, "Warning", body),
+        color,
+    );
+}
+
 /// `--remove-nick`: preview (rolled-back transaction), confirm, then commit.
 pub fn run_remove_nick(args: &Args, nicks: &[String]) -> Result<()> {
     let db = home()?.join(DB_REL_PATH);
@@ -285,7 +295,7 @@ pub async fn run() -> Result<()> {
         if let Some(f) = &args.export { a.output = Some(f.clone()); }
         let db = home()?.join(DB_REL_PATH);
         let (posts, atts, missing) = posts_by_ids(&db, &ids.0)?;
-        for m in &missing { err!("warning: post {m} is not in the database"); }
+        for m in &missing { cli_warning(&args, &format!("post {m} is not in the database")); }
         if posts.is_empty() { bail!("none of the {} posts is in the database", ids.0.len()); }
         info!("db export: {} chosen posts, {} attachments", posts.len(), atts.len());
         let name = clean(args.name.clone().unwrap_or_else(|| format!("basket-{stamp}")));
@@ -327,7 +337,7 @@ pub async fn run() -> Result<()> {
         return export(&a, &name, &label, &posts, &atts, &profiles, &hits, &home()?.join(EXPORTS_REL_PATH));
     }
     let jar = Arc::new(Jar::default());
-    if let Err(e) = load_session(&jar) { err!("warning: ignoring saved session: {e:#}"); }
+    if let Err(e) = load_session(&jar) { cli_warning(&args, &format!("ignoring saved session: {e:#}")); }
     let http = client(jar.clone())?;
     login(&http, &jar).await?;
     if let Some(period) = args.top {
@@ -474,7 +484,7 @@ pub async fn run() -> Result<()> {
                                 info!("  @{nick}: profile image {}", path.display());
                                 profile.avatar_path = Some(path.to_string_lossy().into());
                             }
-                            Err(e) => err!("warning: @{nick} profile image: {e:#}"),
+                            Err(e) => cli_warning(&args, &format!("@{nick} profile image: {e:#}")),
                         }
                     }
                     if let Some(u) = &profile.banner_url
@@ -503,7 +513,7 @@ pub async fn run() -> Result<()> {
                 ok_nicks.push(nick.clone());
             }
             Err(e) => {
-                err!("warning: @{nick} failed: {e:#}");
+                cli_warning(&args, &format!("@{nick} failed: {e:#}"));
                 summary.push(format!("@{nick}: FAILED ({e})"));
             }
         }
@@ -518,7 +528,7 @@ pub async fn run() -> Result<()> {
                 posts.extend(extra);
                 mention_hits.extend(hits);
             }
-            Err(e) => err!("warning: mentions crawl failed: {e:#}"),
+            Err(e) => cli_warning(&args, &format!("mentions crawl failed: {e:#}")),
         }
     }
     info!("== summary");

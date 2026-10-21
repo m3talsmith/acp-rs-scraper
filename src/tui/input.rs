@@ -53,6 +53,7 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         return;
     }
     if app.theme_editor.is_some() { editor_key(app, k); return; }
+    if app.notice_page.is_some() && notice_key(app, k) { return; }
     if app.filter_editing { filter_key(app, k); return; }
     if app.focus == Focus::Menu && app.menu.editing { menu_edit_key(app, k); return; }
     // Global keys.
@@ -89,6 +90,46 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         Focus::Status => status_key(app, k),
         Focus::Actions => actions_key(app, k),
     }
+}
+
+/// Keys for the notifications page. `false` lets the key through. Nothing here records an action step.
+fn notice_key(app: &mut App, k: KeyEvent) -> bool {
+    let editing = app.notice_page.as_ref().is_some_and(|p| p.editing);
+    if editing {
+        match k.code {
+            KeyCode::Esc | KeyCode::Enter => { if let Some(p) = &mut app.notice_page { p.editing = false; } }
+            KeyCode::Backspace => {
+                if let Some(p) = &mut app.notice_page { p.query.pop(); p.cursor = 0; p.scroll = 0; }
+            }
+            KeyCode::Char(c) => {
+                if let Some(p) = &mut app.notice_page { p.query.push(c); p.cursor = 0; p.scroll = 0; }
+            }
+            _ => return false,
+        }
+        return true;
+    }
+    match k.code {
+        KeyCode::Esc => { app.notice_page = None; }
+        KeyCode::Char('?') | KeyCode::F(1) => app.open_help(Some("notifications")),
+        KeyCode::Char('/') => { if let Some(p) = &mut app.notice_page { p.editing = true; } }
+        KeyCode::Char('o') => { if let Some(p) = &mut app.notice_page { p.toggle_order(); } }
+        KeyCode::Char('f') => { if let Some(p) = &mut app.notice_page { p.cycle_kind(); } }
+        KeyCode::Char(' ') => app.toggle_notice_row(0),
+        KeyCode::Char('x') => {
+            let i = app.notice_page.as_ref().map(|p| p.cursor).unwrap_or(0);
+            app.delete_visible_notice(i);
+        }
+        KeyCode::Char('X') => app.clear_all_notices(),
+        KeyCode::Up | KeyCode::Char('k') => app.move_notice_cursor(-1),
+        KeyCode::Down | KeyCode::Char('j') => app.move_notice_cursor(1),
+        KeyCode::PageUp => app.move_notice_cursor(-10),
+        KeyCode::PageDown => app.move_notice_cursor(10),
+        KeyCode::Home => app.move_notice_cursor(-1_000_000),
+        KeyCode::End => app.move_notice_cursor(1_000_000),
+        KeyCode::Enter => {}
+        _ => return false,
+    }
+    true
 }
 
 fn next_focus(app: &App, d: i32) -> Focus {
@@ -480,11 +521,20 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::ListPane | Hit::DetailPane) => app.focus = Focus::Body,
         Some(Hit::Status | Hit::Job) => { app.focus = Focus::Status; app.open_jobs(); }
         Some(Hit::Logo) => app.tap_logo(Instant::now()),
+        Some(Hit::Toast(i)) => app.notices.dismiss(i),
+        Some(Hit::ViewAllNotices) => app.open_notifications(),
+        Some(Hit::NoticeSearch) => { if let Some(p) = &mut app.notice_page { p.editing = true; } }
+        Some(Hit::NoticeOrder) => { if let Some(p) = &mut app.notice_page { p.toggle_order(); } }
+        Some(Hit::NoticeKind) => { if let Some(p) = &mut app.notice_page { p.cycle_kind(); } }
+        Some(Hit::NoticeSwitch(i)) => app.toggle_notice_row(i),
+        Some(Hit::NoticeRow(i)) => { if let Some(p) = &mut app.notice_page { p.cursor = i; } }
+        Some(Hit::NoticeClear(i)) => app.delete_visible_notice(i),
+        Some(Hit::NoticeClearAll) => app.clear_all_notices(),
         Some(Hit::ToggleNicks) => app.nicks_open = !app.nicks_open,
         Some(Hit::ToggleActions) => app.toggle_actions(),
         Some(Hit::ActionBranches) => { app.focus = Focus::Actions; app.open_branches(); }
         Some(Hit::ActionPane) => app.focus = Focus::Actions,
-        Some(Hit::Action(i)) => { app.focus = Focus::Actions; app.jump_action(i); }
+        Some(Hit::Action(i)) => { app.focus = Focus::Actions; app.jump_action(i); },
         _ => {}
     }
 }
