@@ -109,8 +109,10 @@ pub enum Action {
     Logout,
     /// Help modal.
     Help,
-    /// About page.
+    /// About page, on Credits.
     About,
+    /// About, focused on a section: 0 Credits, 1 Why this is necessary, 2 ACP platform.
+    AboutAt(u8),
     /// Toggle the log panel.
     ToggleLog,
     /// Quit (detaching a running job).
@@ -181,6 +183,14 @@ pub enum Action {
     OpenMenu(CommandId),
     /// Discover has no network yet.
     DiscoverLater,
+    /// Search › History. Re-run a saved query.
+    SearchHistory,
+    /// Search › Clear history. Deletes saved queries only.
+    ClearSearchHistory,
+    /// Collapse or open the nick bar.
+    ToggleNicks,
+    /// Collapse or open the action history bar.
+    ToggleActions,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -369,6 +379,9 @@ fn search_item() -> MenuCommand {
         opt("site", "Search the site", "--site-search", false, button(Action::RunSiteSearch)),
         opt("advanced", "Advanced…", "Shift-S", false, button(Action::OpenSearchModal)),
         opt("clear", "Clear search", "Ctrl-S", false, button(Action::ClearSearch)),
+        opt("keep", "History kept", "blank keeps every search. A number keeps that many.", false, text("")),
+        opt("history", "History…", "re-run a past query", false, button(Action::SearchHistory)),
+        opt("clear_history", "Clear history", "deletes saved queries only", false, button(Action::ClearSearchHistory)),
     ])
 }
 
@@ -441,6 +454,14 @@ fn account_item() -> MenuCommand {
     shown(CommandId::Session, "Account", 'n', vec![
         opt("login", "Log in", "", false, button(Action::Login)),
         opt("logout", "Log out", "--logout", false, button(Action::Logout)),
+    ])
+}
+
+fn about_item() -> MenuCommand {
+    shown(CommandId::About, "About", 't', vec![
+        opt("credits", "Credits", "", false, button(Action::AboutAt(0))),
+        opt("why", "Why this is necessary", "", false, button(Action::AboutAt(1))),
+        opt("platform", "ACP platform", "", false, button(Action::AboutAt(2))),
     ])
 }
 
@@ -517,6 +538,48 @@ fn maintain_item() -> MenuCommand {
     ])
 }
 
+/// Help topic for a menu command.
+pub fn command_topic(id: CommandId) -> &'static str {
+    match id {
+        CommandId::Scrape => "scrape",
+        CommandId::Search => "search",
+        CommandId::Compose => "compose",
+        CommandId::Library => "library",
+        CommandId::Discover => "discover",
+        CommandId::Basket => "basket",
+        CommandId::Export => "export",
+        CommandId::Import => "import",
+        CommandId::List => "list",
+        CommandId::Maintain => "maintain",
+        CommandId::Session => "account",
+        CommandId::Bookmarks => "bookmark",
+        CommandId::Research => "research",
+        CommandId::Sync => "sync",
+        CommandId::View => "view",
+        CommandId::Debug => "debug",
+        CommandId::Help => "keys",
+        CommandId::About => "about-credits",
+        CommandId::Quit => "quit",
+    }
+}
+
+/// A more specific Help topic for one option. `None` uses [`command_topic`].
+pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
+    match (id, key) {
+        (CommandId::About, "credits") => Some("about-credits"),
+        (CommandId::About, "why") => Some("about-why"),
+        (CommandId::About, "platform") => Some("about-platform"),
+        (CommandId::Compose, _) => Some("compose"),
+        (CommandId::Bookmarks, _) => Some("bookmark"),
+        (CommandId::Basket, _) => Some("basket"),
+        (CommandId::Session, "login") => Some("login"),
+        (CommandId::Session, "logout") => Some("account"),
+        (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
+        (CommandId::Discover, _) => Some("discover"),
+        _ => None,
+    }
+}
+
 /// The whole menu bar, with every option's current value.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Menu {
@@ -540,7 +603,7 @@ impl Menu {
             account_item(),
             debug_item(args),
             shown_action(Help, "Help", 'h', Action::Help),
-            shown_action(About, "About", 't', Action::About),
+            about_item(),
             shown_action(Quit, "Quit", 'q', Action::Quit),
             scrape_item(),
             export_item(),
@@ -549,7 +612,18 @@ impl Menu {
             list_item(),
             maintain_item(),
         ];
-        Menu { items }
+        let mut menu = Menu { items };
+        menu.fill_help_topics();
+        menu
+    }
+    /// Give every option a Help topic. A topic already set on the option stays.
+    fn fill_help_topics(&mut self) {
+        for c in &mut self.items {
+            let fallback = command_topic(c.id);
+            for o in &mut c.opts {
+                if o.help.is_empty() { o.help = option_topic(c.id, o.key).unwrap_or(fallback); }
+            }
+        }
     }
     /// Item by id.
     pub fn get(&self, id: CommandId) -> &MenuCommand { self.items.iter().find(|c| c.id == id).expect("menu id") }
@@ -668,6 +742,9 @@ impl Menu {
                 Some(f) => {
                     if !f.keyword.trim().is_empty() { v.extend(["--search".into(), f.keyword.trim().into()]); }
                     nicks_arg(&mut v, &f.nicks);
+                    if f.order != crate::prelude::ScrapeOrder::Newest { v.extend(["--order".into(), f.order.to_string()]); }
+                    if let Some(n) = f.limit { v.extend(["--limit".into(), n.to_string()]); }
+                    v.extend(["--search-json".into(), crate::tui::data::saved_query(f, false).to_json().to_string()]);
                 }
                 None => nicks_arg(&mut v, selected),
             },

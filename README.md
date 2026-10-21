@@ -409,6 +409,7 @@ headless scrape is now `--scrape`.
 - **Menu bar.** View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account,
   Debug, Help, About, and Quit. Scrape sits immediately left of Start Scanning (on a narrow terminal the
   scan button shortens to `▶ Scan` so Quit still fits). Library opens Export, Import, Basket, List, and Maintain.
+  Hover shows a short tip; the `?` on that tip opens the Help topic for that action. `?` in the header corner opens Help (`?` and F1 do the same).
   Options show as checkboxes `[x]`, dropdowns `‹ … ›`,
   text fields `[…]` and buttons `< … >`; `*` marks a required one. Keyboard: `m`/`F10` or
   `Alt`+the underlined letter, `↑↓` to pick, `Space`/`Enter` to change, `Esc` to close.
@@ -538,7 +539,7 @@ Themes are TOML files in `~/.acp/themes/`, one per theme (names: lowercase lette
 and `_`, up to 32). That folder is the only place themes are read from: packages don't install
 any and none is built into the binary. On the first run, when `~/.acp/themes/` is empty, the TUI
 downloads `default.toml` from the repo in the background
-(`https://raw.githubusercontent.com/m3talsmith/acp-red-star/v<version>/themes/default.toml`;
+(`https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`;
 3 s timeout, 64 KiB at most, no cookies sent), checks that it is a valid theme, saves it
 (never replacing a file) and switches to it as soon as it arrives, unless you picked another
 theme meanwhile. Until then, and if the download fails (offline), the TUI uses your terminal's
