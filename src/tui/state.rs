@@ -323,8 +323,24 @@ pub enum Hit {
     Status,
     /// The header's red star.
     Logo,
-    /// The n-th toast. A click dismisses it. The log keeps the notice.
+    /// The n-th toast. A click dismisses it. The saved list keeps the notice.
     Toast(usize),
+    /// The toast stack is taller than a quarter of the screen. Opens Notifications.
+    ViewAllNotices,
+    /// The notifications search box.
+    NoticeSearch,
+    /// Newest or oldest on the notifications page.
+    NoticeOrder,
+    /// The kind filter on the notifications page.
+    NoticeKind,
+    /// A silence switch. `0` is do-not-disturb. The rest follow [`crate::notify::NoticeKind::ALL`].
+    NoticeSwitch(usize),
+    /// A row in the filtered notifications list.
+    NoticeRow(usize),
+    /// Clear one notification. The index is into the filtered list.
+    NoticeClear(usize),
+    /// Clear every saved notification.
+    NoticeClearAll,
     /// Collapse or open the nick bar.
     ToggleNicks,
     /// Collapse or open the action history bar.
@@ -523,8 +539,10 @@ pub struct App {
     pub logo_taps: u8,
     /// When the header star was last pressed.
     pub logo_tap_at: Option<Instant>,
-    /// Toasts, the notice log, and desktop notifications.
+    /// Toasts, the saved list, and desktop notifications.
     pub notices: crate::notify::NoticeBoard,
+    /// The notifications page. `None` leaves the body as the post list.
+    pub notice_page: Option<crate::notify::NoticePage>,
     /// Saved paths. The bar shows [`App::branch_at`].
     pub branches: Vec<ActionBranch>,
     /// Which path the bar shows.
@@ -593,11 +611,12 @@ impl App {
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
             konami: crate::eggs::Konami::new(), egg: None, logo_taps: 0, logo_tap_at: None,
-            notices: crate::notify::NoticeBoard::new(),
+            notices: crate::notify::NoticeBoard::new(), notice_page: None,
             branches: Vec::new(), branch_at: 0, action_at: 0, action_scroll: 0, action_cursor: 0, action_page: 1,
             restoring: false, record_ready: false, nicks_open: true, actions_open: false,
             tip: None, tip_at: Rect::default(),
         };
+        app.load_notices();
         app.refresh_nicks();
         app.reload_marks();
         let restored = app.load_actions();
@@ -620,17 +639,100 @@ impl App {
         for l in s.lines() {
             if status_line_is_problem(l) { self.needs_redraw = true; }
             if let Some(n) = crate::notify::Notice::from_status_line(l) {
-                self.notices.post(n, Instant::now());
+                self.record_notice(n);
             } else if l.starts_with("auto sync skipped") {
-                self.notices.post(crate::notify::Notice {
-                    kind: crate::notify::NoticeKind::Sync,
-                    title: "Sync".into(),
-                    body: l.to_string(),
-                }, Instant::now());
+                self.record_notice(crate::notify::Notice::new(crate::notify::NoticeKind::Sync, "Sync", l));
             }
             self.status.push_back(l.to_string());
             while self.status.len() > TUI_STATUS_KEEP { self.status.pop_front(); }
         }
+    }
+    /// Read saved notifications. A restart shows them again. They do not toast a second time.
+    fn load_notices(&mut self) {
+        match self.store.notices() {
+            Ok(rows) => {
+                self.notices.log = std::collections::VecDeque::from(rows.into_iter().filter_map(|r| {
+                    let kind = crate::notify::NoticeKind::parse(&r.kind)?;
+                    Some(crate::notify::Notice { id: r.id, created_at: r.created_at, kind, title: r.title, body: r.body })
+                }).collect::<Vec<_>>());
+            }
+            Err(e) => { self.status.push_back(format!("error: notifications: {e:#}")); }
+        }
+    }
+    /// Save `n` and raise it. The action bar does not record this.
+    fn record_notice(&mut self, n: crate::notify::Notice) {
+        let created_at = if n.created_at.is_empty() { chrono::Utc::now().to_rfc3339() } else { n.created_at.clone() };
+        let row = crate::storage::notices::NoticeRow {
+            id: 0, created_at: created_at.clone(), kind: n.kind.key().into(), title: n.title.clone(), body: n.body.clone(),
+        };
+        let id = match self.store.insert_notice(&row) {
+            Ok(id) if id > 0 => id,
+            Ok(_) => self.notices.fresh_id(),
+            Err(e) => {
+                self.status.push_back(format!("error: could not save notification: {e:#}"));
+                while self.status.len() > TUI_STATUS_KEEP { self.status.pop_front(); }
+                self.notices.fresh_id()
+            }
+        };
+        self.notices.post(crate::notify::Notice { id, created_at, kind: n.kind, title: n.title, body: n.body }, Instant::now());
+    }
+    /// Notices that pass the page's search and kind filter, in the page's order.
+    pub fn visible_notices(&self) -> Vec<crate::notify::Notice> {
+        let page = self.notice_page.as_ref();
+        let mut v: Vec<crate::notify::Notice> = self.notices.log.iter().filter(|n| {
+            let Some(page) = page else { return true };
+            if page.kind.is_some_and(|k| n.kind != k) { return false; }
+            let q = page.query.trim();
+            if q.is_empty() { return true; }
+            let q = q.to_lowercase();
+            n.title.to_lowercase().contains(&q) || n.body.to_lowercase().contains(&q) || n.kind.label().to_lowercase().contains(&q)
+        }).cloned().collect();
+        let newest = page.is_none_or(|p| p.newest_first);
+        if newest {
+            v.sort_by(|a, b| b.created_at.cmp(&a.created_at).then(b.id.cmp(&a.id)));
+        } else {
+            v.sort_by(|a, b| a.created_at.cmp(&b.created_at).then(a.id.cmp(&b.id)));
+        }
+        v
+    }
+    /// View › Notifications, and the toast stack's View all button. Not an action-history step.
+    pub fn open_notifications(&mut self) {
+        self.close_menu();
+        self.filter_editing = false;
+        self.notice_page = Some(crate::notify::NoticePage::new());
+        self.focus = Focus::Body;
+    }
+    /// Move the highlighted notification by `d`.
+    pub fn move_notice_cursor(&mut self, d: i32) {
+        let n = self.visible_notices().len();
+        let Some(p) = &mut self.notice_page else { return };
+        if n == 0 { p.cursor = 0; return; }
+        p.cursor = (p.cursor as i64 + d as i64).clamp(0, n as i64 - 1) as usize;
+    }
+    /// Delete one filtered row. The saved copy goes too. Not an action-history step.
+    pub fn delete_visible_notice(&mut self, index: usize) {
+        let Some(n) = self.visible_notices().into_iter().nth(index) else { return };
+        let id = n.id;
+        self.notices.log.retain(|x| x.id != id);
+        self.notices.toasts.retain(|t| t.notice.id != id);
+        if let Err(e) = self.store.delete_notice(id) {
+            self.status.push_back(format!("error: could not clear notification: {e:#}"));
+            while self.status.len() > TUI_STATUS_KEEP { self.status.pop_front(); }
+        }
+        let n = self.visible_notices().len();
+        if let Some(p) = &mut self.notice_page {
+            p.cursor = if n == 0 { 0 } else { p.cursor.min(n - 1) };
+        }
+    }
+    /// Delete every saved notification. Not an action-history step.
+    pub fn clear_all_notices(&mut self) {
+        self.notices.log.clear();
+        self.notices.toasts.clear();
+        if let Err(e) = self.store.clear_notices() {
+            self.status.push_back(format!("error: could not clear notifications: {e:#}"));
+            while self.status.len() > TUI_STATUS_KEEP { self.status.pop_front(); }
+        }
+        if let Some(p) = &mut self.notice_page { p.cursor = 0; p.scroll = 0; }
     }
     /// Flip do-not-disturb or one notice kind, and store it when this TUI has a preferences file.
     pub fn toggle_notice_row(&mut self, row: usize) {
@@ -1311,7 +1413,9 @@ impl App {
     }
 
     /// Record the view on the action bar. A restore does not record itself.
+    /// The notifications page is not a step.
     fn note_view(&mut self, label: impl Into<String>) {
+        self.notice_page = None;
         let snap = ViewSnap {
             label: label.into(),
             filter: self.search.as_ref().and_then(|v| v.filter.clone()),
@@ -1326,6 +1430,7 @@ impl App {
     }
     /// Record a site search. The body may still be the previous view.
     fn note_site(&mut self, label: impl Into<String>, f: SearchFilter) {
+        self.notice_page = None;
         let snap = ViewSnap {
             label: label.into(),
             filter: Some(f),
@@ -1853,6 +1958,7 @@ impl App {
     /// A text field is taking keys, so the star burst must not start.
     pub fn text_input_focused(&self) -> bool {
         if self.filter_editing || self.menu.editing || self.theme_editor.is_some() { return true; }
+        if self.notice_page.as_ref().is_some_and(|p| p.editing) { return true; }
         match &self.modal {
             Some(Modal::Login(_)) | Some(Modal::Palette(_)) => true,
             Some(Modal::Search(s)) => SearchModal::text_index(s.focus).is_some(),
@@ -2053,10 +2159,7 @@ impl App {
                 self.close_menu();
                 self.push_status("people, nodes, and rooms arrive with the network node");
             }
-            Action::OpenNotices => {
-                self.close_menu();
-                self.modal = Some(Modal::Notices(crate::tui::modals::NoticesModal::new()));
-            }
+            Action::OpenNotifications => self.open_notifications(),
             Action::SearchHistory => {
                 self.close_menu();
                 match self.store.search_history() {
@@ -2218,11 +2321,7 @@ impl App {
         if ok {
             let name = j.kind.name();
             self.push_status(format!("{name} finished"));
-            self.notices.post(crate::notify::Notice {
-                kind: crate::notify::NoticeKind::Job,
-                title: "Job".into(),
-                body: format!("{name} finished"),
-            }, Instant::now());
+            self.record_notice(crate::notify::Notice::new(crate::notify::NoticeKind::Job, "Job", format!("{name} finished")));
         } else if auto {
             self.push_status(format!("error: auto sync failed (exit {}); see {}", code.map(|c| c.to_string()).unwrap_or_else(|| "killed".into()), j.log.display()));
         } else {

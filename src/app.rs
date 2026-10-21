@@ -8,11 +8,7 @@ fn cli_warning(args: &Args, body: &str) {
     err!("warning: {body}");
     let color = !colors_suppressed(args.color.unwrap_or_default(), no_color_set());
     crate::notify::print_stderr(
-        &crate::notify::Notice {
-            kind: crate::notify::NoticeKind::Warning,
-            title: "Warning".into(),
-            body: body.into(),
-        },
+        &crate::notify::Notice::new(crate::notify::NoticeKind::Warning, "Warning", body),
         color,
     );
 }

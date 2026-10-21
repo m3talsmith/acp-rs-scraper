@@ -1,8 +1,9 @@
-//! Local notices: a toast, a desktop notification, a log row, and a stderr line.
+//! Local notices: a toast, a desktop notification, a saved row, and a stderr line.
 //!
-//! This is not the site Notifications pane. Do-not-disturb and a per-type switch
-//! silence the toast and the desktop notification. The log still keeps the row.
-//! Tests use [`RecordingDesktop`]. Nothing here talks to a notification daemon.
+//! This is not the site Notifications pane. There is no cap. Do-not-disturb and a
+//! per-type switch silence the toast and the desktop notification. The saved list
+//! still keeps the row. Tests use [`RecordingDesktop`]. Nothing here talks to a
+//! notification daemon.
 
 use std::collections::VecDeque;
 use std::process::{Command, Stdio};
@@ -10,10 +11,10 @@ use std::time::{Duration, Instant};
 
 /// How long a toast stays up.
 pub const TOAST_TTL: Duration = Duration::from_secs(6);
-/// Toasts on screen at once. Older ones leave the stack and stay in the log.
-pub const TOAST_STACK: usize = 3;
-/// Notice-log rows kept, newest first.
-pub const LOG_CAP: usize = 100;
+/// Rows one toast occupies.
+pub const TOAST_ROWS: u16 = 2;
+/// Rows the View all button occupies.
+pub const VIEW_ALL_ROWS: u16 = 1;
 
 /// A kind of notice. Each one can be turned off on its own.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -44,11 +45,36 @@ impl NoticeKind {
 
     /// Index into [`NoticeSettings::on`].
     pub fn index(self) -> usize { self as usize }
+
+    /// Stored kind. `error`, `warning`, `sync`, or `job`.
+    pub fn key(self) -> &'static str {
+        match self {
+            NoticeKind::Error => "error",
+            NoticeKind::Warning => "warning",
+            NoticeKind::Sync => "sync",
+            NoticeKind::Job => "job",
+        }
+    }
+
+    /// Parse [`NoticeKind::key`].
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "error" => Some(NoticeKind::Error),
+            "warning" => Some(NoticeKind::Warning),
+            "sync" => Some(NoticeKind::Sync),
+            "job" => Some(NoticeKind::Job),
+            _ => None,
+        }
+    }
 }
 
 /// One notice.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Notice {
+    /// Database id. `0` before it is saved.
+    pub id: i64,
+    /// When it was raised, RFC 3339. Empty before it is saved.
+    pub created_at: String,
     /// Which switch it follows.
     pub kind: NoticeKind,
     /// Short heading.
@@ -58,6 +84,11 @@ pub struct Notice {
 }
 
 impl Notice {
+    /// A notice that has not been saved yet.
+    pub fn new(kind: NoticeKind, title: impl Into<String>, body: impl Into<String>) -> Self {
+        Self { id: 0, created_at: String::new(), kind, title: title.into(), body: body.into() }
+    }
+
     /// A notice from a status line that starts with `error` or `warning`.
     pub fn from_status_line(line: &str) -> Option<Self> {
         let line = line.trim();
@@ -70,7 +101,7 @@ impl Notice {
         };
         let body = rest.trim_start_matches([':', ' ', '-']).trim();
         let body = if body.is_empty() { line } else { body };
-        Some(Self { kind, title: kind.label().into(), body: body.to_string() })
+        Some(Self::new(kind, kind.label(), body.to_string()))
     }
 }
 
@@ -111,8 +142,73 @@ impl NoticeSettings {
     }
 }
 
-/// How many control rows the notice window has (do-not-disturb, then one per kind).
-pub fn control_rows() -> usize { 1 + NoticeKind::ALL.len() }
+/// The notifications page. Opening it is not an action-history step.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NoticePage {
+    /// Search text. Blank shows every saved notice that passes the kind filter.
+    pub query: String,
+    /// The search box has the keyboard.
+    pub editing: bool,
+    /// Newest first. `false` is oldest first.
+    pub newest_first: bool,
+    /// `None` is every kind.
+    pub kind: Option<NoticeKind>,
+    /// Highlighted row in the filtered list.
+    pub cursor: usize,
+    /// First visible row.
+    pub scroll: usize,
+}
+
+impl NoticePage {
+    /// Newest first, every kind, an empty search.
+    pub fn new() -> Self {
+        Self { query: String::new(), editing: false, newest_first: true, kind: None, cursor: 0, scroll: 0 }
+    }
+
+    /// Switch between newest first and oldest first.
+    pub fn toggle_order(&mut self) {
+        self.newest_first = !self.newest_first;
+        self.cursor = 0;
+        self.scroll = 0;
+    }
+
+    /// Step the kind filter: all, then each kind, then all again.
+    pub fn cycle_kind(&mut self) {
+        self.kind = match self.kind {
+            None => Some(NoticeKind::Error),
+            Some(NoticeKind::Error) => Some(NoticeKind::Warning),
+            Some(NoticeKind::Warning) => Some(NoticeKind::Sync),
+            Some(NoticeKind::Sync) => Some(NoticeKind::Job),
+            Some(NoticeKind::Job) => None,
+        };
+        self.cursor = 0;
+        self.scroll = 0;
+    }
+
+    /// Label of the kind filter.
+    pub fn kind_label(&self) -> &'static str {
+        match self.kind { Some(k) => k.label(), None => "all" }
+    }
+}
+
+impl Default for NoticePage {
+    fn default() -> Self { Self::new() }
+}
+
+/// How many toasts fit in a quarter of `height`, and whether View all is shown.
+///
+/// The stack is not capped. When `count * `[`TOAST_ROWS`] would be taller than
+/// `height / 4`, the button takes one row of that quarter and the rest of the
+/// quarter shows as many toasts as fit.
+pub fn toast_window(count: usize, height: u16) -> (usize, bool) {
+    if count == 0 || height == 0 { return (0, false); }
+    let quarter = height / 4;
+    let all = (count as u16).saturating_mul(TOAST_ROWS);
+    if all <= quarter { return (count, false); }
+    let room = quarter.saturating_sub(VIEW_ALL_ROWS);
+    let shown = (room / TOAST_ROWS) as usize;
+    (shown.min(count), true)
+}
 
 /// A toast that dismisses itself.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -254,13 +350,16 @@ impl NoticeBoard {
     /// Send later notices to the operating system.
     pub fn enable_desktop(&mut self) { self.desktop = Box::new(PlatformDesktop); }
 
-    /// Record `notice`. A silenced kind still lands in the log.
+    /// The next id that is not already in the log.
+    pub fn fresh_id(&self) -> i64 {
+        self.log.iter().map(|n| n.id).max().unwrap_or(0) + 1
+    }
+
+    /// Record `notice`. A silenced kind still lands in the log. Nothing is dropped.
     pub fn post(&mut self, notice: Notice, now: Instant) {
         self.log.push_front(notice.clone());
-        while self.log.len() > LOG_CAP { self.log.pop_back(); }
         if !self.settings.allows(notice.kind) { return; }
         self.toasts.push(Toast { notice: notice.clone(), until: now + TOAST_TTL });
-        if self.toasts.len() > TOAST_STACK { self.toasts.drain(0..self.toasts.len() - TOAST_STACK); }
         self.desktop.push(&notice.title, &notice.body);
     }
 
@@ -309,22 +408,30 @@ mod tests {
     use super::*;
 
     fn note(kind: NoticeKind, body: &str) -> Notice {
-        Notice { kind, title: kind.label().into(), body: body.into() }
+        Notice::new(kind, kind.label(), body)
     }
 
     #[test]
-    fn toasts_stack_and_the_oldest_leaves_the_screen() {
+    fn toasts_keep_every_notice() {
         let mut b = NoticeBoard::new();
         let now = Instant::now();
-        b.post(note(NoticeKind::Error, "one"), now);
-        b.post(note(NoticeKind::Warning, "two"), now);
-        b.post(note(NoticeKind::Sync, "three"), now);
-        b.post(note(NoticeKind::Job, "four"), now);
-        assert_eq!(b.toasts.len(), TOAST_STACK);
-        assert_eq!(b.toasts[0].notice.body, "two");
-        assert_eq!(b.toasts[2].notice.body, "four");
-        assert_eq!(b.log.len(), 4);
-        assert_eq!(b.log[0].body, "four");
+        for (i, kind) in [NoticeKind::Error, NoticeKind::Warning, NoticeKind::Sync, NoticeKind::Job, NoticeKind::Error, NoticeKind::Job].into_iter().enumerate() {
+            b.post(note(kind, &format!("n{i}")), now);
+        }
+        assert_eq!(b.toasts.len(), 6);
+        assert_eq!(b.log.len(), 6);
+        assert_eq!(b.toasts[0].notice.body, "n0");
+        assert_eq!(b.toasts[5].notice.body, "n5");
+        assert_eq!(b.log[0].body, "n5");
+    }
+
+    #[test]
+    fn a_quarter_of_the_screen_shows_view_all() {
+        assert_eq!(toast_window(2, 40), (2, false));
+        assert_eq!(toast_window(5, 40), (5, false));
+        assert_eq!(toast_window(6, 40), (4, true));
+        assert_eq!(toast_window(3, 20), (2, true));
+        assert_eq!(toast_window(0, 40), (0, false));
     }
 
     #[test]

@@ -10,7 +10,6 @@ pub mod history;
 pub mod job;
 pub mod login;
 pub mod message;
-pub mod notices;
 pub mod palette;
 pub mod post;
 pub mod research;
@@ -28,7 +27,6 @@ pub use history::*;
 pub use job::JobModal;
 pub use login::*;
 pub use message::*;
-pub use notices::*;
 pub use palette::*;
 pub use post::*;
 pub use research::*;
@@ -96,8 +94,6 @@ pub enum Modal {
     Compose(ComposeModal),
     /// Name, slogan, and a star. The credits stay hidden.
     About(AboutModal),
-    /// The notice log, do-not-disturb, and the per-type switches.
-    Notices(NoticesModal),
     /// Saved searches. Choosing one re-runs it.
     History(HistoryModal),
     /// Action-history paths. Choosing one restores that path.
@@ -114,7 +110,6 @@ impl Modal {
             Modal::Job(m) => m,
             Modal::Compose(m) => m,
             Modal::About(m) => m,
-            Modal::Notices(m) => m,
             Modal::History(m) => m,
             Modal::Branches(m) => m,
         }
