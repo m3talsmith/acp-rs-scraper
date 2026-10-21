@@ -983,7 +983,7 @@ impl App {
         let v = self.view();
         v.posts.get(v.cursor).cloned()
     }
-    /// `+` upvotes and `-` downvotes the open or highlighted post. Nothing is sent.
+    /// `+` asks before an upvote and `-` asks before a downvote. Cancel is the default. Nothing is sent.
     pub fn vote_current(&mut self, state: &str) {
         if !self.writes_are_on() {
             self.show_writes_off();
@@ -993,10 +993,20 @@ impl App {
             self.push_status("no post: open one to vote");
             return;
         };
-        match crate::site::vote::present(&post.post_id, state, true, false) {
-            Ok(text) => self.push_status(text),
-            Err(e) => self.error("Vote", &e.message),
-        }
+        let label = match state {
+            "-1" => "Downvote",
+            "0" => "Clear vote",
+            _ => "Upvote",
+        };
+        self.modal = Some(Modal::Confirm(ConfirmModal::new(
+            "Vote",
+            vec![
+                format!("{label} {}?", post.post_id),
+                "Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+            ],
+            label,
+            ConfirmAction::Vote(post.post_id, state.into()),
+        )));
     }
     /// `r` on an open post: reply. The body starts with `postRef`. A comment pre-fills that reference and uses that comment's id.
     pub fn open_reply(&mut self) {
@@ -1015,7 +1025,7 @@ impl App {
         let (nicks, tags) = self.compose_sources();
         self.modal = Some(Modal::Compose(ComposeModal::reply(&thread, None, Some(post.content.clone()), Some(post.post_id.clone()), nicks, tags)));
     }
-    /// Post menu › Edit. The form is not built. A post older than one hour is refused.
+    /// Post menu › Edit. The hour is checked first. Inside the hour, type yes. The form is not built.
     fn edit_post(&mut self, id: &str) {
         if !self.writes_are_on() {
             self.show_writes_off();
@@ -1024,10 +1034,21 @@ impl App {
         let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
         let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
         let now = chrono::Utc::now().timestamp();
-        match crate::site::edit::present(id, inserted, now, true, false) {
-            Ok(text) => self.push_status(text),
-            Err(e) => self.error("Edit", &e.message),
+        if crate::site::edit::window(inserted, now) == crate::site::edit::Window::Closed {
+            self.error("Edit", "an edit stays open for one hour after the post. Nothing was sent.");
+            return;
         }
+        let mut confirm = ConfirmModal::new(
+            "Edit",
+            vec![
+                format!("Edit {id}?"),
+                "Type yes. The edit form has not been captured, so a confirm still sends nothing.".into(),
+            ],
+            "Edit",
+            ConfirmAction::Edit(id.to_string()),
+        );
+        confirm.strict = true;
+        self.modal = Some(Modal::Confirm(confirm));
     }
     /// Post menu › View reposts.
     pub fn open_reposts(&mut self, id: &str) {
@@ -2485,6 +2506,27 @@ impl App {
                     Ok(text) => self.push_status(text),
                     Err(e) => self.error("Delete", &e.message),
                 },
+                ConfirmAction::Vote(id, state) => match crate::site::vote::present(&id, &state, true, false) {
+                    Ok(text) => self.push_status(text),
+                    Err(e) => self.error("Vote", &e.message),
+                },
+                ConfirmAction::Subscribe(id) => match crate::site::subscribe::present(&id, "1", true, false) {
+                    Ok(text) => self.push_status(text),
+                    Err(e) => self.error("Subscribe", &e.message),
+                },
+                ConfirmAction::Edit(id) => {
+                    let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
+                    let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
+                    let now = chrono::Utc::now().timestamp();
+                    match crate::site::edit::present(&id, inserted, now, true, false) {
+                        Ok(text) => self.push_status(text),
+                        Err(e) => self.error("Edit", &e.message),
+                    }
+                }
+                ConfirmAction::Repost(id) => match crate::site::repost::present(&id, true, false) {
+                    Ok(text) => self.push_status(text),
+                    Err(e) => self.error("Repost", &e.message),
+                },
             },
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
@@ -2493,10 +2535,15 @@ impl App {
                     if !self.writes_are_on() {
                         self.show_writes_off();
                     } else {
-                        match crate::site::subscribe::present(&m.post_id, "1", true, false) {
-                            Ok(text) => self.push_status(text),
-                            Err(e) => self.error("Subscribe", &e.message),
-                        }
+                        self.modal = Some(Modal::Confirm(ConfirmModal::new(
+                            "Subscribe",
+                            vec![
+                                format!("Subscribe to {}?", m.post_id),
+                                "Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+                            ],
+                            "Subscribe",
+                            ConfirmAction::Subscribe(m.post_id),
+                        )));
                     }
                 }
                 PostAction::Delete => {
@@ -2507,7 +2554,7 @@ impl App {
                             "Delete post",
                             vec![
                                 format!("Delete {}?", m.post_id),
-                                "The site's confirm dialog has not been captured. Type yes. Nothing is sent.".into(),
+                                "Type yes. On the site, open the post menu and click Delete, cancel once, then confirm a throwaway post. Nothing is sent here.".into(),
                             ],
                             "Delete",
                             ConfirmAction::Delete(m.post_id),
@@ -2521,10 +2568,15 @@ impl App {
                     if !self.writes_are_on() {
                         self.show_writes_off();
                     } else {
-                        match crate::site::repost::present(&m.post_id, true, false) {
-                            Ok(text) => self.push_status(text),
-                            Err(e) => self.error("Repost", &e.message),
-                        }
+                        self.modal = Some(Modal::Confirm(ConfirmModal::new(
+                            "Repost",
+                            vec![
+                                format!("Repost {}?", m.post_id),
+                                "Cancel is the default. The repost form has not been captured, so a confirm still sends nothing.".into(),
+                            ],
+                            "Repost",
+                            ConfirmAction::Repost(m.post_id),
+                        )));
                     }
                 }
             },

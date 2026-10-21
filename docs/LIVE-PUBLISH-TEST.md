@@ -143,13 +143,68 @@ Confirm the video plays or is listed on the post. A reply with an attachment is 
 
 Audio and other documents are kept locally and named as not uploaded. They should not appear on the site. `.tif` is not renamed to `.tiff`. If the form's accept list rejects a name, the command stops before save.
 
+## Interactions
+
+These five stay gated. Do not confirm them in the client. A confirm stops, and nothing is sent. `--dry-run` prints the stub and does not connect. Record the clicks in [architecture/INTERACTIONS-CAPTURE.md](../architecture/INTERACTIONS-CAPTURE.md) first. The order below is the client check to run only after those frames are in the tree. Until then, each command refuses.
+
+Use the check post from the text step above. Wait out the 30 second gap between attempts once these actually send. They do not send today, so the gap does not start.
+
+### Vote, then clear it
+
+```bash
+./target/release/acprs --vote POST --dry-run
+./target/release/acprs --vote POST
+./target/release/acprs --vote POST --vote-state 0
+```
+
+`--vote` without `--vote-state` prepares an upvote (`1`). `--vote-state 0` clears it. `--vote-state -1` prepares a downvote. The terminal asks `Vote? [y/N]`. In the full-screen client, `+` and `-` open the same question, and Cancel is the default. Today the answer is a refusal that names `/rs/post/POST` and the upvote control. When the frame exists, the reply should show the new `score`, `vote`, and `upvote_percentage`. Check those on the site before you vote again. Do not retry a refusal automatically.
+
+### Subscribe, then clear it
+
+```bash
+./target/release/acprs --subscribe THREAD --dry-run
+./target/release/acprs --subscribe THREAD
+./target/release/acprs --subscribe THREAD --subscribe-state 0
+```
+
+The prompt is `Subscribe? [y/N]`. Post menu (`p`) › Subscribe asks the same way and starts on Cancel. Today it refuses and names `/rs/post/THREAD`. When the frame exists, the reply should show `subscribed` true, then false.
+
+### Edit the check post
+
+Do this within one hour of the post. Pass `--posted-at` as unix seconds so the hour is checked.
+
+```bash
+./target/release/acprs --edit POST --posted-at UNIX --dry-run
+./target/release/acprs --edit POST --posted-at UNIX
+```
+
+The prompt is `Edit? [y/N]`, then `Type yes`. A post older than one hour is refused before that. The form is not built. When a capture shows a save of only the title, and a save of only the body, the client can send the changed fields. It does not send them now.
+
+### Repost
+
+```bash
+./target/release/acprs --repost POST --dry-run
+./target/release/acprs --repost POST
+```
+
+The prompt is `Repost? [y/N]`. The dry-run names `/rs/post/new?repost=POST` and says the form is not built. When a capture shows an empty comment and a short quote, the client can honor that optional comment. It does not send a repost now.
+
+### Delete the check post from the client
+
+```bash
+./target/release/acprs --delete POST --dry-run
+./target/release/acprs --delete POST
+```
+
+The prompt is `Delete? [y/N]`, then `Type yes`. Post menu › Delete asks you to type yes and starts on Cancel. Today it refuses. The website delete below is still how you remove the check post.
+
 ## If the site refuses it
 
 The command prints the reason and says nothing was retried. Read that reason. Do not run the command again until you know the first attempt did not land. A save that was sent, with no id in the reply, says to check the site before posting again. Search your profile for the exact sentence you used. If it is there, do not post it again.
 
 ## Delete it on the website
 
-This client does not delete. `--delete` and Post menu › Delete prepare the hook and do not send it.
+This client still does not delete. `--delete` and Post menu › Delete ask, then stop. Nothing is sent. The interaction steps above stay blocked until the delete click is captured.
 
 To remove the check post, open it in a browser on acp.us while you are logged in, and use the site's own delete control. Confirm on the site. Reload the URL and confirm the post is gone or tombstoned.
 

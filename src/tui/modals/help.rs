@@ -155,6 +155,15 @@ fn area_topics() -> Vec<String> {
         "  Cancel is the default. A text post or reply sends validate, then save, once.",
         "  --dry-run prints the frames and does not connect. The reply names the new post.",
         "  Attach lists local files. Images, videos, and PDFs upload, then the text is sent.",
+        "  + and - ask before a vote. Post menu subscribe, delete, edit, and repost ask too.",
+        "  Cancel is the default. Delete and edit also ask you to type yes. None of them send.",
+    ]);
+    push_topic(&mut v, "post-actions", "Post actions", &[
+        "  Vote, subscribe, delete, edit, and repost stay gated. No live frame is in the repo.",
+        "  + asks before an upvote. - asks before a downvote. Cancel is the default.",
+        "  Post menu Subscribe and Repost ask the same way. Delete and Edit also ask you to type yes.",
+        "  A confirm still sends nothing. --dry-run prints the stub and does not connect.",
+        "  The clicks to record are in architecture/INTERACTIONS-CAPTURE.md.",
     ]);
     push_topic(&mut v, "research", "Research", &[
         "  r, or the ◈ on a card, adds the current post to a research project.",

@@ -4,9 +4,8 @@
   "payload": null,
   "window_secs": 3600,
   "needed": [
-    "The LiveView join for /rs/post/{id}/edit, including the form id, phx-submit, phx-change, and cid",
-    "The validate and save payloads, and whether the body still starts with postRef",
-    "The server reply when the edit is outside the one-hour window",
-    "The phx_reply or thread:update-post after a successful edit"
+    "Within one hour, click Edit on your post. The survey route is /rs/post/POST/edit. Change only the title and save, then change only the body and save",
+    "Record the join (form id, phx-submit, phx-change, cid), the validate and save payloads, and which keys are omitted when a field did not change",
+    "Record the phx_reply or thread:update-post, and the refusal when the post is older than one hour"
   ]
 }

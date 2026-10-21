@@ -4,9 +4,10 @@
 //! live here. A confirmed post or reply uploads the site copy, then sends
 //! validate, then save, once. Images, videos, and PDFs are the site copy, at
 //! most 4. Vote, subscribe, delete, edit, and repost stay behind
-//! [`write::CAPTURE_BLOCK`]. Edit keeps the one-hour window and does not build
-//! the form. Repost names the documented route and does not build the form.
-//! `--dry-run` opens no connection.
+//! [`write::CAPTURE_BLOCK`]. 3.37.0 audited those five and found no live frame.
+//! Edit keeps the one-hour window and does not build the form. Repost names
+//! the documented route and does not build the form. `--dry-run` opens no
+//! connection.
 
 mod attach;
 pub mod delete;
@@ -50,6 +51,24 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.edit.is_some()
         || args.subscribe.is_some()
         || args.vote.is_some()
+}
+
+/// `y/N`, then `yes`. `--yes` covers both. A dry-run does not ask.
+fn confirm_strict(args: &Args, prompt: &str) -> Result<bool> {
+    if !confirm_write(args, prompt)? {
+        return Ok(false);
+    }
+    if args.yes {
+        return Ok(true);
+    }
+    if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        eprint!("Type yes: ");
+        io::stderr().flush()?;
+        let mut line = String::new();
+        io::stdin().read_line(&mut line)?;
+        return Ok(line.trim() == "yes");
+    }
+    Ok(false)
 }
 
 fn confirm_write(args: &Args, prompt: &str) -> Result<bool> {
@@ -98,19 +117,7 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         };
     }
     if let Some(id) = args.delete.as_deref() {
-        let confirmed = if args.dry_run {
-            false
-        } else if args.yes {
-            true
-        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-            eprint!("Delete? Type yes: ");
-            io::stderr().flush()?;
-            let mut line = String::new();
-            io::stdin().read_line(&mut line)?;
-            line.trim() == "yes"
-        } else {
-            false
-        };
+        let confirmed = confirm_strict(args, "Delete? [y/N] ")?;
         return match delete::present(id.trim(), confirmed, args.dry_run) {
             Ok(text) => {
                 println!("{text}");
@@ -120,19 +127,7 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         };
     }
     if let Some(id) = args.edit.as_deref() {
-        let confirmed = if args.dry_run {
-            false
-        } else if args.yes {
-            true
-        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-            eprint!("Edit? [y/N] ");
-            io::stderr().flush()?;
-            let mut line = String::new();
-            io::stdin().read_line(&mut line)?;
-            matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
-        } else {
-            false
-        };
+        let confirmed = confirm_strict(args, "Edit? [y/N] ")?;
         let now = chrono::Utc::now().timestamp();
         return match edit::present(id.trim(), args.posted_at, now, confirmed, args.dry_run) {
             Ok(text) => {
@@ -234,6 +229,32 @@ fn cli_warning_session(err: &anyhow::Error) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interactions_stay_gated_until_the_click_is_captured() {
+        let notes = include_str!("../../architecture/INTERACTIONS-CAPTURE.md");
+        assert!(notes.contains("stay behind `CAPTURE_BLOCK`"), "{notes}");
+        assert!(notes.contains("https://acp.us/rs/post/POST"));
+        assert!(notes.contains("upvote control"));
+        assert!(notes.contains("https://acp.us/rs/post/THREAD"));
+        assert!(notes.contains("subscribe control"));
+        assert!(notes.contains("click Delete"));
+        assert!(notes.contains("https://acp.us/rs/post/POST/edit"));
+        assert!(notes.contains("Change only the title"));
+        assert!(notes.contains("/rs/post/new?repost=POST"));
+        assert!(notes.contains("short quote"));
+        for (name, raw) in [
+            ("vote", include_str!("../../tests/fixtures/site/vote.json")),
+            ("subscribe", include_str!("../../tests/fixtures/site/subscribe.json")),
+            ("delete", include_str!("../../tests/fixtures/site/delete.json")),
+            ("edit", include_str!("../../tests/fixtures/site/edit.json")),
+            ("repost", include_str!("../../tests/fixtures/site/repost.json")),
+        ] {
+            let doc: Value = serde_json::from_str(raw).unwrap();
+            assert_eq!(doc["capture_status"], "missing", "{name}");
+            assert!(CAPTURE_BLOCK.contains("are not sent"));
+        }
+    }
 
     fn draft() -> Draft {
         Draft {

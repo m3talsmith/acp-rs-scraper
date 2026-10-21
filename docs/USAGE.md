@@ -893,7 +893,7 @@ acp-red-star --reply THREAD --in-reply-to COMMENT --body "agreed" --attachment n
 acp-red-star --reply THREAD --quote "selected lines" --quote-post POST --body "yes" --yes
 ```
 
-`--yes` confirms a text post or reply and sends it once. Without it, a terminal asks `Publish? [y/N]`. The third command above sends one text reply. Run it only when you mean to post. A dry-run check comes first: [LIVE-PUBLISH-TEST.md](LIVE-PUBLISH-TEST.md). A second confirmed attempt within 30 seconds waits. Vote, subscribe, delete, edit, and repost are not sent. The hidden `--capture-reply` flag does not copy the session and does not send; it is described in `architecture/PLAN-3.0-CLIENT.md`.
+`--yes` confirms a text post or reply and sends it once. Without it, a terminal asks `Publish? [y/N]`. The third command above sends one text reply. Run it only when you mean to post. A dry-run check comes first: [LIVE-PUBLISH-TEST.md](LIVE-PUBLISH-TEST.md). A second confirmed attempt within 30 seconds waits. Vote, subscribe, delete, edit, and repost are not sent. 3.37.0 checked the repo and found no live frame for them. The clicks to record are [../architecture/INTERACTIONS-CAPTURE.md](../architecture/INTERACTIONS-CAPTURE.md). The command line asks `Vote? [y/N]`, `Subscribe? [y/N]`, and `Repost? [y/N]`. Delete and edit ask that, then `Type yes`. A confirm still does not connect. The hidden `--capture-reply` flag does not copy the session and does not send; it is described in `architecture/PLAN-3.0-CLIENT.md`.
 
 ## Contributing
 

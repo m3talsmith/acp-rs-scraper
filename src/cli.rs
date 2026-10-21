@@ -173,16 +173,16 @@ pub struct Args {
     /// Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. A confirmed reply uploads the site copy, then sends the captured validate and save frames. Same confirm and dry-run rules as `--new-post`.
     #[arg(long, value_name = "THREAD", help_heading = "Writing")]
     pub reply: Option<String>,
-    /// Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. `--dry-run` prints the route and does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list.
+    /// Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. The terminal asks `Repost? [y/N]`. `--dry-run` prints the route and does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub repost: Option<String>,
-    /// Edit a post. An edit stays open for one hour after `--posted-at` (unix seconds). Without that timestamp the hour is not checked. The edit form has not been captured, so it is not built. `--dry-run` prints that and does not connect. A confirmed edit does not send.
+    /// Edit a post. An edit stays open for one hour after `--posted-at` (unix seconds). Without that timestamp the hour is not checked. The terminal asks `Edit? [y/N]`, then `Type yes`. The edit form has not been captured, so it is not built. `--dry-run` prints that and does not connect. A confirmed edit does not send.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub edit: Option<String>,
     /// With `--edit`. Unix seconds of the post's `posted_at`. Used only for the one-hour window.
     #[arg(long, value_name = "UNIX", requires = "edit", help_heading = "Writing")]
     pub posted_at: Option<i64>,
-    /// Delete a post. The terminal asks you to type yes. `--yes` confirms. `--dry-run` prints the documented hook and does not connect. A confirmed delete does not send: the live frame has not been captured.
+    /// Delete a post. The terminal asks `Delete? [y/N]`, then `Type yes`. `--yes` confirms both. `--dry-run` prints the documented hook and does not connect. A confirmed delete does not send: the live frame has not been captured.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub delete: Option<String>,
     /// Subscribe to a thread. STATE is `1` (subscribe) or `0` (clear). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed subscribe does not send: the live frame has not been captured.

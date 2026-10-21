@@ -16,6 +16,13 @@ fn plus_prepares_an_upvote_and_does_not_send_it() {
     a.select_only(nick_idx(&a, "alice"));
     a.focus = Focus::Body;
     key(&mut a, KeyCode::Char('+'));
+    let Some(Modal::Confirm(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert!(m.title.contains("Vote"), "{}", m.title);
+    assert_eq!(m.focus, 1, "Cancel is the default");
+    key(&mut a, KeyCode::Esc);
+    assert!(a.modal.is_none());
+    key(&mut a, KeyCode::Char('+'));
+    key(&mut a, KeyCode::Char('y'));
     let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert!(m.title.contains("Vote"), "{}", m.title);
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
@@ -23,9 +30,13 @@ fn plus_prepares_an_upvote_and_does_not_send_it() {
     assert!(status.contains("\"event\": \"vote\""), "{status}");
     assert!(status.contains("state 1"), "{status}");
     assert!(status.contains("capture still needed"), "{status}");
+    assert!(status.contains("/rs/post/POST"), "{status}");
     assert!(!status.contains("https://acp.us"), "{status}");
     a.modal = None;
     key(&mut a, KeyCode::Char('-'));
+    let Some(Modal::Confirm(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.focus, 1);
+    key(&mut a, KeyCode::Char('y'));
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
     assert!(status.contains("state -1"), "{status}");
     assert!(status.contains("are not sent"), "{status}");

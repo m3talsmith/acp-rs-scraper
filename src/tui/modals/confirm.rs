@@ -13,6 +13,14 @@ pub enum ConfirmAction {
     Quit,
     /// Delete a post. The send stays gated.
     Delete(String),
+    /// Upvote, clear, or downvote. The send stays gated.
+    Vote(String, String),
+    /// Subscribe. The send stays gated.
+    Subscribe(String),
+    /// Edit. The form is not built. The send stays gated.
+    Edit(String),
+    /// Repost. The form is not built. The send stays gated.
+    Repost(String),
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.

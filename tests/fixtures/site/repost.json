@@ -4,9 +4,8 @@
   "payload": null,
   "route": "/rs/post/new?repost={id}",
   "needed": [
-    "The LiveView join for /rs/post/new?repost={id}, including the form id, phx-submit, phx-change, and cid",
-    "How quoted_post is encoded in the body",
-    "The validate and save fields, and whether a title is required",
-    "The phx_reply and the id of the new post"
+    "On /rs/post/POST click Repost. Save once with an empty comment if the site allows it, and once with a short quote",
+    "Record the URL the click opens (the survey route is /rs/post/new?repost=POST), the join, and how quoted_post is encoded",
+    "Record the validate and save fields, whether a title is required, and the new post id in the phx_reply"
   ]
 }
