@@ -194,7 +194,7 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   installed by the packages, nothing built in.
 - **First run: downloading the default.** When `~/.acp/themes` is empty the TUI starts at once with
   the terminal's colours and downloads `default.toml` in the background from
-  `https://raw.githubusercontent.com/m3talsmith/acp-red-star/v<version>/themes/default.toml`
+  `https://raw.githubusercontent.com/m3talsmith/acp-rs-scraper/v<version>/themes/default.toml`
   (`ACP_THEME_URL` replaces everything before `default.toml`, for tests). The download uses the
   program's HTTP client with an empty cookie jar (no cookies), gives up after 3 seconds, refuses
   more than 64 KiB, must parse as a theme file, and is written atomically with mode 0600, never
@@ -705,8 +705,9 @@ CREATE TABLE post_versions (        -- 2.24.0; edit history. source is site for 
 -- --refetch-truncated re-reads the thread page of every row that isn't 'full'.
 
 -- How nesting works on the site: threads are flat (every reply carries only
--- thread_id). Replying to a comment puts a postRef node {postId, threadId} at the
--- top of the reply's body; that postId is stored as in_reply_to_id.
+-- thread_id). A reply's body starts with a postRef node {postId, threadId}.
+-- On a root reply both ids are the thread id. On a reply to a comment, postId
+-- is that comment. That postId is stored as in_reply_to_id.
 -- Databases from before 1.20.0 are upgraded in place on first use: the column is
 -- added and existing replies get in_reply_to_id = parent_post_id until a re-scrape
 -- (any run that sees the reply again, e.g. --full) records the real comment.
@@ -860,7 +861,7 @@ CREATE TABLE research_items (
 
 3.4.0 composes a new post or a reply. Writes are on unless `ui.writes = false` in `~/.acp/preferences.toml` or `ACP_WRITES=off`. The environment wins.
 
-In the terminal UI, `n` opens New post. On an open post, `r` replies (a comment pre-fills the reference) and `Q` quotes that post. The button under the cursor starts on Cancel. Publish checks the body locally and then stops: the guided capture of a real reply has not confirmed the payload, so nothing is sent. `--dry-run` prints the same frames and opens no connection. A confirmed attempt starts the 30 second gap even when that send is refused. `--dry-run` does not start the gap.
+In the terminal UI, `n` opens New post. On an open post, `r` replies and `Q` quotes that post. A reply's body starts with a `postRef` node. On the thread root, `postId` and `threadId` are both that thread's id. On a comment, `postId` is the comment. The button under the cursor starts on Cancel. Publish checks the body locally and then stops: the root-reply frames match the captured validate and save, and this build still does not send them. `--dry-run` prints those frames and opens no connection. A confirmed attempt starts the 30 second gap even when that send is refused. `--dry-run` does not start the gap.
 
 3.5.0 adds local attachments on that same compose box. The attach line takes a path; Enter adds the file, and Backspace on an empty line removes the last one. Tab on a non-empty line completes the next real directory entry. `~` becomes `~/`. `~/…` is completed under the home directory and keeps the `~/` prefix on the line; the stored path is expanded. `~user` is not completed. A name starting with `.` is offered only when the prefix starts with `.`. One match fills the line (a directory ends with `/`). Several matches stay listed: Tab, Up, and Down move the highlight, Enter writes that path and does not attach it yet, and Esc clears the list and stays on the line. A Tab that changes nothing moves to the next field, including a second Tab on a file that is already complete, and a second Tab on a completed directory lists what is inside it. An empty attach line still moves focus. `--attachment PATH` repeats for `--new-post` and `--reply`. The shell completes that flag; Tab completion is the compose box. Any file can be attached locally, including audio and documents. Images and videos are `media_attachments` in the plan; other types are `file_attachments`. `--dry-run` prints that list and does not upload. The upload channel (`allow_upload`, `lvu`) has not been captured, so those inputs are not encoded and no file bytes are sent. A confirmed publish still does not send `validate` or `save`. The app, the archive, and the network keep every file. Red Star takes up to 4 images or videos on the site copy (`image/*` and `video/*`). Audio, documents, and other types stay on the local copy and are never sent. More than 4 images or videos, with no choice, keeps the first 4 of those and skips anything else; a notice names the files left off. `--site-attachments 1,3,5,6` (1-based, at most 4, no duplicates) chooses which images or videos are that site copy. An index that names an audio file or another ineligible type fails and names that file. In the compose box the same choice is a picker: Space toggles an image or a video, other types are greyed out with the reason, a fifth check is refused, Enter confirms, Esc returns to Publish without sending. `?` opens the `site-attachments` Help topic. Each attachment row stores `on_site`; a row from before that column counts as on the site. Export JSON includes `"on_site"`.
 

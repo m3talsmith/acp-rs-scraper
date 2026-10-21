@@ -87,6 +87,38 @@ fn reply_on_a_comment_prefixes_the_ref_and_quote_uses_the_body() {
 }
 
 #[test]
+fn reply_on_a_root_post_uses_the_thread_as_post_ref() {
+    let mut a = app();
+    a.select_only(nick_idx(&a, "alice"));
+    a.focus = Focus::Body;
+    let i = a.view().posts.iter().position(|p| p.post_id == "ALICE0001").unwrap();
+    a.open_post(i);
+    key(&mut a, KeyCode::Char('r'));
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    match &m.kind {
+        ComposeKind::Reply { thread, in_reply_to } => {
+            assert_eq!(thread, "ALICE0001");
+            assert!(in_reply_to.is_none());
+        }
+        other => panic!("{other:?}"),
+    }
+    let plan = {
+        let Some(Modal::Compose(m)) = &mut a.modal else { panic!("{:?}", a.modal); };
+        m.body = "hello".into();
+        crate::site::prepare(&m.draft(0, None, true)).unwrap()
+    };
+    assert_eq!(plan.body["content"][0]["attrs"]["postId"], "ALICE0001");
+    assert_eq!(plan.body["content"][0]["attrs"]["threadId"], "ALICE0001");
+    let draft = {
+        let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+        m.draft(0, None, true)
+    };
+    let err = crate::site::decide(&draft, true, false).unwrap_err();
+    assert!(err.message.contains("nothing was published"), "{}", err.message);
+    assert!(err.message.contains("no connection opened"), "{}", err.message);
+}
+
+#[test]
 fn mention_completion_inserts_the_nick_and_backspace_tracks_the_body() {
     let mut a = app();
     key(&mut a, KeyCode::Char('n'));
