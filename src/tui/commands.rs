@@ -185,6 +185,8 @@ pub enum Action {
     DiscoverLater,
     /// Sync › Rules.
     OpenRules,
+    /// View › Notifications. The saved list. Not an action-history step.
+    OpenNotifications,
     /// Search › History. Re-run a saved query.
     SearchHistory,
     /// Search › Clear history. Deletes saved queries only.
@@ -359,6 +361,7 @@ fn view_item() -> MenuCommand {
         opt_topic("nick_order", "Nick order", "Newest or oldest nick by latest post. o toggles while Nicks is focused.", "nick-order", false, choice(ORDER_CHOICES)),
         opt_topic("nick_limit", "Nick limit", "Keep this many nicks at the chosen end. Blank keeps all. The / filter runs first.", "nick-limit", false, text("")),
         opt_topic("color", "Colour", "auto, always, or never. Same as --color", "color", false, choice(COLOR_CHOICES)),
+        opt_topic("notifications", "Notifications", "current and past notices", "notifications", false, button(Action::OpenNotifications)),
         opt("top_period", "Top period", "--top", false, choice(TOP_PERIODS)),
         opt("top_replies", "Top includes replies", "--top-replies", false, check(false)),
         opt("top", "Site Top", "--top", false, button(Action::OpenTop)),
@@ -579,6 +582,7 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Session, "logout") => Some("account"),
         (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
         (CommandId::Discover, _) => Some("discover"),
+        (CommandId::View, "notifications") => Some("notifications"),
         _ => None,
     }
 }

@@ -3,6 +3,7 @@
 
 pub mod actions;
 pub mod body;
+pub mod notices;
 pub mod detail;
 pub mod editor;
 pub mod menu;
@@ -47,9 +48,14 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     topbar(f, app, a.top);
     menu::draw(f, app, a.menu);
     nicks::draw(f, app, a.nicks);
-    body::draw(f, app, a.body, now);
+    if app.notice_page.is_some() {
+        notices::draw(f, app, a.body);
+    } else {
+        body::draw(f, app, a.body, now);
+    }
     actions::draw(f, app, a.actions);
     status(f, app, a.status);
+    if app.notice_page.is_none() { draw_toasts(f, app, area); }
     menu::draw_dropdown(f, app, area);
     if app.modal.is_some() { modal::draw(f, app, area); }
     crate::tui::tooltip::paint(f, app, area);
@@ -78,6 +84,42 @@ fn draw_egg(f: &mut Frame, app: &App, area: Rect, now: Instant) {
             }
             x += 1;
         }
+    }
+}
+
+/// Stacked toasts in the lower right, just above the status line. A click dismisses one.
+///
+/// There is no cap. When the stack would be taller than a quarter of the screen,
+/// as many as fit are shown and View all opens the notifications page.
+fn draw_toasts(f: &mut Frame, app: &mut App, area: Rect) {
+    if app.modal.is_some() || app.notices.toasts.is_empty() || area.width < 8 || area.height < 4 { return; }
+    let t = app.theme;
+    let n = app.notices.toasts.len();
+    let (shown, view_all) = crate::notify::toast_window(n, area.height);
+    if shown == 0 && !view_all { return; }
+    let h = crate::notify::TOAST_ROWS;
+    let w = 42.min(area.width.saturating_sub(2));
+    let status_h = if app.show_log { 10 } else { 1 };
+    let button_h = if view_all { crate::notify::VIEW_ALL_ROWS } else { 0 };
+    let stack_h = shown as u16 * h + button_h;
+    let top = area.y + area.height.saturating_sub(status_h + stack_h);
+    let x = area.x + area.width.saturating_sub(w);
+    let start = n - shown;
+    for (row, idx) in (start..n).enumerate() {
+        let title = app.notices.toasts[idx].notice.title.clone();
+        let body = app.notices.toasts[idx].notice.body.clone();
+        let r = Rect { x, y: top + row as u16 * h, width: w, height: h };
+        let shown_body: String = body.chars().take(w.saturating_sub(2) as usize).collect();
+        f.render_widget(Paragraph::new(vec![
+            Line::from(Span::styled(format!("▸ {title}"), t.bar())),
+            Line::from(Span::styled(format!("  {shown_body}"), t.plain())),
+        ]), r);
+        app.hits.push((r, Hit::Toast(idx)));
+    }
+    if view_all {
+        let r = Rect { x, y: top + shown as u16 * h, width: w, height: button_h };
+        f.render_widget(Paragraph::new(Span::styled(" View all", t.selected())), r);
+        app.hits.push((r, Hit::ViewAllNotices));
     }
 }
 

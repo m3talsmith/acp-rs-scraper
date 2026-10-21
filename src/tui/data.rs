@@ -137,6 +137,14 @@ pub trait Store {
     fn action_tree_body(&self) -> Result<Option<String>> { Ok(None) }
     /// Replace the action-history document.
     fn save_action_tree_body(&mut self, _body: &str) -> Result<()> { Ok(()) }
+    /// Saved notifications, newest first.
+    fn notices(&self) -> Result<Vec<crate::storage::notices::NoticeRow>> { Ok(Vec::new()) }
+    /// Insert one notification. `0` means this store has no database file.
+    fn insert_notice(&mut self, _row: &crate::storage::notices::NoticeRow) -> Result<i64> { Ok(0) }
+    /// Delete one saved notification.
+    fn delete_notice(&mut self, _id: i64) -> Result<()> { Ok(()) }
+    /// Delete every saved notification.
+    fn clear_notices(&mut self) -> Result<()> { Ok(()) }
 }
 
 /// A saved row for `f`.
@@ -336,6 +344,26 @@ impl Store for SqliteStore {
         let c = crate::storage::db::open_db(&self.path)?;
         crate::storage::history::save_action_body(&c, body)
     }
+    fn notices(&self) -> Result<Vec<crate::storage::notices::NoticeRow>> {
+        if !self.path.exists() { return Ok(Vec::new()); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::notices::list(&c)
+    }
+    fn insert_notice(&mut self, row: &crate::storage::notices::NoticeRow) -> Result<i64> {
+        if !self.path.exists() { return Ok(0); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::notices::insert(&c, row)
+    }
+    fn delete_notice(&mut self, id: i64) -> Result<()> {
+        if !self.path.exists() { return Ok(()); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::notices::delete(&c, id)
+    }
+    fn clear_notices(&mut self) -> Result<()> {
+        if !self.path.exists() { return Ok(()); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::notices::clear(&c)
+    }
 }
 
 /// In-memory store (tests, headless renders).
@@ -359,6 +387,8 @@ pub struct MemStore {
     pub queries: Vec<crate::storage::history::SavedQuery>,
     /// Action-history document. `None` until a branch is saved.
     pub actions_body: Option<String>,
+    /// Saved notifications, newest first.
+    pub notice_rows: Vec<crate::storage::notices::NoticeRow>,
 }
 
 impl Store for MemStore {
@@ -425,6 +455,22 @@ impl Store for MemStore {
     fn action_tree_body(&self) -> Result<Option<String>> { Ok(self.actions_body.clone()) }
     fn save_action_tree_body(&mut self, body: &str) -> Result<()> {
         self.actions_body = Some(body.to_string());
+        Ok(())
+    }
+    fn notices(&self) -> Result<Vec<crate::storage::notices::NoticeRow>> { Ok(self.notice_rows.clone()) }
+    fn insert_notice(&mut self, row: &crate::storage::notices::NoticeRow) -> Result<i64> {
+        let id = self.notice_rows.iter().map(|n| n.id).max().unwrap_or(0) + 1;
+        let mut saved = row.clone();
+        saved.id = id;
+        self.notice_rows.insert(0, saved);
+        Ok(id)
+    }
+    fn delete_notice(&mut self, id: i64) -> Result<()> {
+        self.notice_rows.retain(|n| n.id != id);
+        Ok(())
+    }
+    fn clear_notices(&mut self) -> Result<()> {
+        self.notice_rows.clear();
         Ok(())
     }
 }

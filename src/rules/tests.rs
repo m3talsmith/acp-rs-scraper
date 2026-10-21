@@ -136,7 +136,7 @@ fn new_rows_only_and_dry_run_applies_nothing() {
 }
 
 #[test]
-fn notify_is_capped_at_eight() {
+fn notify_is_not_capped() {
     let (path, c) = db("cap");
     for i in 0..9 {
         put(&c, &format!("POSTD{i:04}"), "", "", "ada", "", "x");
@@ -145,8 +145,9 @@ fn notify_is_capped_at_eight() {
     let posts = load_posts(&c).unwrap();
     let fired = evaluate(&c, &path, &posts, "site", false).unwrap();
     let notifies: Vec<_> = fired.iter().filter(|f| f.action == "notify").collect();
-    assert_eq!(notifies.iter().filter(|f| f.outcome == "fired").count(), NOTIFY_CAP);
-    assert_eq!(notifies.iter().filter(|f| f.detail == "rate limit").count(), 1);
+    assert_eq!(notifies.len(), 9);
+    assert!(notifies.iter().all(|f| f.outcome == "fired"), "{notifies:?}");
+    assert!(notifies.iter().all(|f| f.detail != "rate limit"));
 }
 
 #[test]
