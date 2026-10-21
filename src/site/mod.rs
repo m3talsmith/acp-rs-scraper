@@ -2,11 +2,19 @@
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the reply frames
 //! live here. A root reply matches the approved P0 fixtures. Publishing does
-//! not open a connection: validate, save, and `allow_upload` / `lvu` stay
-//! behind [`write::CAPTURE_BLOCK`]. Vote, subscribe, delete, edit, and repost
-//! are later minors and are not built.
+//! not open a connection. The guided capture has not confirmed the upload
+//! channel, so validate, save, and `allow_upload` / `lvu` stay behind
+//! [`write::CAPTURE_BLOCK`]. Vote, subscribe, and delete each build the
+//! documented hook and stop at the same gate. Edit keeps the one-hour window
+//! and does not build the form. Repost names the documented route and does
+//! not build the form.
 
 mod attach;
+pub mod delete;
+pub mod edit;
+pub mod repost;
+pub mod subscribe;
+pub mod vote;
 mod prosemirror;
 mod write;
 
@@ -37,6 +45,28 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.quote_post.is_some()
         || args.accept_site_update
         || args.site_attachments.is_some()
+        || args.repost.is_some()
+        || args.delete.is_some()
+        || args.edit.is_some()
+        || args.subscribe.is_some()
+        || args.vote.is_some()
+}
+
+fn confirm_write(args: &Args, prompt: &str) -> Result<bool> {
+    if args.dry_run {
+        return Ok(false);
+    }
+    if args.yes {
+        return Ok(true);
+    }
+    if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        eprint!("{prompt}");
+        io::stderr().flush()?;
+        let mut line = String::new();
+        io::stdin().read_line(&mut line)?;
+        return Ok(matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes"));
+    }
+    Ok(false)
 }
 
 /// Run a write command. Cancel prints `nothing sent` and returns Ok.
@@ -44,6 +74,95 @@ pub fn cli_requested(args: &Args) -> bool {
 pub fn run_cli(args: &Args) -> Result<()> {
     if let Some(thread) = args.capture_reply.as_deref() {
         bail!("{}", capture_stub_message(thread.trim()));
+    }
+    if let Some(id) = args.vote.as_deref() {
+        let state = args.vote_state.as_deref().unwrap_or("1");
+        let confirmed = confirm_write(args, "Vote? [y/N] ")?;
+        return match vote::present(id.trim(), state, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.subscribe.as_deref() {
+        let state = args.subscribe_state.as_deref().unwrap_or("1");
+        let confirmed = confirm_write(args, "Subscribe? [y/N] ")?;
+        return match subscribe::present(id.trim(), state, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.delete.as_deref() {
+        let confirmed = if args.dry_run {
+            false
+        } else if args.yes {
+            true
+        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            eprint!("Delete? Type yes: ");
+            io::stderr().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+            line.trim() == "yes"
+        } else {
+            false
+        };
+        return match delete::present(id.trim(), confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.edit.as_deref() {
+        let confirmed = if args.dry_run {
+            false
+        } else if args.yes {
+            true
+        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            eprint!("Edit? [y/N] ");
+            io::stderr().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+            matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
+        } else {
+            false
+        };
+        let now = chrono::Utc::now().timestamp();
+        return match edit::present(id.trim(), args.posted_at, now, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.repost.as_deref() {
+        let confirmed = if args.dry_run {
+            false
+        } else if args.yes {
+            true
+        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            eprint!("Repost? [y/N] ");
+            io::stderr().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+            matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
+        } else {
+            false
+        };
+        return match repost::present(id.trim(), confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
     }
     if args.new_post.is_none() && args.reply.is_none() {
         bail!("a write needs --new-post TITLE or --reply THREAD. --dry-run prints the frames and does not connect.");
