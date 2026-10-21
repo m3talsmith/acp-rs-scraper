@@ -10,7 +10,7 @@ This walkthrough is the Getting started topic in Help (`?` or F1, then search `g
 
 `architecture/SPECS.md` and `architecture/PLAN-2.0-TUI.md` still describe the 2.0 design. The client has moved on. This walkthrough follows the app. Hover a control for a short explanation. The `?` on that tooltip opens the Help topic for that action.
 
-A text post or reply is sent. Images, videos, and PDFs on that post are uploaded first, at most 4. Other files stay on this machine and are named. `--dry-run` prints the frames and the upload plan and does not connect. Votes, subscribes, deletes, edits, and reposts stay gated.
+A text post or reply is sent. Images, videos, and PDFs on that post are uploaded first, at most 4. Other files stay on this machine and are named. A reply edit sends validate, then save, once. `--dry-run` prints the frames and the upload plan and does not connect. Votes, subscribes, deletes, reposts, and top-level post edits stay gated. The site does not support changing attachments on an edit. The clicks still to record are `architecture/INTERACTIONS-CAPTURE.md`.
 
 ## Install
 
@@ -81,7 +81,7 @@ Library › Export writes JSON or HTML for the selected nicks, the current view,
 acprs --new-post "Title" --body "hello" --dry-run
 ```
 
-On a terminal that is not the TUI, a real publish asks `Publish? [y/N]`. Answering yes sends validate, then save, once, and prints the new post id and URL. `--dry-run` does not ask, and it does not connect. The first live check is [LIVE-PUBLISH-TEST.md](LIVE-PUBLISH-TEST.md).
+On a terminal that is not the TUI, a real publish asks `Publish? [y/N]`. Answering yes sends validate, then save, once, and prints the new post id and URL. `--dry-run` does not ask, and it does not connect. `+` and Post menu › Subscribe, Delete, Edit, and Repost ask before they prepare a frame. Cancel is the default. Delete and edit also ask you to type yes. A confirm still sends nothing. The first live check is [LIVE-PUBLISH-TEST.md](LIVE-PUBLISH-TEST.md).
 
 ## Help and About
 

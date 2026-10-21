@@ -8,9 +8,8 @@
     "value": {"id": "POST"}
   },
   "needed": [
-    "The LiveView frame for delete-post, including whether the payload is type hook and which component it targets",
-    "The site's confirm() dialog text, and the frame when the dialog is cancelled",
-    "The phx_reply and any feed:delete or tombstone diff after a delete",
-    "Whether the body stays readable after the delete"
+    "On /rs/post/POST of a post you own, open the site's post menu and click Delete. Cancel the site dialog once, then confirm on a throwaway post",
+    "Record the websocket event, the dialog text, the phx_reply, any feed:delete or tombstone diff, and whether the body stays readable",
+    "Note whether the payload is a hook and which component it targets"
   ]
 }

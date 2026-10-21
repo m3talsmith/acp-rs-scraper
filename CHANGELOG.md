@@ -6,98 +6,253 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.33.0] - 2026-10-21
+
 ### Added
 
-- **Repost is prepared and not sent.** Post menu (`p`) › Repost names the route from the plan, `/rs/post/new?repost=POST`. `--repost POST` does the same. This is not `--reposts`, which only reads the list. The form has not been captured, so it is not built and `quoted_post` is not invented. `--dry-run` prints the route and opens no connection. A confirmed repost stops at the capture gate. `tests/fixtures/site/repost.json` lists the capture still needed: the join for that route, how `quoted_post` is encoded, the validate and save fields, and the reply with the new post id. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **Edit is prepared and not sent.** An edit stays open for one hour after the post. Post menu (`p`) › Edit checks that hour from the post's time. `--edit POST` checks `--posted-at` when that unix time is passed, and skips the check when it is not. The edit form has not been captured, so it is not built. `--dry-run` says so and opens no connection. A confirmed edit inside the hour stops at the capture gate. `tests/fixtures/site/edit.json` lists the capture still needed: the `/rs/post/{id}/edit` join, the validate and save payloads, the server's own one-hour refusal, and the reply after a save. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **Delete is prepared and not sent.** Post menu (`p`) › Delete asks you to type yes (Cancel is the default). `--delete POST` asks the same on a terminal, and `--yes` confirms. The hook is the one named in the plan, `delete-post {id}`. `--dry-run` prints it and opens no connection. A confirmed delete stops at the capture gate. There is no live delete fixture. `tests/fixtures/site/delete.json` lists the frames still to capture: the hook itself, the site's confirm dialog and its cancel, the reply or tombstone diff, and whether the body stays readable. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **Subscribe is prepared and not sent.** Post menu (`p`) › Subscribe builds `subscribe {id, state:"1"}` for the open or highlighted post. `--subscribe THREAD` does the same from the command line, and `--subscribe-state 0` clears it. `--dry-run` prints the hook and opens no connection. A confirmed subscribe stops at the capture gate. There is no live subscribe fixture. `tests/fixtures/site/subscribe.json` lists the frames still to capture: the hook for both states, whether `id` is the thread, the reply that sets `subscribed`, and a rejection. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **Vote is prepared and not sent.** `+` upvotes the open or highlighted post and `-` downvotes it. `--vote POST` does the same from the command line, with `--vote-state 1|0|-1` (default `1` clears nothing: `1` is an upvote, `0` clears, `-1` is a downvote). `--dry-run` prints the documented hook `vote {id, state}` and opens no connection. A confirmed vote stops at the capture gate. There is no live vote fixture. The stub at `tests/fixtures/site/vote.json` lists the frames still to capture: the hook for each state, the reply's score and vote fields, a rejection, and any socket rate limit. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **Reply frames match the approved capture.** A root reply starts with a `postRef` node whose `postId` and `threadId` are both the thread id, then one paragraph. A blank line in that reply is two `hardBreak` nodes inside the paragraph. The form value is `form[thread_id]` then `form[body_input]`, with no `_csrf_token`. Validate sends `meta._target` of `form[body_input]` and `uploads: {}`. Save sends an empty `meta` and no `uploads` key. Compose does not send another validate after save. Reply in the terminal UI (`r`) and `--reply` both build these frames. `--dry-run` prints them and opens no connection. Text publish of these frames is 3.35.0. A reply to a comment sets `postId` to that comment. Michael approved sending that shape. Uploads stay gated. The composer in the capture has a separate PDF input and no audio input. Neither is sent. Tests read `tests/fixtures/site/reply_join.json`, `reply_validate.json`, and `reply_save.json`, placeholders left as `<REDACTED:…>`. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **`acprs`.** A third binary, next to `acp-red-star` and the `acp-rs-scraper` compatibility name. `cargo install` cannot create a symlink, so `acprs` is its own executable and runs the same program. `--version` still prints `acp-red-star` and the version. The usage line uses the name you typed, as `acp-rs-scraper --help` already does, and `acprs` does not print the deprecation line. Packages and `scripts/install.sh` install it with a man page and bash, zsh, and fish completions. `scripts/uninstall.sh` removes it with the rest of the install. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **`rs` theme.** A shipped theme matching the Red Star site (acp.us/rs): near-black zinc `#111113`, text `#d3d3d7`, muted `#898994`, divider `#333336`, ACP red `#c01d1c` (the logo and links), and vote gold `#eaa313` for bold text, H3, and table headers. Selection, buttons, and the header use the site's grey surfaces (`#2b2b2e`, `#0b0b0b`), and quotes are muted text on the divider colour. The light variant is zinc grey with the same red and a darkened gold. `rs` is in the theme picker once the file is in `~/.acp/themes`; `--theme-init rs` downloads it. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **`acp` theme.** A shipped theme matching the American Communist Party site (acp.us). The light variant is the site: blush `#fff1f1`, black `#000000`, ACP red `#c01c1c`, a white chip for buttons, and a pink-grey rule darkened from `#edc8c8` so it shows on the blush. Muted text is the map grey `#ccb3b3` darkened to `#706262` so it clears WCAG AA. H1 is white on red. The dark variant is black with blush text `#fff1f1`, the same red, and blush `#ffcdcd` for secondary text. There is no gold. `acp` is in the theme picker once the file is in `~/.acp/themes`; `--theme-init acp` downloads it. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- A few surprises for the curious.
-- If you go looking, there is art in the dark of the tree.
+- **Reply edit.** A confirmed reply edit sends validate, then save, once, from `--edit` and the compose box. The open is the captured redirect to `/rs/post/ID/edit`. The form is `method=put`, `data-mode=reply`, and the only field is `form[body_input]`. `--body` or `--body-file` is required. `--dry-run` prints those frames and opens no connection. The command line asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel, then asks for `yes`. The one-hour window still refuses an older post before a connection. A quote already on the reply is not copied. Votes, subscribes, deletes, reposts, and top-level post edits stay prepared, gated. The site does not support changing attachments on an edit. `--attachment` with `--edit` is refused before a connection.
 
-### Fixed
+## [3.32.0] - 2026-10-21
 
-- **Default theme download.** The first-run download and `--theme-init` fetch `themes/default.toml` from `m3talsmith/acp-rs-scraper`, the repository that holds the file. The old URL used `m3talsmith/acp-red-star`, which is not the repository, so the download failed. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
+### Added
+
+- **Attachment uploads.** A confirmed new post or reply uploads the site copy, then sends validate and save once, from `--new-post`, `--reply`, and the compose box. The site copy is at most 4 images, videos, or PDFs. Audio and other documents stay on this machine and are named in the result. The frames are the 2026-10-21 capture: `allow_upload`, an `lvu:<entry ref>` join, binary `chunk` frames, then `progress`, then save. A rejected file stops the publish before save. A failed chunk is not retried. The command line and the status line show `uploading name N%`. `--dry-run` prints the plan and opens no connection. Votes, subscribes, deletes, edits, and reposts are not sent.
 
 ### Changed
 
-- **Attachment uploads.** A confirmed new post or reply uploads the site copy, then sends validate and save once, from `--new-post`, `--reply`, and the compose box. The site copy is at most 4 images, videos, or PDFs. Audio and other documents stay on this machine and are named in the result. The frames are the 2026-10-21 capture: `allow_upload`, an `lvu:<entry ref>` join, binary `chunk` frames, then `progress`, then the existing save. The server's chunk size, timeout, max entries, max size, and accept list are what the live reply and the form say. A rejected file stops the publish before save. A failed chunk is not retried, and the post is not saved. The command line and the status line show `uploading name N%`. `--dry-run` prints the plan and opens no connection. The notes are [architecture/UPLOAD-CAPTURE.md](architecture/UPLOAD-CAPTURE.md). The hand check adds a small image, an optional PDF, and a video in [docs/LIVE-PUBLISH-TEST.md](docs/LIVE-PUBLISH-TEST.md). This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including the locked 3.22.0, are not moved. 3.36.0 stays the plan number and is not taken early.
-- **Text publish.** A confirmed text post or reply sends validate, then save, once, from `--new-post`, `--reply`, and the compose box. The reply frames are the approved capture, including a comment or quote reply. A new post sends `form[title]` and `form[body_input]`. Success prints the new post id and URL. A rejection is shown and is not retried. `--dry-run` still prints the frames and opens no connection. The command line asks `Publish? [y/N]`. The compose box still starts on Cancel. The 30 second gap still starts on confirm. 3.35.0 refused a post that still had attachments, and the files were kept. 3.36.0 uploads the site copy instead. Votes, subscribes, deletes, edits, and reposts are not sent. The first live check is [docs/LIVE-PUBLISH-TEST.md](docs/LIVE-PUBLISH-TEST.md). This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including the locked 3.22.0, are not moved. 3.35.0 stays the plan number and is not taken early.
-- **Whole site.** `acprs --scrape-all` reads every reachable read-only page: feeds, threads and replies, profiles, tags, spaces and communities when the page links them, reposts, and attachment URLs and types. The file bytes are not downloaded. The frontier is stored in the encrypted database, so a stopped run resumes. `--limit` caps new posts. `--scrape-budget` caps seconds. Pages wait, back off after a refusal, and honor `robots.txt`. The next finished run is incremental unless `--full`. Scrape › Whole site and Sync › Whole site start it. The sync form runs rules on the posts it stored. The status line shows pages, posts, and what is left. Finish and failure raise a notice. Nothing is published. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including the locked 3.22.0, are not moved. 3.34.0 stays the plan number and is not taken early.
-- **Alert templates.** Sync › Rules presets watch a user (`w`, `--rules-watch`), a saved search (`s`, `--rules-saved`), and replies to me (`m`, `--rules-replies`). Each is a user rule on the rule engine, enabled, priority 40, action notify. The notice names the author, the post id, and the site URL. There is no alert table and no second runner. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including the locked 3.22.0, are not moved. 3.33.0 stays the plan number and is not taken early.
-- **Notices.** An error, a warning, a skipped sync, or a finished job raises a stacked toast and a desktop notification. There is no cap. When the stack would be taller than a quarter of the screen, as many toasts as fit stay up and View all opens the rest. View › Notifications is that same page: newest first, with oldest, a kind filter, search, a clear button on each row, and Clear all. The rows are stored in the encrypted database and are still there after a restart. Opening the page, View all, search, order, and clearing a row are not action-bar steps. Do not disturb and a switch for each kind silence the toast and the desktop notification together. The list still records them. The status line keeps job and list state. The same notice prints on stderr and stays plain when colour is off. Tests use a fake desktop backend and do not talk to a notification daemon. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including 3.22.0 and the planned 3.31.0, are not moved.
-- **Rule engine.** Sync runs triggers, conditions, and actions on the rows it just wrote. The shipped Synced post rule is off. System rules are read-only and can be cloned into a user rule. Sync › Rules edits one condition and one action; `?` on a control opens that control's Help topic. `--rules-list`, `--rules-show`, `--rules-enable`, `--rules-disable`, `--rules-clone`, `--rules-delete`, `--rules-priority` with `--rules-rank`, `--rules-import`, `--rules-export`, and `--rules-preview` are the command line. Import and export are TOML and JSON. Import always creates user rules. A preview matches posts already stored and applies nothing. A post fires at most once per rule. Notify has no cap and prints a line; it does not raise a toast. Nothing is sent to the site. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including the locked 3.22.0, are not moved. 3.32.0 stays the plan number and is not taken early.
-- **Search history and the action bar.** Each local or site search is a row in the encrypted database: the query and the filters only, including order and limit. Picking one re-runs it. Clear history deletes those rows and leaves posts alone. The default keeps the entire history. Search › History kept can cap it at the N newest rows, stored as `[ui] search_history_limit` in `preferences.toml`. An export of a search adds a `search` object with those fields. Format version stays 2. A full dump, a nick filter, and a basket do not add one. The right bar lists every action that led to the current view, with no cap, and collapses to one column. The list scrolls with the wheel and, when the bar is focused, with the arrows, PgUp, and PgDn. Clicking an earlier action jumps back. A new action after a jump keeps the later steps as another branch; the bar shows which branch, and `b` lists them. Branches are stored in the encrypted database. Clear history deletes the searches and the branches. An export from a restored search still carries the query. The nick bar collapses the same way. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including 3.22.0, are not moved.
-- **Menu bar categories.** The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, Debug, Help, About, and Quit. Scrape is pinned immediately left of Start Scanning, and its options stay on that control. Library opens Export, Import, Basket, List, and Maintain; those stay off the bar. Quit stays the last menu item. About stays beside Help. Discover says people, nodes, and rooms arrive with the network node. Search › Search the site runs `--site-search` with the Search query. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **Tooltips, Help, and About.** Hover shows a short explanation on every button, menu entry, and card icon, including the key when the control has one (`Bookmark (b)`). The second line is `? {topic}` and opens that action's Help topic. Star, basket, and research do not share a topic. One helper draws every tooltip. Help is topics you can search and step through with ← →. `?` and F1 stay. A `?` in the header corner opens Help. Getting Started is `docs/GETTING-STARTED.md` and the `getting-started` topic, covering the command line, terminal prompts, and the TUI. About is a menu with three segments — Credits, Why this is necessary, and ACP platform — and each opens the same modal on that section. ACP platform is the vendored American Communist Party Program (adopted October 12, 2024), with headings and scroll. `https://acp.us/join` sits at the top and the bottom of that section only. Publish still does not send while `CAPTURE_BLOCK` is in force. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later, including 3.22.0, are not moved.
-- **Clippy is clean.** `scrape` takes a `ScrapeOptions` value and `read_view` takes a `ViewRequest`, instead of a long argument list. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
-- **`red-star` theme.** The shipped theme matches the brand banner: ink `#0e0404`, cream `#f6e8c8`, vermilion `#c8102e`, gold `#e8b648`, with a light variant on cream. It replaces the old deep-crimson palette. The name stays `red-star`, so `--theme red-star` still selects it and the theme picker shows the new description. A copy already saved in `~/.acp/themes` is not overwritten. Delete `~/.acp/themes/red-star.toml` and run `--theme-init red-star` (or copy `themes/red-star.toml`) to take the new look. This is its own minor. It is not part of 3.5.0. The crate version stays 3.5.0 until that minor is released. 3.6.0–3.9.0 stay unassigned, and 3.10.0 and later are not moved.
+- **Live text and image publish.** Michael confirmed a text post with one PNG from commit `61c58300`, at the `Publish? [y/N]` prompt, without `--yes`. The client printed `Already logged in.`, `uploading social-red-star.png 100%`, and `published AaFe-qikeQyiWLMA1vwnNA` (`https://acp.us/rs/post/AaFe-qikeQyiWLMA1vwnNA`). A PDF upload and a video upload have not been tried live. The note is [docs/LIVE-PUBLISH-TEST.md](docs/LIVE-PUBLISH-TEST.md).
+- Working rules for agents are in `AGENTS.md`. The X and YouTube design is in `architecture/PLAN-SCRAPERS.md`. Neither is a feature of this version.
+
+## [3.31.0] - 2026-10-21
+
+### Added
+
+- **Text publish.** A confirmed text post or reply sends validate, then save, once, from `--new-post`, `--reply`, and the compose box. The reply frames are the approved capture, including a comment or quote reply. A new post sends `form[title]` and `form[body_input]`. Success prints the new post id and URL. A rejection is shown and is not retried. `--dry-run` prints the frames and opens no connection. The command line asks `Publish? [y/N]`. The compose box starts on Cancel. The 30 second gap starts on confirm. Uploads are 3.32.0. Votes, subscribes, deletes, edits, and reposts are not sent.
+
+## [3.30.0] - 2026-10-21
+
+### Added
+
+- **Whole site.** `acprs --scrape-all` reads every reachable read-only page: feeds, threads and replies, profiles, tags, spaces and communities when the page links them, reposts, and attachment URLs and types. The file bytes are not downloaded. The frontier is stored in the encrypted database, so a stopped run resumes. `--limit` caps new posts. `--scrape-budget` caps seconds. Pages wait, back off after a refusal, and honor `robots.txt`. The next finished run is incremental unless `--full`. Scrape › Whole site and Sync › Whole site start it. Nothing is published.
+
+## [3.29.0] - 2026-10-20
+
+### Added
+
+- **Alert templates.** Sync › Rules presets watch a user (`w`, `--rules-watch`), a saved search (`s`, `--rules-saved`), and replies to me (`m`, `--rules-replies`). Each is a user rule on the rule engine, enabled, priority 40, action notify. The notice names the author, the post id, and the site URL. There is no separate alert runner.
+
+## [3.28.0] - 2026-10-20
+
+### Added
+
+- **Rule engine.** Sync runs triggers, conditions, and actions on the rows it just wrote. The shipped Synced post rule is off. System rules are read-only and can be cloned into a user rule. Sync › Rules edits one condition and one action. `--rules-list`, `--rules-show`, `--rules-enable`, `--rules-disable`, `--rules-clone`, `--rules-delete`, `--rules-priority`, `--rules-import`, `--rules-export`, and `--rules-preview` are the command line. Import and export are TOML and JSON. A preview matches posts already stored and applies nothing. A post fires at most once per rule. Notify prints a line and does not raise a toast. Nothing is sent to the site.
+
+## [3.27.0] - 2026-10-20
+
+### Added
+
+- prepared, gated: vote. `+` and `-`, and `--vote`, stop at the capture gate.
+- prepared, gated: subscribe. The subscribe hook stops at the capture gate.
+- prepared, gated: delete. A confirmed delete stops at the capture gate.
+- prepared, gated: edit. A confirmed edit inside the one-hour window stops at the capture gate.
+- prepared, gated: repost. A confirmed repost stops at the capture gate.
+- **Notices.** An error, a warning, a skipped sync, or a finished job raises a stacked toast and a desktop notification. When the stack would be taller than a quarter of the screen, as many toasts as fit stay up and View all opens the rest. View › Notifications is that page: newest first, with oldest, a kind filter, search, a clear button on each row, and Clear all. The rows are stored in the encrypted database. Do not disturb and a switch for each kind silence the toast and the desktop notification together. The list still records them. The same notice prints on stderr. Tests use a fake desktop backend.
+
+## [3.26.1] - 2026-10-20
 
 ### Fixed
 
-- **Terminal UI login, follow-up.** A Phoenix heartbeat that is written but not answered within one interval is a dead socket, and the login reconnects without sending another email. The sign-in POST uses the code form from the LiveView diff: `user[otp]`, `submit-code`, that form's `_csrf_token` (not the page token), `user[remember_me]`, `marketing_opt_in` when the form has it, and `return_to` from the `/auth` URL. A redirect back to `/auth` is a rejection and the page's flash is the error. The code form was missed because the check looked for `user[code]` and `verify-code`, and a keyed comprehension whose statics live in the `p` template table was not rendered. The login window names the real session file, including when `ACP_HOME` is set. The one-time code is not written to the debug log.
-- **Terminal UI login.** Entering the emailed code no longer fails with "websocket closed". The sign-in POST kept a non-`Send` HTML node alive across the request, so the terminal UI ran login on a second runtime and that split closed the LiveView socket when the code was submitted. The form fields are copied first and the login runs on the same runtime as the HTTP client, as the command line already does. A reconnect closes the old socket before opening another. If the site renders the sign-in form and then closes the socket, that form is still posted. The session is written to `~/.acp/session.json`, the same file the command line writes. `ACP_HOME`, when set and not empty, is the directory that holds `.acp` instead of `$HOME`, so a login can be tried without touching the real `~/.acp`.
+- **Default theme download.** The first-run download and `--theme-init` fetch `themes/default.toml` from `m3talsmith/acp-rs-scraper`, the repository that holds the file. The old URL used `m3talsmith/acp-red-star`, which is not this repository, so the download failed.
 
-### Documentation
+## [3.26.0] - 2026-10-20
 
-- **Server and relay packaging is parked on the alpha gate.** The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each get a separate install, with its own binary, release artifact, and install path, and each stays available inside the app. No server or relay release is cut until writes and replies with attachments are functional and the decentralized network work is functional. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §4.5 and §7.14.11.
-- **Alpha packaging is parked.** An alpha waits until writes and replies with attachments are sent and the decentralized network work is completed. This note does not tag an alpha or attach release assets. Launch docs name `acp-red-star` and `acp_red_star_node_core`, keep `scripts/install.sh`, and point at the repository Releases page for binaries once they are published. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md).
-- **Workspace crates and install.** Launch docs name the two crates in the workspace: `acp-red-star` at the repository root, and `acp_red_star_node_core` at `crates/acp_red_star_node_core`. Source install stays `scripts/install.sh`. The README and [docs/INSTALL.md](docs/INSTALL.md) also point at the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page for binaries and alphas once a release publishes them. Alpha packaging stays parked until writes and replies with attachments are done and the decentralized network work is completed. This note does not tag an alpha or attach release assets. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §4.5.
-- **Attachments stay 3.5.0 (confirmed).** Michael confirmed the three decisions: `.jpeg` is accepted as jpg and `.tif` as tiff; there is no count cap and no size cap; attachments keep 3.5.0. Interactions were numbered 3.5.0–3.9.0 and have not started. 3.10.0 and later, including the locked 3.22.0 re-key, are not shifted. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md).
-- **Draft GitHub Releases.** A version that is not on `main` is a draft release, with the notes from its changelog section and no attached files. The maintainer publishes the draft after that version is merged. Releases for versions already on `main` (2.16.0 and earlier) are left alone. The post-commit hook still only creates the git tag. Nothing in CI publishes a release.
-- **Tombstones, revised.** A signed tombstone keeps the post. The plan no longer drops the body after a grace period. The UI shows a tombstone icon (🪦, or `[RIP]`), the content stays viewable, and a signed restore record or a newer signature of the same post id clears the tombstone. The restore record is in [docs/PROTOCOL.md](docs/PROTOCOL.md).
-- **Search history.** The client keeps each local or site search so a past query can be opened again, as part of the Search menu. The minor is not numbered. A row in the encrypted database keeps the query and the filters only, not a snapshot of the results. The filters include order (`newest` or `oldest`) and limit (N, or none). Picking one re-runs the search live. Clear history deletes the rows. The default keeps the entire history. A preference can instead keep the N most recent entries. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §7.14.5.
-- **Search export.** Exporting a search result includes the query and the filters that produced it, as a `search` object. Format version stays 2. A full dump, a nick filter, or a basket does not add a search. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §7.14.5.
-- **Action history.** The client has a right bar that pulls out and collapses with every action that led to the current view. The list scrolls. Clicking an earlier action jumps back, and a new step after that jump keeps the later steps as another branch in the encrypted database. Clear history deletes those branches. An export from a search state still includes the query and filters. The left nick bar collapses the same way. This is not the previous and next post controls. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §7.14.5.
-- **Embedded assistant.** A local model inside the client is a 4.0 roadmap item, not a 3.x requirement and not a heavy interest of 3.0. It answers questions about the local corpus and runs existing actions such as search, filter, and export. An AI button at the bottom center opens a chat strip that pushes the body and side bars up. It is not a modal. The strip keeps the chat, and the actions change the body. The voice is a local persona: a system prompt and optional retrieval first, and a later LoRA-style adaption on a local corpus if wanted. That is not training a model from scratch. Decentralization stays in 3.x. The model is not chosen. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §7.14.12.
-- **Password change / re-key is 3.22.0.** It does not change the master or the `acp-id`. It re-wraps the SQLCipher key, the keystore, the sealed phrase, and the backup-wrapping key in one transaction, with rollback, and it requires the old password. It sits before the daemon and the OS keyring. Stages that were 3.22.0 through 3.28.0 are now 3.23.0 through 3.29.0. The write core stays 3.4.0.
-- **4.0 roadmap, docs only.** Post source and the Haz stream corpus sit beside the embedded local assistant in `architecture/PLAN-3.0-CLIENT.md` (§4.0; post source is §7.14.14, the assistant is §7.14.12). The living plan is [architecture/PLAN-4.0.md](architecture/PLAN-4.0.md). Coming-soon and launch drafts are under `docs/history/v4/`. No schema change and no scraper in this note. The source columns may land later as a 3.x minor.
-- **TUI menu categories.** Before 3.x is finished the menu bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, then Help, About, and Quit, with Scrape and Start Scanning pinned on the right. Bookmarks is its own menu (Show, Bookmark current, Sync with acp.us), not an item under Library. Search history joins Search in its own minor when Search work is touched. Sync keeps the local copy up to date. Discover finds people, nodes, and rooms. The two stay separate. The minor is required and is not numbered in this note. Quit stays the last menu item. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §4.2.
-- **Hover tooltips.** Every button, menu item, menu-bar entry, and card or detail icon shows a short explanation on hover. A key is included when the control has one, as in `Bookmark (b)`. The second line, `? {topic}`, opens the Help topic for that action. One generic Help page for every tooltip does not count. One shared helper draws them. The minor is its own and is not numbered here. Publish stays behind `CAPTURE_BLOCK`. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §4.3.
-- **Help topics.** Help is topics you can move between (Getting started, Browse, Compose, Research, Sync, Discover, Account, Keys, and the rest), with search inside Help. A `?` on the header opens Help, and every action tooltip deep-links to the topic for that particular action. `?` and F1 stay the entry. The minor is its own and is not numbered here. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §4.4.
-- **Embedded assistant is 4.0.** It is not a 3.x requirement and is not a heavy interest of 3.0. 4.0 may treat it as a substantial part of that major. Decentralization stays in 3.x (3.23.0 and later). Opening a 4.0 line does not move peers, relays, or the network node.
-- **Help coverage and Getting Started.** Every user-facing flag, menu command, menu option, and control has a Help description, and every action tooltip deep-links to the topic for that particular action. The walkthrough at `docs/GETTING-STARTED.md` covers the command line, terminal prompts outside the TUI, and the TUI, and it is the Getting started Help topic. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §4.4.
-- **About.** About is a menu item with three segments: Credits, Why this is necessary, and ACP platform. Choosing any segment opens the same modal, focused on that section. ACP platform is the vendored American Communist Party Program (adopted October 12, 2024, <https://acp.us/program>), with headings and scroll. The same how-to-join link, <https://acp.us/join>, sits at the top and the bottom of that text only and is not a fourth section. Each segment has a tooltip and a Help topic, and the tooltip deep-links to that segment. Publish stays behind `CAPTURE_BLOCK`.
-- **v3 pre-launch write-up, historical draft.** [docs/history/v3/redstar-v3-prelaunch-post.md](docs/history/v3/redstar-v3-prelaunch-post.md) keeps the comrades' coming-soon forum draft for version 3, including the launch showcase. It is not the live post. The README links it. At the 3.0 release, switch that link to `docs/history/v3/redstar-v3-launch-post.md`, the launch post written as if 3.x has fully shipped.
-- **ACP Red Star and launch communications.** The user-facing name during 3.x is ACP Red Star. A docs pass (that name, Getting Started, Help coverage, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0) comes before the client is presented as launched. After that pass: an elevator pitch, a CLI and TUI demo, a graphical sticker set, a separate CLI-ethos sticker set, ethos backgrounds, a cutscene in normal video and ASCII from public-domain or otherwise licensed archival footage, and a Red Star forum write-up for comrades covering v3. That post features the cutscene in both forms beside the pitch and the demo. A separate community-work video, chapter fieldwork rather than the cutscene or the demo, is also promo and is not produced here. The pre-launch / coming-soon draft is [docs/history/v3/redstar-v3-prelaunch-post.md](docs/history/v3/redstar-v3-prelaunch-post.md). It is not the live forum post. At the 3.0 release, the README link switches to `docs/history/v3/redstar-v3-launch-post.md`. The GitHub repo stays `m3talsmith/acp-rs-scraper`. The package and the shipping binary are `acp-red-star`. See [architecture/PLAN-3.0-CLIENT.md](architecture/PLAN-3.0-CLIENT.md) §4.5.
-- **Research, add the current view.** Research › Add current view / search… already queues the current list or search. Making that easier to find is required before 3.x is finished. Whether "the whole Body" also means an open thread's root and its loaded replies is still open. No key is assigned.
+### Added
+
+- **Reply frames match the approved capture.** A root reply starts with a `postRef` node whose `postId` and `threadId` are both the thread id, then one paragraph. A blank line is two `hardBreak` nodes inside the paragraph. The form value is `form[thread_id]` then `form[body_input]`, with no `_csrf_token`. Validate sends `meta._target` of `form[body_input]` and `uploads: {}`. Save sends an empty `meta` and no `uploads` key. Reply in the terminal UI (`r`) and `--reply` both build these frames. `--dry-run` prints them and opens no connection. Sending them is 3.31.0.
+
+## [3.25.0] - 2026-10-20
+
+### Added
+
+- **Action history.** The right bar lists every action that led to the current view and collapses to one column. The list scrolls. Clicking an earlier action jumps back. A new action after a jump keeps the later steps as another branch. The bar shows which branch, and `b` lists them. Branches are stored in the encrypted database. Clear history deletes them. The nick bar collapses the same way.
+
+## [3.24.0] - 2026-10-20
+
+### Added
+
+- **Search history.** Each local or site search is a row in the encrypted database: the query and the filters only, including order and limit. Picking one re-runs it. Clear history deletes those rows and leaves posts alone. The default keeps the entire history. Search › History kept can cap it at the N newest rows. An export of a search adds a `search` object. Format version stays 2. A full dump, a nick filter, and a basket do not add one.
+
+## [3.23.2] - 2026-10-20
+
+### Fixed
+
+- **Terminal UI login, follow-up.** A Phoenix heartbeat that is written but not answered within one interval is a dead socket, and the login reconnects without sending another email. The sign-in POST uses the code form from the LiveView diff: `user[otp]`, `submit-code`, that form's `_csrf_token`, `user[remember_me]`, `marketing_opt_in` when the form has it, and `return_to` from the `/auth` URL. A redirect back to `/auth` is a rejection and the page's flash is the error. The login window names the real session file, including when `ACP_HOME` is set. The one-time code is not written to the debug log.
+
+## [3.23.1] - 2026-10-20
+
+### Fixed
+
+- **Terminal UI login.** Entering the emailed code no longer fails with "websocket closed". The sign-in POST kept a non-`Send` HTML node alive across the request, so the terminal UI ran login on a second runtime and that split closed the LiveView socket. The form fields are copied first and the login runs on the same runtime as the HTTP client. A reconnect closes the old socket before opening another. The session is written to `~/.acp/session.json`. `ACP_HOME`, when set and not empty, is the directory that holds `.acp` instead of `$HOME`.
+
+## [3.23.0] - 2026-10-20
+
+### Added
+
+- **About.** About is a menu with three segments: Credits, Why this is necessary, and ACP platform. Each opens the same modal on that section. ACP platform is the vendored American Communist Party Program (adopted October 12, 2024), with headings and scroll. `https://acp.us/join` sits at the top and the bottom of that section only.
+
+## [3.22.0] - 2026-10-20
+
+### Added
+
+- **Help and Getting Started.** Help is topics you can search and step through with ← →. `?` and F1 stay. A `?` in the header corner opens Help. Getting Started is `docs/GETTING-STARTED.md` and the `getting-started` topic, covering the command line, terminal prompts, and the TUI. A tooltip's second line opens that action's Help topic.
+
+### Changed
+
+- Crate 3.22.0 is this Help work. The plan's re-key stage was also called 3.22.0. That re-key has not shipped. It is not this version.
+
+## [3.21.0] - 2026-10-20
+
+### Added
+
+- **Hover tooltips.** Hover shows a short explanation on every button, menu entry, and card icon, including the key when the control has one (`Bookmark (b)`). The second line is `? {topic}`. Star, basket, and research do not share a topic. One helper draws every tooltip.
+
+## [3.20.0] - 2026-10-20
+
+### Changed
+
+- **Menu bar categories.** The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, Debug, Help, About, and Quit. Scrape is pinned immediately left of Start Scanning. Library opens Export, Import, Basket, List, and Maintain. Quit stays the last menu item. About stays beside Help. Discover says people, nodes, and rooms arrive with the network node. Search › Search the site runs `--site-search`.
+
+## [3.19.1] - 2026-10-20
+
+### Fixed
+
+- **Clippy is clean.** `scrape` takes a `ScrapeOptions` value and `read_view` takes a `ViewRequest`, instead of a long argument list. Nothing a person sees in the terminal UI changes.
+
+## [3.19.0] - 2026-10-20
+
+### Added
+
+- **`acp` theme.** A shipped theme matching the American Communist Party site (acp.us). The light variant is blush `#fff1f1`, black `#000000`, and ACP red `#c01c1c`. The dark variant is black with blush text. There is no gold. `acp` is in the theme picker once the file is in `~/.acp/themes`. `--theme-init acp` downloads it.
+
+## [3.18.0] - 2026-10-20
+
+### Added
+
+- **`rs` theme.** A shipped theme matching the Red Star site (acp.us/rs): near-black zinc, ACP red `#c01d1c`, and vote gold `#eaa313`. The light variant is zinc grey with the same red and a darkened gold. `rs` is in the theme picker once the file is in `~/.acp/themes`. `--theme-init rs` downloads it.
+
+## [3.17.0] - 2026-10-20
+
+### Added
+
+- A few surprises for the curious. The notes are in `docs/.secrets/EASTER_EGGS.md`. They are not in the README, usage, or Help.
+
+### Changed
+
+- The 4.0 roadmap, post source, and the Haz stream corpus are recorded in `architecture/PLAN-4.0.md` and `architecture/PLAN-3.0-CLIENT.md`. No scraper and no schema change are in this version. An embedded local assistant is 4.0, not a 3.x requirement.
+
+## [3.16.0] - 2026-10-20
+
+### Changed
+
+- **`red-star` theme.** The shipped theme matches the brand banner: ink `#0e0404`, cream `#f6e8c8`, vermilion `#c8102e`, gold `#e8b648`, with a light variant on cream. It replaces the old deep-crimson palette. The name stays `red-star`. A copy already saved in `~/.acp/themes` is not overwritten.
+
+## [3.15.0] - 2026-10-20
+
+### Added
+
+- If you go looking, there is art in the dark of the tree. It is not installed with the package.
+
+## [3.14.0] - 2026-10-20
+
+### Added
+
+- **`acprs`.** A third binary, next to `acp-red-star` and the `acp-rs-scraper` compatibility name. `acprs` is its own executable and runs the same program. `--version` still prints `acp-red-star` and the version. The usage line uses the name you typed. `acprs` does not print the deprecation line. Packages and `scripts/install.sh` install it with a man page and completions.
+
+### Changed
+
+- The README uses the ACP Red Star brand banner.
+
+## [3.13.0] - 2026-10-19
+
+### Changed
+
+- **The product name is ACP Red Star.** The binary is `acp-red-star`. `acp-rs-scraper` still runs, prints one deprecation line, and forwards its arguments through version 3. The library crate is `acp_red_star`. The shared core is `acp_red_star_node_core`. The encrypted database stays at `~/.acp/ai/data/rs.database`. The terminal UI shows the slogan "The future belongs to the working class" under that title on the welcome screen and the login screen, as the header of About, and at the right of the status bar when the bar is wide enough.
+- The coming-soon draft is `docs/history/v3/redstar-v3-prelaunch-post.md`. The launch post, written as if 3.x has fully shipped, stays unpublished until 3.x is done.
+- Alpha packaging stays parked until writes and replies with attachments are sent and the decentralized network work is done. The server and the relay each stay a separate install on that same gate. This version does not tag an alpha.
+
+## [3.12.1] - 2026-10-19
+
+### Fixed
+
+- **Compressed export paths.** With Compress (tar.gz) on, a path that does not already end in `.tar.gz` or `.tgz` is no longer used as both the archive and the staging directory. A bare name gets `.tar.gz` appended. A directory, or a path ending in `/`, is `<dir>/<export-name>.tar.gz`. The success line is `wrote <final path>`.
+
+## [3.12.0] - 2026-10-19
+
+### Added
+
+- **`--color auto|always|never`.** `auto` (the default) follows `NO_COLOR`. `always` forces colours on. `never` turns them off. `[ui] color` in `preferences.toml` is the default when the flag is omitted. View › Colour sets the same choice.
+
+## [3.11.0] - 2026-10-19
+
+### Added
+
+- **TUI path fields expand `~` and Tab-complete.** Export › Path, Import › Path, Research › Export to, Research › Local file, and Start Scanning › Output file complete one real path segment on Tab, the same way the compose attach line does. The argv the child runs expands `~` and `~/…`.
+
+## [3.10.0] - 2026-10-19
+
+### Added
+
+- **Site copy takes up to 4 images or videos.** The app, the local archive, and the network keep every file. Red Star accepts `image/*` and `video/*` only, at most 4, on the site copy. Audio, documents, and other types stay local. More than 4 images or videos, with no choice, publish the first 4 of those and print a notice naming the ones left off. `--site-attachments` takes 1-based indexes. The compose box opens a picker when there are more than 4. Each stored file has `on_site`. Export JSON adds `"on_site"`. A confirmed publish still does not send. PDFs join this cap in 3.32.0.
+
+### Changed
+
+- `.jpeg` is accepted as jpg and `.tif` as tiff. There is no count cap and no size cap on the app, the archive, or the network. The site copy is the separate cap of 4.
+
+## [3.9.1] - 2026-10-19
+
+### Fixed
+
+- **Terminal UI login.** Entering the emailed code no longer fails with "websocket closed" and then drops the attempt. The login keeps the LiveView socket alive with Phoenix heartbeats while the code is read, reconnects and retries verification if that socket closes, and stays on the code step when the code is wrong. Resend code (F2) asks for another code on the same login. A finished login is written to `~/.acp/session.json`. The command line also heartbeats while it waits at the prompt.
+
+## [3.9.0] - 2026-10-19
+
+### Added
+
+- **Order and limit in the terminal UI.** Every post list has an order, newest or oldest. `o` toggles it. View › Order sets it. Each list remembers its choice under `[ui.list_order]`. Search and the nick filter also take a limit, the same window as `--order` and `--limit`.
+
+## [3.8.0] - 2026-10-19
+
+### Added
+
+- **`--profile-feed` and `--order` on a nick scrape.** `--profile-feed newest` (the default) is the Latest profile. `--profile-feed top` is `/rs/@nick/top?t=all` only. `--order oldest` keeps the end of that list, so `--limit` is the oldest N. Start Scanning has Profile feed and Order.
+
+## [3.7.0] - 2026-10-19
+
+### Added
+
+- **`--limit N` on a nick scrape.** `acp-red-star --nick alice --limit 100` keeps the newest 100 posts from that profile. Omit it to scrape the whole profile. Replies in those threads are still fetched unless `--said-by`. `--crawl-limit` still only bounds the mentions scan. Start Scanning has the same field.
+
+## [3.6.0] - 2026-10-19
+
+### Added
+
+- **Tab-complete on the compose attach line.** Tab on a non-empty line completes the next real path segment (`~` becomes `~/`). Several matches are listed. Tab, Up, and Down move through them, and Enter writes the highlighted one without attaching yet.
+
+### Changed
+
+- A version that is not on `main` is a draft GitHub Release, with the notes from its changelog section and no attached files. The maintainer publishes the draft after that version is merged. The post-commit hook still only creates the git tag.
+- A signed tombstone keeps the post. The plan no longer drops the body after a grace period. The UI shows a tombstone icon (🪦, or `[RIP]`), the content stays viewable, and a signed restore record or a newer signature of the same post id clears the tombstone.
+- Password change / re-key is a plan stage. It does not change the master or the `acp-id`. It re-wraps the SQLCipher key, the keystore, the sealed phrase, and the backup-wrapping key in one transaction. It has not shipped. Crate 3.22.0 is Help, not this re-key.
 
 ## [3.5.0] - 2026-10-19
 
-### Changed
-
-- **The product name is ACP Red Star.** The binary is `acp-red-star`. `acp-rs-scraper` still runs, prints one deprecation line, and forwards its arguments through version 3. The library crate is `acp_red_star`. The shared core is `acp_red_star_node_core`. The encrypted database stays at `~/.acp/ai/data/rs.database`. `ACP_*` environment variables are unchanged. The GitHub repository URL is unchanged. The terminal UI shows the slogan "The future belongs to the working class" under that title on the welcome screen and the login screen, as the header of About, and at the right of the status bar when the bar is wide enough to leave the status text intact. With `NO_COLOR` or `--color never` the slogan is plain text.
-
 ### Added
 
-- **`--color auto|always|never`.** `auto` (the default) follows `NO_COLOR`. `always` forces colours on. `never` turns them off. `[ui] color` in `preferences.toml` is the default when the flag is omitted. When `NO_COLOR` is set and colours are off, the terminal UI says so at start, when a theme is chosen or edited, and in the theme picker and theme editor. View › Colour sets the same choice.
-- **`--limit N` on a nick scrape.** `acp-red-star --nick alice --limit 100` keeps the newest 100 posts from that profile (Posts, and Posts and replies). Omit it to scrape the whole profile. Replies in those threads are still fetched unless `--said-by`. `--crawl-limit` still only bounds the mentions scan. Start Scanning has the same field, Post limit, blank for the whole profile.
-- **Order and limit in the terminal UI.** Every post list has an order, newest or oldest: nick timelines, bookmarks, site lists (Top, EB, Explore, a tag, reposts), search results, research items, and the export basket. `o` toggles it, the nav bar shows `[Order: newest ▸]`, and View › Order sets it. Each list remembers its choice under `[ui.list_order]` in `~/.acp/preferences.toml`. Nested view orders roots and keeps replies under the root, oldest first. Flat layouts order every card. Site lists keep the site's order (oldest reverses it; Top stays a ranking). Edit history stays in version order. Search and the nick filter also take a limit: N items at the chosen end, blank for the whole list, the same window as `--order` and `--limit`. The status line shows the window (`search "strike": 100 of 236 posts · oldest`). `?` on one of these menu options opens its own Help topic.
-- **`--profile-feed` and `--order` on a nick scrape.** `--profile-feed newest` (the default) is the Latest profile. `--profile-feed top` is `/rs/@nick/top?t=all` only; other Top periods were not captured for profiles, and Posts and replies is not read on that feed. `--order newest` (the default) keeps the start of that list. `--order oldest` keeps the end, so `--limit` is the oldest N on the Latest profile, or the end of the Top ranking. `--latest` / `--trending` still only choose the mentions crawl. Start Scanning has Profile feed and Order. The Sync menu does not.
-- **Attachments on New post and Reply.** The compose box has an attach line: type a path and Enter. Tab on a non-empty line completes the next real path segment (`~` becomes `~/`, and `~/…` stays in that form). Several matches are listed; Tab, Up, and Down move through them, and Enter writes the highlighted one without attaching yet. An empty line, or a Tab that changes nothing, moves focus. Backspace on an empty line removes the last file. `--attachment PATH` repeats on `--new-post` and `--reply`; the shell completes that flag. Any file can be attached locally, including audio and documents. `--dry-run` lists each file (kind, name, size, and path) and does not upload it. `~/…` is stored as the expanded path.
-- **Site copy takes up to 4 images or videos.** The app, the local archive, and the network keep every file. Red Star accepts `image/*` and `video/*` only, at most 4, on the site copy. Audio, documents, and other types stay local: the picker shows them greyed out, with the reason, and they are never sent. More than 4 images or videos, with no choice, publish the first 4 of those and print a notice naming the ones left off. `--site-attachments` takes 1-based indexes (`1,3,5,6`). An index that names an ineligible file fails and names that file and the allowed kinds. The compose box opens a picker when there are more than 4 images or videos: Space toggles an eligible file, at most 4, Enter confirms, Esc leaves without publishing. Each stored file has `on_site` (older rows without the column count as on the site). Export JSON adds `"on_site"`. A confirmed publish still does not send.
-- **TUI path fields expand `~` and Tab-complete.** Export › Path, Import › Path, Research › Export to, Research › Local file, and Start Scanning › Output file complete one real path segment on Tab, the same way the compose attach line does. The argv the child runs expands `~` and `~/…`, because that child is not a shell.
-
-### Fixed
-
-- **Terminal UI login.** Entering the emailed code no longer fails with "websocket closed" and then drops the attempt. The login keeps the LiveView socket alive with Phoenix heartbeats while the code is read, reconnects and retries verification if that socket closes, and stays on the code step when the code is wrong. Resend code (F2) asks for another code on the same login. A finished login is written to `~/.acp/session.json`, the same file the command line writes. The command line also heartbeats while it waits at the prompt.
-- **Compressed export paths.** With Compress (tar.gz) on, a path that does not already end in `.tar.gz` or `.tgz` is no longer used as both the archive and the staging directory (that failed with "Is a directory"). A bare name gets `.tar.gz` appended (`resonance-cosmos` becomes `resonance-cosmos.tar.gz`). A directory, or a path ending in `/`, is `<dir>/<export-name>.tar.gz` (`Resonance Cosmos` becomes `resonance-cosmos.tar.gz`). The success log line is `wrote <final path>`. Export › Path still expands a leading `~` / `~/` before that child runs, so `~/resonance-cosmos.tar.gz` is `$HOME/resonance-cosmos.tar.gz` and not `./~/resonance-cosmos.tar.gz`.
+- **Attachments on New post and Reply.** The compose box has an attach line: type a path and Enter. Backspace on an empty line removes the last file. `--attachment PATH` repeats on `--new-post` and `--reply`. Media is avif, gif, jpg, jpeg, png, tif, tiff, webp, mkv, mov, mp4, or webm. A pdf is a file attachment. `--dry-run` lists each file (kind, name, size, and path) and does not upload it.
 
 ### Not sent
 
 - **The upload channel is not captured.** `allow_upload` and `lvu` are not built, so `media_attachments` and `file_attachments` are not encoded and no file bytes are sent. A confirmed publish still stops where 3.4.0 stopped: `validate` and `save` are not sent. Vote, subscribe, delete, edit, and repost are not in this release.
-
-### Confirmed
-
-- **The three attachment decisions.** `.jpeg` is accepted as jpg and `.tif` as tiff. There is no count cap and no size cap on the app, the archive, or the network. The site copy is a separate cap of 4. This release keeps 3.5.0. Interactions stay unstarted, and 3.10.0 and later, including the locked 3.22.0 re-key, are not shifted.
-- **v3 historical posts.** [docs/history/v3/redstar-v3-prelaunch-post.md](docs/history/v3/redstar-v3-prelaunch-post.md) is the coming-soon draft. The README links it. [docs/history/v3/redstar-v3-launch-post.md](docs/history/v3/redstar-v3-launch-post.md) is the launch post, written as if 3.x has fully shipped, and it is published only when 3.x is done. At the 3.0 release, switch the README link to that launch post.
-- **Server and relay packaging is parked on the alpha gate.** The server (`acp-rs`, `--serve`) and the relay (`acp-rs-relay`) each get a separate install, with its own binary, release artifact, and install path, and each stays available inside the app. No server or relay release is cut until writes and replies with attachments are functional and the decentralized network work is functional.
-- **Not an alpha.** Alpha packaging waits until writes and replies with attachments are sent and the decentralized network work is completed. This version does not add an alpha tag or release assets.
 
 ## [3.4.0] - 2026-10-19
 

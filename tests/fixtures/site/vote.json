@@ -9,9 +9,8 @@
     "value": {"id": "POST", "state": "1"}
   },
   "needed": [
-    "A LiveView frame for the vote hook with state 1 (upvote), 0 (clear), and -1 (downvote), including whether the payload is type hook and which component it targets",
-    "The phx_reply after each state: score, vote, and upvote_percentage",
-    "The server error when a vote is rejected",
-    "Whether a vote is debounced or rate-limited on the socket"
+    "On /rs/post/POST click the upvote control, click it again to clear, then click downvote. Record each websocket event and phx_reply",
+    "The reply must show score, vote, and upvote_percentage for state 1, 0, and -1, and whether the payload is a hook and which component it targets",
+    "A rejection, if one is cheap to cause, and whether the socket rate-limits the click"
   ]
 }

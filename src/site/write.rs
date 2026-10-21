@@ -351,7 +351,7 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
 }
 
 /// The captured editor stores a blank line as two `hardBreak` nodes inside one paragraph.
-fn collapse_blank_lines(doc: &mut Value) {
+pub(crate) fn collapse_blank_lines(doc: &mut Value) {
     let Some(arr) = doc.get_mut("content").and_then(Value::as_array_mut) else { return };
     let src = std::mem::take(arr);
     let mut out = Vec::new();
@@ -399,7 +399,7 @@ fn paragraph_inlines(node: &Value) -> Vec<Value> {
 }
 
 /// Percent-encoding used by the captured form value: space is `%20`.
-fn percent_encode(s: &str) -> String {
+pub(crate) fn percent_encode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         match b {
@@ -411,11 +411,12 @@ fn percent_encode(s: &str) -> String {
 }
 
 /// `form[thread_id]=…&form[body_input]=…`, with the brackets left literal, as in the capture.
-fn captured_form_value(fields: &[(String, String)]) -> String {
+pub(crate) fn captured_form_value(fields: &[(String, String)]) -> String {
     fields.iter().map(|(k, v)| format!("{k}={}", percent_encode(v))).collect::<Vec<_>>().join("&")
 }
 
-fn reply_event(ref_id: &str, event: &str, cid: u64, value: &str, validate: bool) -> Value {
+/// One captured form event. Validate carries `_target` and an empty `uploads` object. Save does not.
+pub(crate) fn reply_event(ref_id: &str, event: &str, cid: u64, value: &str, validate: bool) -> Value {
     let payload = if validate {
         json!({
             "type": "form",
@@ -515,9 +516,10 @@ pub fn dry_run_text(plan: &WritePlan) -> String {
 
 /// The guarded entry for a write that must not open a socket.
 ///
-/// Text publish does not call this. Vote, subscribe, delete, edit, repost,
-/// and `--capture-reply` do. Under test, a URL on `acp.us` panics so a future
-/// edit cannot reach the site from the harness.
+/// Text publish and a reply edit do not call this. Vote, subscribe, delete,
+/// repost, a top-level post edit, and `--capture-reply` do. Under test, a
+/// URL on `acp.us` panics so a future edit cannot reach the site from the
+/// harness.
 pub fn refuse_live_write(url: &str) -> Result<()> {
     check_test_host(url);
     bail!("{CAPTURE_BLOCK}");
@@ -526,7 +528,7 @@ pub fn refuse_live_write(url: &str) -> Result<()> {
 /// Under test, a URL on `acp.us` panics so a future edit cannot reach the site
 /// from the harness. Outside tests this is a no-op.
 #[cfg(test)]
-fn check_test_host(url: &str) {
+pub(crate) fn check_test_host(url: &str) {
     if let Ok(parsed) = Url::parse(url) {
         let host = parsed.host_str().unwrap_or("");
         if host == "acp.us" || host.ends_with(".acp.us") {
@@ -535,14 +537,15 @@ fn check_test_host(url: &str) {
     }
 }
 
+/// Outside tests this does not look at the host.
 #[cfg(not(test))]
-fn check_test_host(_url: &str) {}
+pub(crate) fn check_test_host(_url: &str) {}
 
 /// Shown when a write is still gated.
 ///
 /// Text posts and replies are published. Uploads and the uncaptured
 /// interactions are not.
-pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. Votes, subscribes, deletes, edits, and reposts are not sent. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
+pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. A reply edit sends validate, then save, once. Votes, subscribes, deletes, reposts, and top-level post edits are not sent. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
 
 /// `--capture-reply` stops here. It does not copy `session.json` or open a page.
 pub fn capture_stub_message(thread: &str) -> String {

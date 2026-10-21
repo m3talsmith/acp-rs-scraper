@@ -180,6 +180,30 @@ async fn stderr_has(w: &mut E2e, s: String) { assert!(w.last.stderr.contains(&s)
 #[then(expr = "stdout contains {string}")]
 async fn stdout_has(w: &mut E2e, s: String) { assert!(w.last.stdout.contains(&s), "stdout lacks {s:?}:\n{}", w.last.stdout); }
 
+#[then("stdout shows one validate frame and one save frame")]
+async fn edit_frames(w: &mut E2e) {
+    let s = &w.last.stdout;
+    assert!(s.contains("\"event\": \"validate\""), "{s}");
+    assert!(s.contains("\"event\": \"save\""), "{s}");
+    assert_eq!(s.matches("\"event\":").count(), 2, "{s}");
+}
+
+#[then(expr = "the site received {int} reply-edit validates and {int} reply-edit saves")]
+async fn edit_counts(w: &mut E2e, validates: i64, saves: i64) {
+    let i = w.mock().inner.lock().unwrap();
+    assert_eq!(i.edit_validates as i64, validates, "validates");
+    assert_eq!(i.edit_saves as i64, saves, "saves");
+}
+
+#[then(expr = "the reply-edit save value contains {string}")]
+async fn edit_save_value(w: &mut E2e, s: String) {
+    let i = w.mock().inner.lock().unwrap();
+    assert_eq!(i.edit_validate_value, i.edit_save_value, "validate and save differed");
+    assert!(i.edit_save_value.contains(&s), "save value lacks {s:?}: {}", i.edit_save_value);
+    assert!(!i.edit_save_value.contains("form[title]"), "{}", i.edit_save_value);
+    assert!(!i.edit_save_value.contains("form[thread_id]"), "{}", i.edit_save_value);
+}
+
 #[then(expr = "the site has bookmarks {string}")]
 async fn site_marks(w: &mut E2e, list: String) {
     let mut got = w.mock().inner.lock().unwrap().site_bookmarks.clone();

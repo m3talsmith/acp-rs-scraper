@@ -9,9 +9,8 @@
     "value": {"id": "THREAD", "state": "1"}
   },
   "needed": [
-    "A LiveView frame for the subscribe hook with state 1 and state 0, including whether the payload is type hook and which component it targets",
-    "Whether id is the thread id or the post id",
-    "The phx_reply that sets subscribed true or false",
-    "The server error when a subscribe is rejected"
+    "On /rs/post/THREAD click the subscribe control, then click it again to clear. Record both websocket events and phx_replies",
+    "Note whether id is the thread id. The reply must set subscribed true, then false",
+    "The server error when a subscribe is rejected, and whether the payload is a hook and which component it targets"
   ]
 }

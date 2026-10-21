@@ -101,6 +101,34 @@ impl Lv {
         Ok(lv)
     }
 
+    /// Leave the joined page and join `to` with a LiveView `redirect`.
+    ///
+    /// The reply edit capture opens the editor this way. The new render replaces
+    /// [`Lv::rendered`]. `_track_static` is omitted, the same way the compose join omits it.
+    pub async fn live_redirect(&mut self, page: &LvPage, to: &str) -> Result<()> {
+        self.push("phx_leave", json!({})).await.context("leaving the page before the edit")?;
+        let reply = self
+            .push(
+                "phx_join",
+                json!({
+                    "redirect": to,
+                    "params": {"_csrf_token": page.csrf, "_mounts": 0, "_live_referer": page.url},
+                    "session": page.session,
+                    "static": page.statik,
+                    "sticky": false,
+                }),
+            )
+            .await
+            .context("opening the edit page")?;
+        if reply["status"] != "ok" {
+            bail!("the edit page did not open: {}", crate::logging::redact_secrets(&reply.to_string()));
+        }
+        if let Some(rendered) = reply.pointer("/response/rendered") {
+            self.rendered = rendered.clone();
+        }
+        Ok(())
+    }
+
     /// Push an event and wait for its reply, merging every diff seen into [`Lv::rendered`].
     ///
     /// Phoenix heartbeats go out on [`LV_HEARTBEAT`] while the reply is outstanding.

@@ -1,0 +1,36 @@
+# A pull-request merge on GitHub creates the merge commit on the server, so
+# .githooks/post-commit never sees it. This workflow tags that bump on main.
+name: Tag version on main
+on:
+  push:
+    branches: [main]
+    paths:
+      - Cargo.toml
+permissions:
+  contents: write
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Tag the crate version when it changes
+        run: |
+          set -euo pipefail
+          ver() { sed -n 's/^version *= *"\(.*\)"/\1/p' | head -1; }
+          new_v=$(ver < Cargo.toml)
+          old_v=$(git show HEAD^:Cargo.toml | ver || true)
+          if [ -z "$new_v" ] || [ "$new_v" = "$old_v" ]; then
+            echo "Crate version unchanged ($new_v)."
+            exit 0
+          fi
+          tag="v$new_v"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "Tag $tag already exists; not moving it."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "acp-rs-scraper $new_v"
+          git push origin "refs/tags/$tag"

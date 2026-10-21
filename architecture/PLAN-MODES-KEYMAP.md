@@ -50,9 +50,11 @@ The services plan is the source of capability ids. This plan does not invent a s
 - Post mode on a Red Star post offers the Red Star capabilities that are ready. The same mode on an X post offers X's. The letter can be the same (`r` replies) because the action id is `reply` and the service is whichever object is focused.
 - The UI and the command line offer an action only when the focused or selected service implements that capability. A gated or not-ready action stays visible and shows the reason. A missing capability is omitted, so it has no key and no menu row.
 - An action never crosses services. The keymap names an action id. The dispatcher sends it to the focused object's service.
-- Global actions are not capabilities. Bookmarks, site search, edit history, help, quit, the source switcher, and keymap reload are globals. Their bindings are Ctrl chords.
+- Global actions are not capabilities. Bookmarks, site search, edit history, help, quit, the source switcher, keymap reload, and plugin reload are globals. Their bindings are Ctrl chords.
 
 The source switcher's default chord is `ctrl-]` (`view.source` in the keymap). It is a binding in the file, not a constant in the widgets. A user can change it.
+
+Plugin reload's action id is `plugins.reload`. Preferences › Services and this action call one loader. The default chord in the keymap file is `ctrl-p`. A remap changes the chord. The widgets do not hardcode it. Today's command palette also opens on Ctrl-P and on Ctrl-Space. This default gives `ctrl-p` to plugin reload. Ctrl-Space stays the palette.
 
 ---
 
@@ -69,6 +71,7 @@ The source switcher's default chord is `ctrl-]` (`view.source` in the keymap). I
 "ctrl-h" = "help.open"
 "ctrl-q" = "app.quit"
 "ctrl-k" = "keymap.reload"
+"ctrl-p" = "plugins.reload"  # pick up plugins placed in ~/.acp/plugins
 
 [mode.post]
 "r" = "reply"
@@ -78,6 +81,7 @@ The source switcher's default chord is `ctrl-]` (`view.source` in the keymap). I
 # Printable keys go to the field. These chords still work.
 "esc" = "insert.leave"
 "ctrl-k" = "keymap.reload"
+"ctrl-p" = "plugins.reload"
 ```
 
 That block is the shape, not the whole default. The shipped file lists every action the app has today, each with a comment naming the old fixed key.
@@ -88,7 +92,7 @@ Rules for the loader:
 - A key used twice in the same table is a conflict. The error names both lines.
 - A mode key and a Ctrl global do not collide: `r` and `ctrl-r` are different keys.
 - On error the message includes the file path and the line. The app keeps the map it had. It does not exit.
-- Preferences › Keymap edits this same file and calls this same loader. A reload action (`keymap.reload`, default `ctrl-k`) does too.
+- Preferences › Keymap edits this same file and calls this same loader. A reload action (`keymap.reload`, default `ctrl-k`) does too. Plugin reload (`plugins.reload`, default `ctrl-p`) is a different action: Preferences › Services and that chord call the plugin loader. The chord is remappable. The widgets do not hardcode it.
 
 Help, a tooltip, the action bar, and About ask the loaded map for the binding of an action in the current mode, and fall back to the global table. A missing binding shows the action with no key, not a hardcoded letter.
 
@@ -101,7 +105,7 @@ Help, a tooltip, the action bar, and About ask the loaded map for the binding of
 The current key match and the `Focus` enum stay the starting point. The work is to route those keys through the map.
 
 - Keys that act on the focused object move into that object's mode, keeping the letter when it still means the same thing (`r` replies in post mode). Bookmark, site search, and edit history stay global actions. The default file binds each one and comments the old key.
-- Keys that work from any pane (help, quit, source, reload) become Ctrl chords. F1 may remain a second binding for help in the default file, commented as a leftover of today's `?` and F1.
+- Keys that work from any pane (help, quit, source, keymap reload, plugin reload) become Ctrl chords. F1 may remain a second binding for help in the default file, commented as a leftover of today's `?` and F1.
 - Confirm dialogs keep Cancel as the default. `y` and `n` in the confirm mode are bindings, still with Cancel focused first.
 - Cucumber steps that press today's keys keep passing against the default file. New steps cover a remapped file.
 

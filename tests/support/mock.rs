@@ -56,6 +56,14 @@ pub struct Inner {
     pub theme_gets: usize,
     /// Cookie headers sent with `/themes/...` requests (there must be none).
     pub theme_cookies: Vec<String>,
+    /// Reply-edit `validate` events. A top-level post edit must stay at 0.
+    pub edit_validates: usize,
+    /// Reply-edit `save` events. One confirmed reply edit sends one.
+    pub edit_saves: usize,
+    /// Form value of the last reply-edit validate.
+    pub edit_validate_value: String,
+    /// Form value of the last reply-edit save.
+    pub edit_save_value: String,
 }
 
 /// Shared mock state.
@@ -273,46 +281,116 @@ async fn web_article(State(m): State<Mock>, headers: axum::http::HeaderMap) -> R
 async fn live(State(m): State<Mock>, ws: WebSocketUpgrade) -> Response { ws.on_upgrade(move |s| lv_conn(m, s)) }
 
 /// Which feed a joined LiveView pages: from its join URL and any `configure-feed`.
-struct Conn { nick: Option<String>, replies: bool, auth: bool, bookmarks: bool }
+struct Conn {
+    nick: Option<String>,
+    replies: bool,
+    auth: bool,
+    bookmarks: bool,
+    /// Reply id when this socket joined an edit page.
+    edit_id: Option<String>,
+    /// Thread of that reply. Empty when the id is a root post.
+    edit_thread: Option<String>,
+}
+
+const REPLY_EDIT_FORM: &str = r#"<div data-composer="true" data-mode="reply"><form id="js-postForm-form" method="put" phx-submit="save" phx-change="validate" phx-target="1"><textarea name="form[body_input]"></textarea></form></div>"#;
+const POST_EDIT_FORM: &str = r#"<div data-composer="true" data-mode="post"><form id="js-postForm-form" method="put" phx-submit="save" phx-change="validate" phx-target="1"><input name="form[title]" value=""><textarea name="form[body_input]"></textarea></form></div>"#;
+
+fn edit_id_from(redirect: &str) -> Option<String> {
+    let path = redirect.split('?').next().unwrap_or(redirect).trim_end_matches('/');
+    let mut parts = path.rsplit('/');
+    let last = parts.next()?;
+    if last != "edit" {
+        return None;
+    }
+    let id = parts.next().filter(|s| !s.is_empty())?;
+    Some(id.to_string())
+}
+
+fn reply_thread(id: &str) -> Option<&'static str> {
+    match id {
+        "R1" => Some("A1"),
+        "AR1" => Some("B1"),
+        "DR1" | "DR2" => Some("C1"),
+        "ER1" => Some("E1"),
+        _ => None,
+    }
+}
+
+fn edit_form_value(payload: &Value) -> Option<&str> {
+    let value = payload["value"].as_str()?;
+    let body = value.contains("form[body_input]=") || value.contains("form%5Bbody_input%5D=");
+    let other = value.contains("form[title]") || value.contains("form%5Btitle%5D") || value.contains("form[thread_id]") || value.contains("form%5Bthread_id%5D");
+    (body && !other).then_some(value)
+}
 
 fn reply(msg: &Value, response: Value) -> Message {
     Message::Text(json!([msg[0], msg[1], msg[2], "phx_reply", {"status": "ok", "response": response}]).to_string().into())
 }
 
 async fn lv_conn(m: Mock, mut ws: WebSocket) {
-    let mut c = Conn { nick: None, replies: false, auth: false, bookmarks: false };
+    let mut c = Conn { nick: None, replies: false, auth: false, bookmarks: false, edit_id: None, edit_thread: None };
     while let Some(Ok(Message::Text(t))) = ws.next().await {
         let Ok(msg) = serde_json::from_str::<Value>(&t) else { continue };
         let (event, payload) = (msg[3].as_str().unwrap_or(""), &msg[4]);
-        let out = match event {
+        let outs = match event {
             "phx_join" => {
-                let url = payload["url"].as_str().unwrap_or("");
-                c.auth = url.contains("/auth");
-                c.replies = url.contains("replies=1");
-                c.bookmarks = url.contains("/rs/bookmarks");
-                c.nick = url.split("/rs/@").nth(1).map(|r| r.split(['?', '/']).next().unwrap_or("").to_string());
-                let s = if c.auth { r#"<form phx-submit="send-login-email" phx-target="1"><input type="email" name="user[email]"></form>"# } else { "<div></div>" };
-                reply(&msg, json!({"rendered": {"s": [s]}}))
+                let redirect = payload["redirect"].as_str().unwrap_or("");
+                if let Some(id) = edit_id_from(redirect) {
+                    c.edit_thread = reply_thread(&id).map(str::to_string);
+                    c.edit_id = Some(id);
+                    let form = if c.edit_thread.is_some() { REPLY_EDIT_FORM } else { POST_EDIT_FORM };
+                    vec![reply(&msg, json!({"rendered": {"s": [form]}}))]
+                } else {
+                    let url = payload["url"].as_str().unwrap_or("");
+                    c.auth = url.contains("/auth");
+                    c.replies = url.contains("replies=1");
+                    c.bookmarks = url.contains("/rs/bookmarks");
+                    c.nick = url.split("/rs/@").nth(1).map(|r| r.split(['?', '/']).next().unwrap_or("").to_string());
+                    let s = if c.auth { r#"<form phx-submit="send-login-email" phx-target="1"><input type="email" name="user[email]"></form>"# } else { "<div></div>" };
+                    vec![reply(&msg, json!({"rendered": {"s": [s]}}))]
+                }
             }
             "event" => match (payload["type"].as_str(), payload["event"].as_str()) {
                 (Some("form"), Some("send-login-email")) => {
                     let v = payload["value"].as_str().unwrap_or("");
                     m.inner.lock().unwrap().login_emails.push(v.trim_start_matches("user%5Bemail%5D=").replace("%40", "@"));
-                    reply(&msg, json!({"diff": {"s": [r#"<form phx-submit="verify-code"><input type="text" name="user[code]"></form>"#]}}))
+                    vec![reply(&msg, json!({"diff": {"s": [r#"<form phx-submit="verify-code"><input type="text" name="user[code]"></form>"#]}}))]
                 }
-                (Some("form"), Some("verify-code")) => reply(&msg, json!({"diff": {"s": [
-                    r#"<form phx-trigger-action action="/auth/user/otp/sign_in" method="post"><input type="hidden" name="user[email]" value=""><input type="hidden" name="user[code]" value=""></form>"#]}})),
+                (Some("form"), Some("verify-code")) => vec![reply(&msg, json!({"diff": {"s": [
+                    r#"<form phx-trigger-action action="/auth/user/otp/sign_in" method="post"><input type="hidden" name="user[email]" value=""><input type="hidden" name="user[code]" value=""></form>"#]}}))],
+                (Some("form"), Some("validate")) if edit_form_value(payload).is_some() => {
+                    let value = edit_form_value(payload).unwrap_or("").to_string();
+                    let mut i = m.inner.lock().unwrap();
+                    i.edit_validates += 1;
+                    i.edit_validate_value = value;
+                    vec![reply(&msg, json!({"diff": {}}))]
+                }
+                (Some("form"), Some("save")) if edit_form_value(payload).is_some() => {
+                    let value = edit_form_value(payload).unwrap_or("").to_string();
+                    {
+                        let mut i = m.inner.lock().unwrap();
+                        i.edit_saves += 1;
+                        i.edit_save_value = value;
+                    }
+                    let id = c.edit_id.clone().unwrap_or_default();
+                    let thread = c.edit_thread.clone().unwrap_or_else(|| id.clone());
+                    let to = format!("/rs/post/{thread}/{id}");
+                    vec![
+                        reply(&msg, json!({"diff": {}})),
+                        Message::Text(json!([msg[0], serde_json::Value::Null, msg[2], "live_redirect", {"kind": "replace", "to": to}]).to_string().into()),
+                    ]
+                }
                 (Some("form"), Some("configure-feed")) => {
                     m.inner.lock().unwrap().configure_feed += 1;
                     c.replies = payload["value"].as_str().unwrap_or("").contains("replies=1");
                     let items = feed(&m.base, c.nick.as_deref(), c.replies);
-                    reply(&msg, json!({"diff": {"r": page_of(&items, 0)}}))
+                    vec![reply(&msg, json!({"diff": {"r": page_of(&items, 0)}}))]
                 }
                 (Some("hook"), Some("page-next")) => {
                     m.inner.lock().unwrap().page_next += 1;
                     let from = payload["value"]["cursor"].as_str().and_then(|s| s.parse().ok()).unwrap_or(0);
                     let items = if c.bookmarks { bookmark_feed(&m) } else { feed(&m.base, c.nick.as_deref(), c.replies) };
-                    reply(&msg, json!({"diff": {"r": page_of(&items, from)}}))
+                    vec![reply(&msg, json!({"diff": {"r": page_of(&items, from)}}))]
                 }
                 (Some("hook"), Some("bookmark")) => {
                     let id = payload["value"]["id"].as_str().unwrap_or("").to_string();
@@ -324,13 +402,15 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                         "0" => i.site_bookmarks.retain(|b| b != &id),
                         _ => {}
                     }
-                    reply(&msg, json!({"diff": {}}))
+                    vec![reply(&msg, json!({"diff": {}}))]
                 }
-                _ => reply(&msg, json!({"diff": {}})),
+                _ => vec![reply(&msg, json!({"diff": {}}))],
             },
-            _ => reply(&msg, json!({})),
+            _ => vec![reply(&msg, json!({}))],
         };
-        if ws.send(out).await.is_err() { break; }
+        for out in outs {
+            if ws.send(out).await.is_err() { return; }
+        }
     }
 }
 
