@@ -1,14 +1,20 @@
 //! Write core (3.4.0) and attachments (3.5.0): New post and Reply.
 //!
-//! The safety layer, the Markdown to ProseMirror writer, and the documented
-//! form frames live here. Publishing does not open a connection. The P0
-//! guided capture has not confirmed the submit payload or the upload channel,
-//! so validate, save, and `allow_upload` / `lvu` stay behind
-//! [`write::CAPTURE_BLOCK`]. Repost names the documented route and does not
-//! build the form. Vote, subscribe, delete, and edit are later minors.
+//! The safety layer, the Markdown to ProseMirror writer, and the reply frames
+//! live here. A root reply matches the approved P0 fixtures. Publishing does
+//! not open a connection. The guided capture has not confirmed the upload
+//! channel, so validate, save, and `allow_upload` / `lvu` stay behind
+//! [`write::CAPTURE_BLOCK`]. Vote, subscribe, and delete each build the
+//! documented hook and stop at the same gate. Edit keeps the one-hour window
+//! and does not build the form. Repost names the documented route and does
+//! not build the form.
 
 mod attach;
+pub mod delete;
+pub mod edit;
 pub mod repost;
+pub mod subscribe;
+pub mod vote;
 mod prosemirror;
 mod write;
 
@@ -40,6 +46,27 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.accept_site_update
         || args.site_attachments.is_some()
         || args.repost.is_some()
+        || args.delete.is_some()
+        || args.edit.is_some()
+        || args.subscribe.is_some()
+        || args.vote.is_some()
+}
+
+fn confirm_write(args: &Args, prompt: &str) -> Result<bool> {
+    if args.dry_run {
+        return Ok(false);
+    }
+    if args.yes {
+        return Ok(true);
+    }
+    if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+        eprint!("{prompt}");
+        io::stderr().flush()?;
+        let mut line = String::new();
+        io::stdin().read_line(&mut line)?;
+        return Ok(matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes"));
+    }
+    Ok(false)
 }
 
 /// Run a write command. Cancel prints `nothing sent` and returns Ok.
@@ -47,6 +74,73 @@ pub fn cli_requested(args: &Args) -> bool {
 pub fn run_cli(args: &Args) -> Result<()> {
     if let Some(thread) = args.capture_reply.as_deref() {
         bail!("{}", capture_stub_message(thread.trim()));
+    }
+    if let Some(id) = args.vote.as_deref() {
+        let state = args.vote_state.as_deref().unwrap_or("1");
+        let confirmed = confirm_write(args, "Vote? [y/N] ")?;
+        return match vote::present(id.trim(), state, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.subscribe.as_deref() {
+        let state = args.subscribe_state.as_deref().unwrap_or("1");
+        let confirmed = confirm_write(args, "Subscribe? [y/N] ")?;
+        return match subscribe::present(id.trim(), state, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.delete.as_deref() {
+        let confirmed = if args.dry_run {
+            false
+        } else if args.yes {
+            true
+        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            eprint!("Delete? Type yes: ");
+            io::stderr().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+            line.trim() == "yes"
+        } else {
+            false
+        };
+        return match delete::present(id.trim(), confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
+    }
+    if let Some(id) = args.edit.as_deref() {
+        let confirmed = if args.dry_run {
+            false
+        } else if args.yes {
+            true
+        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            eprint!("Edit? [y/N] ");
+            io::stderr().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+            matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
+        } else {
+            false
+        };
+        let now = chrono::Utc::now().timestamp();
+        return match edit::present(id.trim(), args.posted_at, now, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
     }
     if let Some(id) = args.repost.as_deref() {
         let confirmed = if args.dry_run {
@@ -212,20 +306,35 @@ mod tests {
         assert_eq!(plan.body["content"][0]["attrs"]["threadId"], "T1");
         assert_eq!(plan.body["content"][1]["type"], "blockquote");
         let names: Vec<_> = plan.fields.iter().map(|(k, _)| k.as_str()).collect();
-        assert_eq!(names, ["form[body_input]", "form[thread_id]"]);
-        let body = &plan.fields[0].1;
-        assert!(body.contains("postRef") && body.contains("agreed"));
+        assert_eq!(names, ["form[thread_id]", "form[body_input]"]);
+        let body = &plan.fields[1].1;
+        assert!(body.starts_with(r#"{"type":"doc","content":[{"type":"postRef""#), "{body}");
+        assert!(body.contains("agreed"));
+        let frames = liveview_frames(&plan);
+        assert_eq!(frames.len(), 2, "a validate after save is not built");
+        assert_eq!(frames[0][4]["event"], "validate");
+        assert_eq!(frames[0][4]["meta"]["_target"], "form[body_input]");
+        assert!(frames[0][4]["uploads"].as_object().unwrap().is_empty());
+        assert_eq!(frames[1][4]["event"], "save");
+        assert!(frames[1][4]["meta"].as_object().unwrap().is_empty());
+        assert!(frames[1][4].get("uploads").is_none());
+        assert!(!frames[1][4]["value"].as_str().unwrap().contains("_csrf_token"));
     }
 
     #[test]
-    fn reply_to_the_thread_root_has_no_post_ref() {
+    fn reply_to_the_thread_root_starts_with_post_ref() {
         let mut d = draft();
         d.title.clear();
         d.thread = Some("T1".into());
         d.body = "hello".into();
         let plan = prepare(&d).unwrap();
-        assert!(plan.body["content"].as_array().unwrap().iter().all(|n| n["type"] != "postRef"));
-        assert!(plan.fields.iter().any(|(k, v)| k == "form[thread_id]" && v == "T1"));
+        assert_eq!(plan.body["content"][0]["type"], "postRef");
+        assert_eq!(plan.body["content"][0]["attrs"]["postId"], "T1");
+        assert_eq!(plan.body["content"][0]["attrs"]["threadId"], "T1");
+        assert_eq!(plan.body["content"][1]["type"], "paragraph");
+        let names: Vec<_> = plan.fields.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(names, ["form[thread_id]", "form[body_input]"]);
+        assert_eq!(plan.fields[0].1, "T1");
     }
 
     #[test]
@@ -285,10 +394,11 @@ mod tests {
         d.html = Some(FORM.into());
         let plan = prepare(&d).unwrap();
         assert_eq!(plan.cid, 2);
-        assert!(plan.fields.iter().any(|(k, _)| k == "_csrf_token"));
+        let names: Vec<_> = plan.fields.iter().map(|(k, _)| k.as_str()).collect();
+        assert_eq!(names, ["form[thread_id]", "form[body_input]"]);
         let shown = dry_run_text(&plan);
         assert!(!shown.contains("SECRETSECRETSECRETSECRETSECRET12"), "{shown}");
-        assert!(shown.contains("[REDACTED]"), "{shown}");
+        assert!(!shown.contains("_csrf_token"), "{shown}");
     }
 
     #[test]
@@ -492,6 +602,73 @@ mod tests {
         assert!(auto.attachments.iter().skip(1).take(4).all(|a| a.on_site));
         assert!(auto.attachments.iter().skip(5).all(|a| !a.on_site));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn root_reply_frames_match_the_captured_fixtures() {
+        let validate: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/reply_validate.json")).unwrap();
+        let save: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/reply_save.json")).unwrap();
+        let join = include_str!("../../tests/fixtures/site/reply_join.json");
+        assert!(join.contains("js-postForm-form"), "the join render mounts the composer");
+        assert!(join.contains("phx-submit"));
+        assert!(join.contains("phx-change"));
+        assert!(join.contains("form[thread_id]"));
+        assert!(join.contains("form[body_input]"));
+        assert!(join.contains("<REDACTED:"));
+        assert!(!join.contains("eyJ"), "a live JWT must not be in the fixture");
+        assert!(join.contains("Attach PDF"), "the composer has a separate PDF input");
+        assert!(!join.to_ascii_lowercase().contains("audio/"));
+
+        let thread = "AaFV7IhwdC-iC6JuW97QMg";
+        let body = "Something that I haven;t noted yet, is that I'm building out a core set of crates in Rust, then building on top of those. These crates are made so that other's can build on top of them.\n\nI personally plan on building a Flutter based application to tap into the network. This will be basically a pretty wrapper around the Rust crates via FFI.";
+        let mut d = draft();
+        d.title.clear();
+        d.thread = Some(thread.into());
+        d.body = body.into();
+        let plan = prepare(&d).unwrap();
+        assert_eq!(plan.cid, 2);
+        assert_eq!(plan.page, format!("/rs/post/{thread}"));
+        let frames = liveview_frames(&plan);
+        assert_eq!(frames.len(), 2);
+
+        let captured_validate = &validate["frames"][2]["frame"][4];
+        let captured_save = &save["frames"][0]["frame"][4];
+        let captured_value = captured_save["value"].as_str().unwrap();
+        assert_eq!(captured_validate["value"].as_str().unwrap(), captured_value);
+        assert_eq!(frames[0][4]["type"], "form");
+        assert_eq!(frames[0][4]["event"], "validate");
+        assert_eq!(frames[0][4]["meta"], captured_validate["meta"]);
+        assert_eq!(frames[0][4]["uploads"], json!({}));
+        assert_eq!(frames[0][4]["cid"], 2);
+        assert_eq!(frames[0][4]["value"].as_str().unwrap(), captured_value);
+        assert_eq!(frames[1][4]["event"], "save");
+        assert_eq!(frames[1][4]["meta"], json!({}));
+        assert!(frames[1][4].get("uploads").is_none());
+        assert!(captured_save.get("uploads").is_none());
+        assert_eq!(frames[1][4]["cid"], 2);
+        assert_eq!(frames[1][4]["value"].as_str().unwrap(), captured_value);
+        assert_eq!(plan.body, validate["frames"][2]["body_input_parsed"]);
+
+        let trailing = &save["frames"][4];
+        assert_eq!(trailing["frame"][4]["event"], "validate");
+        assert!(trailing["note"].as_str().unwrap().contains("after save"));
+        let unmatched = &save["frames"][5]["frame"][4];
+        assert_eq!(unmatched["status"], "error");
+        assert_eq!(unmatched["response"]["reason"], "unmatched topic");
+        assert_eq!(save["frames"][2]["frame"][4]["e"][0][0], "thread:insert");
+        assert_eq!(save["frames"][3]["frame"][4]["e"][0][0], "saving");
+        assert_eq!(save["frames"][6]["frame"][3], "live_redirect");
+        assert_eq!(save["frames"][6]["frame"][4]["kind"], "replace");
+
+        let text = decide(&d, false, true).unwrap();
+        assert!(text.contains("dry-run: no connection opened"), "{text}");
+        assert!(text.contains("form[thread_id]="));
+        assert!(!text.contains("https://acp.us"), "{text}");
+        assert!(!text.contains("<REDACTED:"), "{text}");
+        let err = decide(&d, true, false).unwrap_err();
+        assert!(err.message.contains("nothing was published"), "{}", err.message);
+        assert!(err.message.contains("does not send them"), "{}", err.message);
+        assert!(err.message.contains(captured_value), "{}", err.message);
     }
 
     #[test]

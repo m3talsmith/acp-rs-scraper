@@ -127,6 +127,53 @@ pub trait Store {
     fn site_feed(&self, _key: &str) -> Result<Option<SiteFeed>> { Ok(None) }
     /// Stored edit versions of `post_id`, oldest first.
     fn post_versions(&self, _post_id: &str) -> Result<Vec<PostVersion>> { Ok(Vec::new()) }
+    /// Saved searches, newest first. The rows are queries, not results.
+    fn search_history(&self) -> Result<Vec<crate::storage::history::SavedQuery>> { Ok(Vec::new()) }
+    /// Remember `q`. `keep` `None` keeps the entire history; `Some(n)` keeps the newest n.
+    fn remember_search(&mut self, _q: &crate::storage::history::SavedQuery, _keep: Option<usize>) -> Result<()> { Ok(()) }
+    /// Delete saved searches. Posts and nicks stay.
+    fn clear_search_history(&mut self) -> Result<()> { Ok(()) }
+    /// The action-history document, when this store has one.
+    fn action_tree_body(&self) -> Result<Option<String>> { Ok(None) }
+    /// Replace the action-history document.
+    fn save_action_tree_body(&mut self, _body: &str) -> Result<()> { Ok(()) }
+}
+
+/// A saved row for `f`.
+pub fn saved_query(f: &SearchFilter, site: bool) -> crate::storage::history::SavedQuery {
+    crate::storage::history::SavedQuery {
+        keyword: f.keyword.trim().into(),
+        nicks: f.nicks.clone(),
+        post_id: f.post_id.trim().into(),
+        from: f.from.trim().into(),
+        to: f.to.trim().into(),
+        kind: match f.kind {
+            KindFilter::Any => "any",
+            KindFilter::Posts => "posts",
+            KindFilter::Replies => "replies",
+        }.into(),
+        site,
+        order: f.order.to_string(),
+        limit: f.limit,
+    }
+}
+
+/// The filter a saved row re-runs.
+pub fn filter_of(q: &crate::storage::history::SavedQuery) -> SearchFilter {
+    SearchFilter {
+        keyword: q.keyword.clone(),
+        nicks: q.nicks.clone(),
+        post_id: q.post_id.clone(),
+        from: q.from.clone(),
+        to: q.to.clone(),
+        kind: match q.kind.as_str() {
+            "posts" => KindFilter::Posts,
+            "replies" => KindFilter::Replies,
+            _ => KindFilter::Any,
+        },
+        order: ScrapeOrder::parse(&q.order).unwrap_or_default(),
+        limit: q.limit,
+    }
 }
 
 /// The stored file of research item `research:<id>`, as an attachment (local files, page snapshots).
@@ -265,6 +312,30 @@ impl Store for SqliteStore {
         let Some(c) = self.conn()? else { return Ok(Vec::new()) };
         load_post_versions(&c, post_id)
     }
+    fn search_history(&self) -> Result<Vec<crate::storage::history::SavedQuery>> {
+        let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        crate::storage::history::list(&c)
+    }
+    fn remember_search(&mut self, q: &crate::storage::history::SavedQuery, keep: Option<usize>) -> Result<()> {
+        if !self.path.exists() { return Ok(()); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::history::insert(&c, q, keep)
+    }
+    fn clear_search_history(&mut self) -> Result<()> {
+        if !self.path.exists() { return Ok(()); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::history::clear(&c)
+    }
+    fn action_tree_body(&self) -> Result<Option<String>> {
+        if !self.path.exists() { return Ok(None); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::history::load_action_body(&c)
+    }
+    fn save_action_tree_body(&mut self, body: &str) -> Result<()> {
+        if !self.path.exists() { return Ok(()); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::history::save_action_body(&c, body)
+    }
 }
 
 /// In-memory store (tests, headless renders).
@@ -284,6 +355,10 @@ pub struct MemStore {
     pub feeds: Vec<SiteFeed>,
     /// Stored edit versions (tests and headless renders).
     pub versions: Vec<PostVersion>,
+    /// Saved searches, newest first.
+    pub queries: Vec<crate::storage::history::SavedQuery>,
+    /// Action-history document. `None` until a branch is saved.
+    pub actions_body: Option<String>,
 }
 
 impl Store for MemStore {
@@ -335,6 +410,22 @@ impl Store for MemStore {
         let mut v: Vec<PostVersion> = self.versions.iter().filter(|x| x.post_id == post_id).cloned().collect();
         v.sort_by(|a, b| a.edited_at.cmp(&b.edited_at).then(a.version_hash.cmp(&b.version_hash)));
         Ok(v)
+    }
+    fn search_history(&self) -> Result<Vec<crate::storage::history::SavedQuery>> { Ok(self.queries.clone()) }
+    fn remember_search(&mut self, q: &crate::storage::history::SavedQuery, keep: Option<usize>) -> Result<()> {
+        self.queries.insert(0, q.clone());
+        if let Some(n) = keep { self.queries.truncate(n); }
+        Ok(())
+    }
+    fn clear_search_history(&mut self) -> Result<()> {
+        self.queries.clear();
+        self.actions_body = None;
+        Ok(())
+    }
+    fn action_tree_body(&self) -> Result<Option<String>> { Ok(self.actions_body.clone()) }
+    fn save_action_tree_body(&mut self, body: &str) -> Result<()> {
+        self.actions_body = Some(body.to_string());
+        Ok(())
     }
 }
 

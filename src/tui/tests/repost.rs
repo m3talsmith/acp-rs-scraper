@@ -17,6 +17,9 @@ fn repost_from_the_post_menu_is_blocked() {
     key(&mut a, KeyCode::Char('p'));
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Char('j'));
+    key(&mut a, KeyCode::Char('j'));
+    key(&mut a, KeyCode::Char('j'));
+    key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
     assert!(status.contains("nothing was published"), "{status}");

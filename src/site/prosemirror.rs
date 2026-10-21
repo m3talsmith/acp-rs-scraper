@@ -36,6 +36,54 @@ pub fn post_ref(post_id: &str, thread_id: &str) -> Value {
     json!({"type": "postRef", "attrs": {"postId": post_id, "threadId": thread_id}})
 }
 
+/// Compact JSON in the editor's key order: `type`, `attrs`, `content`, `text`,
+/// `marks`, then `postId` and `threadId`, then any other key alphabetically.
+///
+/// `serde_json` would sort every key. The captured `form[body_input]` does not.
+pub fn editor_json(v: &Value) -> String {
+    let mut out = String::new();
+    write_editor(v, &mut out);
+    out
+}
+
+fn write_editor(v: &Value, out: &mut String) {
+    match v {
+        Value::Null => out.push_str("null"),
+        Value::Bool(true) => out.push_str("true"),
+        Value::Bool(false) => out.push_str("false"),
+        Value::Number(n) => out.push_str(&n.to_string()),
+        Value::String(s) => out.push_str(&serde_json::to_string(s).unwrap_or_else(|_| "\"\"".into())),
+        Value::Array(items) => {
+            out.push('[');
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                write_editor(item, out);
+            }
+            out.push(']');
+        }
+        Value::Object(map) => {
+            out.push('{');
+            let mut keys: Vec<&String> = map.keys().collect();
+            const PREFERRED: &[&str] = &["type", "attrs", "content", "text", "marks", "postId", "threadId"];
+            keys.sort_by(|a, b| {
+                let rank = |k: &str| PREFERRED.iter().position(|p| *p == k).unwrap_or(PREFERRED.len());
+                rank(a).cmp(&rank(b)).then(a.cmp(b))
+            });
+            for (i, k) in keys.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                out.push_str(&serde_json::to_string(*k).unwrap_or_default());
+                out.push(':');
+                write_editor(&map[*k], out);
+            }
+            out.push('}');
+        }
+    }
+}
+
 /// Turn `markdown` into a `{type: doc}` document.
 pub fn markdown_to_doc(markdown: &str) -> Result<Value, PmError> {
     check_len(markdown)?;
