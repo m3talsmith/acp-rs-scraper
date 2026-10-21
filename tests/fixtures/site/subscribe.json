@@ -1,0 +1,17 @@
+{
+  "capture_status": "missing",
+  "source": "architecture/PLAN-3.0-CLIENT.md row 31, from the JS survey. Not a live capture.",
+  "event": "subscribe",
+  "states": ["1", "0"],
+  "documented_hook": {
+    "type": "hook",
+    "event": "subscribe",
+    "value": {"id": "THREAD", "state": "1"}
+  },
+  "needed": [
+    "A LiveView frame for the subscribe hook with state 1 and state 0, including whether the payload is type hook and which component it targets",
+    "Whether id is the thread id or the post id",
+    "The phx_reply that sets subscribed true or false",
+    "The server error when a subscribe is rejected"
+  ]
+}

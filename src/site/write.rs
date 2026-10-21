@@ -1,10 +1,10 @@
 //! A prepared New post or Reply, and the decision to send it.
 //!
-//! The form fields and the LiveView `type: form` encoding are the ones this
-//! client already uses for reads. `_target`, the upload channel, the
-//! mention-query reply, and the server's save reply are not invented: they
-//! stay on the omitted list until a guided capture confirms them. Confirming
-//! a publish does not open a connection.
+//! A root reply matches the approved P0 capture: `postRef` first, then
+//! `form[thread_id]` and `form[body_input]`. Validate carries `meta._target`
+//! and `uploads: {}`. Save carries an empty `meta` and no `uploads` key.
+//! Confirming a publish does not open a connection. The upload channel is
+//! still not sent.
 
 use super::attach::{self, PlannedAttachment};
 use super::prosemirror::{self, PmError};
@@ -46,7 +46,7 @@ fn err(message: impl Into<String>) -> WriteError {
 pub enum Kind {
     /// `/rs/post/new`.
     Post,
-    /// The thread page, with `form[thread_id]`.
+    /// The thread page. The body starts with `postRef`, and the form sends `form[thread_id]`.
     Reply,
 }
 
@@ -250,40 +250,66 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
         return Err(err("a new post needs a title"));
     }
     let quote = d.quote.as_deref().map(str::trim).filter(|s| !s.is_empty());
-    // A reply to the thread root uses form[thread_id] and no postRef.
-    // A reply to a comment, or a quote of a post, puts postRef first.
-    let post_ref_ids = match (kind, d.in_reply_to.as_deref(), d.quote_post.as_deref(), thread) {
-        (Kind::Reply, Some(post), _, Some(thread)) if !post.trim().is_empty() && post.trim() != thread => {
-            Some((post.trim(), thread))
+    // The captured root reply always starts with postRef. postId and threadId
+    // are both the thread id. A comment id here is the earlier inference: the
+    // capture did not include a reply to a comment.
+    let post_ref_ids = match (kind, thread) {
+        (Kind::Reply, Some(thread)) => {
+            let post = d
+                .in_reply_to
+                .as_deref()
+                .map(str::trim)
+                .filter(|s| !s.is_empty())
+                .or_else(|| d.quote_post.as_deref().map(str::trim).filter(|s| !s.is_empty()))
+                .unwrap_or(thread);
+            Some((post, thread))
         }
-        (Kind::Reply, _, Some(post), Some(thread)) if !post.trim().is_empty() => Some((post.trim(), thread)),
         _ => None,
     };
-    let body = prosemirror::assemble(&d.body, quote, post_ref_ids)?;
+    let mut body = prosemirror::assemble(&d.body, quote, post_ref_ids)?;
+    if kind == Kind::Reply {
+        // The captured editor stores a blank line as two hardBreak nodes in
+        // the same paragraph, not as a second paragraph node.
+        collapse_blank_lines(&mut body);
+    }
     let probe = d.html.as_deref().map(probe_html).unwrap_or_default();
     let cid = probe.cid.unwrap_or(match kind {
         Kind::Post => 1,
         Kind::Reply => 2,
     });
-    let body_json = serde_json::to_string(&body).map_err(|e| err(e.to_string()))?;
+    let body_json = prosemirror::editor_json(&body);
     let mut fields: Vec<(String, String)> = Vec::new();
-    if kind == Kind::Post {
+    if kind == Kind::Reply {
+        if let Some(thread) = thread {
+            fields.push(("form[thread_id]".into(), thread.to_string()));
+        }
+        fields.push(("form[body_input]".into(), body_json));
+    } else {
         fields.push(("form[title]".into(), title.clone()));
+        fields.push(("form[body_input]".into(), body_json));
+        for (k, v) in &probe.hidden {
+            fields.push((k.clone(), v.clone()));
+        }
     }
-    fields.push(("form[body_input]".into(), body_json));
-    if let Some(thread) = thread {
-        fields.push(("form[thread_id]".into(), thread.to_string()));
-    }
-    for (k, v) in &probe.hidden {
-        fields.push((k.clone(), v.clone()));
-    }
-    let mut omitted = vec![
-        "_target is not in a captured form, so it is not invented".into(),
-        "the upload channel (allow_upload / lvu) has not been captured, so media_attachments and file_attachments are not encoded and no file bytes are sent".into(),
-        "mention-query and tag-query replies have not been captured; completion is local and mention id is empty".into(),
-        "the save reply and the read-back of the new post have not been captured".into(),
-        "the LiveView topic and message ref are assigned on join; these frames use placeholders and no join is opened".into(),
-    ];
+    let mut omitted = if kind == Kind::Reply {
+        vec![
+            "the upload channel (allow_upload / lvu) has not been captured, so media_attachments and file_attachments are not encoded and no file bytes are sent".into(),
+            "PDF and audio are not sent. The composer has a separate PDF input and no audio input; neither upload was captured".into(),
+            "mention-query and tag-query replies have not been captured; completion is local and mention id is empty".into(),
+            "a reply to a comment sets postId to that comment; the capture only confirmed a root reply, where postId and threadId are both the thread id".into(),
+            "no validate is sent after save. The captured browser sent one, and the server answered unmatched topic".into(),
+            "join_ref, ref, and the LiveView topic are assigned on join; these frames use placeholders and no join is opened".into(),
+            "thread:insert, saving, and live_redirect are in the captured save reply; this build does not send save, so it does not apply them".into(),
+        ]
+    } else {
+        vec![
+            "_target is not in a captured new-post form, so it is not invented".into(),
+            "the upload channel (allow_upload / lvu) has not been captured, so media_attachments and file_attachments are not encoded and no file bytes are sent".into(),
+            "mention-query and tag-query replies have not been captured; completion is local and mention id is empty".into(),
+            "the new-post save reply has not been captured".into(),
+            "the LiveView topic and message ref are assigned on join; these frames use placeholders and no join is opened".into(),
+        ]
+    };
     if d.html.is_none() {
         omitted.push("hidden fields were not read; no page was opened".into());
     } else if !probe.found {
@@ -322,8 +348,100 @@ pub fn prepare(d: &Draft) -> Result<WritePlan, WriteError> {
     })
 }
 
-/// Two LiveView form events, validate then save, in the encoding [`crate::liveview::Lv::form_fields`] already sends.
+/// The captured editor stores a blank line as two `hardBreak` nodes inside one paragraph.
+fn collapse_blank_lines(doc: &mut Value) {
+    let Some(arr) = doc.get_mut("content").and_then(Value::as_array_mut) else { return };
+    let src = std::mem::take(arr);
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < src.len() {
+        if plain_paragraph(&src[i]) {
+            let mut inline = paragraph_inlines(&src[i]);
+            i += 1;
+            while i < src.len() && plain_paragraph(&src[i]) {
+                inline.push(json!({"type": "hardBreak"}));
+                inline.push(json!({"type": "hardBreak"}));
+                inline.extend(paragraph_inlines(&src[i]));
+                i += 1;
+            }
+            if inline.is_empty() {
+                out.push(json!({"type": "paragraph"}));
+            } else {
+                out.push(json!({"type": "paragraph", "content": inline}));
+            }
+        } else {
+            out.push(src[i].clone());
+            i += 1;
+        }
+    }
+    *arr = out;
+}
+
+fn plain_inline(node: &Value) -> bool {
+    matches!(node.get("type").and_then(Value::as_str), Some("text" | "hardBreak" | "mention"))
+}
+
+fn plain_paragraph(node: &Value) -> bool {
+    if node.get("type").and_then(Value::as_str) != Some("paragraph") {
+        return false;
+    }
+    match node.get("content") {
+        None => true,
+        Some(Value::Array(items)) => items.iter().all(plain_inline),
+        Some(_) => false,
+    }
+}
+
+fn paragraph_inlines(node: &Value) -> Vec<Value> {
+    node.get("content").and_then(Value::as_array).cloned().unwrap_or_default()
+}
+
+/// Percent-encoding used by the captured form value: space is `%20`.
+fn percent_encode(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    for b in s.bytes() {
+        match b {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            _ => out.push_str(&format!("%{b:02X}")),
+        }
+    }
+    out
+}
+
+/// `form[thread_id]=…&form[body_input]=…`, with the brackets left literal, as in the capture.
+fn captured_form_value(fields: &[(String, String)]) -> String {
+    fields.iter().map(|(k, v)| format!("{k}={}", percent_encode(v))).collect::<Vec<_>>().join("&")
+}
+
+fn reply_event(ref_id: &str, event: &str, cid: u64, value: &str, validate: bool) -> Value {
+    let payload = if validate {
+        json!({
+            "type": "form",
+            "event": event,
+            "meta": {"_target": "form[body_input]"},
+            "uploads": {},
+            "cid": cid,
+            "value": value,
+        })
+    } else {
+        json!({
+            "type": "form",
+            "event": event,
+            "meta": {},
+            "cid": cid,
+            "value": value,
+        })
+    };
+    json!(["1", ref_id, "lv:<id>", "event", payload])
+}
+
+/// Two LiveView form events, validate then save. No third frame is built:
+/// the captured browser sent a validate after save and got `unmatched topic`.
 pub fn liveview_frames(plan: &WritePlan) -> Vec<Value> {
+    if plan.kind == Kind::Reply {
+        let value = captured_form_value(&plan.fields);
+        return vec![reply_event("1", "validate", plan.cid, &value, true), reply_event("2", "save", plan.cid, &value, false)];
+    }
     let pairs: Vec<(&str, &str)> = plan.fields.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
     let value = form_query(&pairs);
     ["validate", "save"]
@@ -379,7 +497,7 @@ pub fn dry_run_text(plan: &WritePlan) -> String {
     }
     s.push('\n');
     s.push_str(&redact_secrets(&frames));
-    s.push_str("\n\nomitted until a guided capture confirms them:\n");
+    s.push_str("\n\nnot sent:\n");
     for line in &plan.omitted {
         s.push_str("- ");
         s.push_str(line);
@@ -413,13 +531,17 @@ fn check_test_host(url: &str) {
 fn check_test_host(_url: &str) {}
 
 /// Shown when a confirmed publish is refused.
-pub const CAPTURE_BLOCK: &str = "nothing was published. The P0 guided capture has not confirmed the submit payload or the upload channel, so validate, save, and file bytes are not sent. Run with --dry-run to print the documented frames and the local attachment list. --capture-reply does not send either.";
+///
+/// The root-reply validate and save frames are confirmed. This build still
+/// does not send them, and it does not send file bytes.
+pub const CAPTURE_BLOCK: &str = "nothing was published. The P0 reply capture confirmed the root-reply validate and save frames, and this build does not send them. The upload channel is not confirmed, so file bytes are not sent. Run with --dry-run to print the frames. --capture-reply does not send either.";
 
 /// `--capture-reply` stops here. It does not copy `session.json` or open a page.
 pub fn capture_stub_message(thread: &str) -> String {
     format!(
         "--capture-reply {thread} did not open a connection and did not copy session.json.\n{CAPTURE_BLOCK}\n\
-         Still stubbed: the read-only warm-up (join, form cids, /rs/notifications), _target, the changeset error shape, the upload channel, mention-query and tag-query replies, and read-back of the saved post."
+         The reviewed fixtures are tests/fixtures/site/reply_join.json, reply_validate.json, and reply_save.json. \
+         Still not sent: validate, save, a validate after save, the upload channel, mention-query and tag-query, and any live read-back."
     )
 }
 

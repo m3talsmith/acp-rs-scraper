@@ -17,6 +17,8 @@ fn an_old_post_is_outside_the_edit_window() {
     key(&mut a, KeyCode::Char('p'));
     key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Char('j'));
+    key(&mut a, KeyCode::Char('j'));
+    key(&mut a, KeyCode::Char('j'));
     key(&mut a, KeyCode::Enter);
     let status = a.status.iter().cloned().collect::<Vec<_>>().join("\n");
     assert!(status.contains("one hour"), "{status}");
