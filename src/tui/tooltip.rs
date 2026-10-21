@@ -98,6 +98,15 @@ fn menu_opt_tip(app: &App, k: usize) -> Option<Tip> {
 }
 
 fn modal_tip(app: &App, h: ModalHit) -> Option<Tip> {
+    if let (Some(crate::tui::modals::Modal::Rules(_)), ModalHit::Field(i)) = (&app.modal, h) {
+        let topic = match i {
+            0 => "rules-trigger",
+            1 | 2 => "rules-condition",
+            3 | 4 => "rules-action",
+            _ => "rules-priority",
+        };
+        return Some(tip("Rule", topic));
+    }
     let ModalHit::Button(i) = h else { return None };
     let (text, topic) = match &app.modal {
         Some(crate::tui::modals::Modal::Compose(_)) => {
@@ -107,6 +116,11 @@ fn modal_tip(app: &App, h: ModalHit) -> Option<Tip> {
         Some(crate::tui::modals::Modal::Help(_)) => ("Close Help (Esc)", "keys"),
         Some(crate::tui::modals::Modal::Login(_)) => ("Log in", "login"),
         Some(crate::tui::modals::Modal::Search(_)) => ("Search", "search"),
+        Some(crate::tui::modals::Modal::Rules(m)) => {
+            let label = m.buttons().get(i).copied().unwrap_or("Rules");
+            let topic = if label == "Clone" { "rules-clone" } else { "rules" };
+            (label, topic)
+        }
         Some(crate::tui::modals::Modal::Branches(_)) => ("Close", "actions"),
         _ => ("Close", "keys"),
     };

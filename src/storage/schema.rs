@@ -200,6 +200,35 @@ pub const SITE_STATE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_state (
             value TEXT NOT NULL
         );";
 
+/// Rules and the log of what they did (3.32.0). A system row is read-only.
+/// `trigger`, `conditions`, and `actions` are canonical JSON. Lower `priority` runs first.
+pub const RULES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS rules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            origin TEXT NOT NULL CHECK (origin IN ('system','user')),
+            enabled INTEGER NOT NULL DEFAULT 1,
+            priority INTEGER NOT NULL DEFAULT 100,
+            system_key TEXT,
+            cloned_from TEXT,
+            template_key TEXT,
+            trigger TEXT NOT NULL,
+            conditions TEXT NOT NULL,
+            actions TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS rules_system_key ON rules(system_key) WHERE system_key IS NOT NULL;
+        CREATE TABLE IF NOT EXISTS rule_firings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            rule_id INTEGER NOT NULL REFERENCES rules(id) ON DELETE CASCADE,
+            post_id TEXT,
+            source TEXT NOT NULL,
+            action TEXT NOT NULL,
+            outcome TEXT NOT NULL,
+            detail TEXT NOT NULL DEFAULT '',
+            fired_at TEXT NOT NULL
+        );";
+
 /// Backup bookkeeping inside the database. The archive files themselves live outside it.
 pub const BACKUPS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS backups (
             id INTEGER PRIMARY KEY,

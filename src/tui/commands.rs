@@ -183,6 +183,8 @@ pub enum Action {
     OpenMenu(CommandId),
     /// Discover has no network yet.
     DiscoverLater,
+    /// Sync › Rules.
+    OpenRules,
     /// View › Notifications. The saved list. Not an action-history step.
     OpenNotifications,
     /// Search › History. Re-run a saved query.
@@ -444,6 +446,7 @@ fn sync_item() -> MenuCommand {
         opt("bookmarks", "Bookmarks", "--no-bookmarks when off", false, check(true)),
         opt("now", "Sync now", "--sync", false, button(Action::SyncNow)),
         opt("save", "Save as default", "~/.acp/preferences.toml [sync]", false, button(Action::SaveSyncPrefs)),
+        opt_topic("rules", "Rules…", "--rules-list", "rules", false, button(Action::OpenRules)),
     ])
 }
 

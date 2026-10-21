@@ -205,6 +205,7 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
     c.execute_batch(crate::storage::notices::NOTICES_SCHEMA)?;
     c.execute_batch(POST_VERSIONS_SCHEMA)?;
     c.execute_batch(SITE_STATE_SCHEMA)?;
+    c.execute_batch(RULES_SCHEMA)?;
     Ok(())
 }
 

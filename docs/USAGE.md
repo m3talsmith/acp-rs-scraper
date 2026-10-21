@@ -101,7 +101,7 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
   | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; Colour; ◂ Previous post / Next post ▸ (TUI only) |
-  | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked |
+  | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; on a timer when Auto sync is ticked; Rules… (`--rules-list`) |
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
@@ -539,8 +539,23 @@ with `state` `"1"` or `"0"`, which is what the current page sends.
 
 | Flag | What it does |
 |---|---|
-| `--sync` | Log in, sync bookmarks, then incrementally scrape `--nick`/`--nicks` if given. No export unless `--output`; never prompts. |
+| `--sync` | Log in, sync bookmarks, then incrementally scrape `--nick`/`--nicks` if given. No export unless `--output`; never prompts. After the new rows are saved, enabled rules run on those rows only. |
 | `--no-bookmarks` | With `--sync`: skip the bookmark sync. |
+
+### Rules (offline)
+
+Sync › Rules is the same list as these flags. A system rule is read-only; clone it to edit, disable, or delete the copy. The shipped rule `synced-post` ("Synced post") starts off. Lower priority runs first. `--rules-preview` matches posts already stored and applies nothing. Import and export are TOML and JSON (`--rules-format toml|json`). Import always creates user rules.
+
+| Flag | What it does |
+|---|---|
+| `--rules-list` | List rules, lower priority first. `--rules-format json` prints JSON. |
+| `--rules-show NAME` | One rule, as TOML, or JSON with `--rules-format json`. |
+| `--rules-enable NAME` / `--rules-disable NAME` | A user rule only. |
+| `--rules-clone KEY` | Clone a system rule by its key (`synced-post`). The clone starts enabled. |
+| `--rules-delete NAME` | Delete a user rule. |
+| `--rules-priority NAME --rules-rank N` | Set priority on a system or user rule. |
+| `--rules-import PATH` / `--rules-export PATH` | TOML or JSON. The extension picks the format unless `--rules-format` is set. |
+| `--rules-preview` | Run enabled rules on stored posts and change nothing. |
 
 ### Import (offline)
 

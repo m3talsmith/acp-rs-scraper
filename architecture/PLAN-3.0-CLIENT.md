@@ -1341,6 +1341,8 @@ The client has the toasts, the saved list, the per-type switches, and do-not-dis
 
 ##### 3.32.0 Rule engine and editor
 
+The client has this engine. 3.32.0 stays the plan number and is not taken early. The crate version stays 3.5.0.
+
 A core engine in the library (`acp_red_star`, and the shared core if a later node needs the same evaluation). It is triggers, conditions, and actions. It runs when a sync commits new rows. By default it sees only data that sync just wrote. A dry-run previews the same rules against data already stored and applies nothing.
 
 **System rules and user rules.** The app ships a read-only set of system rules. The user can clone one. The clone is an ordinary user rule and can be edited, disabled, or deleted. The shipped original stays. User rules sit in the same list as the system rules, in the terminal editor and in `rules` on the command line. The app uses this set for its own notices instead of keeping a second, private path.
@@ -1400,7 +1402,7 @@ Presets on the 3.32.0 engine. There is no alert table, no alert runner, and no a
 - **Saved-search matches.** A saved search hit in the sync that just finished.
 - **Replies to me.** Someone replied to one of my posts.
 
-Evaluation is the engine's sync pass. Today that sync is Red Star. After peer and node sync (P9, 3.23.0 and later) the same rules run on those rows, and each firing records its source. A post fires at most once per rule. Notices are rate-limited. The toast and the log deep-link to the post in the terminal UI and carry the site URL.
+Evaluation is the engine's sync pass. Today that sync is Red Star. After peer and node sync (P9, 3.23.0 and later) the same rules run on those rows, and each firing records its source. A post fires at most once per rule. Notices are not capped. The toast and the log deep-link to the post in the terminal UI and carry the site URL.
 
 A saved search is a pinned query plus its filters, stored in the encrypted database, including order and limit. That storage is the search-history work now on main (merged from #10, §7.14.5). The minor for search history stays unnumbered.
 

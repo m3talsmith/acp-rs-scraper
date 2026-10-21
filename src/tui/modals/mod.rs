@@ -13,6 +13,7 @@ pub mod message;
 pub mod palette;
 pub mod post;
 pub mod research;
+pub mod rules;
 pub mod search;
 pub mod theme_picker;
 
@@ -30,6 +31,7 @@ pub use message::*;
 pub use palette::*;
 pub use post::*;
 pub use research::*;
+pub use rules::*;
 pub use search::*;
 pub use theme_picker::*;
 
@@ -94,6 +96,8 @@ pub enum Modal {
     Compose(ComposeModal),
     /// Name, slogan, and a star. The credits stay hidden.
     About(AboutModal),
+    /// Sync › Rules. System rows are read-only.
+    Rules(RulesModal),
     /// Saved searches. Choosing one re-runs it.
     History(HistoryModal),
     /// Action-history paths. Choosing one restores that path.
@@ -110,6 +114,7 @@ impl Modal {
             Modal::Job(m) => m,
             Modal::Compose(m) => m,
             Modal::About(m) => m,
+            Modal::Rules(m) => m,
             Modal::History(m) => m,
             Modal::Branches(m) => m,
         }
