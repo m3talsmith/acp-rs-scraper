@@ -441,6 +441,20 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         Modal::Job(m) => draw_job(f, app, area, m, &t),
         Modal::Compose(m) => draw_compose(f, app, area, m, &t),
         Modal::About(m) => draw_about(f, app, area, m, &t),
+        Modal::Branches(m) => {
+            let rows = m.rows.len().max(1) as u16;
+            let r = modal_rect(area, 72, rows + 4);
+            let inner = frame(f, &t, r, "Branches · Enter restores · Esc closes");
+            for (i, row) in m.rows.iter().enumerate() {
+                if i as u16 >= inner.height.saturating_sub(1) { break; }
+                let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+                let st = if i == m.cursor { t.selected() } else { t.plain() };
+                let mark = if i == m.cursor { "● " } else { "  " };
+                f.render_widget(Paragraph::new(Span::styled(format!("{mark}{row}"), st)), rr);
+                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], None);
+        }
         Modal::History(h) => {
             let rows = h.rows.len().max(1) as u16;
             let r = modal_rect(area, 72, rows + 4);

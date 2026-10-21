@@ -2,6 +2,7 @@
 //! closing with [`ModalResult::ClosedCancelled`] or [`ModalResult::ClosedSubmitted`].
 
 pub mod about;
+pub mod branches;
 pub mod compose;
 pub mod confirm;
 pub mod help;
@@ -18,6 +19,7 @@ pub mod theme_picker;
 use crossterm::event::KeyEvent;
 
 pub use about::*;
+pub use branches::*;
 pub use compose::*;
 pub use confirm::*;
 pub use help::*;
@@ -94,6 +96,8 @@ pub enum Modal {
     About(AboutModal),
     /// Saved searches. Choosing one re-runs it.
     History(HistoryModal),
+    /// Action-history paths. Choosing one restores that path.
+    Branches(BranchesModal),
 }
 
 impl Modal {
@@ -107,6 +111,7 @@ impl Modal {
             Modal::Compose(m) => m,
             Modal::About(m) => m,
             Modal::History(m) => m,
+            Modal::Branches(m) => m,
         }
     }
 }

@@ -86,6 +86,102 @@ fn the_nick_bar_collapses() {
     assert!(a.actions_open);
 }
 
+fn labels(a: &App, branch: usize) -> Vec<String> {
+    a.branches[branch].steps.iter().map(|s| s.label.clone()).collect()
+}
+
+fn search(a: &mut App, keyword: &str) {
+    a.run_search(SearchFilter { keyword: keyword.into(), ..Default::default() });
+}
+
+#[test]
+fn the_action_bar_keeps_every_step_and_scrolls() {
+    let mut a = app();
+    for i in 0..50 { search(&mut a, &format!("s{i:02}")); }
+    assert_eq!(a.action_steps().len(), 50);
+    assert_eq!(a.branches.len(), 1);
+    a.actions_open = true;
+    a.focus = crate::tui::state::Focus::Actions;
+    a.action_scroll = 0;
+    a.action_cursor = 0;
+    let s = render(&mut a, 140, 24);
+    assert!(s.contains("/50"), "{s}");
+    assert!(s.contains("s00"), "{s}");
+    let (r, _) = *a.hits.iter().rev().find(|(_, h)| matches!(h, Hit::Action(_))).unwrap();
+    on_mouse(&mut a, MouseEvent { kind: MouseEventKind::ScrollDown, column: r.x, row: r.y, modifiers: KeyModifiers::NONE });
+    assert!(a.action_scroll >= 3, "{}", a.action_scroll);
+    a.focus = crate::tui::state::Focus::Actions;
+    on_key(&mut a, KeyEvent::new(KeyCode::PageDown, KeyModifiers::NONE));
+    assert!(a.action_scroll > 3, "{}", a.action_scroll);
+    a.scroll_actions(1_000);
+    let s = render(&mut a, 140, 24);
+    assert!(s.contains("s49"), "{s}");
+    click(&mut a, Hit::Action(49));
+    assert_eq!(a.search.as_ref().unwrap().filter.as_ref().unwrap().keyword, "s49");
+    assert_eq!(a.action_steps().len(), 50);
+    click(&mut a, Hit::ToggleActions);
+    assert!(!a.actions_open);
+}
+
+#[test]
+fn a_jump_then_a_new_step_forks_the_old_branch() {
+    let mut a = app();
+    search(&mut a, "strike");
+    search(&mut a, "planning");
+    a.open_bookmarks();
+    assert_eq!(labels(&a, 0), ["Search: \"strike\"", "Search: \"planning\"", "Bookmarks"]);
+    a.jump_action(0);
+    assert_eq!(a.search.as_ref().unwrap().filter.as_ref().unwrap().keyword, "strike");
+    search(&mut a, "docks");
+    assert_eq!(a.branches.len(), 2);
+    assert_eq!(a.branch_at, 1);
+    assert_eq!(labels(&a, 1), ["Search: \"strike\"", "Search: \"docks\""]);
+    assert_eq!(labels(&a, 0), ["Search: \"strike\"", "Search: \"planning\"", "Bookmarks"]);
+    a.actions_open = true;
+    a.focus = crate::tui::state::Focus::Actions;
+    on_key(&mut a, KeyEvent::new(KeyCode::Char('b'), KeyModifiers::NONE));
+    match &a.modal {
+        Some(crate::tui::modals::Modal::Branches(m)) => assert_eq!(m.cursor, 1),
+        other => panic!("{other:?}"),
+    }
+    on_key(&mut a, KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    on_key(&mut a, KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
+    assert_eq!(a.branch_at, 0);
+    assert!(a.search.as_ref().unwrap().bookmarks);
+    assert_eq!(labels(&a, 0), ["Search: \"strike\"", "Search: \"planning\"", "Bookmarks"]);
+    assert_eq!(a.action_at, 2);
+}
+
+#[test]
+fn branches_survive_a_restart_and_clear_history_drops_them() {
+    let dir = std::env::temp_dir().join(format!("acp-actions-db-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("rs.database");
+    crate::storage::db::open_db(&path).unwrap();
+    let mut a = App::new(Box::new(crate::tui::data::SqliteStore::new(path.clone())), &no_args(), Theme::acp(), false);
+    search(&mut a, "strike");
+    a.open_bookmarks();
+    a.jump_action(0);
+    search(&mut a, "docks");
+    assert_eq!(a.branches.len(), 2);
+    drop(a);
+    let mut b = App::new(Box::new(crate::tui::data::SqliteStore::new(path.clone())), &no_args(), Theme::acp(), false);
+    assert_eq!(b.branches.len(), 2);
+    assert_eq!(b.branch_at, 1);
+    assert_eq!(labels(&b, 1), ["Search: \"strike\"", "Search: \"docks\""]);
+    assert_eq!(labels(&b, 0), ["Search: \"strike\"", "Bookmarks"]);
+    b.switch_branch(0);
+    assert!(b.search.as_ref().unwrap().bookmarks, "the old branch restores its tip");
+    assert_eq!(b.action_steps().len(), 2);
+    b.act(Action::ClearSearchHistory);
+    assert!(b.branches.is_empty());
+    assert!(b.store.action_tree_body().unwrap().is_none());
+    let c = crate::storage::db::open_db(&path).unwrap();
+    assert!(crate::storage::history::list(&c).unwrap().is_empty());
+    assert!(crate::storage::history::load_action_body(&c).unwrap().is_none());
+}
+
 #[test]
 fn a_search_export_argv_carries_the_query_json() {
     let mut m = crate::tui::commands::Menu::new(&no_args());

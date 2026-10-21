@@ -20,6 +20,12 @@ pub const SEARCH_HISTORY_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS search_histo
             limit_n INTEGER
         );";
 
+/// The action-history tree, one JSON document, in the same database.
+pub const ACTION_TREE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS action_tree (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            body TEXT NOT NULL
+        );";
+
 /// One saved search. `limit` `None` keeps every match.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct SavedQuery {
@@ -112,10 +118,27 @@ impl SavedQuery {
     }
 }
 
-/// Create the table when it is missing.
+/// Create the tables when they are missing.
 pub fn ensure(c: &Connection) -> Result<()> {
     c.execute_batch(SEARCH_HISTORY_SCHEMA)?;
+    c.execute_batch(ACTION_TREE_SCHEMA)?;
     Ok(())
+}
+
+/// Replace the saved action-history document.
+pub fn save_action_body(c: &Connection, body: &str) -> Result<()> {
+    ensure(c)?;
+    c.execute(
+        "INSERT INTO action_tree (id, body) VALUES (1, ?1) ON CONFLICT(id) DO UPDATE SET body = ?1",
+        params![body],
+    )?;
+    Ok(())
+}
+
+/// The saved action-history document, when one has been written.
+pub fn load_action_body(c: &Connection) -> Result<Option<String>> {
+    if !crate::maintenance::table_exists(c, "action_tree")? { return Ok(None); }
+    c.query_row("SELECT body FROM action_tree WHERE id = 1", [], |r| r.get(0)).optional().map_err(Into::into)
 }
 
 /// Insert `q` and, when `keep` is set, drop rows older than the newest `keep`.
@@ -161,10 +184,11 @@ pub fn list(c: &Connection) -> Result<Vec<SavedQuery>> {
     rows.collect::<rusqlite::Result<_>>().map_err(Into::into)
 }
 
-/// Delete the saved queries. Posts, nicks, and preferences stay.
+/// Delete the saved queries and the action-history branches. Posts, nicks, and preferences stay.
 pub fn clear(c: &Connection) -> Result<()> {
     ensure(c)?;
     c.execute("DELETE FROM search_history", [])?;
+    c.execute("DELETE FROM action_tree", [])?;
     Ok(())
 }
 
@@ -202,6 +226,18 @@ mod tests {
             keyword: keyword.into(), nicks: Vec::new(), post_id: String::new(), from: String::new(), to: String::new(),
             kind: "any".into(), site: false, order: "newest".into(), limit: None,
         }
+    }
+
+    #[test]
+    fn action_branches_round_trip_and_clear_drops_them() {
+        let c = Connection::open_in_memory().unwrap();
+        let body = r#"{"current":1,"at":0,"branches":[{"name":"1","steps":[]}]}"#;
+        save_action_body(&c, body).unwrap();
+        assert_eq!(load_action_body(&c).unwrap().as_deref(), Some(body));
+        insert(&c, &q("one"), None).unwrap();
+        clear(&c).unwrap();
+        assert!(load_action_body(&c).unwrap().is_none());
+        assert!(list(&c).unwrap().is_empty());
     }
 
     #[test]

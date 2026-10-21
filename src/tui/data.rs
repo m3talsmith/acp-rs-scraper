@@ -133,6 +133,10 @@ pub trait Store {
     fn remember_search(&mut self, _q: &crate::storage::history::SavedQuery, _keep: Option<usize>) -> Result<()> { Ok(()) }
     /// Delete saved searches. Posts and nicks stay.
     fn clear_search_history(&mut self) -> Result<()> { Ok(()) }
+    /// The action-history document, when this store has one.
+    fn action_tree_body(&self) -> Result<Option<String>> { Ok(None) }
+    /// Replace the action-history document.
+    fn save_action_tree_body(&mut self, _body: &str) -> Result<()> { Ok(()) }
 }
 
 /// A saved row for `f`.
@@ -322,6 +326,16 @@ impl Store for SqliteStore {
         let c = crate::storage::db::open_db(&self.path)?;
         crate::storage::history::clear(&c)
     }
+    fn action_tree_body(&self) -> Result<Option<String>> {
+        if !self.path.exists() { return Ok(None); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::history::load_action_body(&c)
+    }
+    fn save_action_tree_body(&mut self, body: &str) -> Result<()> {
+        if !self.path.exists() { return Ok(()); }
+        let c = crate::storage::db::open_db(&self.path)?;
+        crate::storage::history::save_action_body(&c, body)
+    }
 }
 
 /// In-memory store (tests, headless renders).
@@ -343,6 +357,8 @@ pub struct MemStore {
     pub versions: Vec<PostVersion>,
     /// Saved searches, newest first.
     pub queries: Vec<crate::storage::history::SavedQuery>,
+    /// Action-history document. `None` until a branch is saved.
+    pub actions_body: Option<String>,
 }
 
 impl Store for MemStore {
@@ -403,6 +419,12 @@ impl Store for MemStore {
     }
     fn clear_search_history(&mut self) -> Result<()> {
         self.queries.clear();
+        self.actions_body = None;
+        Ok(())
+    }
+    fn action_tree_body(&self) -> Result<Option<String>> { Ok(self.actions_body.clone()) }
+    fn save_action_tree_body(&mut self, body: &str) -> Result<()> {
+        self.actions_body = Some(body.to_string());
         Ok(())
     }
 }
