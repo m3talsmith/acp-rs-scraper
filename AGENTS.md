@@ -2,6 +2,7 @@
 
 These are Michael's standing rules for anyone (human or agent) working in this repo.
 Follow them on every change. When a rule conflicts with a task prompt, ask Michael.
+All rule changes and additions go in this file.
 
 ## Releases and versioning
 - **One minor bump per feature, one patch bump per fix.** Several features in one change means several minor bumps.
@@ -33,6 +34,16 @@ Follow them on every change. When a rule conflicts with a task prompt, ask Micha
 - Installs come from GitHub Releases binaries or building from source.
 - Themes: TOML files in `~/.acp/themes/`. Keep the theme system in sync with grokbot-tui: when themes change here, note it so the change can be ported there (and vice versa).
 - Decentralization uses libp2p.
+
+## Services, input and UX
+- Every service is its own crate behind the Service and capability traits, Red Star included. The UI and the CLI offer an action only when the focused or selected service implements that capability. A gated or not-ready action shows the reason.
+- Red Star is on by default. Every other service is off until the user turns it on in Services preferences.
+- Credentials, keys, tokens, and cookies are sealed in the encrypted database and are never stored in a file. Other per-service settings live in `~/.acp/services/<service>.toml`.
+- A service starts on the user's logged-in session. The user can make that service's API the default. A metered API has a monthly cap and a per-run cap, an estimate, and a confirm before spending.
+- A write across services asks once and sends to every service where that write is ready. The others are skipped. The preview and `--dry-run` name each skipped service and the reason. Cancel is the default.
+- Every action that notifies implements the Notification trait.
+- Plugins use the registrar pattern in `architecture/PLAN-SCRAPERS.md`, including the version and ABI check. A plugin is enabled explicitly and is never downloaded by the app.
+- Input is modal. Focus sets the mode. Global keys are Ctrl-<key>. Every other key is a mode hotkey. Help, tooltips, the action bar, and docs show the active keymap, not a hardcoded key. Bindings live in `~/.acp/keymap.toml`, reload in the app, and edit in Preferences. The design is `architecture/PLAN-MODES-KEYMAP.md`.
 
 ## Docs
 - README: the current version under the banner, install instructions near the top, then the full `--help` block. Keep the help block identical to the real `--help` output.
