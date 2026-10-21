@@ -1,6 +1,8 @@
-# Interaction capture (2026-10-21 audit)
+# Interaction capture (2026-10-21 audit, reply edit 2026-10-21)
 
-Plan **3.37.0** checked vote, subscribe, delete, edit, and repost against the frames already in this repository. None of them have a proven websocket frame. All five stay behind `CAPTURE_BLOCK`. A confirm still sends nothing. `--dry-run` prints the stub and does not connect.
+Vote, subscribe, delete, and repost still have no proven websocket frame. They stay behind `CAPTURE_BLOCK`. A confirm still sends nothing. `--dry-run` prints the stub and does not connect.
+
+A reply-body edit is captured and sent. The open is `phx_leave`, then `phx_join` with `redirect` `/rs/post/{reply}/edit` (`sticky` false, `_mounts` 0, no `_track_static`). The mounted form is `js-postForm-form`, `method="put"`, `data-mode="reply"`, `phx-submit="save"`, `phx-change="validate"`, `phx-target="1"`, and the only field is `form[body_input]`. The client sends one validate (`_target` `form[body_input]`, empty `uploads`, cid 1) and one save (empty `meta`, no `uploads` key). It does not send the keystroke validates, the trailing validate that got `unmatched topic`, or `mention-query`, `view-post`, `refresh-posts`, and `lv:clear-flash`. Success is the `live_redirect` to `/rs/post/{thread}/{reply}`. The masked shape is `tests/fixtures/site/edit.json`. A `postRef` already on the reply is not copied: dry-run cannot see it, and the sent body matches the printed body. A top-level post edit, attachment replace, and the over-one-hour refusal frame are still needed. Those stay behind `CAPTURE_BLOCK`.
 
 What exists today is a 2026-10-18 JavaScript survey (plan rows 26–31) plus the stubs in `tests/fixtures/site/{vote,subscribe,delete,edit,repost}.json`. Each stub says `"capture_status": "missing"`. The documented hook names (`vote`, `subscribe`, `delete-post`) and the routes (`/rs/post/{id}/edit`, `/rs/post/new?repost={id}`) are not a live `phx` frame. The reply join in `tests/fixtures/site/reply_join.json` shows post props (`score`, `vote`, `upvote_percentage`, `subscribed`, and `actions` for delete, edit, and repost). Those props are the render. They are not the click.
 
@@ -42,20 +44,18 @@ Clicks:
 
 Record the event, the dialog text, the `phx_reply`, and any `feed:delete` or tombstone diff. Note whether the body stays readable. This client's Delete still asks you to type yes and then does not send.
 
-## Edit — gated
+## Edit — reply body is sent; the rest stay gated
 
-Page: within one hour of a post you own, click Edit. The survey route is `https://acp.us/rs/post/POST/edit`. If the click opens a different URL, record that URL.
+A reply-body edit is in the client (crate 3.33.0). `--edit REPLY --body TEXT` sends validate, then save, once, after `Edit? [y/N]` and `Type yes`. `--dry-run` prints those frames and does not connect. The one-hour window still refuses before a connection.
 
-Clicks:
+Still needed, and still behind `CAPTURE_BLOCK`:
 
-1. Change only the title, then save. The check post's title typo was already corrected on the website, so this is a further title-only change, or the HAR of that website edit if it was recorded. Do not treat the typo fix as this frame unless the websocket for it was saved.
-2. On a second pass, change only the body, then save.
-3. Edit: replace attachment. On the check post that already has the PNG, click Edit, remove the existing image, upload a different small image, then save.
-4. If you can open a post older than one hour, click Edit and record the refusal. Do not post a new one just to wait out the hour unless you mean to.
+1. Change only the title of a top-level post, then save. The survey route is `https://acp.us/rs/post/POST/edit`. The reply capture opened `/rs/post/{reply}/edit` and had no `form[title]`. A page with a title field is refused and nothing is sent.
+2. On a second pass, change only the body of that top-level post, then save.
+3. Edit: replace attachment. On the check post that already has the PNG, click Edit, remove the existing image, upload a different small image, then save. Record the removal frame and the new file's `allow_upload`, the `lvu` join, the binary `chunk` frames, and `progress`. Until those frames are in the tree, `--attachment` with `--edit` is refused.
+4. If you can open a post older than one hour, click Edit and record the refusal. The client already refuses from the timestamp. The site's own refusal frame is still useful.
 
-Record the LiveView join (form id, `phx-submit`, `phx-change`, and cid), the validate payload, and the save payload. The save has to show which keys are omitted when a field did not change. Also record the reply (`thread:update-post` or whatever the site actually pushes).
-
-For the replace-attachment click, record two more things and do not summarize them away. First, the frame that removes the image already on the post (the event name, the payload, and the reply). Second, the new file's `allow_upload`, the `lvu` join, the binary `chunk` frames, and `progress`, the same channel a new post uses. This client does not build the form and does not send a removal or an upload on edit. When those frames are in the tree, an edit that replaces an attachment reuses the 3.36.0 `allow_upload` / `lvu` path for the new file and sends the removal frame the capture shows. Until then the edit stays gated. An edit older than one hour is refused before the confirm.
+The reply capture kept a leading `postRef` (a quote of another post). This client does not copy that node, because dry-run cannot see the mounted document and the sent bytes have to match the print. Say if that quote should be kept automatically.
 
 ## Repost — gated
 

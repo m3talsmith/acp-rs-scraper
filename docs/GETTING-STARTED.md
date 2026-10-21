@@ -10,7 +10,7 @@ This walkthrough is the Getting started topic in Help (`?` or F1, then search `g
 
 `architecture/SPECS.md` and `architecture/PLAN-2.0-TUI.md` still describe the 2.0 design. The client has moved on. This walkthrough follows the app. Hover a control for a short explanation. The `?` on that tooltip opens the Help topic for that action.
 
-A text post or reply is sent. Images, videos, and PDFs on that post are uploaded first, at most 4. Other files stay on this machine and are named. `--dry-run` prints the frames and the upload plan and does not connect. Votes, subscribes, deletes, edits, and reposts stay gated. 3.37.0 checked those five and found no live frame. The clicks to record are `architecture/INTERACTIONS-CAPTURE.md`.
+A text post or reply is sent. Images, videos, and PDFs on that post are uploaded first, at most 4. Other files stay on this machine and are named. A reply edit sends validate, then save, once. `--dry-run` prints the frames and the upload plan and does not connect. Votes, subscribes, deletes, reposts, top-level post edits, and attachment replace stay gated. The clicks still to record are `architecture/INTERACTIONS-CAPTURE.md`.
 
 ## Install
 

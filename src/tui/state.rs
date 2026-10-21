@@ -247,6 +247,8 @@ pub enum Effect {
     DownloadTheme(String, bool),
     /// Send one text post or reply. The event loop joins the compose page.
     Publish(crate::site::WritePlan),
+    /// Send one reply edit. The event loop opens the edit page, then validates and saves once.
+    EditReply(crate::site::edit::ReplyEdit),
     /// Leave; `cancel_job` kills a running job first (else it is detached).
     Quit {
         /// Kill the job before leaving.
@@ -1025,24 +1027,30 @@ impl App {
         let (nicks, tags) = self.compose_sources();
         self.modal = Some(Modal::Compose(ComposeModal::reply(&thread, None, Some(post.content.clone()), Some(post.post_id.clone()), nicks, tags)));
     }
-    /// Post menu › Edit. The hour is checked first. Inside the hour, type yes. The form is not built.
+    /// Post menu › Edit. The hour is checked first. A root post stays gated. A reply opens the body editor on Cancel.
     fn edit_post(&mut self, id: &str) {
         if !self.writes_are_on() {
             self.show_writes_off();
             return;
         }
-        let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
-        let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
+        let post = self.current_post().filter(|p| p.post_id == id);
+        let inserted = post.as_ref().and_then(|p| crate::site::edit::posted_unix(&p.posted_at));
         let now = chrono::Utc::now().timestamp();
         if crate::site::edit::window(inserted, now) == crate::site::edit::Window::Closed {
             self.error("Edit", "an edit stays open for one hour after the post. Nothing was sent.");
+            return;
+        }
+        let is_reply = post.as_ref().is_some_and(|p| !p.parent_post_id.is_empty());
+        if is_reply {
+            let (nicks, tags) = self.compose_sources();
+            self.modal = Some(Modal::Compose(ComposeModal::edit_reply(id, nicks, tags)));
             return;
         }
         let mut confirm = ConfirmModal::new(
             "Edit",
             vec![
                 format!("Edit {id}?"),
-                "Type yes. The edit form has not been captured, so a confirm still sends nothing.".into(),
+                "Type yes. A top-level post edit has not been captured, so a confirm still sends nothing.".into(),
             ],
             "Edit",
             ConfirmAction::Edit(id.to_string()),
@@ -2518,8 +2526,20 @@ impl App {
                     let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
                     let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
                     let now = chrono::Utc::now().timestamp();
-                    match crate::site::edit::present(&id, inserted, now, true, false) {
+                    match crate::site::edit::post_blocked(&id, inserted, now, true, false) {
                         Ok(text) => self.push_status(text),
+                        Err(e) => self.error("Edit", &e.message),
+                    }
+                }
+                ConfirmAction::EditReply { id, body } => {
+                    let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
+                    let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
+                    let now = chrono::Utc::now().timestamp();
+                    match crate::site::edit::prepare(&id, &body, inserted, now, true) {
+                        Ok(plan) => {
+                            self.push_status("publishing…");
+                            self.effects.push(Effect::EditReply(plan));
+                        }
                         Err(e) => self.error("Edit", &e.message),
                     }
                 }
@@ -2585,6 +2605,21 @@ impl App {
                 let _ = c;
             }
             (Modal::Compose(c), ModalResult::ClosedSubmitted) => {
+                if let crate::tui::modals::ComposeKind::EditReply { id } = &c.kind {
+                    let mut confirm = ConfirmModal::new(
+                        "Edit",
+                        vec![
+                            format!("Edit reply {id}?"),
+                            "Type yes. This sends validate, then save, once.".into(),
+                            "The body replaces the reply. A quote already on it is not kept.".into(),
+                        ],
+                        "Edit",
+                        ConfirmAction::EditReply { id: id.clone(), body: c.body.clone() },
+                    );
+                    confirm.strict = true;
+                    self.modal = Some(Modal::Confirm(confirm));
+                    return;
+                }
                 let now = chrono::Utc::now().timestamp();
                 let draft = c.draft(now, self.last_write_unix, true);
                 match crate::site::decide(&draft, true, false) {

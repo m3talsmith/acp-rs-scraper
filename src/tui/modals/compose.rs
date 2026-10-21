@@ -39,6 +39,11 @@ pub enum ComposeKind {
         /// Comment, when this is not a reply to the root.
         in_reply_to: Option<String>,
     },
+    /// Edit a reply. No title and no attachments. Cancel is the default.
+    EditReply {
+        /// Reply id.
+        id: String,
+    },
 }
 
 /// The compose modal.
@@ -94,6 +99,11 @@ impl ComposeModal {
         m
     }
 
+    /// Edit a reply. Focus starts on Cancel. Attachment replace is not offered.
+    pub fn edit_reply(id: &str, nicks: Vec<NickHint>, tags: Vec<String>) -> Self {
+        Self::blank(ComposeKind::EditReply { id: id.into() }, nicks, tags)
+    }
+
     fn blank(kind: ComposeKind, nicks: Vec<NickHint>, tags: Vec<String>) -> Self {
         ComposeModal {
             kind,
@@ -119,7 +129,7 @@ impl ComposeModal {
     /// The draft the safety layer checks. The clock is the caller's.
     pub fn draft(&self, now_unix: i64, last_write_unix: Option<i64>, writes_on: bool) -> Draft {
         let (thread, in_reply_to) = match &self.kind {
-            ComposeKind::NewPost => (None, None),
+            ComposeKind::NewPost | ComposeKind::EditReply { .. } => (None, None),
             ComposeKind::Reply { thread, in_reply_to } => (Some(thread.clone()), in_reply_to.clone()),
         };
         Draft {
@@ -153,7 +163,9 @@ impl ComposeModal {
             v.push(ComposeFocus::Title);
         }
         v.push(ComposeFocus::Body);
-        v.push(ComposeFocus::Attach);
+        if !matches!(self.kind, ComposeKind::EditReply { .. }) {
+            v.push(ComposeFocus::Attach);
+        }
         if self.site_pick.is_some() {
             v.push(ComposeFocus::SitePick);
         }
@@ -317,6 +329,14 @@ impl ComposeModal {
     }
 
     fn try_publish(&mut self) -> Option<ModalResult> {
+        if matches!(self.kind, ComposeKind::EditReply { .. }) {
+            if self.body.trim().is_empty() {
+                self.error = Some("a reply edit needs a body".into());
+                self.focus = ComposeFocus::Body;
+                return None;
+            }
+            return Some(ModalResult::ClosedSubmitted);
+        }
         if self.eligible_site_count() > crate::config::SITE_MAX_ATTACHMENTS && self.site_pick.is_none() {
             self.open_site_picker();
             return None;
@@ -345,6 +365,7 @@ impl ModalState for ComposeModal {
         match self.kind {
             ComposeKind::NewPost => "New post".into(),
             ComposeKind::Reply { .. } => "Reply".into(),
+            ComposeKind::EditReply { .. } => "Edit reply".into(),
         }
     }
 

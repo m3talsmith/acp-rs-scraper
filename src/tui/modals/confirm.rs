@@ -17,8 +17,15 @@ pub enum ConfirmAction {
     Vote(String, String),
     /// Subscribe. The send stays gated.
     Subscribe(String),
-    /// Edit. The form is not built. The send stays gated.
+    /// Edit a top-level post. The form is not built. The send stays gated.
     Edit(String),
+    /// Edit a reply. Confirm sends validate, then save, once.
+    EditReply {
+        /// Reply id.
+        id: String,
+        /// Markdown body that replaces the document.
+        body: String,
+    },
     /// Repost. The form is not built. The send stays gated.
     Repost(String),
 }

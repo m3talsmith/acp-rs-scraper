@@ -369,7 +369,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
-    ("p", "Post menu. Subscribe, delete, edit, and repost ask first and do not send. View reposts and view edits still read"),
+    ("p", "Post menu. Subscribe, delete, and repost ask first and do not send. Edit asks first: a reply sends validate then save once, and a top-level post does not. View reposts and view edits still read"),
     ("+ / -", "Ask before an upvote or a downvote. Cancel is the default. A confirm does not send"),
     ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("n", "New post. Cancel is the default. A confirmed post uploads the site copy, then sends the text"),

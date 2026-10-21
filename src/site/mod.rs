@@ -1,13 +1,13 @@
-//! Write core (3.4.0), attachments (3.5.0), text publish (3.35.0), and uploads (3.36.0).
+//! Write core (3.4.0), attachments (3.5.0), text publish (3.31.0), uploads (3.32.0),
+//! and reply edit (3.33.0).
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the reply frames
 //! live here. A confirmed post or reply uploads the site copy, then sends
 //! validate, then save, once. Images, videos, and PDFs are the site copy, at
-//! most 4. Vote, subscribe, delete, edit, and repost stay behind
-//! [`write::CAPTURE_BLOCK`]. 3.37.0 audited those five and found no live frame.
-//! Edit keeps the one-hour window and does not build the form. Repost names
-//! the documented route and does not build the form. `--dry-run` opens no
-//! connection.
+//! most 4. A confirmed reply edit sends validate, then save, once. Vote,
+//! subscribe, delete, repost, a top-level post edit, and attachment replace
+//! stay behind [`write::CAPTURE_BLOCK`]. The one-hour window still refuses an
+//! older edit before a connection. `--dry-run` opens no connection.
 
 mod attach;
 pub mod delete;
@@ -127,11 +127,34 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         };
     }
     if let Some(id) = args.edit.as_deref() {
+        if args.quote.is_some() {
+            bail!("a reply edit takes the body only. A quote is not added. Nothing was sent.");
+        }
+        if !args.attachment.is_empty() {
+            bail!("attachment replace is not captured. Nothing was sent.");
+        }
+        let body = match (&args.body, &args.body_file) {
+            (Some(_), Some(_)) => bail!("pass --body or --body-file, not both"),
+            (Some(s), None) => s.clone(),
+            (None, Some(path)) => std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?,
+            (None, None) => String::new(),
+        };
         let confirmed = confirm_strict(args, "Edit? [y/N] ")?;
         let now = chrono::Utc::now().timestamp();
-        return match edit::present(id.trim(), args.posted_at, now, confirmed, args.dry_run) {
-            Ok(text) => {
+        return match edit::gate(id.trim(), &body, args.posted_at, now, confirmed, args.dry_run, writes_enabled()) {
+            Ok(edit::EditGate::Done(text)) => {
                 println!("{text}");
+                Ok(())
+            }
+            Ok(edit::EditGate::Send(plan)) => {
+                let jar = Arc::new(Jar::default());
+                if let Err(e) = load_session(&jar) {
+                    cli_warning_session(&e);
+                }
+                let http = client(jar.clone())?;
+                login(&http, &jar).await?;
+                let published = edit::publish_reply_edit(&http, &jar, &plan).await?;
+                println!("published {}\n{}", published.id, published.url);
                 Ok(())
             }
             Err(e) => bail!("{e}"),
@@ -245,11 +268,13 @@ mod tests {
         assert!(notes.contains("allow_upload"));
         assert!(notes.contains("/rs/post/new?repost=POST"));
         assert!(notes.contains("short quote"));
+        let edit: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/edit.json")).unwrap();
+        assert_eq!(edit["capture_status"], "reply_body");
+        assert!(edit["still_needed"].as_array().unwrap().iter().any(|l| l.as_str().unwrap().contains("title")));
         for (name, raw) in [
             ("vote", include_str!("../../tests/fixtures/site/vote.json")),
             ("subscribe", include_str!("../../tests/fixtures/site/subscribe.json")),
             ("delete", include_str!("../../tests/fixtures/site/delete.json")),
-            ("edit", include_str!("../../tests/fixtures/site/edit.json")),
             ("repost", include_str!("../../tests/fixtures/site/repost.json")),
         ] {
             let doc: Value = serde_json::from_str(raw).unwrap();

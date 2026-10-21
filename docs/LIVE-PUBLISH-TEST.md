@@ -15,7 +15,7 @@ published AaFe-qikeQyiWLMA1vwnNA
 https://acp.us/rs/post/AaFe-qikeQyiWLMA1vwnNA
 ```
 
-Text and a PNG are verified. A PDF and a video have not been posted from this client yet. Vote, subscribe, delete, edit, and repost stay gated.
+Text and a PNG are verified. A PDF and a video have not been posted from this client yet. A reply edit is implemented and has not been tried live. Vote, subscribe, delete, repost, a top-level post edit, and attachment replace stay gated.
 
 ## Before you start
 
@@ -184,22 +184,26 @@ Use the check post from the text step above. Wait out the 30 second gap between 
 
 The prompt is `Subscribe? [y/N]`. Post menu (`p`) › Subscribe asks the same way and starts on Cancel. Today it refuses and names `/rs/post/THREAD`. When the frame exists, the reply should show `subscribed` true, then false.
 
-### Edit the check post
+### Edit a reply
 
-Do this within one hour of the post. Pass `--posted-at` as unix seconds so the hour is checked.
+Do this within one hour of a reply you own. Pass `--posted-at` as unix seconds so the hour is checked. `--body` is the whole replacement.
 
 ```bash
-./target/release/acprs --edit POST --posted-at UNIX --dry-run
-./target/release/acprs --edit POST --posted-at UNIX
+./target/release/acprs --edit REPLY --body "updated reply" --posted-at UNIX --dry-run
+./target/release/acprs --edit REPLY --body "updated reply" --posted-at UNIX
 ```
 
-The prompt is `Edit? [y/N]`, then `Type yes`. A post older than one hour is refused before that. The form is not built. When a capture shows a save of only the title, and a save of only the body, the client can send the changed fields. It does not send them now. The title typo on the check post was already corrected on the website. A title-only capture is a further change, or the HAR of that website edit if the websocket was saved.
+The prompt is `Edit? [y/N]`, then `Type yes`. `--dry-run` prints validate, then save, and does not connect. A confirmed edit sends those two frames once. A post older than one hour is refused before that. The body replaces the document. A quote already on the reply is not copied. This has not been tried live.
+
+### Edit a top-level post
+
+Still gated. On the website, within one hour of a post you own: change only the title, save, then change only the body, save. The survey route is `https://acp.us/rs/post/POST/edit`. The reply capture did not include `form[title]`. This client opens the edit page and refuses when it sees a title field. Nothing is sent. The title typo on the check post was already corrected on the website. A title-only capture is a further change, or the HAR of that website edit if the websocket was saved.
 
 ### Edit: replace attachment
 
 Still gated. Do not run this in the client. On the check post that already has the PNG, in the browser: Edit, remove the existing image, upload a different small image, then save. Record the removal frame and the new file's `allow_upload`, `lvu` join, chunks, and `progress`.
 
-When that capture is in the tree, the edit flow reuses the upload path from the attachment work and sends the removal frame the capture shows, then validate and save. It does not send either frame now. `--edit` still refuses.
+When that capture is in the tree, the edit flow reuses the upload path from the attachment work and sends the removal frame the capture shows, then validate and save. `--attachment` with `--edit` is refused until then.
 
 ### Repost
 

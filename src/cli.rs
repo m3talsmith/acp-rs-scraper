@@ -176,7 +176,7 @@ pub struct Args {
     /// Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. The terminal asks `Repost? [y/N]`. `--dry-run` prints the route and does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub repost: Option<String>,
-    /// Edit a post. An edit stays open for one hour after `--posted-at` (unix seconds). Without that timestamp the hour is not checked. The terminal asks `Edit? [y/N]`, then `Type yes`. The edit form has not been captured, so it is not built. `--dry-run` prints that and does not connect. A confirmed edit does not send.
+    /// Edit a reply (`/rs/post/ID/edit`). Needs `--body` or `--body-file`. A confirmed edit sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The hour is one hour after `--posted-at` (unix seconds); without it the hour is not checked. `--dry-run` prints the frames and does not connect. A top-level post edit is not sent.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub edit: Option<String>,
     /// With `--edit`. Unix seconds of the post's `posted_at`. Used only for the one-hour window.
@@ -197,7 +197,7 @@ pub struct Args {
     /// With `--vote`. `1`, `0`, or `-1`.
     #[arg(long, value_name = "STATE", requires = "vote", value_parser = ["1", "0", "-1"], help_heading = "Writing")]
     pub vote_state: Option<String>,
-    /// Markdown body for `--new-post` or `--reply`.
+    /// Markdown body for `--new-post`, `--reply`, or `--edit`.
     #[arg(long, value_name = "MARKDOWN", help_heading = "Writing")]
     pub body: Option<String>,
     /// Read the Markdown body from a file.
