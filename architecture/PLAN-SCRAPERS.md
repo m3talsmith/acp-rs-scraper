@@ -1,6 +1,6 @@
 # Plan: modular services for ACP Red Star
 
-Status: **design, revised with Michael's 2026-10-21 answers.** A second pass the same day settled captions, comments, live chat, combined views, global actions, notifications, plugins, and the one confirm for a mixed write. Plugin packages use sha256 before `dlopen`, and a failed package is quarantined (§2.1). Two plugin questions stay open, plus two package sub-questions (§15). Nothing in this file is implemented.
+Status: **design, revised with Michael's 2026-10-21 answers.** A second pass the same day settled captions, comments, live chat, combined views, global actions, notifications, plugins, and the one confirm for a mixed write. Plugin packages carry a `sha256` on each binary and library, checked before `dlopen`, and a failed package is quarantined. Authors read the rustc and core-version pin from `--doctor`. An in-app reload runs that same gate (§2.1). Nothing in this plan is still open (§15). Nothing in this file is implemented.
 Target path in the repo: `architecture/PLAN-SCRAPERS.md`.
 Base: `main` at `b1a8222c` (crate `3.5.0`, pull request #45 merged). Version numbers in this plan are relative labels until the versioning cleanup settles the crate version.
 Companion docs: [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) (§6 Feeds, §7.5 records, §7.14.13 rules and alerts, §7.14.14 post source) and [PLAN-4.0.md](./PLAN-4.0.md) (the research corpus).
@@ -18,7 +18,7 @@ Red Star, X and YouTube are **independent services**. They are separate crates, 
 Decisions from 2026-10-21, which override any older sentence in this file:
 
 - **Separate crates.** One crate per service, including Red Star. Parsers and network clients do not live only as modules of the root crate.
-- **Plugins.** Each service crate registers through one registrar, the shape in Michael F. Bryan's *Plugins in Rust*: a plugin declaration, a registrar, a `declare_plugin!` macro, dynamic loading with `libloading`, and a rustc / core-version check. Rust has no stable ABI, so a mismatch is refused. Built-ins, including Red Star, are linked statically and still register that way, without `dlopen`. An external service is a gzipped tar in `~/.acp/plugins/`. Before `dlopen`, the loader unpacks it, checks `package.toml`, and requires each binary and library to match its sha256. Any failure of that stage is logged as a potential security threat and the package is moved to `~/.acp/quarantined/plugins/`. A plugin runs with the app's privileges, so the user enables it explicitly and the app never downloads one (§2.1).
+- **Plugins.** Each service crate registers through one registrar, the shape in Michael F. Bryan's *Plugins in Rust*: a plugin declaration, a registrar, a `declare_plugin!` macro, dynamic loading with `libloading`, and a rustc / core-version check. Rust has no stable ABI, so a mismatch is refused. Built-ins, including Red Star, are linked statically and still register that way, without `dlopen`. An external service is a gzipped tar in `~/.acp/plugins/`. Before `dlopen`, the loader unpacks it, checks `package.toml`, and requires each binary and library to match the `sha256` field on that entry. Any failure of that stage is logged as a potential security threat and the package is moved to `~/.acp/quarantined/plugins/`. `version` is a quoted semver string. `--doctor` is the only place authors read the rustc and core-version pin. An in-app reload runs this same gate and picks up a newly placed plugin. A loaded plugin whose package changed is re-verified; a failure unloads it and quarantines it. A plugin runs with the app's privileges, so the user enables it explicitly and the app never downloads one (§2.1).
 - **Captions.** The user lists the locales they want. The default list is English first. Every available caption track in those locales is scraped. A locale the video does not have is skipped quietly, and the locales that were available are recorded (§3.3, §5.1).
 - **Comments.** The full depth is scraped by default. Optional settings cap the depth and the count (§5.1).
 - **Live chat replays** are in scope: `kind = chat` rows, shown on the Chat tab (§5.1, §14).
@@ -113,7 +113,7 @@ The object file has no type for the `plugin_declaration` symbol. The host's cast
 
 The archive is a gzipped tar named `<name>-<os>-<architecture>-<version>.tar.gz`. `name` and `version` must match `[meta]` in `package.toml`. `os` and `architecture` must match the host. A mismatch is a failed package.
 
-`package.toml` is the manifest. Michael's sketch wrote `version=1.2.3`. That is not valid TOML (a bare `1.2.3` is not a number). This plan stores it as a quoted string and checks that the string is semantic versioning. That quoting is a small correction for Michael to confirm (§15).
+`package.toml` is the manifest. `version` is a quoted string, checked as semantic versioning. Michael confirmed that form. The sketch's bare `version=1.2.3` is not valid TOML, because a bare `1.2.3` is not a number.
 
 ```toml
 [meta]
@@ -130,10 +130,10 @@ license = "MIT"            # optional. When set, the package contains a LICENSE 
 
 [install]
 binaries = [
-  { name = "example", path = "bin/example" }
+  { name = "example", path = "bin/example", sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" }
 ]
 libraries = [
-  { name = "example", path = "lib/libexample.so" }  # optional
+  { name = "example", path = "lib/libexample.so", sha256 = "fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210" }  # optional
 ]
 ```
 
@@ -141,20 +141,31 @@ libraries = [
 
 Every `path` is relative to the archive root. `..`, an absolute path, and a symlink that leaves the archive each fail the package. After unpack, the loader resolves each path and checks it is still inside the tree.
 
-**sha256.** Each binary and each library has a sha256 of its bytes. The proposal is a sidecar file next to that path, `<path>.sha256`, holding the lowercase hex digest. An optional filename after the digest, in the `sha256sum` layout, must name that same path. The loader reads the sidecar, hashes the file, and requires an exact match. A missing sidecar, a bad digest, or a mismatch fails the package. Putting a `sha256` field on each `[install]` entry instead is the alternative (§15).
+**sha256.** Each `binaries` and `libraries` entry has a required `sha256` field: 64 lowercase hex digits, the digest of the file at `path`. The loader hashes that file and requires an exact match. A missing field, a bad digest, or a mismatch fails the package. There is no sidecar file. The digests in the example are the shape of the field, not hashes of real files.
 
-**Load.** At startup the root crate, for each archive:
+**Load.** At startup the root crate runs this gate for each archive. Reload runs it again for a new or changed archive (§ below):
 
 1. Unpacks it to a private temporary directory.
 2. Reads and checks `package.toml` (required keys, types, semver, email, URI or node address, LICENSE when `license` is set, filename name and version, host os and architecture, and the path rules).
-3. Looks up the sha256 for every binary and every library, hashes the file, and requires a match.
+3. Reads the `sha256` field on every binary and every library, hashes the file, and requires a match.
 4. If any part of steps 1–3 fails, the plugin is not loadable. The app logs it as a potential security threat (package name, path, and the reason, never the file bytes) and moves the archive into `~/.acp/quarantined/plugins/`. The temporary tree is deleted. The plugins directory is not left holding that package, and later startups do not open the quarantined copy.
 5. Otherwise keeps the unpacked tree under `~/.acp/plugins/<name>/<version>/`, opens the library with `libloading`, and reads `plugin_declaration`.
-6. Refuses the plugin when `rustc_version` or `core_version` differs from this binary. It does not call `register`. That refusal is a version mismatch, not a quarantine: the package itself checked out. The Services screen lists the path and both version pairs. The rest of the app starts.
+6. Refuses the plugin when `rustc_version` or `core_version` differs from this binary. It does not call `register`. That refusal is a version mismatch, not a quarantine: the package itself checked out. The Services screen lists the path and both version pairs. The rest of the app starts. `--doctor` prints the rustc version and the core-crate version a plugin must be built with. That pair is only there. The app does not write a pin file beside the binary.
 7. Otherwise calls `register`. Each service is stored in a proxy that holds `Arc<Library>`, so dropping the service does not unload the library.
-8. Leaves the library mapped until the process exits. This plan does not unload or reload a plugin while the app is running. A replaced archive is picked up on the next launch.
+8. Leaves the library mapped until a reload unloads it or the process exits.
 
-Uninstall removes that package from `~/.acp/plugins/` and drops its registration. It does not delete a quarantined copy. The log records install, registration, uninstall, and quarantine.
+**Reload.** Preferences › Services and a Ctrl global both call one loader, the same pattern as keymap reload in [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md): one function, the Preferences screen, and a remapable action. The action id is `plugins.reload`. The keymap file sets the chord. This plan does not hardcode a key. A new or changed archive goes through the gate above. An unchanged archive does not.
+
+Reload scans `~/.acp/plugins/` again:
+
+- A new archive goes through steps 1–7. It stays off until the user enables it.
+- An archive whose bytes are unchanged stays mapped.
+- An archive that changed on disk is re-verified with steps 1–3, then the version check.
+  - The gate fails: the plugin takes no new work. It is unloaded once nothing in this process still holds its service objects, the unpacked tree is deleted, and the archive is quarantined and logged as a potential security threat. A mapped library cannot be unmapped while a call is still inside it.
+  - The version check fails: the new package is refused and is not quarantined. The registration already in memory stays, because that refusal is not an integrity failure.
+  - Both checks pass: the old registration is dropped once nothing still holds it, the new package is registered, and the enabled flag is kept.
+
+Uninstall removes that package from `~/.acp/plugins/` and drops its registration. It does not delete a quarantined copy. The log records install, registration, uninstall, quarantine, and reload.
 
 **Quarantine.** The store is generic: `~/.acp/quarantined/<kind>/`. Plugins are the first kind. Later kinds use another directory name and the same list. Each item records the kind, the original filename, the time, and the reason.
 
@@ -518,7 +529,7 @@ The log masker (`src/logging.rs`) grows rules, each with a unit test, for `Autho
 
 ### 4.5 Services screen
 
-TUI: a Services preferences screen, opened from Account › Services. The list is every registered service, with Red Star on and the others off. Enabling one shows that service's schema. Secret rows say "set" or "not set" and never the value. Changing `route` is the same control on every multi-route service. The same area lists quarantined items (§2.1): the reason, restore, and delete. Those keys come from the keymap.
+TUI: a Services preferences screen, opened from Account › Services. The list is every registered service, with Red Star on and the others off. Enabling one shows that service's schema. Secret rows say "set" or "not set" and never the value. Changing `route` is the same control on every multi-route service. The same area lists quarantined items (§2.1): the reason, restore, and delete. Reload on that screen calls the same loader as the `plugins.reload` global. Those keys come from the keymap.
 
 CLI, generated from the schema rather than hard-coded per field where the type allows it:
 
@@ -711,6 +722,8 @@ A mode's keys are the capabilities of the focused object's service. Post mode on
 
 The source switcher is one of the Ctrl global keys. The default binding is `ctrl-]`. The keymap file can change it.
 
+Plugin reload is a Ctrl global, action `plugins.reload`, the same pattern as `keymap.reload`: Preferences and the action call one function. The keymap file sets the chord.
+
 ---
 
 ## 11. Testing
@@ -736,7 +749,7 @@ yt-dlp is a runtime dependency of the YouTube service only. Red Star and X work 
 | Fedora | `Recommends: yt-dlp`. Suggests ffmpeg and nodejs |
 | `scripts/install.sh` | A hint when yt-dlp is missing. It does not install it |
 
-Packaging stays on the alpha gate in §4.5 of the 3.0 plan. This plan does not cut a release. X uses the `reqwest` already in the tree. `--doctor` reports yt-dlp version and age, the JS runtime, ffmpeg, whether each secret is set (never the value), the session acknowledgement, and the month's spend.
+Packaging stays on the alpha gate in §4.5 of the 3.0 plan. This plan does not cut a release. X uses the `reqwest` already in the tree. `--doctor` reports yt-dlp version and age, the JS runtime, ffmpeg, whether each secret is set (never the value), the session acknowledgement, the month's spend, and the rustc and core-crate versions a plugin must be built with. That pair is the only pin authors read. The app does not write it beside the binary.
 
 ---
 
@@ -762,7 +775,7 @@ Labels are relative. They are not crate versions. One feature is one minor when 
 | Label | Phase | What ships | Depends on |
 |---|---|---|---|
 | **A** | Red Star modularization | Extract today's Red Star behaviour behind the traits and into `acp_red_star_service_redstar`. Red Star registers through the registrar. No plugin-directory scan. If the trait split needs it, refactor notices, the rule engine, and alert templates onto `Notification` (versioning-cleanup labels 3.27.0, 3.28.0, and 3.29.0). No new flags, no settings migration, no schema change for other services. The existing test suite passes with no behaviour change. | — |
-| **B** | Registry and Services | Services screen, schema-driven CLI, `~/.acp/services/*.toml`, sealed secrets, Red Star migration off `preferences.toml` and `session.json` (§4.2). The loader scans `~/.acp/plugins/`, checks each package and its sha256, quarantines a failure, refuses a rustc or core-version mismatch, and lists quarantined items. Red Star on by default. X and YouTube register statically and stay off. Enabling X's session shows the §13 acknowledgement and does not yet scrape. | A |
+| **B** | Registry and Services | Services screen, schema-driven CLI, `~/.acp/services/*.toml`, sealed secrets, Red Star migration off `preferences.toml` and `session.json` (§4.2). The loader scans `~/.acp/plugins/`, checks each package and the `sha256` on each binary and library, quarantines a failure, refuses a rustc or core-version mismatch, and lists quarantined items. Plugin reload runs that same gate. `--doctor` prints the rustc and core-version pin. Red Star on by default. X and YouTube register statically and stay off. Enabling X's session shows the §13 acknowledgement and does not yet scrape. | A |
 | **C-yt** | YouTube reads | Session route (yt-dlp metadata, channels, playlists, incremental and backfill, thumbnails) and the API route (quota meter and confirm). Comments at full depth, with optional depth and count caps. Live chat replays stored as `kind=chat` and shown on the Chat tab. Parallel with C-x. | B |
 | **C-x** | X reads | Session route, including search and replies, with pacing, daily cap and the acknowledgement. API route with the spend confirm and ledger. Parallel with C-yt. | B |
 | **D** | Media | Video, audio and transcripts for the services that implement `MediaFetcher`, plus the storage cap. Transcripts use `caption_locales` (English first). A missing locale is skipped quietly and the available locales are recorded. | C-yt for YouTube files. C-x for X video files. Either may land first for its own service. |
@@ -776,18 +789,12 @@ Not scheduled: X Spaces or Communities metadata, and Feeds `sources` filters onc
 
 ## 15. Open questions
 
-Resolved, and not re-opened: separate crates; X cookies sealed in the encrypted database; backups strip `source_secrets`; X and YouTube stay out of P9 peer sync by default; Red Star on and other services off; session route as the default; search and replies included on the X session; video, audio and transcripts available under a storage cap; reads before writes; caption locales (English first, every available track, a missing locale skipped quietly and the available locales recorded); comments at full depth with optional depth and count caps; live chat replays (`kind = chat`, Chat tab); both combined views, mixed by default, sorted by the updated time when the item has one and otherwise the posted time; the source switcher as the Ctrl global `view.source`, default `ctrl-]` in [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md); bookmarks, site search, and edit history as global actions; `Notification` on every notifying action, local toasts included; services registered through the plugin registrar; one confirm for a mixed write; a plugin package checked with sha256 before `dlopen`, and quarantined when that check fails.
+Resolved, and not re-opened: separate crates; X cookies sealed in the encrypted database; backups strip `source_secrets`; X and YouTube stay out of P9 peer sync by default; Red Star on and other services off; session route as the default; search and replies included on the X session; video, audio and transcripts available under a storage cap; reads before writes; caption locales (English first, every available track, a missing locale skipped quietly and the available locales recorded); comments at full depth with optional depth and count caps; live chat replays (`kind = chat`, Chat tab); both combined views, mixed by default, sorted by the updated time when the item has one and otherwise the posted time; the source switcher as the Ctrl global `view.source`, default `ctrl-]` in [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md); bookmarks, site search, and edit history as global actions; `Notification` on every notifying action, local toasts included; services registered through the plugin registrar; one confirm for a mixed write; a plugin package checked with the `sha256` field on each binary and library before `dlopen`, and quarantined when that check fails; `version` as a quoted semver string; the rustc and core-version pin printed only by `--doctor`; in-app plugin reload through that same gate, including a changed loaded plugin that is re-verified and, on failure, unloaded and quarantined.
+
+Nothing in this plan is still open.
 
 **One confirm.** A write selection uses a single confirm. It sends to every service where that write is Ready. Every other selected service is skipped. The preview and `--dry-run` name each skipped service and why: not captured, not logged in, or disabled. Cancel is the default. `--yes` affirms that one confirm. Nothing is sent for a skip (§2.4).
 
-**Package check.** sha256 is the integrity check, before `dlopen`. A hash that ships inside the same package catches corruption and an accidental mismatch. It does not catch a deliberately rewritten package, because whoever edits the files can rewrite the hash too. A user-pinned hash or a signature can be added later. Neither replaces sha256 as the default.
+**Package check.** The sha256 is a field on each `binaries` and `libraries` entry. It is the integrity check, before `dlopen`. A hash that ships inside the same package catches corruption and an accidental mismatch. It does not catch a deliberately rewritten package, because whoever edits the files can rewrite the hash too. A user-pinned hash or a signature can be added later. Neither replaces this check.
 
-Sub-questions on that package, for Michael to confirm:
-
-1. **Where the sha256 lives.** This plan uses a sidecar `<path>.sha256` next to each binary and library, which is the hash "alongside" the file. The alternative is a `sha256` field on each `binaries` and `libraries` entry in `package.toml`.
-2. **Quoted version.** `version = "1.2.3"` is a string checked as semantic versioning. The unquoted `version=1.2.3` from the sketch is not valid TOML.
-
-Still open, from the plugin design:
-
-1. **Where authors read the pin.** A plugin must be built with the same rustc and the same core-crate version as the binary. Should `--doctor` print that pair, should a file ship beside the binary, or both?
-2. **Reload.** Plugins load at startup and stay mapped until the process exits, because a service object must not outlive its library. Is the next launch the permanent rule, or is an in-process reload in scope later?
+**Pin and reload.** Authors read the required rustc version and core-crate version from `--doctor` only. Plugin reload runs inside the app, through the same unpack, manifest, sha256, and quarantine gate, and it picks up a newly placed plugin. A loaded plugin whose package changed is re-verified. A failure of that gate unloads it and quarantines it (§2.1).

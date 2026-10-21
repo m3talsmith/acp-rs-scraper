@@ -22,10 +22,11 @@ All rule changes and additions go in this file.
 - Push credentials for the Forgejo mirror are only ever used through a temporary git credential helper that's deleted afterwards.
 
 ## Plugins and quarantine
-- An external plugin is a gzipped tar named `<name>-<os>-<architecture>-<version>.tar.gz` that contains `package.toml`. The app never downloads a plugin. Built-ins are linked into the binary and are not packages.
-- Before `dlopen`, unpack the archive, check `package.toml`, and require a valid sha256 of each binary and each library. The archive name's name and version match the manifest. `os` and `architecture` match the host. Every path is relative and stays inside the package.
-- Any failure of that check means the plugin is not loaded. The app logs it as a potential security threat and moves the archive to `~/.acp/quarantined/plugins/`. A rustc or core-version mismatch refuses registration and does not quarantine the package.
+- An external plugin is a gzipped tar named `<name>-<os>-<architecture>-<version>.tar.gz` that contains `package.toml`. `version` is a quoted semver string (`version = "1.2.3"`). The app never downloads a plugin. Built-ins are linked into the binary and are not packages.
+- Before `dlopen`, unpack the archive, check `package.toml`, and require the `sha256` field on each `binaries` and `libraries` entry to match that file. There is no sidecar hash. The archive name's name and version match the manifest. `os` and `architecture` match the host. Every path is relative and stays inside the package.
+- Any failure of that check means the plugin is not loaded. The app logs it as a potential security threat and moves the archive to `~/.acp/quarantined/plugins/`. A rustc or core-version mismatch refuses registration and does not quarantine the package. `--doctor` prints that rustc and core-version pin. Authors read it only there.
 - Quarantine is `~/.acp/quarantined/<kind>/`. Plugins are the first kind. The user can read the reason, restore, or delete from Preferences and from the CLI. Keys come from the keymap.
+- Reload from the app runs that same gate and picks up newly placed plugins. A loaded plugin whose package changed is re-verified. A failure unloads it and quarantines it.
 - A sha256 shipped inside the same package catches corruption and an accidental mismatch. It does not catch a package that was rewritten and rehashed. A user-pinned hash or signatures are possible later hardening.
 
 ## Testing
