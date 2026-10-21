@@ -12,13 +12,13 @@ Follow them on every change. When a rule conflicts with a task prompt, ask Micha
 
 ## Commits, pushes and PRs
 - Commit when work is done **and tested**.
-- **Push only when Michael explicitly asks for that push.** When he does, push to all remotes: `origin` (Forgejo) and `mirror` (GitHub).
+- **Push only when Michael explicitly asks for that push.** When he does, push to all remotes: `origin` (GitHub, `git@github.com:m3talsmith/acp-rs-scraper.git`, the primary) and `mirror` (Forgejo, `https://forgejo.acp.us/m3talsmith/acp-rs-scraper.git`).
 - Commit messages describe what the change opens up for people, not just a list of edits.
 
 ## Security and credentials
 - Never commit credentials. The pre-commit hook blocks secret-looking files everywhere and credential patterns everywhere except generated `docs/api/**`. `build.rs` sets `core.hooksPath=.githooks`, so don't bypass hooks (`--no-verify`).
 - Never print, log or store credentials, session cookies, tokens or one-time codes. `--debug` output masks session secrets; keep it that way, and keep secrets out of test fixtures and captures (redact before committing).
-- Forgejo push credentials are only ever used through a temporary git credential helper that's deleted afterwards.
+- Push credentials for the Forgejo mirror are only ever used through a temporary git credential helper that's deleted afterwards.
 
 ## Testing
 - **Smoke and manual runs always use a throwaway `HOME`, never the real `~/.acp`.** Auto-sync is on there, and a stray run can post or sync for real.
