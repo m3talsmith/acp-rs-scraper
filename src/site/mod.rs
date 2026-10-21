@@ -2,11 +2,14 @@
 //!
 //! The safety layer, the Markdown to ProseMirror writer, and the reply frames
 //! live here. A root reply matches the approved P0 fixtures. Publishing does
-//! not open a connection: validate, save, and `allow_upload` / `lvu` stay
-//! behind [`write::CAPTURE_BLOCK`]. Vote, subscribe, delete, edit, and repost
-//! are later minors and are not built.
+//! not open a connection. The guided capture has not confirmed the upload
+//! channel, so validate, save, and `allow_upload` / `lvu` stay behind
+//! [`write::CAPTURE_BLOCK`]. Vote builds the documented hook and stops at
+//! the same gate. Subscribe, delete, edit, and repost are later minors and
+//! are not built.
 
 mod attach;
+pub mod vote;
 mod prosemirror;
 mod write;
 
@@ -37,6 +40,7 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.quote_post.is_some()
         || args.accept_site_update
         || args.site_attachments.is_some()
+        || args.vote.is_some()
 }
 
 /// Run a write command. Cancel prints `nothing sent` and returns Ok.
@@ -44,6 +48,29 @@ pub fn cli_requested(args: &Args) -> bool {
 pub fn run_cli(args: &Args) -> Result<()> {
     if let Some(thread) = args.capture_reply.as_deref() {
         bail!("{}", capture_stub_message(thread.trim()));
+    }
+    if let Some(id) = args.vote.as_deref() {
+        let state = args.vote_state.as_deref().unwrap_or("1");
+        let confirmed = if args.dry_run {
+            false
+        } else if args.yes {
+            true
+        } else if std::io::IsTerminal::is_terminal(&std::io::stdin()) {
+            eprint!("Vote? [y/N] ");
+            io::stderr().flush()?;
+            let mut line = String::new();
+            io::stdin().read_line(&mut line)?;
+            matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
+        } else {
+            false
+        };
+        return match vote::present(id.trim(), state, confirmed, args.dry_run) {
+            Ok(text) => {
+                println!("{text}");
+                Ok(())
+            }
+            Err(e) => bail!("{e}"),
+        };
     }
     if args.new_post.is_none() && args.reply.is_none() {
         bail!("a write needs --new-post TITLE or --reply THREAD. --dry-run prints the frames and does not connect.");

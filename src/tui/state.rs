@@ -834,7 +834,22 @@ impl App {
         let v = self.view();
         v.posts.get(v.cursor).cloned()
     }
-    /// `r` on an open post: reply. The body starts with `postRef`. A comment uses that comment's id.
+    /// `+` upvotes and `-` downvotes the open or highlighted post. Nothing is sent.
+    pub fn vote_current(&mut self, state: &str) {
+        if !self.writes_are_on() {
+            self.show_writes_off();
+            return;
+        }
+        let Some(post) = self.current_post() else {
+            self.push_status("no post: open one to vote");
+            return;
+        };
+        match crate::site::vote::present(&post.post_id, state, true, false) {
+            Ok(text) => self.push_status(text),
+            Err(e) => self.error("Vote", &e.message),
+        }
+    }
+    /// `r` on an open post: reply. The body starts with `postRef`. A comment pre-fills that reference and uses that comment's id.
     pub fn open_reply(&mut self) {
         if !self.writes_are_on() { self.show_writes_off(); return; }
         let Some(post) = self.current_post() else { self.push_status("no post: open one to reply"); return; };

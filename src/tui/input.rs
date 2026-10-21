@@ -130,6 +130,8 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('m') => app.focus = Focus::Menu,
         KeyCode::Char('<') => { app.search_back(); }
         KeyCode::Char('b') => app.act(Action::ToggleBookmark),
+        KeyCode::Char('+') => app.vote_current("1"),
+        KeyCode::Char('-') => app.vote_current("-1"),
         KeyCode::Char('p') => app.open_post_menu(),
         KeyCode::Char('x') => app.act(Action::ToggleBasket),
         KeyCode::Char('n') => app.open_new_post(),
