@@ -165,11 +165,21 @@ fn area_topics() -> Vec<String> {
     push_topic(&mut v, "rules", "Rules", &[
         "  Sync › Rules lists system rules and user rules. Lower priority runs first.",
         "  j and k move. Enter edits. n starts a user rule. Space enables or disables a user rule.",
+        "  w watches a user, s is a saved search, and m is replies to me. Each is a user rule.",
         "  A system rule is read-only. Clone makes a user rule you can edit, disable, or delete.",
         "  The shipped Synced post rule starts off, so a sync does not notify on every post.",
         "  --rules-list, --rules-show, --rules-enable, --rules-disable, --rules-clone,",
         "  --rules-delete, --rules-priority with --rules-rank, --rules-import, --rules-export,",
-        "  and --rules-preview. Import and export are TOML and JSON. --rules-preview applies nothing.",
+        "  --rules-watch, --rules-saved, --rules-replies, and --rules-preview.",
+        "  Import and export are TOML and JSON. --rules-preview applies nothing.",
+    ]);
+    push_topic(&mut v, "rules-template", "Alert templates", &[
+        "  w, s, and m on the rule list start a preset. There is no separate alert screen.",
+        "  Watch a user notifies when that nick posts. The line names the author and the post URL.",
+        "  A saved search notifies when a synced post matches the keyword.",
+        "  Replies to me notifies when someone replies to that nick.",
+        "  --rules-watch NICK, --rules-saved TEXT, and --rules-replies NICK insert the same rules.",
+        "  The preset is a user rule. Open it and edit the condition, the action, or the priority.",
     ]);
     push_topic(&mut v, "rules-trigger", "Rule trigger", &[
         "  The trigger is a post that just synced. Conditions are the filters.",

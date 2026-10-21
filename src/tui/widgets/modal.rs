@@ -244,7 +244,7 @@ fn draw_rules(f: &mut Frame, app: &mut App, area: Rect, m: &crate::tui::modals::
     if !m.editing {
         let n = m.rules.len().max(1) as u16;
         let r = modal_rect(area, 72, n + 5);
-        let inner = frame(f, t, r, "Rules · j/k · Enter edits · n new · Space toggles · Esc closes");
+        let inner = frame(f, t, r, "Rules · j/k · Enter edits · n new · w/s/m presets · Space · Esc");
         if m.rules.is_empty() {
             f.render_widget(Paragraph::new("No rules."), inner);
         }

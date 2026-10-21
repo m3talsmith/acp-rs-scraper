@@ -1396,6 +1396,8 @@ A system row is not updated by the editor. Clone inserts a `user` row with `clon
 
 ##### 3.33.0 Alert templates
 
+The client has these templates. 3.33.0 stays the plan number and is not taken early. The crate version stays 3.5.0.
+
 Presets on the 3.32.0 engine. There is no alert table, no alert runner, and no alert screen of its own. Each preset is a one-click rule the user can open and edit:
 
 - **Watch a user.** `@someone` posted. The notice names the author and links the post.

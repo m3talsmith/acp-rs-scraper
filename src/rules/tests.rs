@@ -185,11 +185,45 @@ fn import_and_export_round_trip_toml_and_json() {
 }
 
 #[test]
+fn a_watch_template_is_a_user_rule_and_the_notice_names_the_post() {
+    let (path, c) = db("watch");
+    let rule = install_template(&c, Template::WatchUser, "@ada").unwrap();
+    assert_eq!(rule.origin, Origin::User);
+    assert!(rule.enabled);
+    assert_eq!(rule.priority, 40);
+    assert_eq!(rule.template_key.as_deref(), Some("watch-user"));
+    assert!(rule.system_key.is_none());
+    assert_eq!(rule.name, "Watch @ada");
+    assert_eq!(rule.conditions, vec![Condition::Author { nick: "ada".into() }]);
+    assert_eq!(rule.actions, vec![RuleAction::Notify]);
+    let saved = install_template(&c, Template::SavedSearch, "docks").unwrap();
+    assert_eq!(saved.template_key.as_deref(), Some("saved-search"));
+    assert_eq!(saved.name, "Search: docks");
+    assert_eq!(saved.conditions, vec![Condition::SavedSearch { keyword: "docks".into(), nicks: vec![] }]);
+    let replies = install_template(&c, Template::RepliesToMe, "ada").unwrap();
+    assert_eq!(replies.template_key.as_deref(), Some("replies-to-me"));
+    assert_eq!(replies.name, "Replies to @ada");
+    assert_eq!(replies.conditions, vec![Condition::RepliesTo { nick: "ada".into() }]);
+    assert!(template_rule(Template::WatchUser, "  @  ").is_err());
+    put(&c, "POSTADA1", "", "", "ada", "Hi", "hello");
+    put(&c, "POSTBOB1", "", "", "bob", "Hi", "other");
+    let posts = load_posts(&c).unwrap();
+    let fired = evaluate(&c, &path, &posts, "site", false).unwrap();
+    let hit = fired.iter().find(|f| f.rule_name == "Watch @ada" && f.outcome == "fired").unwrap();
+    assert!(hit.detail.contains("@ada"), "{}", hit.detail);
+    assert!(hit.detail.contains("/rs/post/POSTADA1"), "{}", hit.detail);
+    assert!(fired.iter().all(|f| f.post_id != "POSTBOB1" || f.rule_name != "Watch @ada"));
+}
+
+#[test]
 fn clap_accepts_the_rules_flags() {
     use clap::Parser;
     let a = Args::parse_from(["acp-red-star", "--rules-import", "rules.toml", "--rules-format", "toml"]);
     assert!(a.rules_import.is_some());
     assert!(matches!(a.rules_format, Some(RulesFormat::Toml)));
+    let w = Args::parse_from(["acp-red-star", "--rules-watch", "ada"]);
+    assert_eq!(w.rules_watch.as_deref(), Some("ada"));
+    assert!(Args::try_parse_from(["acp-red-star", "--rules-watch", "ada", "--rules-saved", "x"]).is_err());
     assert!(Args::try_parse_from(["acp-red-star", "--rules-list", "--search", "x"]).is_err());
     assert!(Args::try_parse_from(["acp-red-star", "--dry-run"]).is_err(), "--dry-run stays on confirmable commands");
 }

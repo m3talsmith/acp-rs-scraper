@@ -172,6 +172,49 @@ pub struct Firing {
     pub detail: String,
 }
 
+/// A 3.33.0 preset. Installing one inserts a user rule. There is no alert table and no second runner.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Template {
+    /// `@nick` posted. The notice names the author and links the post.
+    WatchUser,
+    /// A keyword match in the sync that just finished.
+    SavedSearch,
+    /// Someone replied to a post by this nick.
+    RepliesToMe,
+}
+
+impl Template {
+    /// Value stored in `template_key`.
+    pub fn key(self) -> &'static str {
+        match self {
+            Template::WatchUser => "watch-user",
+            Template::SavedSearch => "saved-search",
+            Template::RepliesToMe => "replies-to-me",
+        }
+    }
+}
+
+/// The user rule a preset inserts. `value` is a nick or a keyword.
+pub fn template_rule(kind: Template, value: &str) -> Result<NewRule> {
+    let value = value.trim().trim_start_matches('@').trim();
+    if value.is_empty() { bail!("the template needs a nick or a keyword"); }
+    let (name, conditions) = match kind {
+        Template::WatchUser => (format!("Watch @{value}"), vec![Condition::Author { nick: value.into() }]),
+        Template::SavedSearch => (format!("Search: {value}"), vec![Condition::SavedSearch { keyword: value.into(), nicks: Vec::new() }]),
+        Template::RepliesToMe => (format!("Replies to @{value}"), vec![Condition::RepliesTo { nick: value.into() }]),
+    };
+    Ok(NewRule {
+        name, enabled: true, priority: 40, cloned_from: None, template_key: Some(kind.key().into()),
+        trigger: Trigger::PostSynced, conditions, actions: vec![RuleAction::Notify],
+    })
+}
+
+/// Insert a preset as a user rule the editor can open.
+pub fn install_template(c: &Connection, kind: Template, value: &str) -> Result<Rule> {
+    let id = insert_user(c, &template_rule(kind, value)?)?;
+    rule_by_id(c, id)
+}
+
 /// A user rule to insert. Import and the editor build this. `system_key` stays null.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NewRule {
@@ -702,4 +745,7 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.rules_import.is_some()
         || args.rules_export.is_some()
         || args.rules_preview
+        || args.rules_watch.is_some()
+        || args.rules_saved.is_some()
+        || args.rules_replies.is_some()
 }

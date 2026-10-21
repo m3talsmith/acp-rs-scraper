@@ -544,7 +544,9 @@ with `state` `"1"` or `"0"`, which is what the current page sends.
 
 ### Rules (offline)
 
-Sync › Rules is the same list as these flags. A system rule is read-only; clone it to edit, disable, or delete the copy. The shipped rule `synced-post` ("Synced post") starts off. Lower priority runs first. `--rules-preview` matches posts already stored and applies nothing. Import and export are TOML and JSON (`--rules-format toml|json`). Import always creates user rules.
+Sync › Rules is the same list as these flags. A system rule is read-only; clone it to edit, disable, or delete the copy. The shipped rule `synced-post` ("Synced post") starts off. Lower priority runs first. `--rules-preview` matches posts already stored and applies nothing. Import and export are TOML and JSON (`--rules-format toml|json`). Import always creates user rules. Notify has no cap. A post fires at most once per rule.
+
+`--rules-watch NICK`, `--rules-saved TEXT`, and `--rules-replies NICK` insert a user rule: watch that nick, a keyword, or replies to that nick. The same presets are `w`, `s`, and `m` on the rule list. Each starts enabled at priority 40 and notifies. The line names the author, the post id, and the site URL. There is no separate alert list.
 
 | Flag | What it does |
 |---|---|
@@ -556,6 +558,9 @@ Sync › Rules is the same list as these flags. A system rule is read-only; clon
 | `--rules-priority NAME --rules-rank N` | Set priority on a system or user rule. |
 | `--rules-import PATH` / `--rules-export PATH` | TOML or JSON. The extension picks the format unless `--rules-format` is set. |
 | `--rules-preview` | Run enabled rules on stored posts and change nothing. |
+| `--rules-watch NICK` | Add a user rule that notifies when this nick posts. |
+| `--rules-saved TEXT` | Add a user rule that notifies when a synced post matches this keyword. |
+| `--rules-replies NICK` | Add a user rule that notifies when someone replies to this nick. |
 
 ### Import (offline)
 
