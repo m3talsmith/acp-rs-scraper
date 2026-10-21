@@ -1,5 +1,6 @@
 //! Modal rendering: dims the layout, then draws the modal with a small margin.
 
+use crate::auth::session::session_login_hint;
 use crate::branding::{slogan_style, SLOGAN, SLOGAN_COLS};
 use crate::cli::colors_suppressed;
 use crate::config::TUI_SUBTITLE;
@@ -345,7 +346,10 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             }
             if let Some(e) = &l.error { lines.push(Line::raw("")); lines.push(Line::styled(format!("✗ {e}"), t.accent_bold())); }
             lines.push(Line::raw(""));
-            lines.push(Line::styled("The session is saved in ~/.acp/session.json (mode 0600); browsing works offline without it.", t.muted()));
+            let hint_w = inner.width.saturating_sub(2).max(20) as usize;
+            for line in wrap(&session_login_hint(), hint_w) {
+                lines.push(Line::styled(line, t.muted()));
+            }
             f.render_widget(Paragraph::new(lines), Rect { height: inner.height.saturating_sub(2), ..inner });
             let labels: Vec<String> = if l.on_code_step() {
                 vec!["Verify".into(), "Resend code".into(), "Cancel".into()]
@@ -483,6 +487,36 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         Modal::Compose(m) => draw_compose(f, app, area, m, &t),
         Modal::About(m) => draw_about(f, app, area, m, &t),
         Modal::Notices(m) => draw_notices(f, app, area, m, &t),
+        Modal::Branches(m) => {
+            let rows = m.rows.len().max(1) as u16;
+            let r = modal_rect(area, 72, rows + 4);
+            let inner = frame(f, &t, r, "Branches · Enter restores · Esc closes");
+            for (i, row) in m.rows.iter().enumerate() {
+                if i as u16 >= inner.height.saturating_sub(1) { break; }
+                let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+                let st = if i == m.cursor { t.selected() } else { t.plain() };
+                let mark = if i == m.cursor { "● " } else { "  " };
+                f.render_widget(Paragraph::new(Span::styled(format!("{mark}{row}"), st)), rr);
+                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], None);
+        }
+        Modal::History(h) => {
+            let rows = h.rows.len().max(1) as u16;
+            let r = modal_rect(area, 72, rows + 4);
+            let inner = frame(f, &t, r, "Search history · Enter re-runs · Esc closes");
+            if h.rows.is_empty() {
+                f.render_widget(Paragraph::new(Span::styled(" No saved searches.", t.muted())), Rect { height: 1, ..inner });
+            }
+            for (i, q) in h.rows.iter().enumerate() {
+                if i as u16 >= inner.height.saturating_sub(1) { break; }
+                let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+                let st = if i == h.cursor { t.selected() } else { t.plain() };
+                f.render_widget(Paragraph::new(Span::styled(format!(" {}", q.label()), st)), rr);
+                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], None);
+        }
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

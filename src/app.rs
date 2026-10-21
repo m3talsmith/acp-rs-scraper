@@ -316,7 +316,14 @@ pub async fn run() -> Result<()> {
         if let Some(f) = &args.export { a.output = Some(f.clone()); }
         let q = args.search.as_deref();
         let nicks = args.nick_list()?;
-        let (posts, atts, n) = search_db(&home()?.join(DB_REL_PATH), q, &nicks)?;
+        let (mut posts, atts, n) = search_db(&home()?.join(DB_REL_PATH), q, &nicks)?;
+        if let Some(raw) = &args.search_json {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(raw) {
+                if let Some(query) = crate::storage::history::SavedQuery::from_value(&v) {
+                    posts = query.apply(posts);
+                }
+            }
+        }
         info!("db export: {n} matches, {} posts total, {} attachments", posts.len(), atts.len());
         let name = clean(args.name.clone().unwrap_or_else(|| match q {
             Some(q) => format!("search-{}-{stamp}", slug(q)),

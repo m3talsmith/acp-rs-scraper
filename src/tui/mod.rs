@@ -137,6 +137,9 @@ pub async fn run(args: Args) -> Result<()> {
     setup_themes(&mut app, &args, &prefs)?;
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
+    if let Some(n) = prefs.ui.as_ref().and_then(|u| u.search_history_limit) {
+        app.menu.menu.set_text(crate::tui::commands::CommandId::Search, "keep", &n.to_string());
+    }
     (app.empty_anim, app.empty_anim_accent) = empty_anim::from_prefs(prefs.ui.as_ref());
     if let Some(msg) = crate::crypto::cmd::shares_reminder(&home_dir) {
         app.push_status(msg);

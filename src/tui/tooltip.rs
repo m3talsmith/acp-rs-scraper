@@ -54,6 +54,11 @@ pub fn tip_for(app: &App, hit: Hit) -> Option<Tip> {
         Hit::Logo => Some(tip("ACP Red Star", "about-credits")),
         Hit::HelpMark => Some(tip("Help (? / F1)", "getting-started")),
         Hit::Toast(_) => Some(tip("Dismiss this notice", "view")),
+        Hit::ToggleNicks => Some(tip("Collapse or open the nick bar", "browse")),
+        Hit::ToggleActions => Some(tip("Collapse or open the action history", "actions")),
+        Hit::Action(_) => Some(tip("Jump back to this action", "actions")),
+        Hit::ActionBranches => Some(tip("Action branches (b)", "actions")),
+        Hit::ActionPane => Some(tip("Scroll the action history", "actions")),
         Hit::Nick(_) => Some(tip("Show this nick's posts (Enter)", "browse")),
         Hit::Post(_) => Some(tip("Open this post (Enter)", "browse")),
         Hit::Link(_) => Some(tip("Open this link (Enter)", "browse")),
@@ -93,6 +98,7 @@ fn modal_tip(app: &App, h: ModalHit) -> Option<Tip> {
         Some(crate::tui::modals::Modal::Help(_)) => ("Close Help (Esc)", "keys"),
         Some(crate::tui::modals::Modal::Login(_)) => ("Log in", "login"),
         Some(crate::tui::modals::Modal::Search(_)) => ("Search", "search"),
+        Some(crate::tui::modals::Modal::Branches(_)) => ("Close", "actions"),
         _ => ("Close", "keys"),
     };
     Some(tip(text, topic))

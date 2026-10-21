@@ -159,6 +159,7 @@ pub fn export_with(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[
         }
         let mut doc = build_json(nick, posts, atts, profiles, hits, &|a| a.local_path.to_string_lossy().into_owned());
         doc["title"] = json!(name);
+        if let Some(s) = crate::storage::history::export_object(args) { doc["search"] = s; }
         if let Some((p, items)) = research {
             doc["research"] = research_json(p, items, &|i| (!i.local_path.is_empty()).then(|| i.local_path.clone()));
         }
@@ -214,6 +215,7 @@ pub fn export_with(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[
         format!("attachments/{}", a.local_path.file_name().unwrap_or_default().to_string_lossy())
     });
     doc["title"] = json!(name);
+    if let Some(s) = crate::storage::history::export_object(args) { doc["search"] = s; }
     if let Some((p, items)) = research {
         let copied: HashSet<String> = atts.iter().map(|a| a.local_path.display().to_string()).collect();
         doc["research"] = research_json(p, items, &|i| copied.contains(&i.local_path)
