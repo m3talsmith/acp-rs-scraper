@@ -241,6 +241,8 @@ mod tests {
         assert!(notes.contains("click Delete"));
         assert!(notes.contains("https://acp.us/rs/post/POST/edit"));
         assert!(notes.contains("Change only the title"));
+        assert!(notes.contains("Edit: replace attachment"));
+        assert!(notes.contains("allow_upload"));
         assert!(notes.contains("/rs/post/new?repost=POST"));
         assert!(notes.contains("short quote"));
         for (name, raw) in [

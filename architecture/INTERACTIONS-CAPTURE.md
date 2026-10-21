@@ -48,11 +48,14 @@ Page: within one hour of a post you own, click Edit. The survey route is `https:
 
 Clicks:
 
-1. Change only the title, then save.
+1. Change only the title, then save. The check post's title typo was already corrected on the website, so this is a further title-only change, or the HAR of that website edit if it was recorded. Do not treat the typo fix as this frame unless the websocket for it was saved.
 2. On a second pass, change only the body, then save.
-3. If you can open a post older than one hour, click Edit and record the refusal. Do not post a new one just to wait out the hour unless you mean to.
+3. Edit: replace attachment. On the check post that already has the PNG, click Edit, remove the existing image, upload a different small image, then save.
+4. If you can open a post older than one hour, click Edit and record the refusal. Do not post a new one just to wait out the hour unless you mean to.
 
-Record the LiveView join (form id, `phx-submit`, `phx-change`, and cid), the validate payload, and the save payload. The save has to show which keys are omitted when a field did not change. Also record the reply (`thread:update-post` or whatever the site actually pushes). This client does not build the form. An edit older than one hour is refused before the confirm.
+Record the LiveView join (form id, `phx-submit`, `phx-change`, and cid), the validate payload, and the save payload. The save has to show which keys are omitted when a field did not change. Also record the reply (`thread:update-post` or whatever the site actually pushes).
+
+For the replace-attachment click, record two more things and do not summarize them away. First, the frame that removes the image already on the post (the event name, the payload, and the reply). Second, the new file's `allow_upload`, the `lvu` join, the binary `chunk` frames, and `progress`, the same channel a new post uses. This client does not build the form and does not send a removal or an upload on edit. When those frames are in the tree, an edit that replaces an attachment reuses the 3.36.0 `allow_upload` / `lvu` path for the new file and sends the removal frame the capture shows. Until then the edit stays gated. An edit older than one hour is refused before the confirm.
 
 ## Repost — gated
 

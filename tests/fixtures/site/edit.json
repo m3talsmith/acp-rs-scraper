@@ -6,6 +6,7 @@
   "needed": [
     "Within one hour, click Edit on your post. The survey route is /rs/post/POST/edit. Change only the title and save, then change only the body and save",
     "Record the join (form id, phx-submit, phx-change, cid), the validate and save payloads, and which keys are omitted when a field did not change",
-    "Record the phx_reply or thread:update-post, and the refusal when the post is older than one hour"
+    "Record the phx_reply or thread:update-post, and the refusal when the post is older than one hour",
+    "Edit: replace attachment. On the post that already has an image, remove that image, upload a new one, and save. Record the removal frame and the allow_upload, lvu, chunk, and progress frames. The client stays gated until those frames are in the tree"
   ]
 }

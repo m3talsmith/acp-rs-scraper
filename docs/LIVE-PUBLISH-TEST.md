@@ -193,7 +193,13 @@ Do this within one hour of the post. Pass `--posted-at` as unix seconds so the h
 ./target/release/acprs --edit POST --posted-at UNIX
 ```
 
-The prompt is `Edit? [y/N]`, then `Type yes`. A post older than one hour is refused before that. The form is not built. When a capture shows a save of only the title, and a save of only the body, the client can send the changed fields. It does not send them now.
+The prompt is `Edit? [y/N]`, then `Type yes`. A post older than one hour is refused before that. The form is not built. When a capture shows a save of only the title, and a save of only the body, the client can send the changed fields. It does not send them now. The title typo on the check post was already corrected on the website. A title-only capture is a further change, or the HAR of that website edit if the websocket was saved.
+
+### Edit: replace attachment
+
+Still gated. Do not run this in the client. On the check post that already has the PNG, in the browser: Edit, remove the existing image, upload a different small image, then save. Record the removal frame and the new file's `allow_upload`, `lvu` join, chunks, and `progress`.
+
+When that capture is in the tree, the edit flow reuses the upload path from the attachment work and sends the removal frame the capture shows, then validate and save. It does not send either frame now. `--edit` still refuses.
 
 ### Repost
 
