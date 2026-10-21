@@ -303,7 +303,7 @@ This follows Michael's rule: the minor version goes up by one per feature, a fix
 | Search history | in the client, unnumbered | Reopen a past query from the Search menu (§7.14.5). The row is the query and the filters only, including order (`newest` or `oldest`) and limit (N, or none). A pick re-runs the search live, the rows live in the encrypted database, and Clear history deletes them. The default keeps every row. A preference can cap the list at the N most recent. An export of a search result carries that query and those filters with the posts. The version number is not assigned here, and numbered stages are not moved. |
 | Action history bar | in the client, unnumbered | A collapsible right bar of every action that led to the current view (§7.14.5). The list scrolls. Click one to jump back, then export from that state. A new step after a jump keeps the later steps as another branch, stored in the encrypted database with search history. Clear history deletes the branches. The left nick bar collapses the same way. The version number is not assigned here, and numbered stages are not moved. |
 | 3.30.0: A few surprises | **3.30.0** | One minor after 3.29.0. A few surprises for the curious. The notes are in `docs/.secrets/EASTER_EGGS.md`. Not in the README, usage, or Help. 3.6.0–3.9.0 stay unassigned, and nothing from 3.10.0 through 3.29.0 moves. The next minors are 3.31.0–3.33.0. |
-| 3.31.0: Notifications | **3.31.0** | In-terminal toasts and OS desktop notifications. Per-type toggles, do-not-disturb, a notice log, and the same notices on stderr. Replaces ad-hoc status-line notices. Not the site Notifications pane (P4). Respects `NO_COLOR` / `--color never` (§7.14.13). |
+| 3.31.0: Notifications | **3.31.0** | In-terminal toasts with no cap, View all past a quarter of the screen, and View › Notifications (newest/oldest, kind filter, search, clear, Clear all) stored in the encrypted database. Per-type toggles, do-not-disturb, and the same notices on stderr. Not an action-bar step. Not the site Notifications pane (P4). Respects `NO_COLOR` / `--color never` (§7.14.13). |
 | 3.32.0: Rule engine | **3.32.0** | A triggers / conditions / actions engine in the library, evaluated on sync. Built-in system rules ship read-only and cloneable. The user's rules sit beside them in the editor and in `rules`. Stored encrypted (§7.14.13). |
 | 3.33.0: Alert templates | **3.33.0** | One-click rule templates on the 3.32.0 engine: watch a user, saved-search matches, replies to me. The user can open and edit them. No separate alert subsystem (§7.14.13). |
 | TUI menu categories | later minor, required before 3.x closes | Reorganize the menu bar (§4.2). Must ship before 3.x is finished. The version number is not assigned here, and numbered stages are not moved. |
@@ -863,7 +863,7 @@ cookies or tokens. Peers only carry signed *intents*.
 | 3.28.0 | Draft review: links, comments, suggestions (§7.14.8) |
 | 3.29.0 | `acp_rs_node_ffi` and the first Dart SDK release (§7.14.7) |
 | **3.30.0** | A few surprises for the curious. Noted in `docs/.secrets/EASTER_EGGS.md`, not in the README, usage, or Help. Added 2026-10-20 after 3.29.0; earlier stages are not renumbered. |
-| **3.31.0** | Local notifications: stacked toasts, an OS notification, a notice log, per-type toggles, do-not-disturb, and stderr for the command line (§7.14.13). |
+| **3.31.0** | Local notifications: stacked toasts with no cap, View all, View › Notifications stored in the encrypted database, per-type toggles, do-not-disturb, and stderr for the command line (§7.14.13). |
 | **3.32.0** | Rule engine: library triggers / conditions / actions, evaluated on sync. System rules are read-only and cloneable. User rules sit beside them (§7.14.13). |
 | **3.33.0** | Alert templates on that engine: watch `@user`, saved-search matches, replies to me. Editable. No second alert subsystem (§7.14.13). |
 
@@ -1330,9 +1330,12 @@ The order is notifications, then the rule engine, then alert templates. Alerts w
 
 Local notices. This is not the site Notifications pane (P4, 3.10.0–3.11.0, `/rs/notifications`, §1a item 15, §8 Q4).
 
-- **In the terminal UI:** toasts, stacked, that dismiss on their own. A notice log keeps the ones that already dismissed, so a missed toast can still be read.
+The client has the toasts, the saved list, the per-type switches, and do-not-disturb. There is no cap. When the stack would be taller than a quarter of the screen, as many toasts as fit stay up and View all opens View › Notifications, the same page as that menu item. The page is newest first, with oldest, a kind filter, search, a clear button on each row, and Clear all. Rows are stored in the encrypted database and survive a restart. Opening the page, View all, search, order, and clearing a row are not action-bar steps. A skipped sync and a finished job raise a notice. Errors and warnings on the status line do too. The status line still keeps job and list state. The stderr line stays plain when colour is off. The desktop backend is an interface. Tests use a fake and do not talk to a notification daemon. Linux uses `notify-send` (the freedesktop notification spec over D-Bus). macOS uses Notification Center. Windows uses the toast API. The crate stays 3.5.0 until this minor is released. This note does not take 3.31.0 early, and it does not move 3.10.0–3.30.0 or the locked 3.22.0 re-key.
+
+- **In the terminal UI:** toasts, stacked, with no cap, that dismiss on their own. Past a quarter of the screen, View all opens the notifications page.
+- **Notifications page:** View › Notifications. Newest first, oldest, filter by kind, search, clear on each row, Clear all. Stored in the encrypted database.
 - **On the desktop:** an OS notification. Linux uses the freedesktop notification spec over D-Bus. macOS and Windows use the platform notification API.
-- **Controls:** each notice type can be turned off. Do-not-disturb silences toasts and OS notifications together. The notice log still records them.
+- **Controls:** each notice type can be turned off. Do-not-disturb silences toasts and OS notifications together. The saved list still records them. None of this is an action-history step.
 - **Command line:** the same notices print on stderr. `NO_COLOR` and `--color never` leave them plain.
 - **What it replaces:** ad-hoc status-line notices. The status line keeps job and list state. A notice that the user should see becomes a toast, an OS notification, and a log row.
 
@@ -1401,7 +1404,7 @@ Presets on the 3.32.0 engine. There is no alert table, no alert runner, and no a
 - **Saved-search matches.** A saved search hit in the sync that just finished.
 - **Replies to me.** Someone replied to one of my posts.
 
-Evaluation is the engine's sync pass. Today that sync is Red Star. After peer and node sync (P9, 3.23.0 and later) the same rules run on those rows, and each firing records its source. A post fires at most once per rule. Notices are rate-limited. The toast and the log deep-link to the post in the terminal UI and carry the site URL.
+Evaluation is the engine's sync pass. Today that sync is Red Star. After peer and node sync (P9, 3.23.0 and later) the same rules run on those rows, and each firing records its source. A post fires at most once per rule. Notices are not capped. The toast and the log deep-link to the post in the terminal UI and carry the site URL.
 
 A saved search is a pinned query plus its filters, stored in the encrypted database, including order and limit. That storage is the search-history work now on main (merged from #10, §7.14.5). The minor for search history stays unnumbered.
 

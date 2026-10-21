@@ -124,6 +124,10 @@ pub async fn run(args: Args) -> Result<()> {
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
         session_path().map(|p| p.exists()).unwrap_or(false));
     app.no_color = no_color_set();
+    if let Some(n) = prefs.ui.as_ref().and_then(|u| u.notify.clone()) {
+        app.notices.settings.dnd = n.dnd;
+        app.notices.settings.on = [n.error, n.warning, n.sync, n.job];
+    }
     app.color_mode = resolve_color_mode(args.color, prefs.ui.as_ref().and_then(|u| u.color.as_deref()));
     apply_color_mode(app.color_mode);
     app.menu.menu.set_choice(crate::tui::commands::CommandId::View, "color", color_choice(app.color_mode));
@@ -200,6 +204,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     let http = client(jar.clone())?;
 
     apply_color_mode(app.color_mode);
+    app.notices.enable_desktop();
     enable_raw_mode()?;
     execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
     let prev = std::panic::take_hook();

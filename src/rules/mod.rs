@@ -22,9 +22,6 @@ use crate::prelude::*;
 /// Stable id of the shipped "Synced post" rule.
 pub const SYSTEM_SYNCED_POST: &str = "synced-post";
 
-/// Notify actions kept in one evaluation. Further matches are skipped.
-pub const NOTIFY_CAP: usize = 8;
-
 /// Where a rule came from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Origin {
@@ -514,7 +511,7 @@ pub(crate) fn load_posts(c: &Connection) -> Result<Vec<Post>> {
 
 /// Evaluate `posts` in order. `dry_run` records `skipped` / `dry-run` and applies nothing.
 pub fn evaluate(c: &Connection, db: &Path, posts: &[Post], source: &str, dry_run: bool) -> Result<Vec<Firing>> {
-    let mut pass = Pass { conn: c, db, posts, source, dry_run, notifies: 0, out: Vec::new() };
+    let mut pass = Pass { conn: c, db, posts, source, dry_run, out: Vec::new() };
     let rules: Vec<Rule> = list_rules(c)?.into_iter().filter(|r| r.enabled).collect();
     for rule in &rules {
         pass.one_rule(rule)?;
@@ -528,7 +525,6 @@ struct Pass<'a> {
     posts: &'a [Post],
     source: &'a str,
     dry_run: bool,
-    notifies: usize,
     out: Vec<Firing>,
 }
 
@@ -629,15 +625,9 @@ impl Pass<'_> {
         if self.dry_run {
             return self.record(rule, &post.post_id, &kind, "skipped", "dry-run");
         }
-        if matches!(action, RuleAction::Notify) && self.notifies >= NOTIFY_CAP {
-            return self.record(rule, &post.post_id, &kind, "skipped", "rate limit");
-        }
         let result = self.effect(post, action);
         match result {
-            Ok(detail) => {
-                if matches!(action, RuleAction::Notify) { self.notifies += 1; }
-                self.record(rule, &post.post_id, &kind, "fired", &detail)
-            }
+            Ok(detail) => self.record(rule, &post.post_id, &kind, "fired", &detail),
             Err(e) => self.record(rule, &post.post_id, &kind, "error", &format!("{e:#}")),
         }
     }
