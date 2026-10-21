@@ -6,7 +6,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.37.0] - 2026-10-21
+## [3.32.0] - 2026-10-21
 
 ### Added
 
@@ -16,65 +16,40 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - Working rules for agents are in `AGENTS.md`. The X and YouTube design is in `architecture/PLAN-SCRAPERS.md`. Neither is a feature of this version.
 
-## [3.36.0] - 2026-10-21
-
-### Added
-
-- **Text publish.** A confirmed text post or reply sends validate, then save, once, from `--new-post`, `--reply`, and the compose box. The reply frames are the approved capture, including a comment or quote reply. A new post sends `form[title]` and `form[body_input]`. Success prints the new post id and URL. A rejection is shown and is not retried. `--dry-run` prints the frames and opens no connection. The command line asks `Publish? [y/N]`. The compose box starts on Cancel. The 30 second gap starts on confirm. Uploads are 3.37.0. Votes, subscribes, deletes, edits, and reposts are not sent.
-
-## [3.35.0] - 2026-10-21
-
-### Added
-
-- **Whole site.** `acprs --scrape-all` reads every reachable read-only page: feeds, threads and replies, profiles, tags, spaces and communities when the page links them, reposts, and attachment URLs and types. The file bytes are not downloaded. The frontier is stored in the encrypted database, so a stopped run resumes. `--limit` caps new posts. `--scrape-budget` caps seconds. Pages wait, back off after a refusal, and honor `robots.txt`. The next finished run is incremental unless `--full`. Scrape › Whole site and Sync › Whole site start it. Nothing is published.
-
-## [3.34.0] - 2026-10-20
-
-### Added
-
-- **Alert templates.** Sync › Rules presets watch a user (`w`, `--rules-watch`), a saved search (`s`, `--rules-saved`), and replies to me (`m`, `--rules-replies`). Each is a user rule on the rule engine, enabled, priority 40, action notify. The notice names the author, the post id, and the site URL. There is no separate alert runner.
-
-## [3.33.0] - 2026-10-20
-
-### Added
-
-- **Rule engine.** Sync runs triggers, conditions, and actions on the rows it just wrote. The shipped Synced post rule is off. System rules are read-only and can be cloned into a user rule. Sync › Rules edits one condition and one action. `--rules-list`, `--rules-show`, `--rules-enable`, `--rules-disable`, `--rules-clone`, `--rules-delete`, `--rules-priority`, `--rules-import`, `--rules-export`, and `--rules-preview` are the command line. Import and export are TOML and JSON. A preview matches posts already stored and applies nothing. A post fires at most once per rule. Notify prints a line and does not raise a toast. Nothing is sent to the site.
-
-## [3.32.0] - 2026-10-20
-
-### Added
-
-- **Notices.** An error, a warning, a skipped sync, or a finished job raises a stacked toast and a desktop notification. When the stack would be taller than a quarter of the screen, as many toasts as fit stay up and View all opens the rest. View › Notifications is that page: newest first, with oldest, a kind filter, search, a clear button on each row, and Clear all. The rows are stored in the encrypted database. Do not disturb and a switch for each kind silence the toast and the desktop notification together. The list still records them. The same notice prints on stderr. Tests use a fake desktop backend.
-
 ## [3.31.0] - 2026-10-21
 
 ### Added
 
-- **Repost is prepared and not sent.** Post menu (`p`) › Repost names `/rs/post/new?repost=POST`. `--repost POST` does the same. This is not `--reposts`, which only reads the list. The form has not been captured, so it is not built and `quoted_post` is not invented. `--dry-run` prints the route and opens no connection. A confirmed repost stops at the capture gate.
+- **Text publish.** A confirmed text post or reply sends validate, then save, once, from `--new-post`, `--reply`, and the compose box. The reply frames are the approved capture, including a comment or quote reply. A new post sends `form[title]` and `form[body_input]`. Success prints the new post id and URL. A rejection is shown and is not retried. `--dry-run` prints the frames and opens no connection. The command line asks `Publish? [y/N]`. The compose box starts on Cancel. The 30 second gap starts on confirm. Uploads are 3.32.0. Votes, subscribes, deletes, edits, and reposts are not sent.
 
 ## [3.30.0] - 2026-10-21
 
 ### Added
 
-- **Edit is prepared and not sent.** An edit stays open for one hour after the post. Post menu (`p`) › Edit checks that hour. `--edit POST` checks `--posted-at` when that unix time is passed. The edit form has not been captured, so it is not built. `--dry-run` opens no connection. A confirmed edit inside the hour stops at the capture gate.
+- **Whole site.** `acprs --scrape-all` reads every reachable read-only page: feeds, threads and replies, profiles, tags, spaces and communities when the page links them, reposts, and attachment URLs and types. The file bytes are not downloaded. The frontier is stored in the encrypted database, so a stopped run resumes. `--limit` caps new posts. `--scrape-budget` caps seconds. Pages wait, back off after a refusal, and honor `robots.txt`. The next finished run is incremental unless `--full`. Scrape › Whole site and Sync › Whole site start it. Nothing is published.
 
-## [3.29.0] - 2026-10-21
-
-### Added
-
-- **Delete is prepared and not sent.** Post menu (`p`) › Delete asks you to type yes. Cancel is the default. `--delete POST` asks the same on a terminal, and `--yes` confirms. `--dry-run` prints the planned hook and opens no connection. A confirmed delete stops at the capture gate.
-
-## [3.28.0] - 2026-10-21
+## [3.29.0] - 2026-10-20
 
 ### Added
 
-- **Subscribe is prepared and not sent.** Post menu (`p`) › Subscribe builds the subscribe hook for the open or highlighted post. `--subscribe THREAD` does the same, and `--subscribe-state 0` clears it. `--dry-run` prints the hook and opens no connection. A confirmed subscribe stops at the capture gate.
+- **Alert templates.** Sync › Rules presets watch a user (`w`, `--rules-watch`), a saved search (`s`, `--rules-saved`), and replies to me (`m`, `--rules-replies`). Each is a user rule on the rule engine, enabled, priority 40, action notify. The notice names the author, the post id, and the site URL. There is no separate alert runner.
 
-## [3.27.0] - 2026-10-21
+## [3.28.0] - 2026-10-20
 
 ### Added
 
-- **Vote is prepared and not sent.** `+` upvotes the open or highlighted post and `-` downvotes it. `--vote POST` does the same, with `--vote-state 1|0|-1`. `--dry-run` prints the hook and opens no connection. A confirmed vote stops at the capture gate.
+- **Rule engine.** Sync runs triggers, conditions, and actions on the rows it just wrote. The shipped Synced post rule is off. System rules are read-only and can be cloned into a user rule. Sync › Rules edits one condition and one action. `--rules-list`, `--rules-show`, `--rules-enable`, `--rules-disable`, `--rules-clone`, `--rules-delete`, `--rules-priority`, `--rules-import`, `--rules-export`, and `--rules-preview` are the command line. Import and export are TOML and JSON. A preview matches posts already stored and applies nothing. A post fires at most once per rule. Notify prints a line and does not raise a toast. Nothing is sent to the site.
+
+## [3.27.0] - 2026-10-20
+
+### Added
+
+- prepared, gated: vote. `+` and `-`, and `--vote`, stop at the capture gate.
+- prepared, gated: subscribe. The subscribe hook stops at the capture gate.
+- prepared, gated: delete. A confirmed delete stops at the capture gate.
+- prepared, gated: edit. A confirmed edit inside the one-hour window stops at the capture gate.
+- prepared, gated: repost. A confirmed repost stops at the capture gate.
+- **Notices.** An error, a warning, a skipped sync, or a finished job raises a stacked toast and a desktop notification. When the stack would be taller than a quarter of the screen, as many toasts as fit stay up and View all opens the rest. View › Notifications is that page: newest first, with oldest, a kind filter, search, a clear button on each row, and Clear all. The rows are stored in the encrypted database. Do not disturb and a switch for each kind silence the toast and the desktop notification together. The list still records them. The same notice prints on stderr. Tests use a fake desktop backend.
 
 ## [3.26.1] - 2026-10-20
 
@@ -86,7 +61,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Reply frames match the approved capture.** A root reply starts with a `postRef` node whose `postId` and `threadId` are both the thread id, then one paragraph. A blank line is two `hardBreak` nodes inside the paragraph. The form value is `form[thread_id]` then `form[body_input]`, with no `_csrf_token`. Validate sends `meta._target` of `form[body_input]` and `uploads: {}`. Save sends an empty `meta` and no `uploads` key. Reply in the terminal UI (`r`) and `--reply` both build these frames. `--dry-run` prints them and opens no connection. Sending them is 3.36.0.
+- **Reply frames match the approved capture.** A root reply starts with a `postRef` node whose `postId` and `threadId` are both the thread id, then one paragraph. A blank line is two `hardBreak` nodes inside the paragraph. The form value is `form[thread_id]` then `form[body_input]`, with no `_csrf_token`. Validate sends `meta._target` of `form[body_input]` and `uploads: {}`. Save sends an empty `meta` and no `uploads` key. Reply in the terminal UI (`r`) and `--reply` both build these frames. `--dry-run` prints them and opens no connection. Sending them is 3.31.0.
 
 ## [3.25.0] - 2026-10-20
 
@@ -220,7 +195,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Site copy takes up to 4 images or videos.** The app, the local archive, and the network keep every file. Red Star accepts `image/*` and `video/*` only, at most 4, on the site copy. Audio, documents, and other types stay local. More than 4 images or videos, with no choice, publish the first 4 of those and print a notice naming the ones left off. `--site-attachments` takes 1-based indexes. The compose box opens a picker when there are more than 4. Each stored file has `on_site`. Export JSON adds `"on_site"`. A confirmed publish still does not send. PDFs join this cap in 3.37.0.
+- **Site copy takes up to 4 images or videos.** The app, the local archive, and the network keep every file. Red Star accepts `image/*` and `video/*` only, at most 4, on the site copy. Audio, documents, and other types stay local. More than 4 images or videos, with no choice, publish the first 4 of those and print a notice naming the ones left off. `--site-attachments` takes 1-based indexes. The compose box opens a picker when there are more than 4. Each stored file has `on_site`. Export JSON adds `"on_site"`. A confirmed publish still does not send. PDFs join this cap in 3.32.0.
 
 ### Changed
 
