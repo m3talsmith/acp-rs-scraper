@@ -51,7 +51,7 @@ The root `Cargo.toml` workspace members are `"."`, `"crates/acp_red_star_node_co
 |---|---|---|---|
 | `acp-red-star` | repository root (`Cargo.toml`) | 3.5.0 | Terminal client and CLI. The binaries are `acp-red-star`, `acprs`, and `acp-rs-scraper` (the compatibility name through version 3). The Cargo description is "ACP Red Star, a local client for the Red Star forum". Edition 2024, `rust-version` 1.88. |
 | `acp_red_star_node_core` | `crates/acp_red_star_node_core` | 3.3.0 | Shared identity, canonical CBOR, and sealed secrets. `publish = false`. The root package depends on it with `path = "crates/acp_red_star_node_core"`. It does not open the SQLite database, draw the terminal, or talk to the network. |
-| `acp_rs_plugin` | `crates/acp_rs_plugin` | 0.4.0 | Service traits and the plugin package gate. `publish = false`. `core_version` is this crate's version, not the root crate's. The `test-host` feature is an in-memory host for a service's tests. |
+| `acp_rs_plugin` | `crates/acp_rs_plugin` | 0.5.0 | Service traits and the plugin package gate. `publish = false`. `core_version` is this crate's version, not the root crate's. The `test-host` feature is an in-memory host for a service's tests. |
 
 Public modules of `acp_red_star_node_core`: `cbor`, `hpke`, `master`, `node`, `password`, `slip39`, `stage`, `store`. The encoding rules are in [PROTOCOL.md](PROTOCOL.md).
 

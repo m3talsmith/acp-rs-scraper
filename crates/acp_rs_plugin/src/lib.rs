@@ -43,7 +43,13 @@
 //! [`LocalPost`] are traits. `impl_default_caps!(Ty, except Reader, Post)` takes
 //! a comma-separated list. The `test-host` feature exposes `MemHost`, an
 //! in-memory host for a service's tests. Store the host in [`Service::attach`].
-//! This crate does not link SQLCipher or the node crate. This crate is `0.4.0`.
+//! This crate does not link SQLCipher or the node crate. This crate is `0.5.0`.
+//!
+//! [`CapabilityId::UpdateProfile`], [`CapabilityId::ReportPost`],
+//! [`CapabilityId::ReportUser`], and [`CapabilityId::Bookmark`] are the
+//! account and moderation operations. [`Host::bookmark_post`] is the local
+//! half of bookmarking a post. The `test-host` feature's in-memory host
+//! implements that same path.
 //!
 //! [`Host`] calls are synchronous. A plugin may make them from a thread or
 //! runtime it owns. A websocket upgrade is out of scope. The service keeps its

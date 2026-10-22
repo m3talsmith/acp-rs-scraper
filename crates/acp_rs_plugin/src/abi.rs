@@ -5,9 +5,9 @@
 //! crate, is refused before `register`.
 
 use crate::records::{
-    Availability, Budget, CapFut, Cursor, Draft, Expand, FeedRule, Field, FilledFields, ItemRec,
-    MediaBytes, MediaRequest, NoticeRec, Page, ResearchRef, Resolved, RouteKind, RuntimeCtx,
-    SealedMaterial, ServiceError, SourceId, Spend, Target, VoteChoice, WriteOutcome,
+    AccountRec, Availability, Budget, CapFut, Cursor, Draft, Expand, FeedRule, Field, FilledFields,
+    ItemRec, MediaBytes, MediaRequest, NoticeRec, Page, ResearchRef, Resolved, RouteKind,
+    RuntimeCtx, SealedMaterial, ServiceError, SourceId, Spend, Target, VoteChoice, WriteOutcome,
     not_implemented,
 };
 
@@ -58,6 +58,14 @@ pub enum CapabilityId {
     Outbox,
     /// A post stored on this machine before it is sent.
     LocalPost,
+    /// Replace the signed-in account's profile.
+    UpdateProfile,
+    /// Report one post.
+    ReportPost,
+    /// Report one account.
+    ReportUser,
+    /// Bookmark or unbookmark one post.
+    Bookmark,
 }
 
 impl CapabilityId {
@@ -83,6 +91,10 @@ impl CapabilityId {
             Self::Spaces => "spaces",
             Self::Outbox => "outbox",
             Self::LocalPost => "local_post",
+            Self::UpdateProfile => "update_profile",
+            Self::ReportPost => "report_post",
+            Self::ReportUser => "report_user",
+            Self::Bookmark => "bookmark",
         }
     }
 
@@ -92,7 +104,7 @@ impl CapabilityId {
     }
 }
 
-const ALL: [CapabilityId; 19] = [
+const ALL: [CapabilityId; 23] = [
     CapabilityId::Authenticator,
     CapabilityId::Reader,
     CapabilityId::Live,
@@ -112,6 +124,10 @@ const ALL: [CapabilityId; 19] = [
     CapabilityId::Spaces,
     CapabilityId::Outbox,
     CapabilityId::LocalPost,
+    CapabilityId::UpdateProfile,
+    CapabilityId::ReportPost,
+    CapabilityId::ReportUser,
+    CapabilityId::Bookmark,
 ];
 
 /// Object-safe service. Async calls return a boxed future so the value can cross a plugin.
@@ -316,6 +332,27 @@ pub trait DynService: Send + Sync {
     fn cancel_queued<'a>(&'a self, _id: &'a str) -> CapFut<'a, String> {
         not_implemented(self.id(), CapabilityId::Outbox.as_str())
     }
+
+    /// Replace the profile in `account`. The host stores the row the service returns.
+    fn update_profile<'a>(&'a self, _account: &'a AccountRec) -> CapFut<'a, AccountRec> {
+        not_implemented(self.id(), CapabilityId::UpdateProfile.as_str())
+    }
+
+    /// Report `item`. `reason` is the text the user confirmed.
+    fn report_post<'a>(&'a self, _item: &'a SourceId, _reason: &'a str) -> CapFut<'a, ()> {
+        not_implemented(self.id(), CapabilityId::ReportPost.as_str())
+    }
+
+    /// Report `account`. `reason` is the text the user confirmed.
+    fn report_user<'a>(&'a self, _account: &'a SourceId, _reason: &'a str) -> CapFut<'a, ()> {
+        not_implemented(self.id(), CapabilityId::ReportUser.as_str())
+    }
+
+    /// Bookmark `item` when `on` is set. The host records the mark through
+    /// [`crate::Host::bookmark_post`]. This call is the site half.
+    fn bookmark<'a>(&'a self, _item: &'a SourceId, _on: bool) -> CapFut<'a, ()> {
+        not_implemented(self.id(), CapabilityId::Bookmark.as_str())
+    }
 }
 
 /// What a plugin exports. The host casts the `plugin_declaration` symbol to this.
@@ -474,12 +511,18 @@ pub fn probe_subject(cap: CapabilityId, subject: Probe<'_>) -> Result<(), Servic
             Probe::Target(Target::Account { handle }) => !handle.trim().is_empty(),
             Probe::Target(_) | Probe::Draft(_) | Probe::Page(_) => false,
         },
-        CapabilityId::Vote | CapabilityId::Subscribe | CapabilityId::Delete => match subject {
-            Probe::Target(Target::Item { id } | Target::Conversation { id }) => {
-                !id.native.is_empty()
+        CapabilityId::Vote | CapabilityId::Subscribe | CapabilityId::Delete | CapabilityId::Bookmark | CapabilityId::ReportPost => {
+            match subject {
+                Probe::Target(Target::Item { id } | Target::Conversation { id }) => {
+                    !id.native.is_empty()
+                }
+                Probe::Page(page) => !page.items.is_empty(),
+                Probe::Target(_) | Probe::Draft(_) => false,
             }
-            Probe::Page(page) => !page.items.is_empty(),
-            Probe::Target(_) | Probe::Draft(_) => false,
+        }
+        CapabilityId::UpdateProfile | CapabilityId::ReportUser => match subject {
+            Probe::Target(Target::Account { handle }) => !handle.trim().is_empty(),
+            Probe::Target(_) | Probe::Draft(_) | Probe::Page(_) => false,
         },
         CapabilityId::Notification | CapabilityId::CostMeter => match subject {
             Probe::Target(target) => target_filled(target),
@@ -518,9 +561,12 @@ fn probe_expect(cap: CapabilityId) -> &'static str {
         | CapabilityId::MediaFetcher
         | CapabilityId::Spaces => "a target or a page",
         CapabilityId::Authenticator => "an account target",
-        CapabilityId::Vote | CapabilityId::Subscribe | CapabilityId::Delete => {
-            "an item, a conversation, or a page of items"
-        }
+        CapabilityId::Vote
+        | CapabilityId::Subscribe
+        | CapabilityId::Delete
+        | CapabilityId::Bookmark
+        | CapabilityId::ReportPost => "an item, a conversation, or a page of items",
+        CapabilityId::UpdateProfile | CapabilityId::ReportUser => "an account target",
         CapabilityId::Notification | CapabilityId::CostMeter => "a target, a draft, or a page",
         CapabilityId::Research => "an item or a page of items",
     }
@@ -617,7 +663,11 @@ mod tests {
         assert!(service_id_allowed("x", true).is_err());
         assert!(service_id_allowed("demo", false).is_ok());
         assert_eq!(CapabilityId::Spaces.as_str(), "spaces");
-        assert_eq!(CapabilityId::all().len(), 19);
+        assert_eq!(CapabilityId::UpdateProfile.as_str(), "update_profile");
+        assert_eq!(CapabilityId::ReportPost.as_str(), "report_post");
+        assert_eq!(CapabilityId::ReportUser.as_str(), "report_user");
+        assert_eq!(CapabilityId::Bookmark.as_str(), "bookmark");
+        assert_eq!(CapabilityId::all().len(), 23);
     }
 
     #[test]
@@ -693,6 +743,21 @@ mod tests {
         let sid = crate::records::SourceId::new(crate::records::ServiceId::new("bare"), "1");
         let err = futures_block(bare.vote(&sid, crate::records::VoteChoice::Up)).unwrap_err();
         assert!(err.to_string().contains("does not implement vote"), "{err}");
+        let account = Target::Account { handle: "ada".into() };
+        assert!(probe_subject(CapabilityId::UpdateProfile, Probe::Target(&account)).is_ok());
+        assert!(probe_subject(CapabilityId::ReportUser, Probe::Target(&account)).is_ok());
+        assert!(probe_subject(CapabilityId::ReportPost, Probe::Target(&item)).is_ok());
+        assert!(probe_subject(CapabilityId::Bookmark, Probe::Target(&item)).is_ok());
+        assert!(probe_subject(CapabilityId::Bookmark, Probe::Target(&account)).is_err());
+        let profile = crate::records::AccountRec::new(sid.clone(), "ada");
+        let err = futures_block(bare.update_profile(&profile)).unwrap_err();
+        assert!(err.to_string().contains("does not implement update_profile"), "{err}");
+        let err = futures_block(bare.report_post(&sid, "spam")).unwrap_err();
+        assert!(err.to_string().contains("does not implement report_post"), "{err}");
+        let err = futures_block(bare.report_user(&sid, "spam")).unwrap_err();
+        assert!(err.to_string().contains("does not implement report_user"), "{err}");
+        let err = futures_block(bare.bookmark(&sid, true)).unwrap_err();
+        assert!(err.to_string().contains("does not implement bookmark"), "{err}");
     }
 
     fn futures_block<F: Future>(f: F) -> F::Output {

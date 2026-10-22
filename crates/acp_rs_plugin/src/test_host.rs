@@ -228,6 +228,20 @@ impl Host for MemHost {
         Ok(())
     }
 
+    fn bookmark_post(&self, service: &str, post_id: &str, on: bool) -> Result<(), HostError> {
+        if service.is_empty() || post_id.is_empty() {
+            return Err(HostError::new("a bookmark needs a service and a post id"));
+        }
+        if on {
+            self.add_bookmark(post_id)?;
+            self.lock().sites.insert((service.to_string(), post_id.to_string()), post_id.to_string());
+        } else {
+            self.lock().sites.remove(&(service.to_string(), post_id.to_string()));
+            self.remove_bookmark(post_id)?;
+        }
+        Ok(())
+    }
+
     fn list_outbox(&self) -> Result<Vec<String>, HostError> {
         let mem = self.lock();
         let mut lines: Vec<String> = mem
@@ -821,5 +835,15 @@ mod tests {
         let last = host.last_http();
         assert!(last.contains("session=s3cret"), "{last}");
         assert!(last.contains("theme=dark"), "{last}");
+    }
+
+    #[test]
+    fn bookmark_post_marks_and_clears_in_memory() {
+        let host = MemHost::new("/tmp/mem-host");
+        assert!(host.bookmark_post("", "post-1", true).is_err());
+        host.bookmark_post("redstar", "post-1", true).unwrap();
+        assert!(host.list_bookmarks().unwrap().iter().any(|id| id == "post-1"));
+        host.bookmark_post("redstar", "post-1", false).unwrap();
+        assert!(!host.list_bookmarks().unwrap().iter().any(|id| id == "post-1"));
     }
 }

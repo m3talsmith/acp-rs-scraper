@@ -261,6 +261,44 @@ pub trait CostMeter: Service {
     }
 }
 
+/// Replace the signed-in account's profile. The host stores the returned row.
+pub trait UpdateProfile: Service {
+    /// Write `account`. The returned row is what the host stores.
+    fn update_profile<'a>(&'a self, _account: &'a AccountRec) -> CapFut<'a, AccountRec> {
+        not_implemented(
+            self.service_id().as_str(),
+            CapabilityId::UpdateProfile.as_str(),
+        )
+    }
+}
+
+/// Report one post. The host confirms before it calls this.
+pub trait ReportPost: Service {
+    /// Report `item` for `reason`.
+    fn report_post<'a>(&'a self, _item: &'a SourceId, _reason: &'a str) -> CapFut<'a, ()> {
+        not_implemented(self.service_id().as_str(), CapabilityId::ReportPost.as_str())
+    }
+}
+
+/// Report one account. The host confirms before it calls this.
+pub trait ReportUser: Service {
+    /// Report `account` for `reason`.
+    fn report_user<'a>(&'a self, _account: &'a SourceId, _reason: &'a str) -> CapFut<'a, ()> {
+        not_implemented(self.service_id().as_str(), CapabilityId::ReportUser.as_str())
+    }
+}
+
+/// Bookmark or unbookmark one post.
+///
+/// The host records the mark with [`crate::Host::bookmark_post`]. This trait is
+/// the site half. `on` false clears the bookmark.
+pub trait Bookmark: Service {
+    /// Bookmark `item` when `on` is set.
+    fn bookmark<'a>(&'a self, _item: &'a SourceId, _on: bool) -> CapFut<'a, ()> {
+        not_implemented(self.service_id().as_str(), CapabilityId::Bookmark.as_str())
+    }
+}
+
 impl<T> DynService for T
 where
     T: Service
@@ -282,7 +320,11 @@ where
         + Spaces
         + CostMeter
         + LocalPost
-        + Outbox,
+        + Outbox
+        + UpdateProfile
+        + ReportPost
+        + ReportUser
+        + Bookmark,
 {
     fn id(&self) -> &'static str {
         self.service_id().as_str()
@@ -431,6 +473,22 @@ where
     fn cancel_queued<'a>(&'a self, id: &'a str) -> CapFut<'a, String> {
         Outbox::cancel_queued(self, id)
     }
+
+    fn update_profile<'a>(&'a self, account: &'a AccountRec) -> CapFut<'a, AccountRec> {
+        UpdateProfile::update_profile(self, account)
+    }
+
+    fn report_post<'a>(&'a self, item: &'a SourceId, reason: &'a str) -> CapFut<'a, ()> {
+        ReportPost::report_post(self, item, reason)
+    }
+
+    fn report_user<'a>(&'a self, account: &'a SourceId, reason: &'a str) -> CapFut<'a, ()> {
+        ReportUser::report_user(self, account, reason)
+    }
+
+    fn bookmark<'a>(&'a self, item: &'a SourceId, on: bool) -> CapFut<'a, ()> {
+        Bookmark::bookmark(self, item, on)
+    }
 }
 
 /// Implement every capability trait with its default body, except the ones named.
@@ -463,6 +521,10 @@ macro_rules! impl_default_caps {
         $crate::__impl_one_cap!(CostMeter, $ty, [$($skip),*]);
         $crate::__impl_one_cap!(LocalPost, $ty, [$($skip),*]);
         $crate::__impl_one_cap!(Outbox, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(UpdateProfile, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(ReportPost, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(ReportUser, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Bookmark, $ty, [$($skip),*]);
     };
 }
 
@@ -583,6 +645,30 @@ macro_rules! __impl_one_cap {
         $crate::__impl_one_cap!(Outbox, $ty, [$($rest),*]);
     };
     (Outbox, $ty:ty, []) => { impl $crate::Outbox for $ty {} };
+
+    (UpdateProfile, $ty:ty, [UpdateProfile $(, $rest:ident)*]) => {};
+    (UpdateProfile, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(UpdateProfile, $ty, [$($rest),*]);
+    };
+    (UpdateProfile, $ty:ty, []) => { impl $crate::UpdateProfile for $ty {} };
+
+    (ReportPost, $ty:ty, [ReportPost $(, $rest:ident)*]) => {};
+    (ReportPost, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(ReportPost, $ty, [$($rest),*]);
+    };
+    (ReportPost, $ty:ty, []) => { impl $crate::ReportPost for $ty {} };
+
+    (ReportUser, $ty:ty, [ReportUser $(, $rest:ident)*]) => {};
+    (ReportUser, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(ReportUser, $ty, [$($rest),*]);
+    };
+    (ReportUser, $ty:ty, []) => { impl $crate::ReportUser for $ty {} };
+
+    (Bookmark, $ty:ty, [Bookmark $(, $rest:ident)*]) => {};
+    (Bookmark, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Bookmark, $ty, [$($rest),*]);
+    };
+    (Bookmark, $ty:ty, []) => { impl $crate::Bookmark for $ty {} };
 }
 
 #[cfg(test)]

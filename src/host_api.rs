@@ -286,6 +286,17 @@ impl Host for CoreHost {
         Ok(())
     }
 
+    fn bookmark_post(&self, service: &str, post_id: &str, on: bool) -> Result<(), HostError> {
+        if service.is_empty() || post_id.is_empty() {
+            return Err(HostError::new("a bookmark needs a service and a post id"));
+        }
+        if on {
+            self.add_bookmark(post_id)
+        } else {
+            self.remove_bookmark(post_id)
+        }
+    }
+
     fn list_outbox(&self) -> Result<Vec<String>, HostError> {
         let db = self.open()?;
         crate::outbox::list_outbox(&db).map_err(host_err)

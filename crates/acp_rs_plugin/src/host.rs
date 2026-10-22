@@ -287,6 +287,13 @@ pub trait Host: Send + Sync {
     fn add_bookmark(&self, id: &str) -> Result<(), HostError>;
     /// Remove `id` locally.
     fn remove_bookmark(&self, id: &str) -> Result<(), HostError>;
+    /// Bookmark or clear `post_id` for `service`.
+    ///
+    /// This is the local half of "bookmark this post". The service's
+    /// [`crate::CapabilityId::Bookmark`] call is the site half. `on` false
+    /// clears the mark. The in-memory host behind the `test-host` feature
+    /// implements the same path.
+    fn bookmark_post(&self, service: &str, post_id: &str, on: bool) -> Result<(), HostError>;
 
     /// Outbox lines, newest first. An empty queue is one line, `outbox none`.
     fn list_outbox(&self) -> Result<Vec<String>, HostError>;
