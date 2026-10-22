@@ -112,7 +112,7 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("orgs").args(["org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_template_show", "org_template_set", "org_template_reset", "org_asset_add", "org_asset_list", "org_asset_visibility", "org_asset_remove", "org_export", "org_serve", "org_publish", "org_unpublish", "org_allow_posts", "org_refuse_posts", "org_add", "org_services", "org_browse", "org_post", "org_identity", "org_invite", "org_invite_accept", "org_invite_finish"]).multiple(false).conflicts_with_all([
+#[command(group(clap::ArgGroup::new("orgs").args(["org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_template_show", "org_template_set", "org_template_reset", "org_asset_add", "org_asset_list", "org_asset_visibility", "org_asset_remove", "org_export", "org_serve", "org_publish", "org_unpublish", "org_allow_posts", "org_refuse_posts", "org_add", "org_services", "org_browse", "org_post", "org_identity", "org_invite", "org_invite_accept", "org_invite_finish", "org_role_create", "org_role_assign", "org_member_remove", "org_default_register_role", "org_default_invite_role", "org_archive"]).multiple(false).conflicts_with_all([
     "nick", "nicks", "search", "export", "import", "post_ids", "scrape", "scrape_all", "list_nicks",
     "remove_nick", "clear_all", "research_list", "research_create", "research_add", "research_show", "research_export",
     "sync", "new_post", "reply", "bookmark", "logout",
@@ -120,17 +120,17 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview", "rules_watch", "rules_saved", "rules_replies"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("file_user").args(["research_add", "org_asset_add"]).multiple(true)))]
-#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "outbox_send", "org_create", "org_edit", "org_delete", "org_post", "org_template_set", "org_template_reset", "org_asset_add", "org_asset_visibility", "org_asset_remove", "org_export", "org_publish", "org_unpublish", "org_allow_posts", "org_refuse_posts", "org_add", "org_invite", "org_invite_accept", "org_invite_finish"]).multiple(true)))]
+#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "outbox_send", "org_create", "org_edit", "org_delete", "org_post", "org_template_set", "org_template_reset", "org_asset_add", "org_asset_visibility", "org_asset_remove", "org_export", "org_publish", "org_unpublish", "org_allow_posts", "org_refuse_posts", "org_add", "org_invite", "org_invite_accept", "org_invite_finish", "org_role_create", "org_role_assign", "org_member_remove", "org_default_register_role", "org_default_invite_role", "org_archive"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("outbox").args(["draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
     "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
-    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_template_show", "org_template_set", "org_template_reset", "org_asset_add", "org_asset_list", "org_asset_visibility", "org_asset_remove", "org_export", "org_serve", "org_publish", "org_unpublish", "org_allow_posts", "org_refuse_posts", "org_add", "org_services", "org_browse", "org_post", "org_identity", "org_invite", "org_invite_accept", "org_invite_finish",
+    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_template_show", "org_template_set", "org_template_reset", "org_asset_add", "org_asset_list", "org_asset_visibility", "org_asset_remove", "org_export", "org_serve", "org_publish", "org_unpublish", "org_allow_posts", "org_refuse_posts", "org_add", "org_services", "org_browse", "org_post", "org_identity", "org_invite", "org_invite_accept", "org_invite_finish", "org_role_create", "org_role_assign", "org_member_remove", "org_default_register_role", "org_default_invite_role", "org_archive",
 ])))]
 #[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
     "nick", "nicks", "scrape", "scrape_all", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
     "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
-    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_template_show", "org_template_set", "org_template_reset", "org_asset_add", "org_asset_list", "org_asset_visibility", "org_asset_remove", "org_export", "org_serve", "org_publish", "org_unpublish", "org_allow_posts", "org_refuse_posts", "org_add", "org_services", "org_browse", "org_post", "org_identity", "org_invite", "org_invite_accept", "org_invite_finish",
+    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_template_show", "org_template_set", "org_template_reset", "org_asset_add", "org_asset_list", "org_asset_visibility", "org_asset_remove", "org_export", "org_serve", "org_publish", "org_unpublish", "org_allow_posts", "org_refuse_posts", "org_add", "org_services", "org_browse", "org_post", "org_identity", "org_invite", "org_invite_accept", "org_invite_finish", "org_role_create", "org_role_assign", "org_member_remove", "org_default_register_role", "org_default_invite_role", "org_archive",
 ])))]
 /// Command-line arguments (see `--help`).
 pub struct Args {
@@ -537,6 +537,30 @@ pub struct Args {
     /// Exchange one invite on `127.0.0.1`. Any other address is refused before bind.
     #[arg(long, value_name = "ADDR", num_args = 0..=1, default_missing_value = "127.0.0.1:0", help_heading = "Organizations")]
     pub org_invite_serve: Option<String>,
+    /// Create a custom role between Viewer and Owner.
+    #[arg(long, num_args = 2, value_names = ["SLUG", "NAME"], help_heading = "Organizations")]
+    pub org_role_create: Vec<String>,
+    /// Rank for `--org-role-create`. Custom ranks are 1 through 999.
+    #[arg(long, value_name = "N", help_heading = "Organizations")]
+    pub rank: Option<i64>,
+    /// Comma-separated permissions for `--org-role-create`.
+    #[arg(long, value_name = "LIST", help_heading = "Organizations")]
+    pub permissions: Option<String>,
+    /// Give a member a role. The last Owner stays.
+    #[arg(long, num_args = 3, value_names = ["SLUG", "MEMBER", "ROLE"], help_heading = "Organizations")]
+    pub org_role_assign: Vec<String>,
+    /// Remove a member. Their posts stay. Asks first. The last Owner stays.
+    #[arg(long, num_args = 2, value_names = ["SLUG", "MEMBER"], help_heading = "Organizations")]
+    pub org_member_remove: Vec<String>,
+    /// Role handed out by registration. Never Owner. Independent of the invite default.
+    #[arg(long, num_args = 2, value_names = ["SLUG", "ROLE"], help_heading = "Organizations")]
+    pub org_default_register_role: Vec<String>,
+    /// Role handed out by an invitation. Never Owner. Independent of the register default.
+    #[arg(long, num_args = 2, value_names = ["SLUG", "ROLE"], help_heading = "Organizations")]
+    pub org_default_invite_role: Vec<String>,
+    /// Archive a post. The row stays. This is an update, not a delete. Asks first.
+    #[arg(long, value_name = "POST", help_heading = "Organizations")]
+    pub org_archive: Option<String>,
     /// Offline: store a post in an organization. The org is the author. Private unless `--org-post-visibility` says otherwise.
     #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
     pub org_post: Option<String>,

@@ -42,6 +42,10 @@ struct E2e {
     screen: String,
     /// Last `fingerprint:` line printed by an organization invite.
     fingerprint: String,
+    /// Last 64-hex member key printed by `--org-members`.
+    member: String,
+    /// Last post id printed by `--org-show`.
+    post_id: String,
 }
 
 impl E2e {
@@ -50,7 +54,7 @@ impl E2e {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         std::fs::create_dir_all(home.join(".acp")).unwrap();
         std::fs::write(home.join(".acp/preferences.toml"), "email = \"alice@example.test\"\n").unwrap();
-        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None, preview: String::new(), screen: String::new(), fingerprint: String::new() }
+        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None, preview: String::new(), screen: String::new(), fingerprint: String::new(), member: String::new(), post_id: String::new() }
     }
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
@@ -98,6 +102,17 @@ impl E2e {
         let fp = printed_fingerprint(&self.last.stdout);
         if !fp.is_empty() {
             self.fingerprint = fp;
+        }
+        if let Some(key) = self.last.stdout.split_whitespace().find(|w| w.len() == 64 && w.bytes().all(|b| b.is_ascii_hexdigit())) {
+            self.member = key.to_string();
+        }
+        for line in self.last.stdout.lines() {
+            if let Some(rest) = line.trim().strip_prefix("id:") {
+                let id = rest.trim();
+                if !id.is_empty() {
+                    self.post_id = id.to_string();
+                }
+            }
         }
     }
 }
@@ -173,6 +188,18 @@ async fn run_second_with_fingerprint(w: &mut E2e, args: String) {
     let args = args.replace("$FINGERPRINT", &w.fingerprint);
     let argv: Vec<String> = args.split_whitespace().map(String::from).collect();
     w.run_in(&second, &argv).await;
+}
+
+#[when(expr = "I run with that member {string}")]
+async fn run_with_member(w: &mut E2e, args: String) {
+    assert!(w.member.len() == 64, "no member key in stdout:\n{}", w.last.stdout);
+    w.run(&args.replace("$MEMBER", &w.member)).await;
+}
+
+#[when(expr = "I run with that post {string}")]
+async fn run_with_post(w: &mut E2e, args: String) {
+    assert!(w.post_id.starts_with("orgp-"), "no post id in stdout:\n{}", w.last.stdout);
+    w.run(&args.replace("$POST", &w.post_id)).await;
 }
 
 impl E2e {

@@ -607,6 +607,17 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             }
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
         },
+        Modal::Roles(m) => {
+            let rows = (m.rows.len().max(1) as u16).saturating_add(4);
+            let r = modal_rect(area, 76, rows);
+            let inner = frame(f, &t, r, "Roles · last Owner stays · Esc closes");
+            for (i, row) in m.rows.iter().enumerate() {
+                if i as u16 + 1 >= inner.height { break; }
+                let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+                f.render_widget(Paragraph::new(Span::styled(clip(row, inner.width as usize), t.plain())), rr);
+            }
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
+        },
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

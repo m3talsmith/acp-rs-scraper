@@ -605,6 +605,12 @@ An organization is a local source. It does not need a service. A new organizatio
 | `--org-invite-accept PATH --org-fingerprint CODE --org-invite-reply PATH` | Answer an invite. A code that does not match writes nothing. |
 | `--org-invite-finish PATH --org-fingerprint CODE` | Add the member. A mismatch, an expired invite, and a second finish add nobody. |
 | `--org-invite-serve` | Exchange one invite on `127.0.0.1`. Any other address is refused before bind. The peer transport is 3.49.0. |
+| `--org-role-create SLUG NAME --rank N --permissions LIST` | Add a custom role. The rank is 1 through 999. Built-in names are refused. |
+| `--org-role-assign SLUG MEMBER ROLE` | Change a member's role. The last Owner stays. |
+| `--org-member-remove SLUG MEMBER` | Remove a member. Posts stay. Asks first. The last Owner stays. |
+| `--org-default-register-role SLUG ROLE` | Role for registration. Never Owner. Independent of the invite default. |
+| `--org-default-invite-role SLUG ROLE` | Role for an invitation. Never Owner. |
+| `--org-archive POST` | Archive a post. The row stays. The record is an update, not a delete. Asks first. |
 | `--org-post SLUG` | Store a post. Requires `--org-title`. The body is `--body` or `--body-file`. `--org-post-visibility` overrides the org default for this post only. |
 | `--org-visibility private\|public` | With create or edit. |
 | `--org-default-visibility private\|public` | With create or edit. |

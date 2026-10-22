@@ -276,3 +276,78 @@ Feature: Organizations
     When I run with that fingerprint "--org-invite-finish $HOME/reply.json --org-fingerprint $FINGERPRINT"
     Then it fails
     And stderr contains "already used"
+
+  Scenario: Custom roles sit between Viewer and Owner and the last Owner stays
+    When I run "--org-create hold"
+    Then it succeeds
+    When I run "--org-role-create hold Scribe --rank 100 --permissions view,post --dry-run"
+    Then it succeeds
+    And stdout contains "would create role Scribe"
+    And stdout contains "dry-run: nothing was written"
+    When I run "--org-roles hold"
+    Then it succeeds
+    And stdout does not contain "Scribe"
+    When I run "--org-role-create hold Over --rank 1000 --permissions view"
+    Then it fails
+    And stderr contains "1 through 999"
+    When I run "--org-role-create hold Viewer --rank 10 --permissions view"
+    Then it fails
+    And stderr contains "built-in"
+    When I run "--org-role-create hold Scribe --rank 100 --permissions view,post"
+    Then it succeeds
+    And stdout contains "Scribe"
+    And stdout contains "rank 100"
+    When I run "--org-default-register-role hold User"
+    Then it succeeds
+    And stdout contains "register default: User"
+    When I run "--org-default-invite-role hold Owner"
+    Then it fails
+    And stderr contains "Owner"
+    When I run "--org-roles hold"
+    Then it succeeds
+    And stdout contains "Scribe"
+    And stdout contains "register default: User"
+    And stdout contains "invite default: Viewer"
+    And stdout contains "last owner"
+    When I run "--org-members hold"
+    Then it succeeds
+    When I run with that member "--org-member-remove hold $MEMBER --dry-run"
+    Then it succeeds
+    And stdout contains "would remove member"
+    And stdout contains "their posts stay"
+    And stdout contains "dry-run: nothing was written"
+    When I run with that member "--org-member-remove hold $MEMBER"
+    Then it fails
+    And stderr contains "refused: stdin is not a terminal"
+    When I run "--org-members hold"
+    Then it succeeds
+    And stdout contains "Owner"
+    When I run with that member "--org-member-remove hold $MEMBER --yes"
+    Then it fails
+    And stderr contains "last owner"
+    When I run "--org-post hold --org-title Notes --body local"
+    Then it succeeds
+    When I run "--org-show hold"
+    Then it succeeds
+    And stdout contains "id:"
+    When I run with that post "--org-archive $POST"
+    Then it fails
+    And stderr contains "refused: stdin is not a terminal"
+    When I run with that post "--org-archive $POST --dry-run"
+    Then it succeeds
+    And stdout contains "would archive"
+    And stdout contains "kind: update"
+    And stdout contains "not a delete"
+    And stdout contains "dry-run: nothing was written"
+    When I run "--org-show hold"
+    Then it succeeds
+    And stdout does not contain "archived: yes"
+    When I run with that post "--org-archive $POST --yes"
+    Then it succeeds
+    And stdout contains "archived"
+    And stdout contains "kind: update"
+    And stdout contains "not a delete"
+    When I run "--org-show hold"
+    Then it succeeds
+    And stdout contains "archived: yes"
+    And stdout contains "Notes"

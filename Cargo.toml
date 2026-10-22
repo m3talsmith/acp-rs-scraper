@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "acp-red-star"
-version = "3.46.0"
+version = "3.47.0"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"

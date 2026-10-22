@@ -19,6 +19,7 @@ pub mod theme_picker;
 pub mod template;
 pub mod assets;
 pub mod members;
+pub mod roles;
 
 use crossterm::event::KeyEvent;
 
@@ -40,6 +41,7 @@ pub use theme_picker::*;
 pub use template::*;
 pub use assets::*;
 pub use members::*;
+pub use roles::*;
 
 /// How a modal closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -114,6 +116,8 @@ pub enum Modal {
     Assets(AssetsModal),
     /// Organizations › Members. Roster and the local fingerprint.
     Members(MembersModal),
+    /// Organizations › Roles. Built-ins, custom roles, and the two defaults.
+    Roles(RolesModal),
 }
 
 impl Modal {
@@ -133,6 +137,7 @@ impl Modal {
             Modal::Template(m) => m,
             Modal::Assets(m) => m,
             Modal::Members(m) => m,
+            Modal::Roles(m) => m,
         }
     }
 }

@@ -41,6 +41,14 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.org_fingerprint.is_some()
         || args.org_invite_finish.is_some()
         || args.org_invite_serve.is_some()
+        || !args.org_role_create.is_empty()
+        || args.rank.is_some()
+        || args.permissions.is_some()
+        || !args.org_role_assign.is_empty()
+        || !args.org_member_remove.is_empty()
+        || !args.org_default_register_role.is_empty()
+        || !args.org_default_invite_role.is_empty()
+        || args.org_archive.is_some()
         || args.org_post.is_some()
         || args.org_name.is_some()
         || args.org_description.is_some()
@@ -79,8 +87,12 @@ pub fn run_cli(args: &Args) -> Result<()> {
     if let Some(slug) = &args.org_roles {
         let c = org_conn(&db)?;
         let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+        println!("register default: {}", org.default_register_role);
+        println!("invite default: {}", org.default_invite_role);
+        let owners = crate::orgs::access::members(&c, org.id)?.into_iter().filter(|m| m.role.eq_ignore_ascii_case("Owner") && m.status == crate::orgs::access::MemberStatus::Active).count();
         for role in crate::orgs::access::roles(&c, org.id)? {
-            println!("{}  rank {}  {}", role.name, role.rank, role.permissions);
+            let last = if role.name.eq_ignore_ascii_case("Owner") && owners <= 1 { "  last owner" } else { "" };
+            println!("{}  rank {}  {}{last}", role.name, role.rank, role.permissions);
         }
         return Ok(());
     }
@@ -158,10 +170,127 @@ pub fn run_cli(args: &Args) -> Result<()> {
     if let Some(path) = &args.org_invite_finish {
         return finish_org(args, &db, path);
     }
+    if args.org_role_create.len() == 2 {
+        return create_role(args, &db);
+    }
+    if args.org_role_assign.len() == 3 {
+        return assign_role_cli(args, &db);
+    }
+    if args.org_member_remove.len() == 2 {
+        return remove_member_cli(args, &db);
+    }
+    if args.org_default_register_role.len() == 2 {
+        return default_role_cli(args, &db, crate::orgs::access::Join::Register);
+    }
+    if args.org_default_invite_role.len() == 2 {
+        return default_role_cli(args, &db, crate::orgs::access::Join::Invite);
+    }
+    if let Some(id) = &args.org_archive {
+        return archive_post_cli(args, &db, id);
+    }
     if let Some(slug) = &args.org_post {
         return post(args, &db, slug);
     }
-    bail!("--org-name, --org-description, --org-visibility, --org-default-visibility, --org-title, --org-post-visibility, --role, and --org-fingerprint belong to an organization command");
+    bail!("--org-name, --org-description, --org-visibility, --org-default-visibility, --org-title, --org-post-visibility, --role, --rank, --permissions, and --org-fingerprint belong to an organization command");
+}
+
+fn create_role(args: &Args, db: &Path) -> Result<()> {
+    let slug = &args.org_role_create[0];
+    let name = &args.org_role_create[1];
+    let rank = args.rank.ok_or_else(|| anyhow!("--org-role-create needs --rank"))?;
+    let list = args.permissions.as_deref().ok_or_else(|| anyhow!("--org-role-create needs --permissions"))?;
+    let perms: Vec<&str> = list.split(',').map(str::trim).filter(|s| !s.is_empty()).collect();
+    if args.dry_run {
+        println!("would create role {name} at rank {rank} on {slug}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    let role = crate::orgs::access::create_custom_role(&c, org.id, &actor, name, rank, &perms)?;
+    println!("{}  rank {}  {}", role.name, role.rank, role.permissions);
+    Ok(())
+}
+
+fn assign_role_cli(args: &Args, db: &Path) -> Result<()> {
+    let slug = &args.org_role_assign[0];
+    let member = &args.org_role_assign[1];
+    let role = &args.org_role_assign[2];
+    if args.dry_run {
+        println!("would assign {role} to {member} in {slug}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    let updated = crate::orgs::access::assign_role(&c, org.id, &actor, member, role)?;
+    println!("{}  {}  {}", updated.identity_pub, updated.role, updated.status.as_str());
+    Ok(())
+}
+
+fn remove_member_cli(args: &Args, db: &Path) -> Result<()> {
+    let slug = &args.org_member_remove[0];
+    let member = &args.org_member_remove[1];
+    if args.dry_run {
+        println!("would remove member {member} from {slug}");
+        println!("their posts stay");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    println!("Removing a member leaves their posts. Cancel is the default.");
+    if !confirm(args, "Remove this member? [y/N] ")? {
+        println!("cancelled");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    crate::orgs::access::remove_member(&c, org.id, &actor, member)?;
+    println!("removed {member}");
+    println!("their posts stay");
+    Ok(())
+}
+
+fn default_role_cli(args: &Args, db: &Path, join: crate::orgs::access::Join) -> Result<()> {
+    let (slug, role, label) = match join {
+        crate::orgs::access::Join::Register => (&args.org_default_register_role[0], &args.org_default_register_role[1], "register"),
+        crate::orgs::access::Join::Invite => (&args.org_default_invite_role[0], &args.org_default_invite_role[1], "invite"),
+    };
+    if args.dry_run {
+        println!("would set the {label} default to {role} on {slug}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    crate::orgs::access::set_default_role(&c, org.id, join, role)?;
+    println!("{label} default: {role}");
+    Ok(())
+}
+
+fn archive_post_cli(args: &Args, db: &Path, id: &str) -> Result<()> {
+    if args.dry_run {
+        println!("would archive {id}");
+        println!("kind: update");
+        println!("not a delete");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    println!("Archiving keeps the row and drops it from public pages. Cancel is the default.");
+    if !confirm(args, "Archive this post? [y/N] ")? {
+        println!("cancelled");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let post = crate::orgs::get_post(&c, id)?.ok_or_else(|| anyhow!("no post {id}"))?;
+    let record = crate::orgs::access::archive_post(&c, post.org_id, &actor, id)?;
+    println!("archived {id}");
+    println!("kind: {}", record.kind);
+    println!("not a delete");
+    Ok(())
 }
 
 fn show_identity(db: &Path) -> Result<()> {

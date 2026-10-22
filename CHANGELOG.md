@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.47.0] - 2026-10-22
+
+### Added
+
+- **Organization roles.** `--org-role-create` adds a custom role strictly between Viewer and Owner. `--org-role-assign` changes a member, and a person who is not Owner cannot grant a role at or above their own. `--org-member-remove` asks first, leaves posts in place, and refuses to remove the last Owner. `--org-default-register-role` and `--org-default-invite-role` are independent, and neither can be Owner. `--org-archive` archives a post as an update, not a delete. Organizations › Roles lists the roles and marks the last Owner.
+
 ## [3.46.0] - 2026-10-22
 
 ### Added

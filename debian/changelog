@@ -1,3 +1,9 @@
+acp-red-star (3.47.0) unstable; urgency=medium
+
+  * Package 3.47.0. Custom organization roles sit between Viewer and Owner. The last Owner stays.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 23:55:00 +0000
+
 acp-red-star (3.46.0) unstable; urgency=medium
 
   * Package 3.46.0. An organization invite carries public keys. A matching fingerprint adds the member.
