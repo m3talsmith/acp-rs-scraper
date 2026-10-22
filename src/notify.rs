@@ -263,8 +263,9 @@ impl DesktopNotify for PlatformDesktop {
 pub fn desktop_send(title: &str, body: &str) {
     #[cfg(target_os = "linux")]
     {
+        let app_name = crate::brands::current().title;
         let _ = Command::new("notify-send")
-            .args(["--app-name", "ACP Red Star", title, body])
+            .arg("--app-name").arg(&app_name).arg(title).arg(body)
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -296,7 +297,8 @@ pub fn desktop_send(title: &str, body: &str) {
              $xml = New-Object Windows.Data.Xml.Dom.XmlDocument; \
              $xml.LoadXml('{xml}'); \
              $toast = [Windows.UI.Notifications.ToastNotification]::new($xml); \
-             [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('ACP Red Star').Show($toast)"
+             [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier('{app}').Show($toast)",
+            app = crate::brands::current().title.replace('\'', "")
         );
         let _ = Command::new("powershell")
             .args(["-NoProfile", "-NonInteractive", "-Command", &script])

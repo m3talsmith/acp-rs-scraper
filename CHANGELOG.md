@@ -6,23 +6,29 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.34.5] - 2026-10-22
+## [3.35.4] - 2026-10-22
 
 ### Fixed
 
 - **Theme preview samples.** The theme editor's sample posts are @sample and @reader, with ordinary preview text. Headings, code, a table, a quote, and a footnote are still there so the preview can show them.
 
-## [3.34.4] - 2026-10-22
+## [3.35.3] - 2026-10-22
 
 ### Fixed
 
 - **Nick bar collapse.** ‹ collapses the nick bar, and so does a click on the cells beside it or on the bar's right edge. A nick row is still a nick. j, k, and Tab are unchanged.
 
-## [3.34.3] - 2026-10-22
+## [3.35.2] - 2026-10-22
 
 ### Fixed
 
 - **Explore timeout.** Explore waits 12 seconds for one LiveView reply, not for the whole crawl. It prints `Explore: requesting` and then `Explore: still waiting`. A timeout stores nothing. A silent join no longer stays open just because heartbeats are answered.
+
+## [3.35.0] - 2026-10-22
+
+### Added
+
+- **Brands.** The logo, the title, and the motto follow a brand, the same way colours follow a theme. The built-in `default` brand is still ACP Red Star: the red-star logo, the word ACP, the title, and "The future belongs to the working class". The built-in `plain` brand is the title Red Star, a star, and no motto (`acp-red-star --brand plain`). `--brand NAME` selects one for this run. `[ui] brand` in `~/.acp/preferences.toml` keeps it. The header switch `«name» ▾` opens the picker; moving the highlight previews it and Esc puts the old brand back. The brand editor edits the title, motto, word, and logo (Ctrl-S save, Ctrl-R revert, Ctrl-N save as new, Ctrl-D duplicate, Ctrl-X delete, Ctrl-C close). User brands are `~/.acp/brands/<name>.toml`. A logo is built-in, inline text, or a file inside that folder; a path that leaves the folder is refused. A brand is independent of the theme. `--help`, `--version`, the terminal title, and HTML export headers use the title. Credits and the other surprises keep their own text.
 
 ## [3.34.0] - 2026-10-21
 

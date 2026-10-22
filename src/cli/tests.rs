@@ -69,6 +69,8 @@ fn color_flag_parses_and_resolution_follows_the_flag_then_the_preference() {
     let a = Args::try_parse_from(["x", "--color", "always"]).unwrap();
     assert_eq!(a.color, Some(ColorMode::Always));
     assert!(parse_with_mode(["x", "--color", "never"]).unwrap().1, "--color alone still opens the terminal UI");
+    assert!(parse_with_mode(["x", "--brand", "plain"]).unwrap().1, "--brand alone still opens the terminal UI");
+    assert!(!parse_with_mode(["x", "--list-brands"]).unwrap().1, "--list-brands stays headless");
     assert!(Args::try_parse_from(["x", "--color", "sometimes"]).is_err());
     assert_eq!(Args::try_parse_from(["x"]).unwrap().color, None);
     assert_eq!(resolve_color_mode(Some(ColorMode::Never), Some("always")), ColorMode::Never);
