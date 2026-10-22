@@ -6,6 +6,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Service traits and the package gate.** `crates/acp_rs_plugin` holds the capability traits and the archive check. Red Star still runs from this binary through an in-tree adapter. The outbox and a local post stay ready. `--doctor` prints the rustc pin and this crate's version. `plugins::reload` scans `~/.acp/plugins` with that same check. It is not called on startup and it is not bound to a key. A failed plugin archive moves to `~/.acp/quarantined/plugins/`. A rustc or plugin-crate mismatch is refused and is not quarantined. A package that passes stays off until it is enabled. There is no version bump: commands behave as they did.
+
 ## [3.35.0] - 2026-10-22
 
 ### Added

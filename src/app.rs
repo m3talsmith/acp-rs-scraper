@@ -268,6 +268,12 @@ pub async fn run() -> Result<()> {
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_brands { return run_list_brands(&args); }
+    if args.doctor {
+        for line in crate::service::doctor_lines() {
+            println!("{line}");
+        }
+        return Ok(());
+    }
     if args.list_themes { return run_list_themes(&args).await; }
     if let Some(t) = &args.brand { check_brand(t)?; }
     if let Some(t) = &args.theme { check_theme(t).await?; }

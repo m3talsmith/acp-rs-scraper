@@ -12,7 +12,7 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 <!-- TODO(3.0 release): switch the link above from the pre-launch post to docs/history/v3/redstar-v3-launch-post.md. Publish that launch post only when 3.x has fully shipped. -->
 
-**Build on this foundation.** The Cargo workspace has two crates. [`acp-red-star`](Cargo.toml) at the repository root is the terminal client and the `acp-red-star` binary. [`acp_red_star_node_core`](crates/acp_red_star_node_core) is the shared library for identity, canonical CBOR, and sealed secrets. The client depends on it. The list is in [docs/INSTALL.md](docs/INSTALL.md#workspace-crates).
+**Build on this foundation.** The Cargo workspace has three crates. [`acp-red-star`](Cargo.toml) at the repository root is the terminal client and the `acp-red-star` binary. [`acp_red_star_node_core`](crates/acp_red_star_node_core) is the shared library for identity, canonical CBOR, and sealed secrets. [`acp_rs_plugin`](crates/acp_rs_plugin) holds the service traits and the plugin package gate. The client depends on both. The list is in [docs/INSTALL.md](docs/INSTALL.md#workspace-crates).
 
 ## Breaking changes in 3.0.0
 
@@ -230,6 +230,9 @@ Interface:
 
       --list-brands
           List built-in brands and the files in ~/.acp/brands (● marks the one in use; broken files say why) and exit
+
+      --doctor
+          Print the rustc pin and the acp_rs_plugin version, then exit. Plugin authors read the pin only here
 
       --list-themes
           List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit

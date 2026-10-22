@@ -430,6 +430,7 @@ These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`
 | `--list-themes` | List the theme files (`●` marks the one in use, broken ones say why) and exit. |
 | `--brand NAME` | Use this brand for this run (a built-in, or `~/.acp/brands/NAME.toml`). Not saved. `plain` is a neutral title and a star with no motto. Fails if the name is unknown or the file is broken. |
 | `--list-brands` | List built-in brands and the files in `~/.acp/brands` (`●` marks the one in use, broken ones say why) and exit. |
+| `--doctor` | Print the rustc pin and the `acp_rs_plugin` version, then exit. Plugin authors read the pin only here. |
 
 ### Mode
 

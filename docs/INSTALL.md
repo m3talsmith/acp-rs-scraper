@@ -45,12 +45,13 @@ Every package-manager or download step is confirmed first.
 
 ## Workspace crates
 
-The root `Cargo.toml` workspace members are `"."` and `"crates/acp_red_star_node_core"`. These are the crates in the tree. Later names in the plan (`acp-rs-relay`, `acp-rs-tray`, `acp_rs_node_ffi`) are not members yet.
+The root `Cargo.toml` workspace members are `"."`, `"crates/acp_red_star_node_core"`, and `"crates/acp_rs_plugin"`. These are the crates in the tree. Later names in the plan (`acp-rs-relay`, `acp-rs-tray`, `acp_rs_node_ffi`) are not members yet. The Red Star service is not a member. It stays in this binary through an in-tree adapter until the split.
 
 | Package | Path | Version in this tree | What it is |
 |---|---|---|---|
 | `acp-red-star` | repository root (`Cargo.toml`) | 3.5.0 | Terminal client and CLI. The binaries are `acp-red-star`, `acprs`, and `acp-rs-scraper` (the compatibility name through version 3). The Cargo description is "ACP Red Star, a local client for the Red Star forum". Edition 2024, `rust-version` 1.88. |
 | `acp_red_star_node_core` | `crates/acp_red_star_node_core` | 3.3.0 | Shared identity, canonical CBOR, and sealed secrets. `publish = false`. The root package depends on it with `path = "crates/acp_red_star_node_core"`. It does not open the SQLite database, draw the terminal, or talk to the network. |
+| `acp_rs_plugin` | `crates/acp_rs_plugin` | 0.1.0 | Service traits and the plugin package gate. `publish = false`. `core_version` is this crate's version, not the root crate's. |
 
 Public modules of `acp_red_star_node_core`: `cbor`, `hpke`, `master`, `node`, `password`, `slip39`, `stage`, `store`. The encoding rules are in [PROTOCOL.md](PROTOCOL.md).
 

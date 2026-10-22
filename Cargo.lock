@@ -7,6 +7,7 @@ name = "acp-red-star"
 version = "3.35.0"
 dependencies = [
  "acp_red_star_node_core",
+ "acp_rs_plugin",
  "anyhow",
  "argon2",
  "axum",
@@ -76,6 +77,17 @@ dependencies = [
  "x25519-dalek",
  "zeroize",
  "zxcvbn",
+]
+
+[[package]]
+name = "acp_rs_plugin"
+version = "0.1.0"
+dependencies = [
+ "data-encoding",
+ "flate2",
+ "sha2",
+ "tar",
+ "toml",
 ]
 
 [[package]]
