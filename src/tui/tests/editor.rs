@@ -34,8 +34,10 @@ fn full_screen_list_and_live_preview_by_the_real_ui() {
     assert!(s.lines().next().unwrap().contains("Theme editor · default") && s.contains("‹dark› light"), "{s}");
     for t in ["Palette", "accent", "#dc2626", "Elements", "link", "card_focused", "Preview (sample posts)"] { assert!(s.contains(t), "no {t}:\n{s}"); }
     // The preview is the real UI (header, menu, nick bar) over the sample posts, not the database.
-    for t in ["ACP Red Star", "Scrape", "@sample", "Field notes"] { assert!(s.contains(t), "preview lacks {t}:\n{s}"); }
-    assert!(!s.contains("comrade") && !s.contains("May Day"), "{s}");
+    for t in ["ACP Red Star", "Scrape", "@sample", "May Day", "Workers of the world", "Strike fund", "Solidarity"] {
+        assert!(s.contains(t), "preview lacks {t}:\n{s}");
+    }
+    assert!(!s.contains("comrade") && !s.contains("Field notes"), "{s}");
     assert!(!s.contains("alice"), "never the real store");
     // A swatch in the accent colour on the accent row.
     let y = s.lines().position(|l| l.contains(" accent ")).unwrap() as u16;
@@ -59,8 +61,11 @@ fn the_preview_follows_the_active_brand_and_the_sample_nicks() {
     assert!(s.contains("Red Star") && s.contains("«plain»"), "{s}");
     assert!(s.contains('★'), "{s}");
     assert!(s.contains("@sample") && s.contains("@reader"), "{s}");
+    assert!(s.contains("Field notes"), "{s}");
     assert!(!s.contains("ACP Red Star"), "{s}");
     assert!(!s.contains("The future belongs to the working class"), "{s}");
+    assert!(!s.contains("May Day") && !s.contains("Workers of the world"), "{s}");
+    assert!(!s.contains("Strike fund") && !s.contains("Solidarity"), "{s}");
     assert!(!s.contains("alice") && !s.contains("comrade"), "{s}");
 }
 

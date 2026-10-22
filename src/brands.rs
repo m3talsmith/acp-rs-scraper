@@ -70,6 +70,16 @@ pub struct Brand {
     pub from_file: bool,
 }
 
+impl Brand {
+    /// This brand keeps the ACP wording: the title, the word ACP, or the slogan.
+    ///
+    /// A neutral brand has none of those, so the menus, Help, and About that
+    /// follow the brand leave the party text out.
+    pub fn shows_acp(&self) -> bool {
+        self.title.contains("ACP") || self.word == "ACP" || self.motto == SLOGAN
+    }
+}
+
 /// Why a brand could not be used.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LoadError {
@@ -556,6 +566,8 @@ mod tests {
         assert_eq!(b.title, "Red Star");
         assert!(b.motto.is_empty());
         assert!(b.word.is_empty());
+        assert!(!b.shows_acp());
+        assert!(builtin_default().shows_acp());
         assert_eq!(b.logo, LogoKind::Text);
         assert!(b.logo_text.contains('★'));
         assert!(!b.title.contains("ACP"));

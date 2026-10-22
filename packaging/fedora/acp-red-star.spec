@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.35.7
+Version:        3.35.8
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.8-1
+- Package 3.35.8. A neutral brand leaves out the ACP wording. The ACP brand keeps it.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.7-1
 - Package 3.35.7. Thread sort reorders stored replies and does not open login.
 

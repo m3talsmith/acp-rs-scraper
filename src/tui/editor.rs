@@ -132,7 +132,7 @@ pub enum Outcome {
 fn preview_app(theme: Theme, brand_name: &str, brand: &crate::brands::Brand) -> Box<App> {
     use clap::Parser;
     let args = Args::parse_from(["acp-red-star"]);
-    let mut a = App::new(Box::new(crate::tui::sample::sample_store()), &args, theme, true);
+    let mut a = App::new(Box::new(crate::tui::sample::sample_store_for(brand)), &args, theme, true);
     a.brand_name = brand_name.to_string();
     a.brand = brand.clone();
     let keep = crate::tui::sample::SAMPLE_NICKS;

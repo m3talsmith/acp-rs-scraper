@@ -15,8 +15,13 @@ pub struct HelpModal {
     pub query: String,
 }
 
-/// Help text: key bindings, the order and limit topics, then `acp-red-star --help`.
+/// Help for the ACP brand. Tests and the default screen use this.
 pub fn help_text() -> Vec<String> {
+    help_for(&crate::brands::builtin_default())
+}
+
+/// Help text for `brand`: key bindings, topics, then that brand's `--help`.
+pub fn help_for(brand: &crate::brands::Brand) -> Vec<String> {
     use clap::CommandFactory;
     let guide = crate::crypto::recovery::GUIDE.trim();
     let mut v: Vec<String> = guide.lines().map(str::to_string).collect();
@@ -25,10 +30,15 @@ pub fn help_text() -> Vec<String> {
     for (k, d) in crate::config::TUI_KEYBINDINGS { v.push(format!("  {k:<22} {d}")); }
     v.extend(["".into(), "Menu commands map to these flags; Start Scanning runs the same scrape the CLI does.".into()]);
     v.extend(help_topics());
-    v.extend(area_topics());
-    v.extend(menu_topics());
+    v.extend(area_topics(brand));
+    v.extend(menu_topics(brand));
     v.push(String::new());
-    let help = crate::cli::Args::command().render_long_help().to_string();
+    let mut cmd = if brand.shows_acp() {
+        crate::cli::Args::command()
+    } else {
+        crate::brands::style_command(crate::cli::Args::command(), brand)
+    };
+    let help = cmd.render_long_help().to_string();
     let help = help.replacen(guide, "", 1);
     v.extend(help.lines().map(str::to_string));
     v
@@ -139,28 +149,61 @@ fn push_topic(v: &mut Vec<String>, id: &str, title: &str, body: &[&str]) {
     v.push(String::new());
 }
 
-fn area_topics() -> Vec<String> {
+fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
     let mut v = Vec::new();
-    let started = include_str!("../../../docs/GETTING-STARTED.md");
+    let mut started = include_str!("../../../docs/GETTING-STARTED.md").to_string();
+    if !brand.shows_acp() {
+        started = started.replacen(
+            "ACP Red Star is a local client",
+            &format!("{} is a local client", brand.title),
+            1,
+        );
+        started = started.replace(
+            "About, beside Help, opens one window on Credits, Why this is necessary, or ACP platform.",
+            "About, beside Help, opens one window on Credits or Why this is necessary.",
+        );
+        started = started.replace(
+            "About has three sections and no others. ACP platform is the party program adopted October 12, 2024, with headings and a scroll. The link to join is at the top and the bottom of that section only.",
+            "About has two sections and no others.",
+        );
+    }
     v.push("[[getting-started]]".into());
     v.push("Getting started".into());
     v.extend(started.lines().map(str::to_string));
     v.push(String::new());
-    push_topic(&mut v, "brands", "Brands", &[
-        "  A brand is the logo, the title, and the motto. It is separate from the theme.",
-        "  The built-in default brand is ACP Red Star. The built-in plain brand is the title",
-        "  Red Star, a star, and no motto: acp-red-star --brand plain.",
-        "  --brand NAME is this run. [ui] brand in ~/.acp/preferences.toml keeps the choice.",
-        "  The header switch «name» ▾ opens the picker. Moving the highlight previews it.",
-        "  Esc puts the previous brand back. Edit brands… opens the editor.",
-        "  The command palette has Brand: use…, Brand: list, Brand: edit…, and Brand: reload.",
-        "  In the editor, Ctrl-S saves, Ctrl-R reverts, Ctrl-N saves as new, Ctrl-D duplicates,",
-        "  Ctrl-X deletes, and Ctrl-C closes. Those are the theme editor's chords.",
-        "  A user brand is ~/.acp/brands/<name>.toml. The logo is builtin, inline text, or a",
-        "  file inside that folder. A path that leaves the folder is refused.",
-        "  --help, --version, the terminal title, and HTML export headers use the title.",
-        "  Credits and the other surprises keep their own text.",
-    ]);
+    if brand.shows_acp() {
+        push_topic(&mut v, "brands", "Brands", &[
+            "  A brand is the logo, the title, and the motto. It is separate from the theme.",
+            "  The built-in default brand is ACP Red Star. The built-in plain brand is the title",
+            "  Red Star, a star, and no motto: acp-red-star --brand plain.",
+            "  --brand NAME is this run. [ui] brand in ~/.acp/preferences.toml keeps the choice.",
+            "  The header switch «name» ▾ opens the picker. Moving the highlight previews it.",
+            "  Esc puts the previous brand back. Edit brands… opens the editor.",
+            "  The command palette has Brand: use…, Brand: list, Brand: edit…, and Brand: reload.",
+            "  In the editor, Ctrl-S saves, Ctrl-R reverts, Ctrl-N saves as new, Ctrl-D duplicates,",
+            "  Ctrl-X deletes, and Ctrl-C closes. Those are the theme editor's chords.",
+            "  A user brand is ~/.acp/brands/<name>.toml. The logo is builtin, inline text, or a",
+            "  file inside that folder. A path that leaves the folder is refused.",
+            "  --help, --version, the terminal title, and HTML export headers use the title.",
+            "  Credits and the other surprises keep their own text.",
+        ]);
+    } else {
+        push_topic(&mut v, "brands", "Brands", &[
+            "  A brand is the logo, the title, and the motto. It is separate from the theme.",
+            "  This brand is a neutral title and a star. It has no party name and no slogan.",
+            "  acp-red-star --brand plain is the title Red Star, a star, and no motto.",
+            "  --brand NAME is this run. [ui] brand in ~/.acp/preferences.toml keeps the choice.",
+            "  The header switch «name» ▾ opens the picker. Each row is that brand's own title.",
+            "  Esc puts the previous brand back. Edit brands… opens the editor.",
+            "  The command palette has Brand: use…, Brand: list, Brand: edit…, and Brand: reload.",
+            "  In the editor, Ctrl-S saves, Ctrl-R reverts, Ctrl-N saves as new, Ctrl-D duplicates,",
+            "  Ctrl-X deletes, and Ctrl-C closes. Those are the theme editor's chords.",
+            "  A user brand is ~/.acp/brands/<name>.toml. The logo is builtin, inline text, or a",
+            "  file inside that folder. A path that leaves the folder is refused.",
+            "  --help, --version, the terminal title, and HTML export headers use the title.",
+            "  Credits and the other surprises keep their own text.",
+        ]);
+    }
     push_topic(&mut v, "browse", "Browse", &[
         "  The nick bar lists who is in the database. Enter opens that nick's posts.",
         "  ‹ collapses it. So does a click on the cells beside ‹, or on the bar's right edge.",
@@ -269,21 +312,30 @@ fn area_topics() -> Vec<String> {
         "  Log in uses the email code. Log out deletes ~/.acp/session.json.",
         "  Browsing the local database does not need a session. Start Scanning does.",
     ]);
-    push_topic(&mut v, "about-credits", "About · Credits", &[
-        "  About is one modal with three sections. Credits names who built the client.",
-        "  Choose Credits, Why this is necessary, or ACP platform. Each opens this same window.",
-    ]);
+    if brand.shows_acp() {
+        push_topic(&mut v, "about-credits", "About · Credits", &[
+            "  About is one modal with three sections. Credits names who built the client.",
+            "  Choose Credits, Why this is necessary, or ACP platform. Each opens this same window.",
+        ]);
+    } else {
+        push_topic(&mut v, "about-credits", "About · Credits", &[
+            "  About is one modal with two sections. Credits names who built the client.",
+            "  Choose Credits or Why this is necessary. Each opens this same window.",
+        ]);
+    }
     push_topic(&mut v, "about-why", "About · Why this is necessary", &[
         "  The local copy is why this client exists: read, search, and export without the site.",
         "  The database is encrypted. This topic is not the party program.",
     ]);
-    push_topic(&mut v, "about-platform", "About · ACP platform", &[
-        "  ACP platform is the American Communist Party Program adopted October 12, 2024.",
-        "  The text is the vendored copy, with headings and a scroll. It is not paraphrased.",
-        "  https://acp.us/program",
-        "  https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf",
-        "  https://acp.us/join is at the top and the bottom of that section only.",
-    ]);
+    if brand.shows_acp() {
+        push_topic(&mut v, "about-platform", "About · ACP platform", &[
+            "  ACP platform is the American Communist Party Program adopted October 12, 2024.",
+            "  The text is the vendored copy, with headings and a scroll. It is not paraphrased.",
+            "  https://acp.us/program",
+            "  https://acp.us/docs/2024-program-a51b2b90421960a720072cc1731dfac0.pdf",
+            "  https://acp.us/join is at the top and the bottom of that section only.",
+        ]);
+    }
     push_topic(&mut v, "notifications", "Notifications", &[
         "  View › Notifications opens the saved list. It is not the site Notifications pane.",
         "  Toasts stack with no cap. When they would use more than a quarter of the screen,",
@@ -304,10 +356,17 @@ fn area_topics() -> Vec<String> {
         "  The branches are stored in the encrypted database with search history. Clear history deletes them.",
         "  Search › History kept is blank by default, which keeps every search. A number keeps that many.",
     ]);
-    push_topic(&mut v, "bookmark", "Bookmarks", &[
-        "  Bookmark (b) marks the open or highlighted post. B shows the bookmark list.",
-        "  Sync with acp.us is Bookmarks › Sync with acp.us.",
-    ]);
+    if brand.shows_acp() {
+        push_topic(&mut v, "bookmark", "Bookmarks", &[
+            "  Bookmark (b) marks the open or highlighted post. B shows the bookmark list.",
+            "  Sync with acp.us is Bookmarks › Sync with acp.us.",
+        ]);
+    } else {
+        push_topic(&mut v, "bookmark", "Bookmarks", &[
+            "  Bookmark (b) marks the open or highlighted post. B shows the bookmark list.",
+            "  Bookmarks stay on this machine.",
+        ]);
+    }
     push_topic(&mut v, "basket", "Basket", &[
         "  Export basket (x) adds or removes the open post. Library › Basket exports it.",
     ]);
@@ -317,10 +376,11 @@ fn area_topics() -> Vec<String> {
     v
 }
 
-fn menu_topics() -> Vec<String> {
+fn menu_topics(brand: &crate::brands::Brand) -> Vec<String> {
     use clap::Parser;
     let Ok(args) = crate::cli::Args::try_parse_from(["acp-red-star"]) else { return Vec::new() };
-    let menu = crate::tui::commands::Menu::new(&args);
+    let mut menu = crate::tui::commands::Menu::new(&args);
+    menu.apply_brand(brand);
     let mut v = Vec::new();
     for id in [
         crate::tui::commands::CommandId::View,
@@ -349,11 +409,17 @@ fn menu_topics() -> Vec<String> {
 }
 
 impl HelpModal {
-    /// Help with the generated text.
-    pub fn new() -> Self { HelpModal { lines: help_text(), scroll: 0, query: String::new() } }
+    /// Help for the ACP brand.
+    pub fn new() -> Self { Self::from_brand(&crate::brands::builtin_default()) }
+    /// Help for `brand`. The ACP brand keeps the party text. A neutral brand does not.
+    pub fn from_brand(brand: &crate::brands::Brand) -> Self {
+        HelpModal { lines: help_for(brand), scroll: 0, query: String::new() }
+    }
     /// Help scrolled to `[[topic]]`.
-    pub fn topic(topic: &str) -> Self {
-        let mut h = Self::new();
+    pub fn topic(topic: &str) -> Self { Self::topic_in(&crate::brands::builtin_default(), topic) }
+    /// Help for `brand`, scrolled to `[[topic]]`.
+    pub fn topic_in(brand: &crate::brands::Brand, topic: &str) -> Self {
+        let mut h = Self::from_brand(brand);
         let mark = format!("[[{topic}]]");
         if let Some(i) = h.lines.iter().position(|l| l == &mark) { h.scroll = i; }
         h

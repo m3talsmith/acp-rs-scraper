@@ -1948,7 +1948,10 @@ impl App {
     /// Help scrolled to `topic`, or the general Help.
     pub fn open_help(&mut self, topic: Option<&str>) {
         self.close_menu();
-        let h = match topic { Some(t) if !t.is_empty() => crate::tui::modals::HelpModal::topic(t), _ => crate::tui::modals::HelpModal::new() };
+        let h = match topic {
+            Some(t) if !t.is_empty() => crate::tui::modals::HelpModal::topic_in(&self.brand, t),
+            _ => crate::tui::modals::HelpModal::from_brand(&self.brand),
+        };
         self.modal = Some(Modal::Help(h));
     }
     /// Write `[ui] color` when the TUI has a real preferences file (not a unit test).

@@ -11,7 +11,14 @@ fn post(id: &str, parent: &str, reply_to: &str, nick: &str, at: &str, title: &st
 /// Nicks in the theme preview. They are not members of the site.
 pub const SAMPLE_NICKS: &[&str] = &["sample", "reader"];
 
+/// Sample posts for `brand`. The ACP brand keeps the May Day preview. Any other brand uses ordinary notes.
+pub fn sample_store_for(brand: &crate::brands::Brand) -> MemStore {
+    if brand.shows_acp() { acp_samples() } else { sample_store() }
+}
+
 /// A small made-up forum: two members, posts, a reply and a cross-link.
+///
+/// This is the neutral set. The ACP brand uses [`sample_store_for`].
 pub fn sample_store() -> MemStore {
     MemStore {
         posts: vec![
@@ -20,6 +27,21 @@ pub fn sample_store() -> MemStore {
             post("SAMPLE002", "", "", "reader", "2026-04-30T18:00:00Z", "Second note", "A short note for the preview."),
             post("SAMPLE003", "SAMPLE001", "SAMPLE001", "reader", "2026-05-01T10:00:00Z", "", "Thanks, that helps."),
             post("SAMPLE004", "", "", "sample", "2026-04-29T12:00:00Z", "Links", "A few links to try."),
+        ],
+        marks: vec!["SAMPLE002".into()],
+        ..MemStore::default()
+    }
+}
+
+/// The ACP brand's preview: the same shape, with the posts that brand carries.
+fn acp_samples() -> MemStore {
+    MemStore {
+        posts: vec![
+            post("SAMPLE001", "", "", "sample", "2026-05-01T09:00:00Z", "May Day",
+                "# Workers of the world\n\nStrike fund. This is **sample text** for the theme preview, with `code`, *emphasis*\nand a link to /rs/post/SAMPLE002.[^1]\n\n## Agenda\n\n- one\n- [x] two\n  1. nested\n\n> Solidarity\n\n---\n\n```sh\nacp-red-star --nick sample\n```\n\n| Item | Votes |\n|---|--:|\n| Strike fund | 12 |\n\n#### Heading 4\n\n[^1]: A footnote."),
+            post("SAMPLE002", "", "", "reader", "2026-04-30T18:00:00Z", "Meeting notes", "Agenda: the strike fund, the reading group."),
+            post("SAMPLE003", "SAMPLE001", "SAMPLE001", "reader", "2026-05-01T10:00:00Z", "", "Solidarity! See you at the march."),
+            post("SAMPLE004", "", "", "sample", "2026-04-29T12:00:00Z", "Reading list", "Start with the pamphlets."),
         ],
         marks: vec!["SAMPLE002".into()],
         ..MemStore::default()

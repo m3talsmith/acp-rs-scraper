@@ -61,11 +61,11 @@ fn help_search_keeps_j_and_k_in_the_query() {
     for c in "basket".chars() { h.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)); }
     assert_eq!(h.query, "basket");
     assert!(h.view_lines()[0].contains("basket"), "{:?}", h.view_lines());
-    let before = h.scroll;
     h.on_key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    assert_eq!(h.scroll, 0, "already at the top");
     h.on_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    assert_eq!(h.scroll, 1, "arrows still scroll");
     assert_eq!(h.query, "basket");
-    assert_eq!(h.scroll, before);
 }
 
 #[test]

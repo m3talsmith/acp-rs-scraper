@@ -237,6 +237,49 @@ async fn sort_logged_out(w: &mut E2e) {
     w.screen = format!("{modal}\n{effects}\n{}", app.status.last().cloned().unwrap_or_default());
 }
 
+#[when(expr = "I open Help on the brand {string}")]
+async fn help_on_brand(w: &mut E2e, name: String) {
+    let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
+    w.screen = acp_red_star::tui::modals::help_for(&brand).join("\n");
+}
+
+#[then(expr = "the screen contains {string}")]
+async fn screen_has(w: &mut E2e, s: String) {
+    assert!(w.screen.contains(&s), "screen lacks {s:?}:\n{}", w.screen);
+}
+
+#[then(expr = "the screen does not contain {string}")]
+async fn screen_lacks(w: &mut E2e, s: String) {
+    assert!(!w.screen.contains(&s), "screen has {s:?}:\n{}", w.screen);
+}
+
+#[when(expr = "I open About on the brand {string}")]
+async fn about_on_brand(w: &mut E2e, name: String) {
+    let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
+    w.screen = acp_red_star::brands::hold_installed(&brand, || {
+        acp_red_star::tui::modals::AboutModal::section(0).body_lines().join("\n")
+    });
+}
+
+#[when(expr = "I open Bookmarks on the brand {string}")]
+async fn bookmarks_on_brand(w: &mut E2e, name: String) {
+    use clap::Parser;
+    let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    app.brand = brand.clone();
+    app.brand_name = name;
+    app.menu.menu.apply_brand(&brand);
+    let i = app.menu.menu.items.iter().position(|c| c.id == acp_red_star::tui::commands::CommandId::Bookmarks).unwrap();
+    app.open_menu(i);
+    w.screen = acp_red_star::tui::widgets::screen_text(&mut app, 120, 36);
+}
+
 #[then("sorting stays on this machine")]
 async fn sort_stays(w: &mut E2e) {
     assert!(w.screen.contains("None"), "a modal opened:\n{}", w.screen);

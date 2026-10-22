@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.8] - 2026-10-22
+
+### Fixed
+
+- **Neutral brand wording.** A brand that is not ACP drives the Help intro, the Brands topic, `--help`, About, and Bookmarks. Sync with acp.us and the ACP platform tab stay on the ACP brand. `--list-brands` prints the slogan only on an ACP row. Theme-preview samples follow the brand: May Day, Workers of the world, Strike fund, and Solidarity stay on ACP; any other brand uses the ordinary notes.
+
 ## [3.35.7] - 2026-10-22
 
 ### Fixed

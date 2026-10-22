@@ -706,6 +706,21 @@ impl Menu {
     pub fn set_text(&mut self, id: CommandId, key: &str, v: &str) {
         if let Widget::Text(t) = &mut self.opt_mut(id, key).widget { t.set(v); }
     }
+    /// Show or hide the party-only items. The ACP brand keeps them.
+    pub fn apply_brand(&mut self, brand: &crate::brands::Brand) {
+        let acp = brand.shows_acp();
+        for c in &mut self.items {
+            if c.id == CommandId::Bookmarks {
+                c.opts = bookmarks_item().opts;
+                if !acp { c.opts.retain(|o| o.key != "sync"); }
+            }
+            if c.id == CommandId::About {
+                c.opts = about_item().opts;
+                if !acp { c.opts.retain(|o| o.key != "platform"); }
+            }
+        }
+        self.fill_help_topics();
+    }
     /// Select a choice by value (ignored when unknown).
     pub fn set_choice(&mut self, id: CommandId, key: &str, v: &str) {
         if let Widget::Choice { choices, idx } = &mut self.opt_mut(id, key).widget
