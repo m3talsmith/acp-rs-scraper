@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.40.0
+Version:        3.41.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,8 +56,11 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
-* Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.40.0-1
-- Package 3.40.0. A reply edit keeps a leading quote (3.34.2). A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent (3.35.0 through 3.40.0).
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.41.0-1
+- Package 3.41.0. A reply edit keeps a leading quote (3.35.5). A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent (3.36.0 through 3.41.0).
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.0-1
+- Package 3.35.0. The logo, title, and motto are a brand. --brand plain is a neutral title and a star, with no motto.
 
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.34.0-1
 - Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish.

@@ -6,47 +6,53 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.40.0] - 2026-10-21
+## [3.41.0] - 2026-10-21
 
 ### Added
 
 - **Quote repost.** `--repost POST --repost-title TITLE --body TEXT` sends validate, then save, once. The fields are `form[quoted_post_id]`, `form[title]`, and `form[body_input]`. The terminal asks `Repost? [y/N]`. `--dry-run` prints the frames and does not connect. The site does not allow a plain repost. Add a quote with `--body`. Nothing is sent, including on `--dry-run`.
 
-## [3.39.0] - 2026-10-21
+## [3.40.0] - 2026-10-21
 
 ### Added
 
 - **Top-level post edit.** `--edit POST` with `--edit-title` and/or `--body` sends validate, then save, once. Both fields are sent. A field you omit is read from the editor after confirm and is not printed by `--dry-run`. The terminal asks `Edit? [y/N]`, then `Type yes`. The one-hour window still applies.
 
-## [3.38.0] - 2026-10-21
+## [3.39.0] - 2026-10-21
 
 ### Added
 
 - **Delete.** `--delete POST` sends `delete-post` once. The terminal asks `Delete? [y/N]`, then `Type yes`. The site redirects to `/rs`. The local copy stays and is shown with a tombstone (🪦, or `[RIP]` when the locale is not UTF-8). Cancel sends nothing.
 
-## [3.37.0] - 2026-10-21
+## [3.38.0] - 2026-10-21
 
 ### Added
 
 - **Subscribe.** `--subscribe THREAD` sends the hook with state `1`. The terminal asks `Subscribe? [y/N]`. `--dry-run` prints the hook and does not connect. Unsubscribe (state `0`) is refused, including on a dry-run. The missing frame is a subscribe hook with state `0`.
 
-## [3.36.0] - 2026-10-21
+## [3.37.0] - 2026-10-21
 
 ### Added
 
 - **Site bookmark.** `--site-bookmark POST` sends the bookmark hook with state `1`. The terminal asks `Bookmark? [y/N]`. This is not the local `--bookmark`. Clearing a site bookmark (state `0`) is not sent. `--sync-bookmarks` still pushes a removal with state `0`, which this capture did not contain.
 
-## [3.35.0] - 2026-10-21
+## [3.36.0] - 2026-10-21
 
 ### Added
 
 - **Vote.** `--vote POST` with `--vote-state` `1`, `0`, or `-1` sends the hook once. The default is `1`. The terminal asks `Vote? [y/N]`. `--dry-run` prints the hook and does not connect. The reply shows score, vote, and upvote percentage.
 
-## [3.34.2] - 2026-10-21
+## [3.35.5] - 2026-10-21
 
 ### Changed
 
 - **A reply edit keeps a leading quote.** When the mounted editor starts with a `postRef`, that node is sent with the new body. `--dry-run` does not open the editor. It says the quote is kept and is not shown. 3.33.0 did not copy that node.
+
+## [3.35.0] - 2026-10-22
+
+### Added
+
+- **Brands.** The logo, the title, and the motto follow a brand, the same way colours follow a theme. The built-in `default` brand is still ACP Red Star: the red-star logo, the word ACP, the title, and "The future belongs to the working class". The built-in `plain` brand is the title Red Star, a star, and no motto (`acp-red-star --brand plain`). `--brand NAME` selects one for this run. `[ui] brand` in `~/.acp/preferences.toml` keeps it. The header switch `«name» ▾` opens the picker; moving the highlight previews it and Esc puts the old brand back. The brand editor edits the title, motto, word, and logo (Ctrl-S save, Ctrl-R revert, Ctrl-N save as new, Ctrl-D duplicate, Ctrl-X delete, Ctrl-C close). User brands are `~/.acp/brands/<name>.toml`. A logo is built-in, inline text, or a file inside that folder; a path that leaves the folder is refused. A brand is independent of the theme. `--help`, `--version`, the terminal title, and HTML export headers use the title. Credits and the other surprises keep their own text.
 
 ## [3.34.0] - 2026-10-21
 
