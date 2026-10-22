@@ -1,6 +1,6 @@
 Feature: Captured interactions
   Vote, subscribe, site bookmark, delete, and a quote repost send the captured frames.
-  Unsubscribe, a plain repost, and clearing a bookmark do not. Share is not a write.
+  Unsubscribe and clearing a bookmark do not. The site does not allow a plain repost. Share is not a write.
   The mock never contacts the live site.
 
   Background:
@@ -53,8 +53,14 @@ Feature: Captured interactions
     And stdout contains "/rs/post/RP1"
     And the site received 1 repost validates and 1 repost saves
 
-  Scenario: A plain repost is refused
+  Scenario: A plain repost is refused before a connection
     When I run "--repost A1 --repost-title Noted --yes"
     Then it fails
-    And stderr contains "empty form[body_input]"
+    And stderr contains "does not allow a plain repost"
+    And stderr contains "Nothing was sent"
+    And the site received 0 repost validates and 0 repost saves
+    When I run "--repost A1 --repost-title Noted --dry-run"
+    Then it fails
+    And stderr contains "does not allow a plain repost"
+    And stderr contains "--body"
     And the site received 0 repost validates and 0 repost saves

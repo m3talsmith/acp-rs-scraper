@@ -5,8 +5,8 @@
 //! and `uploads: {}`. Save carries an empty `meta` and no `uploads` key.
 //! A confirmed post or reply uploads the site copy, then sends validate, then
 //! save, once. A vote, a site bookmark, a subscribe, a delete, a post edit,
-//! and a quote repost are sent. Unsubscribe, a plain repost, and clearing a
-//! site bookmark are not. Share is not a write.
+//! and a quote repost are sent. The site does not allow a plain repost.
+//! Unsubscribe and clearing a site bookmark are not. Share is not a write.
 //! `--dry-run` still opens no connection.
 
 use super::attach::{self, PlannedAttachment};
@@ -552,7 +552,7 @@ pub(crate) fn check_test_host(_url: &str) {}
 ///
 /// Text posts and replies are published. Uploads and the uncaptured
 /// interactions are not.
-pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. A reply edit sends validate, then save, once, and keeps a leading quote. A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent. An unsubscribe, a plain repost with an empty comment, and clearing a site bookmark are not sent. Share is not a write. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
+pub const CAPTURE_BLOCK: &str = "text posts and replies are published, including the site copy of images, videos, and PDFs. A reply edit sends validate, then save, once, and keeps a leading quote. A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent. An unsubscribe and clearing a site bookmark are not sent. The site does not allow a plain repost. Share is not a write. --dry-run prints the frames and the upload plan and does not connect. --capture-reply does not send.";
 
 /// `--capture-reply` stops here. It does not copy `session.json` or open a page.
 pub fn capture_stub_message(thread: &str) -> String {

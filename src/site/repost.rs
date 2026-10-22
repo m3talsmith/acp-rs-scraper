@@ -1,8 +1,8 @@
 //! Quote repost. The captured page is `/rs/post/new?repost=ID`.
 //!
 //! The save sends `form[quoted_post_id]`, `form[title]`, and `form[body_input]`
-//! (a short comment, not a `postRef`). A plain repost with an empty comment
-//! was not saved in the capture, so an empty body is refused before a connection.
+//! (a short comment, not a `postRef`). The site does not allow a plain repost.
+//! An empty comment is refused before a connection, including on a dry-run.
 
 use super::write::{captured_form_value, collapse_blank_lines, form_event, WriteError};
 use crate::prelude::*;
@@ -40,8 +40,8 @@ pub fn route(id: &str) -> String {
     format!("/rs/post/new?repost={id}")
 }
 
-/// A plain repost (empty comment) was not in the capture.
-pub const PLAIN_REPOST_MISSING: &str = "A plain repost was not captured. The missing frame is a save on /rs/post/new?repost=ID with an empty form[body_input]. Nothing was sent.";
+/// The site does not allow a repost with no comment. This is unsupported, not a missing frame.
+pub const PLAIN_REPOST_REFUSED: &str = "The site does not allow a plain repost. Add a quote with --body. Nothing was sent.";
 
 /// Build the quote-repost plan. This does not open a socket.
 pub fn prepare(id: &str, title: &str, body: &str, writes_on: bool) -> Result<RepostPlan, WriteError> {
@@ -50,7 +50,7 @@ pub fn prepare(id: &str, title: &str, body: &str, writes_on: bool) -> Result<Rep
     }
     let id = super::hook::clean_id(id, "repost")?;
     if body.trim().is_empty() {
-        return Err(err(PLAIN_REPOST_MISSING));
+        return Err(err(PLAIN_REPOST_REFUSED));
     }
     if title.trim().is_empty() {
         return Err(err("the captured repost save includes a title. Pass --repost-title. Nothing was sent."));
@@ -83,7 +83,7 @@ pub fn frames(plan: &RepostPlan) -> Vec<Value> {
 pub fn dry_run_text(plan: &RepostPlan) -> String {
     let frames = serde_json::to_string_pretty(&frames(plan)).unwrap_or_default();
     format!(
-        "dry-run: no connection opened\nrepost {}\nroute: {}\ntitle: {}\n\n{}\n\nopen (sent after confirm): phx_leave, then phx_join redirect {}\nsticky false, _mounts 0. _track_static is not sent.\n\n{}\n\nnot sent:\n- keystroke validates are not sent. One validate, then one save.\n- no validate is sent after save.\n- A plain repost with an empty comment is not sent.\n",
+        "dry-run: no connection opened\nrepost {}\nroute: {}\ntitle: {}\n\n{}\n\nopen (sent after confirm): phx_leave, then phx_join redirect {}\nsticky false, _mounts 0. _track_static is not sent.\n\n{}\n\nnot sent:\n- keystroke validates are not sent. One validate, then one save.\n- no validate is sent after save.\n- The site does not allow a plain repost.\n",
         plan.id,
         route(&plan.id),
         plan.title,
@@ -183,7 +183,9 @@ mod tests {
     #[test]
     fn a_quote_repost_prints_the_captured_fields_and_an_empty_comment_is_refused() {
         let empty = prepare("POST", "Title", "  ", true).unwrap_err();
-        assert!(empty.message.contains("empty form[body_input]"), "{}", empty.message);
+        assert!(empty.message.contains("does not allow a plain repost"), "{}", empty.message);
+        assert!(empty.message.contains("--body"), "{}", empty.message);
+        assert!(empty.message.contains("Nothing was sent"), "{}", empty.message);
         let no_title = prepare("POST", " ", "a short quote", true).unwrap_err();
         assert!(no_title.message.contains("--repost-title"), "{}", no_title.message);
         let plan = prepare("POST", "Noted", "a short quote", true).unwrap();

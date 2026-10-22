@@ -6,8 +6,9 @@ Still not sent, and the missing frame is named:
 
 - Unsubscribe: a subscribe hook with state "0".
 - Clearing a site bookmark from this command: a bookmark hook with state "0". `--sync-bookmarks` still pushes a removal with state "0". That frame was not in this capture.
-- A plain repost: a save on `/rs/post/new?repost=POST` with an empty form[body_input].
 - Share is not a write. The site's Share post control is client-side only. No frame is treated as share.
+
+The site does not allow a plain repost. Only a quote repost is sent. An empty comment is refused before a connection, including on `--dry-run`. That is unsupported, not a missing frame.
 
 The site does not support changing attachments on an edit. `--attachment` with `--edit` is refused before a connection.
 
@@ -33,4 +34,4 @@ A reply edit keeps a leading `postRef` from the mounted editor. The dry-run says
 
 ## Repost
 
-A quote repost opens `/rs/post/new?repost=POST` and saves `form[quoted_post_id]`, a title, and a short comment. An empty comment is not sent.
+A quote repost opens `/rs/post/new?repost=POST` and saves `form[quoted_post_id]`, a title, and a short comment. The site does not allow a plain repost.

@@ -390,7 +390,7 @@ impl ComposeModal {
                 return None;
             }
             if self.body.trim().is_empty() {
-                self.error = Some(crate::site::repost::PLAIN_REPOST_MISSING.into());
+                self.error = Some(crate::site::repost::PLAIN_REPOST_REFUSED.into());
                 self.focus = ComposeFocus::Body;
                 return None;
             }

@@ -169,11 +169,14 @@ fn area_topics() -> Vec<String> {
         "  Cancel outbox item marks a queued row cancelled. A sending row waits for the read-back.",
     ]);
     push_topic(&mut v, "post-actions", "Post actions", &[
-        "  Vote, subscribe, delete, edit, and repost stay gated. No live frame is in the repo.",
+        "  A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent.",
         "  + asks before an upvote. - asks before a downvote. Cancel is the default.",
         "  Post menu Subscribe and Repost ask the same way. Delete and Edit also ask you to type yes.",
-        "  A confirm still sends nothing. --dry-run prints the stub and does not connect.",
-        "  The clicks to record are in architecture/INTERACTIONS-CAPTURE.md.",
+        "  --dry-run prints the frames and does not connect.",
+        "  The site does not allow a plain repost. Add a quote. Nothing is sent.",
+        "  Unsubscribe and clearing a site bookmark are not sent.",
+        "  The site does not support changing attachments on an edit.",
+        "  The frames still missing are in architecture/INTERACTIONS-CAPTURE.md.",
     ]);
     push_topic(&mut v, "research", "Research", &[
         "  r, or the ◈ on a card, adds the current post to a research project.",

@@ -213,7 +213,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
         } else if edit_post {
             "A blank title or body is the one already on the post. It is kept and is not shown until the editor opens. The site does not support changing attachments on an edit.".into()
         } else if repost {
-            "A quote repost needs a title and a comment. A plain repost with an empty comment is not sent.".into()
+            "A quote repost needs a title and a comment. The site does not allow a plain repost.".into()
         } else {
             "Attach lists local files. Images, videos, and PDFs upload when you publish. Other files stay on this machine.".into()
         }

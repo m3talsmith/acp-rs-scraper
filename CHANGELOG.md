@@ -10,7 +10,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Quote repost.** `--repost POST --repost-title TITLE --body TEXT` sends validate, then save, once. The fields are `form[quoted_post_id]`, `form[title]`, and `form[body_input]`. The terminal asks `Repost? [y/N]`. `--dry-run` prints the frames and does not connect. A plain repost with an empty comment is not sent. The missing frame is a save on `/rs/post/new?repost=ID` with an empty `form[body_input]`.
+- **Quote repost.** `--repost POST --repost-title TITLE --body TEXT` sends validate, then save, once. The fields are `form[quoted_post_id]`, `form[title]`, and `form[body_input]`. The terminal asks `Repost? [y/N]`. `--dry-run` prints the frames and does not connect. The site does not allow a plain repost. Add a quote with `--body`. Nothing is sent, including on `--dry-run`.
 
 ## [3.39.0] - 2026-10-21
 

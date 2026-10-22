@@ -369,7 +369,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Esc / Backspace", "Close the top detail; close menu / modal"),
     ("<", "Back from search results / bookmarks"),
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
-    ("p", "Post menu. Subscribe, delete, bookmark, edit, and repost ask first. A reply edit keeps a leading quote. A top-level edit and a quote repost send validate then save once. Unsubscribe, a plain repost, and clearing a site bookmark are not sent. View reposts and view edits still read"),
+    ("p", "Post menu. Subscribe, delete, bookmark, edit, and repost ask first. A reply edit keeps a leading quote. A top-level edit and a quote repost send validate then save once. Unsubscribe and clearing a site bookmark are not sent. The site does not allow a plain repost. View reposts and view edits still read"),
     ("+ / -", "Ask before an upvote or a downvote. Cancel is the default. A confirm sends the vote once"),
     ("s", "In a thread: cycle reply order newest → oldest → top"),
     ("n", "New post. Cancel is the default. A confirmed post uploads the site copy, then sends the text"),

@@ -34,6 +34,7 @@ All rule changes and additions go in this file.
 - **Smoke and manual runs always use a throwaway `HOME`, never the real `~/.acp`.** Auto-sync is on there, and a stray run can post or sync for real.
 - End-to-end tests are mocked Gherkin scenarios (the `cucumber` crate with `.feature` files and a mock server). Tests must never touch the real acp.us site, X, YouTube or any other live service.
 - Every write to a live site needs a mocked test, a preview, and a confirmation where Cancel is the default; `--dry-run` must show exactly what would be sent.
+- The site does not allow a plain repost. Only a quote repost is sent, and it needs a comment (`--body` or `--body-file`). An empty comment is refused before any connection, including `--dry-run`. That refusal is unsupported, the same way changing attachments on an edit is unsupported. It is not a missing frame and it is not prepared, gated.
 - `cargo build`, `cargo test` and `cargo clippy` (no warnings) pass before every commit. MSRV is 1.88 (check `rust-version` in `Cargo.toml` in case it has changed).
 
 ## Code and UI

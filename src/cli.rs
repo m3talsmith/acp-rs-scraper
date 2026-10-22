@@ -174,7 +174,7 @@ pub struct Args {
     /// Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. A confirmed reply uploads the site copy, then sends the captured validate and save frames. Same confirm and dry-run rules as `--new-post`.
     #[arg(long, value_name = "THREAD", help_heading = "Writing")]
     pub reply: Option<String>,
-    /// Quote-repost a post. The route is `/rs/post/new?repost=POST`. Needs `--repost-title` and `--body` or `--body-file`. A confirmed repost sends validate, then save, once. The terminal asks `Repost? [y/N]`. `--dry-run` prints the frames and does not connect. A plain repost with an empty comment is not sent. This is not `--reposts`, which only reads the list.
+    /// Quote-repost a post. The route is `/rs/post/new?repost=POST`. Needs `--repost-title` and `--body` or `--body-file`. A confirmed repost sends validate, then save, once. The terminal asks `Repost? [y/N]`. `--dry-run` prints the frames and does not connect. The site does not allow a plain repost. This is not `--reposts`, which only reads the list.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub repost: Option<String>,
     /// With `--repost`. Title sent with the comment. The captured save includes one.

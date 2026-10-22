@@ -3,5 +3,5 @@
   "source": "Masked from a redacted LiveView capture. The id is synthetic. The save had a title and a short comment. An empty comment was not saved.",
   "route": "/rs/post/new?repost=POST",
   "fields": ["form[quoted_post_id]", "form[title]", "form[body_input]"],
-  "missing": "a save on /rs/post/new?repost=ID with an empty form[body_input]"
+  "unsupported": "The site does not allow a plain repost. Add a quote with --body."
 }

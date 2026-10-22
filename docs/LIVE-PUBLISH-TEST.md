@@ -15,7 +15,7 @@ published AaFe-qikeQyiWLMA1vwnNA
 https://acp.us/rs/post/AaFe-qikeQyiWLMA1vwnNA
 ```
 
-Text and a PNG are verified. A PDF and a video have not been posted from this client yet. A reply edit, a vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are implemented and have not been tried live. Unsubscribe, a plain repost, and clearing a site bookmark are not sent. The site does not support changing attachments on an edit.
+Text and a PNG are verified. A PDF and a video have not been posted from this client yet. A reply edit, a vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are implemented and have not been tried live. Unsubscribe and clearing a site bookmark are not sent. The site does not allow a plain repost. The site does not support changing attachments on an edit.
 
 ## Before you start
 
@@ -160,7 +160,7 @@ Audio and other documents are kept locally and named as not uploaded. They shoul
 
 ## Interactions
 
-These send once after confirm. They have not been tried live. `--dry-run` prints the frames and does not connect. Unsubscribe, a plain repost with an empty comment, and clearing a site bookmark still refuse. The missing frames are [architecture/INTERACTIONS-CAPTURE.md](../architecture/INTERACTIONS-CAPTURE.md).
+These send once after confirm. They have not been tried live. `--dry-run` prints the frames and does not connect. Unsubscribe and clearing a site bookmark still refuse. The site does not allow a plain repost. The missing frames are [architecture/INTERACTIONS-CAPTURE.md](../architecture/INTERACTIONS-CAPTURE.md).
 
 Use the check post from the text step above. The 30 second gap is for a new post or reply, not for these.
 
@@ -225,7 +225,7 @@ The site does not support changing attachments on an edit. Adding or removing an
 ./target/release/acprs --repost POST --repost-title "Noted" --body "updated"
 ```
 
-The prompt is `Repost? [y/N]`. The save sends `form[quoted_post_id]`, `form[title]`, and `form[body_input]`. A plain repost with an empty comment is not sent. The missing frame is a save on `/rs/post/new?repost=ID` with an empty `form[body_input]`.
+The prompt is `Repost? [y/N]`. The save sends `form[quoted_post_id]`, `form[title]`, and `form[body_input]`. The site does not allow a plain repost. Add a quote with `--body`. Nothing is sent, including on `--dry-run`.
 
 ### Delete the check post from the client
 

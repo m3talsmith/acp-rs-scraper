@@ -6,8 +6,9 @@
 //! validate, then save, once. Images, videos, and PDFs are the site copy, at
 //! most 4. A confirmed reply edit sends validate, then save, once, and keeps a
 //! leading quote. A vote, a site bookmark, a subscribe, a delete, a top-level
-//! post edit, and a quote repost are sent. Unsubscribe, a plain repost, and
-//! clearing a site bookmark stay behind [`write::CAPTURE_BLOCK`]. Share is not
+//! post edit, and a quote repost are sent. The site does not allow a plain
+//! repost. Unsubscribe and clearing a site bookmark stay behind
+//! [`write::CAPTURE_BLOCK`]. Share is not
 //! a write. The site does not support changing attachments on an edit. The
 //! one-hour window still refuses an older edit before a connection.
 //! `--dry-run` opens no connection.
@@ -218,6 +219,16 @@ pub async fn run_cli(args: &Args) -> Result<()> {
         };
     }
     if let Some(id) = args.repost.as_deref() {
+        let title = args.repost_title.as_deref().unwrap_or("");
+        let body = match (&args.body, &args.body_file) {
+            (Some(_), Some(_)) => bail!("pass --body or --body-file, not both"),
+            (Some(s), None) => s.clone(),
+            (None, Some(path)) => std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?,
+            (None, None) => String::new(),
+        };
+        if body.trim().is_empty() {
+            bail!("{}", repost::PLAIN_REPOST_REFUSED);
+        }
         let confirmed = if args.dry_run {
             false
         } else if args.yes {
@@ -230,13 +241,6 @@ pub async fn run_cli(args: &Args) -> Result<()> {
             matches!(line.trim().to_ascii_lowercase().as_str(), "y" | "yes")
         } else {
             false
-        };
-        let title = args.repost_title.as_deref().unwrap_or("");
-        let body = match (&args.body, &args.body_file) {
-            (Some(_), Some(_)) => bail!("pass --body or --body-file, not both"),
-            (Some(s), None) => s.clone(),
-            (None, Some(path)) => std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?,
-            (None, None) => String::new(),
         };
         return match repost::present(id.trim(), title, &body, confirmed, args.dry_run) {
             Ok(repost::RepostGate::Done(text)) => {
@@ -340,7 +344,8 @@ mod tests {
         assert!(notes.contains("does not support changing attachments"));
         assert!(!notes.contains("Edit: replace attachment"), "{notes}");
         assert!(notes.contains("state \"0\""));
-        assert!(notes.contains("empty form[body_input]"));
+        assert!(notes.contains("does not allow a plain repost"));
+        assert!(!notes.contains("empty form[body_input]"));
         assert!(notes.contains("Share is not a write"));
         assert!(notes.contains("/rs/post/new?repost=POST"));
         assert!(CAPTURE_BLOCK.contains("are not sent"));
@@ -358,7 +363,8 @@ mod tests {
         }
         let repost: Value = serde_json::from_str(include_str!("../../tests/fixtures/site/repost.json")).unwrap();
         assert_eq!(repost["capture_status"], "quote");
-        assert!(repost["missing"].as_str().unwrap().contains("empty form[body_input]"));
+        assert!(repost.get("missing").is_none());
+        assert!(repost["unsupported"].as_str().unwrap().contains("does not allow a plain repost"));
     }
 
     fn draft() -> Draft {
