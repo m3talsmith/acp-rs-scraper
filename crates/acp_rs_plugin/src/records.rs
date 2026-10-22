@@ -310,6 +310,12 @@ pub enum Target {
         /// The thread root.
         id: SourceId,
     },
+    /// The service's bookmark list.
+    ///
+    /// The service reads the site and reconciles it with [`crate::Host::sync_bookmarks`].
+    Bookmarks,
+    /// The whole site, not one account.
+    Site,
 }
 
 /// Opaque resume token. The host stores the text and does not parse it.

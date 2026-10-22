@@ -276,7 +276,15 @@ pub async fn run() -> Result<()> {
     if args.encrypt_db { return crate::crypto::cmd::encrypt_db(); }
     if args.change_password { return crate::crypto::cmd::change_password(); }
     if crate::outbox::cli_requested(&args) { return crate::outbox::run_cli(&args).await; }
-    if crate::site::cli_requested(&args) { return crate::site::run_cli(&args).await; }
+    if crate::site::cli_requested(&args) {
+        if let Some(text) = crate::drive::compose(&args).await? {
+            if !text.is_empty() {
+                println!("{text}");
+            }
+            return Ok(());
+        }
+        return crate::site::run_cli(&args).await;
+    }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_brands { return run_list_brands(&args); }
@@ -390,7 +398,14 @@ pub async fn run() -> Result<()> {
     let jar = Arc::new(Jar::default());
     if let Err(e) = load_session(&jar) { cli_warning(&args, &format!("ignoring saved session: {e:#}")); }
     let http = client(jar.clone())?;
-    login(&http, &jar).await?;
+    if crate::drive::handles(acp_rs_plugin::CapabilityId::Authenticator) {
+        crate::drive::login(crate::host_api::CoreHost::shared().as_ref()).await?;
+    } else {
+        login(&http, &jar).await?;
+    }
+    if crate::drive::handles(acp_rs_plugin::CapabilityId::Reader) {
+        return crate::drive::read_flags(&args).await;
+    }
     if let Some(period) = args.top {
         let n = read_top(&http, &jar, period, args.top_replies).await?;
         info!("== top {}: {n} posts", period.as_str());

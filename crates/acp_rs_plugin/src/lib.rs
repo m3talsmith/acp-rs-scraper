@@ -36,10 +36,14 @@
 //! rules, research, maintenance, notices, and preferences. HTTP takes request
 //! headers and a cookie jar scoped to the service. `save_page` stores
 //! `body_state` and attachment rows. `known_ids` includes per-thread reply
-//! counts. `export` writes JSON or HTML. [`Outbox`] and [`LocalPost`] are
-//! traits. `impl_default_caps!(Ty, except Reader, Post)` takes a
-//! comma-separated list. Store the host in [`Service::attach`]. This crate
-//! does not link SQLCipher or the node crate. This crate is `0.2.0`.
+//! counts. `export` takes [`ExportRequest`]: JSON or HTML, a compressed
+//! archive, profile images, and a chosen set of post ids. [`Host::save_outbox`],
+//! [`Host::enqueue_outbox`], and [`Host::cancel_outbox`] write the outbox.
+//! [`Host::sync_bookmarks`] keeps a site-bookmark id mapping. [`Outbox`] and
+//! [`LocalPost`] are traits. `impl_default_caps!(Ty, except Reader, Post)` takes
+//! a comma-separated list. The `test-host` feature exposes `MemHost`, an
+//! in-memory host for a service's tests. Store the host in [`Service::attach`].
+//! This crate does not link SQLCipher or the node crate. This crate is `0.3.0`.
 //!
 //! [`SESSION_SCHEMA`] is the email and base URL fields. [`CapabilityId::Spaces`]
 //! is the Red Star Spaces id. An official package claims the reserved
@@ -53,9 +57,13 @@ mod caps;
 mod gate;
 mod host;
 mod records;
+#[cfg(feature = "test-host")]
+mod test_host;
 
 pub use abi::*;
 pub use caps::*;
 pub use gate::*;
 pub use host::*;
 pub use records::*;
+#[cfg(feature = "test-host")]
+pub use test_host::MemHost;

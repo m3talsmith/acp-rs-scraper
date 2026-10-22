@@ -18,6 +18,7 @@
 //! - [`outbox`]: Drafts and the send queue (3.34.0). A draft is stored before it is sent. A queued text post or reply uses the same confirm rules as a direct publish.
 //! - [`plugins`]: the package gate. A failed archive is quarantined. A version mismatch is refused and is not moved. A discovered package stays off.
 //! - [`host_api`]: the [`acp_rs_plugin::Host`] a service calls instead of opening the database.
+//! - [`drive`]: scrape, sync, login, and compose flags call a loaded service. This binary's site modules run those jobs until one implements the capability.
 //! - [`media`]: attachment discovery and download.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
@@ -46,6 +47,7 @@ pub mod bookmarks;
 pub mod cli;
 pub mod config;
 pub mod crypto;
+pub mod drive;
 pub mod eggs;
 pub mod export;
 pub mod host_api;

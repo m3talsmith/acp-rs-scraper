@@ -531,6 +531,7 @@ fn target_filled(target: &Target) -> bool {
         Target::Search { query } => !query.trim().is_empty(),
         Target::Playlist { id } => !id.trim().is_empty(),
         Target::Item { id } | Target::Conversation { id } => !id.native.is_empty(),
+        Target::Bookmarks | Target::Site => true,
     }
 }
 
