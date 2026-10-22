@@ -178,6 +178,18 @@ fn identity_flags_parse_and_do_not_open_the_tui() {
 }
 
 #[test]
+fn doctor_prints_the_pin_and_does_not_combine_with_another_command() {
+    assert!(Args::try_parse_from(["x", "--doctor"]).unwrap().doctor);
+    assert!(!parse_with_mode(["x", "--doctor"]).unwrap().1, "--doctor stays headless");
+    assert!(Args::try_parse_from(["x", "--doctor", "--scrape"]).is_err());
+    assert!(Args::try_parse_from(["x", "--doctor", "--outbox-list"]).is_err());
+    assert!(Args::try_parse_from(["x", "--doctor", "--new-post", "Title"]).is_err());
+    let help = Args::command().render_long_help().to_string();
+    assert!(help.contains("--doctor"), "{help}");
+    assert!(help.contains("Plugin authors read the pin only here"), "{help}");
+}
+
+#[test]
 fn quiet_verbose_conflict() {
     assert!(Args::try_parse_from(["x", "-q", "-v"]).is_err());
     assert!(Args::try_parse_from(["x", "--quiet", "--debug"]).is_err());

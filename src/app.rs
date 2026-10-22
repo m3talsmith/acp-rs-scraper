@@ -219,6 +219,13 @@ pub async fn run() -> Result<()> {
         Ok(v) => v,
         Err(e) => e.exit(),
     };
+    // Before brand files, the home directory, and every other command.
+    if args.doctor {
+        for line in crate::service::doctor_lines() {
+            println!("{line}");
+        }
+        return Ok(());
+    }
     let (brand, brand_warn) = crate::brands::selected(args.brand.as_deref());
     crate::brands::install(&brand);
     if let Some(w) = brand_warn {
@@ -268,12 +275,6 @@ pub async fn run() -> Result<()> {
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_brands { return run_list_brands(&args); }
-    if args.doctor {
-        for line in crate::service::doctor_lines() {
-            println!("{line}");
-        }
-        return Ok(());
-    }
     if args.list_themes { return run_list_themes(&args).await; }
     if let Some(t) = &args.brand { check_brand(t)?; }
     if let Some(t) = &args.theme { check_theme(t).await?; }

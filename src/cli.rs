@@ -274,7 +274,7 @@ pub struct Args {
     #[arg(long, help_heading = "Interface")]
     pub list_brands: bool,
     /// Print the rustc pin and the acp_rs_plugin version, then exit. Plugin authors read the pin only here.
-    #[arg(long, help_heading = "Interface")]
+    #[arg(long, exclusive = true, help_heading = "Interface")]
     pub doctor: bool,
     /// List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit.
     #[arg(long, help_heading = "Interface")]
