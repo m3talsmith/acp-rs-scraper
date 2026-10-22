@@ -1,6 +1,6 @@
 # Plan: Organizations
 
-Status: **3.40.1 confirms guest writes, 2026-10-22.** Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. Templates, the website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
+Status: **3.41.0 ships the public snapshot.** 3.40.1 confirms guest writes, 2026-10-22. Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. Templates, the website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
 
 Base: `main` at `274a9e01` (crate `3.39.0`). This plan does not bump the version. `AGENTS.md` bumps a version for a feature or a fix, not for a plan.
 
@@ -335,7 +335,7 @@ Orgs and posts (3.40.0):
 - `--org-roles SLUG` (Owner, User, and Viewer exist as soon as the org does)
 - `--org-members SLUG` (the creator is the Owner)
 
-Privacy (3.41.0) uses those same flags and adds the public export check that later minors reuse. The four visibility cases are tested here, against a public JSON snapshot, before HTML exists.
+Privacy (3.41.0) adds `--org-snapshot SLUG`. It prints the public JSON copy. A private organization contributes no name and no posts. A public organization that is still gated contributes its name and nothing else. Archived rows are left out. Switching the default for new posts does not rewrite posts already stored. Later export, serve, and service paths reuse this snapshot. The four visibility cases are tested here, before HTML exists.
 
 Templates (3.42.0):
 

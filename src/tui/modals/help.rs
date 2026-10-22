@@ -155,6 +155,8 @@ fn help_topics() -> Vec<String> {
         "  --org-post SLUG --org-title TITLE --body TEXT stores a post. A new post is private",
         "  unless --org-post-visibility says public, and that asks too.",
         "  --org-list and --org-show read them back. --org-show includes private posts.",
+        "  --org-snapshot SLUG is the public JSON copy. Private, gated, and archived rows are left out.",
+        "  Changing the default for new posts does not rewrite posts already stored.",
         "  --org-delete asks. --dry-run writes nothing. --yes confirms when there is no terminal.",
         "  The nick bar lists the organization with the other sources.",
         "",

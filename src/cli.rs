@@ -112,7 +112,7 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("orgs").args(["org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_post"]).multiple(false).conflicts_with_all([
+#[command(group(clap::ArgGroup::new("orgs").args(["org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_post"]).multiple(false).conflicts_with_all([
     "nick", "nicks", "search", "export", "import", "post_ids", "scrape", "scrape_all", "list_nicks",
     "remove_nick", "clear_all", "research_list", "research_create", "research_add", "research_show", "research_export",
     "sync", "new_post", "reply", "bookmark", "logout",
@@ -123,13 +123,13 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("outbox").args(["draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
     "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
-    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_post",
+    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_post",
 ])))]
 #[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
     "nick", "nicks", "scrape", "scrape_all", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
     "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
-    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_post",
+    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_snapshot", "org_post",
 ])))]
 /// Command-line arguments (see `--help`).
 pub struct Args {
@@ -449,6 +449,9 @@ pub struct Args {
     /// Offline: list members. The creator is an active Owner.
     #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
     pub org_members: Option<String>,
+    /// Offline: print the public JSON snapshot. Private, gated, and archived rows are left out.
+    #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
+    pub org_snapshot: Option<String>,
     /// Offline: store a post in an organization. The org is the author. Private unless `--org-post-visibility` says otherwise.
     #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
     pub org_post: Option<String>,

@@ -583,6 +583,7 @@ An organization is a local source. It does not need a service. A new organizatio
 | `--org-show SLUG` | Show the organization and every post, including private ones. |
 | `--org-roles SLUG` | List roles. A new organization has Owner, User, and Viewer. |
 | `--org-members SLUG` | List members. The creator is an active Owner. |
+| `--org-snapshot SLUG` | Print the public JSON snapshot. A private organization contributes no posts. A public post inside a private or gated organization is left out. An archived row is left out. Switching the default for new posts does not rewrite posts already stored. |
 | `--org-post SLUG` | Store a post. Requires `--org-title`. The body is `--body` or `--body-file`. `--org-post-visibility` overrides the org default for this post only. |
 | `--org-visibility private\|public` | With create or edit. |
 | `--org-default-visibility private\|public` | With create or edit. |

@@ -554,6 +554,50 @@ pub fn public_surface(c: &Connection) -> Result<String> {
     Ok(parts.join("\n"))
 }
 
+/// The public JSON snapshot. Later export, serve, and service paths reuse this.
+///
+/// A private organization contributes no name, description, posts, or assets.
+/// A public organization that is still gated contributes its name and nothing else.
+/// Archived rows are left out in every case.
+pub fn public_snapshot(c: &Connection, slug: &str) -> Result<Value> {
+    let org = get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    let open = org.visibility == Visibility::Public && !org.gated;
+    let mut posts = Vec::new();
+    let mut assets = Vec::new();
+    if open {
+        for post in list_posts(c, org.id)? {
+            if public_row(&org, &post, false) {
+                posts.push(json!({
+                    "id": post.id,
+                    "title": post.title,
+                    "body": post.body,
+                    "author": post.author_identity,
+                }));
+            }
+        }
+        for asset in access::list_assets(c, org.id)? {
+            if access::asset_public(&org, &asset, false) {
+                assets.push(json!({
+                    "id": asset.id,
+                    "name": asset.name,
+                    "author": asset.author_identity,
+                }));
+            }
+        }
+    }
+    let mut doc = json!({
+        "slug": org.slug,
+        "public": open,
+        "posts": posts,
+        "assets": assets,
+    });
+    if org.visibility == Visibility::Public {
+        doc["name"] = json!(org.name);
+        doc["gated"] = json!(org.gated);
+    }
+    Ok(doc)
+}
+
 /// Organization posts as stored posts. `audience` drops rows a public page must not show.
 pub fn stored_posts(c: &Connection, audience: Audience) -> Result<Vec<Post>> {
     let mut out = Vec::new();
@@ -665,5 +709,62 @@ mod tests {
         delete_org(&c, "hold").unwrap();
         assert!(get_org(&c, "hold").unwrap().is_none());
         assert!(stored_posts(&c, Audience::Owner).unwrap().is_empty());
+    }
+
+    #[test]
+    fn the_public_snapshot_refuses_private_rows_archives_and_keeps_the_old_default() {
+        let (_d, c) = conn();
+        let owner = person();
+        let org = create_org(&c, "hold", "Rebel Hold", "secret-description", Visibility::Private, Visibility::Private, &owner).unwrap();
+        add_post(&c, "hold", "Secret", "hidden-body", None).unwrap();
+        let (_org, marked) = add_post(&c, "hold", "Marked", "marked-body", Some(Visibility::Public)).unwrap();
+        let snap = public_snapshot(&c, "hold").unwrap();
+        let text = serde_json::to_string(&snap).unwrap();
+        assert!(snap["posts"].as_array().unwrap().is_empty());
+        assert!(snap["assets"].as_array().unwrap().is_empty());
+        assert!(!text.contains("Secret") && !text.contains("hidden-body"));
+        assert!(!text.contains("Marked") && !text.contains("marked-body"));
+        assert!(!text.contains("Rebel Hold") && !text.contains("secret-description"));
+
+        update_org(&c, "hold", &OrgEdit { name: None, description: None, visibility: Some(Visibility::Public), default_post_visibility: None }).unwrap();
+        let snap = public_snapshot(&c, "hold").unwrap();
+        let text = serde_json::to_string(&snap).unwrap();
+        assert_eq!(snap["name"].as_str(), Some("Rebel Hold"));
+        assert_eq!(snap["gated"].as_bool(), Some(true));
+        assert_eq!(snap["public"].as_bool(), Some(false));
+        assert!(snap["posts"].as_array().unwrap().is_empty());
+        assert!(!text.contains("Marked") && !text.contains("hidden-body"));
+
+        access::set_gated(&c, org.id, false).unwrap();
+        let snap = public_snapshot(&c, "hold").unwrap();
+        let mut titles: Vec<_> = snap["posts"].as_array().unwrap().iter().map(|p| p["title"].as_str().unwrap()).collect();
+        titles.sort_unstable();
+        assert_eq!(titles, vec!["Marked"]);
+        assert!(!serde_json::to_string(&snap).unwrap().contains("hidden-body"));
+
+        update_org(&c, "hold", &OrgEdit { name: None, description: None, visibility: None, default_post_visibility: Some(Visibility::Public) }).unwrap();
+        let secret = list_posts(&c, org.id).unwrap().into_iter().find(|p| p.title == "Secret").unwrap();
+        assert_eq!(secret.visibility, Visibility::Private);
+        let (_org, later) = add_post(&c, "hold", "Later", "after-switch", None).unwrap();
+        assert_eq!(later.visibility, Visibility::Public);
+        let snap = public_snapshot(&c, "hold").unwrap();
+        let mut titles: Vec<_> = snap["posts"].as_array().unwrap().iter().map(|p| p["title"].as_str().unwrap()).collect();
+        titles.sort_unstable();
+        assert_eq!(titles, vec!["Later", "Marked"]);
+        assert!(!serde_json::to_string(&snap).unwrap().contains("hidden-body"));
+
+        let asset = access::submit_guest_attachment(&c, "hold", "203.0.113.9", &later.id, "banner-file", 12, Some(Visibility::Public)).unwrap();
+        assert!(serde_json::to_string(&public_snapshot(&c, "hold").unwrap()).unwrap().contains("banner-file"));
+        let record = access::archive_asset(&c, org.id, &owner, &asset.id).unwrap();
+        assert_eq!(record.kind, "update");
+        assert!(!serde_json::to_string(&public_snapshot(&c, "hold").unwrap()).unwrap().contains("banner-file"));
+
+        let record = access::archive_post(&c, org.id, &owner, &marked.id).unwrap();
+        assert_eq!(record.kind, "update");
+        let snap = public_snapshot(&c, "hold").unwrap();
+        let text = serde_json::to_string(&snap).unwrap();
+        assert!(!text.contains("Marked") && !text.contains("marked-body"));
+        assert!(text.contains("Later"));
+        assert!(get_post(&c, &marked.id).unwrap().unwrap().archived);
     }
 }

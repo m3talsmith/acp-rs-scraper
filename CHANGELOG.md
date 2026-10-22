@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.41.0] - 2026-10-22
+
+### Added
+
+- **Public snapshot.** `--org-snapshot` prints the public JSON copy of an organization. A private organization contributes no name and no posts. A public organization that is still gated contributes its name and nothing else. An archived row is left out. Switching the default for new posts does not rewrite posts already stored.
+
 ## [3.40.1] - 2026-10-22
 
 ### Fixed

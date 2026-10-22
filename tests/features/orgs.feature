@@ -97,3 +97,34 @@ Feature: Organizations
     When I run "--org-show hold"
     Then it succeeds
     And stdout contains "visibility: private"
+
+  Scenario: The public snapshot leaves private posts out and a new default does not rewrite them
+    When I run "--org-create hold"
+    Then it succeeds
+    When I run "--org-post hold --org-title Secret --body hidden-body"
+    Then it succeeds
+    When I run "--org-snapshot hold"
+    Then it succeeds
+    And stdout contains '"posts": []'
+    And stdout does not contain "Secret"
+    And stdout does not contain "hidden-body"
+    When I run "--org-post hold --org-title Marked --body marked-body --org-post-visibility public --yes"
+    Then it succeeds
+    When I run "--org-snapshot hold"
+    Then it succeeds
+    And stdout does not contain "Marked"
+    And stdout does not contain "marked-body"
+    When I run "--org-edit hold --org-default-visibility public --yes"
+    Then it succeeds
+    When I run "--org-post hold --org-title Later --body after-switch"
+    Then it succeeds
+    When I run "--org-show hold"
+    Then it succeeds
+    And stdout contains "Later"
+    And stdout contains "post visibility: public"
+    And stdout contains "Secret"
+    And stdout contains "post visibility: private"
+    When I run "--org-snapshot hold"
+    Then it succeeds
+    And stdout does not contain "Later"
+    And stdout does not contain "Secret"

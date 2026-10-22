@@ -12,6 +12,7 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.org_show.is_some()
         || args.org_roles.is_some()
         || args.org_members.is_some()
+        || args.org_snapshot.is_some()
         || args.org_post.is_some()
         || args.org_name.is_some()
         || args.org_description.is_some()
@@ -61,6 +62,12 @@ pub fn run_cli(args: &Args) -> Result<()> {
         for member in crate::orgs::access::members(&c, org.id)? {
             println!("{}  {}  {}", member.identity_pub, member.role, member.status.as_str());
         }
+        return Ok(());
+    }
+    if let Some(slug) = &args.org_snapshot {
+        let c = org_conn(&db)?;
+        let doc = crate::orgs::public_snapshot(&c, slug)?;
+        println!("{}", serde_json::to_string_pretty(&doc)?);
         return Ok(());
     }
     if let Some(slug) = &args.org_post {
