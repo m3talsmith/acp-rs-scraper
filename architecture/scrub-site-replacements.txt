@@ -1,0 +1,25 @@
+# git filter-repo --replace-text file.
+# Longer literals first so https://acp.us/join, /program, and /docs stay.
+# This does not rewrite the product name, the slogan, wallpapers, or surprises.
+#
+# Public pages that must survive: https://acp.us/join, https://acp.us/program,
+# https://acp.us/docs. Do not add a bare https://acp.us replacement.
+
+literal:wss://acp.us/live/websocket==>[redacted-site-endpoint]
+literal:https://acp.us/live/websocket==>[redacted-site-endpoint]
+literal:https://acp.us/rs==>[redacted-site-endpoint]
+literal:media.acp.us==>[redacted-site-endpoint]
+literal:posts-media.acp.us==>[redacted-site-endpoint]
+literal:phx-trigger-action==>[redacted-site-frame]
+literal:phx-submit==>[redacted-site-frame]
+literal:phx-change==>[redacted-site-frame]
+literal:phx-target==>[redacted-site-frame]
+literal:phx_join==>[redacted-site-frame]
+literal:phx_leave==>[redacted-site-frame]
+literal:phx_reply==>[redacted-site-frame]
+literal:user[otp]==>[redacted-site-field]
+literal:submit-code==>[redacted-site-field]
+literal:form[body_input]==>[redacted-site-field]
+literal:_csrf_token==>[redacted-site-field]
+# Bare origin, but not the public pages. Literals above already rewrote /rs.
+regex:https://acp\.us(?!/join|/program|/docs)==>[redacted-site-endpoint]
