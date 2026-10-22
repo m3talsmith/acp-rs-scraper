@@ -12,8 +12,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
 use acp_rs_plugin::{
-    AccountRec, AttachmentRec, BodyState, CookieRec, ExportFormat, Host, HostError, HttpHeader,
-    HttpResponse, ItemRec, KnownIds, NoticeRec, Page, SourceId, ThreadReplies,
+    AccountRec, AttachmentRec, BodyState, BookmarkChange, BookmarkSync, CookieRec, ExportFormat,
+    ExportRequest, Host, HostError, HttpHeader, HttpResponse, ItemRec, KnownIds, NoticeRec, Page,
+    SiteBookmark, SourceId, ThreadReplies,
 };
 use rusqlite::{Connection, params};
 
@@ -24,6 +25,13 @@ use crate::stored::Post;
 const SECRET_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS host_secrets (
     field TEXT PRIMARY KEY,
     material BLOB NOT NULL
+);";
+
+const BOOKMARK_SITE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS bookmark_sites (
+    service TEXT NOT NULL,
+    post_id TEXT NOT NULL,
+    site_id TEXT NOT NULL,
+    PRIMARY KEY (service, post_id)
 );";
 
 /// Binary name. [`CoreHost::argv0`] returns this and does not spawn a process.
@@ -284,22 +292,160 @@ impl Host for CoreHost {
         crate::outbox::list_outbox(&db).map_err(host_err)
     }
 
-    fn export(&self, path: &str, format: ExportFormat) -> Result<(), HostError> {
+    fn save_outbox(
+        &self,
+        id: &str,
+        title: &str,
+        body: &str,
+        thread: &str,
+        keep: bool,
+    ) -> Result<String, HostError> {
+        let mut db = self.open()?;
+        crate::outbox::save_local(&mut db, id, title, body, thread, keep).map_err(host_err)
+    }
+
+    fn enqueue_outbox(&self, local_id: &str) -> Result<String, HostError> {
+        let mut db = self.open()?;
+        crate::outbox::enqueue(&mut db, local_id).map_err(host_err)
+    }
+
+    fn cancel_outbox(&self, id: &str) -> Result<String, HostError> {
+        let mut db = self.open()?;
+        crate::outbox::cancel(&mut db, id).map_err(host_err)
+    }
+
+    fn export(&self, path: &str, request: &ExportRequest) -> Result<(), HostError> {
         let db = self.open()?;
         crate::storage::db::ensure_posts_schema(&db).map_err(host_err)?;
-        let posts = crate::rules::load_posts(&db).map_err(host_err)?;
-        let doc = crate::export::json::build_json("", &posts, &[], &[], &[], &|_| String::new());
-        let rendered = match format {
-            ExportFormat::Json => crate::export::render(crate::export::Format::Json, &doc),
-            ExportFormat::Html => crate::export::render(crate::export::Format::Html, &doc),
+        let db_path = self.db_path()?;
+        let (posts, attachments) = if request.post_ids.is_empty() {
+            let posts = crate::rules::load_posts(&db).map_err(host_err)?;
+            let attachments = attachments_for_posts(&db, &posts)?;
+            (posts, attachments)
+        } else {
+            let (posts, attachments, missing) =
+                crate::storage::db::posts_by_ids(&db_path, &request.post_ids).map_err(host_err)?;
+            if posts.is_empty() {
+                return Err(HostError::new("none of the posts is in the database"));
+            }
+            let _ = missing;
+            (posts, attachments)
+        };
+        let nicks: Vec<String> = posts.iter().map(|post| post.nick.clone()).filter(|nick| !nick.is_empty()).collect();
+        let (profiles, hits) = if request.profile_images {
+            crate::storage::db::load_profiles_mentions(&db_path, &nicks).map_err(host_err)?
+        } else {
+            (Vec::new(), Vec::new())
+        };
+        write_export(path, request, &posts, &attachments, &profiles, &hits)
+    }
+
+    fn sync_bookmarks(
+        &self,
+        service: &str,
+        site: &[SiteBookmark],
+        complete: bool,
+    ) -> Result<BookmarkSync, HostError> {
+        check_service(service)?;
+        let db = crate::bookmarks::bookmarks_conn(&self.db_path()?).map_err(host_err)?;
+        db.execute_batch(BOOKMARK_SITE_SCHEMA).map_err(host_err)?;
+        let mut site_posts = Vec::new();
+        for row in site {
+            let post = if row.post_id.is_empty() {
+                row.site_id.clone()
+            } else {
+                row.post_id.clone()
+            };
+            if post.is_empty() {
+                return Err(HostError::new("a site bookmark needs an id"));
+            }
+            if !row.site_id.is_empty() && !row.post_id.is_empty() {
+                db.execute(
+                    "INSERT INTO bookmark_sites (service, post_id, site_id) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(service, post_id) DO UPDATE SET site_id = excluded.site_id",
+                    params![service, row.post_id, row.site_id],
+                )
+                .map_err(host_err)?;
+            }
+            site_posts.push(post);
         }
-        .map_err(host_err)?;
-        if let Some(parent) = Path::new(path).parent()
-            && !parent.as_os_str().is_empty()
-        {
-            std::fs::create_dir_all(parent).map_err(host_err)?;
+        let local = crate::bookmarks::load_bookmarks(&db).map_err(host_err)?;
+        let plan = plan_bookmark_sync(&local, &site_posts, complete);
+        let now = chrono::Local::now().to_rfc3339();
+        for id in &plan.insert_remote {
+            db.execute(
+                "INSERT OR IGNORE INTO bookmarks (post_id, created_at, remote) VALUES (?1, ?2, 1)",
+                params![id, now],
+            )
+            .map_err(host_err)?;
         }
-        std::fs::write(path, rendered).map_err(host_err)
+        for id in &plan.set_remote {
+            db.execute("UPDATE bookmarks SET remote = 1 WHERE post_id = ?1", params![id])
+                .map_err(host_err)?;
+        }
+        for id in &plan.delete_rows {
+            db.execute("DELETE FROM bookmarks WHERE post_id = ?1", params![id])
+                .map_err(host_err)?;
+            db.execute(
+                "DELETE FROM bookmark_sites WHERE service = ?1 AND post_id = ?2",
+                params![service, id],
+            )
+            .map_err(host_err)?;
+        }
+        let mut sync = BookmarkSync {
+            pulled: plan.insert_remote.len() as u64,
+            dropped: plan.delete_rows.len() as u64,
+            ..BookmarkSync::default()
+        };
+        for id in plan.push_add {
+            sync.push_add.push(BookmarkChange {
+                site_id: mapped_site_id(&db, service, &id)?,
+                post_id: id,
+            });
+        }
+        for id in plan.push_remove {
+            let site_id = site
+                .iter()
+                .find(|row| row.post_id == id || row.site_id == id)
+                .map(|row| row.site_id.clone())
+                .filter(|id| !id.is_empty())
+                .unwrap_or(mapped_site_id(&db, service, &id)?);
+            sync.push_remove.push(BookmarkChange { site_id, post_id: id });
+        }
+        Ok(sync)
+    }
+
+    fn bookmark_pushed(
+        &self,
+        service: &str,
+        post_id: &str,
+        site_id: &str,
+        added: bool,
+    ) -> Result<(), HostError> {
+        check_service(service)?;
+        let db = crate::bookmarks::bookmarks_conn(&self.db_path()?).map_err(host_err)?;
+        db.execute_batch(BOOKMARK_SITE_SCHEMA).map_err(host_err)?;
+        if added {
+            db.execute("UPDATE bookmarks SET remote = 1, deleted = 0 WHERE post_id = ?1", params![post_id])
+                .map_err(host_err)?;
+            if !site_id.is_empty() {
+                db.execute(
+                    "INSERT INTO bookmark_sites (service, post_id, site_id) VALUES (?1, ?2, ?3)
+                     ON CONFLICT(service, post_id) DO UPDATE SET site_id = excluded.site_id",
+                    params![service, post_id, site_id],
+                )
+                .map_err(host_err)?;
+            }
+        } else {
+            db.execute("DELETE FROM bookmarks WHERE post_id = ?1", params![post_id])
+                .map_err(host_err)?;
+            db.execute(
+                "DELETE FROM bookmark_sites WHERE service = ?1 AND post_id = ?2",
+                params![service, post_id],
+            )
+            .map_err(host_err)?;
+        }
+        Ok(())
     }
 
     fn import_json(&self, path: &str) -> Result<usize, HostError> {
@@ -599,6 +745,167 @@ fn load_attachment_rows(db: &rusqlite::Connection, post_id: &str) -> Result<Vec<
     rows.collect::<Result<Vec<_>, _>>().map_err(host_err)
 }
 
+struct BookmarkPlan {
+    push_add: Vec<String>,
+    push_remove: Vec<String>,
+    insert_remote: Vec<String>,
+    set_remote: Vec<String>,
+    delete_rows: Vec<String>,
+}
+
+/// Reconcile a site bookmark list with local rows. Local changes win.
+fn plan_bookmark_sync(local: &[crate::bookmarks::Bookmark], site: &[String], site_complete: bool) -> BookmarkPlan {
+    let site_set: std::collections::HashSet<&String> = site.iter().collect();
+    let local_ids: std::collections::HashSet<&String> = local.iter().map(|row| &row.post_id).collect();
+    let mut plan = BookmarkPlan {
+        push_add: Vec::new(),
+        push_remove: Vec::new(),
+        insert_remote: Vec::new(),
+        set_remote: Vec::new(),
+        delete_rows: Vec::new(),
+    };
+    for row in local {
+        let on_site = site_set.contains(&row.post_id);
+        match (row.deleted, on_site) {
+            (false, true) => {
+                if !row.remote {
+                    plan.set_remote.push(row.post_id.clone());
+                }
+            }
+            (false, false) => {
+                if row.remote {
+                    if site_complete {
+                        plan.delete_rows.push(row.post_id.clone());
+                    }
+                } else {
+                    plan.push_add.push(row.post_id.clone());
+                }
+            }
+            (true, true) => plan.push_remove.push(row.post_id.clone()),
+            (true, false) => plan.delete_rows.push(row.post_id.clone()),
+        }
+    }
+    for id in site {
+        if !local_ids.contains(id) {
+            plan.insert_remote.push(id.clone());
+        }
+    }
+    plan
+}
+
+fn mapped_site_id(db: &rusqlite::Connection, service: &str, post_id: &str) -> Result<String, HostError> {
+    match db.query_row(
+        "SELECT site_id FROM bookmark_sites WHERE service = ?1 AND post_id = ?2",
+        params![service, post_id],
+        |row| row.get(0),
+    ) {
+        Ok(id) => Ok(id),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(String::new()),
+        Err(err) => Err(host_err(err)),
+    }
+}
+
+fn attachments_for_posts(db: &rusqlite::Connection, posts: &[Post]) -> Result<Vec<crate::stored::Attachment>, HostError> {
+    crate::storage::db::ensure_attachments_schema(db).map_err(host_err)?;
+    let ids: std::collections::HashSet<&str> = posts.iter().map(|post| post.post_id.as_str()).collect();
+    let mut statement = db
+        .prepare("SELECT post_id, url, local_path, mime_type, on_site FROM attachments ORDER BY id")
+        .map_err(host_err)?;
+    let rows = statement
+        .query_map([], |row| {
+            Ok(crate::stored::Attachment {
+                post_id: row.get(0)?,
+                url: row.get(1)?,
+                kind: "file".into(),
+                local_path: PathBuf::from(row.get::<_, String>(2)?),
+                mime_type: row.get(3)?,
+                on_site: row.get::<_, i64>(4)? != 0,
+            })
+        })
+        .map_err(host_err)?;
+    let mut out = Vec::new();
+    for row in rows {
+        let row = row.map_err(host_err)?;
+        if ids.contains(row.post_id.as_str()) {
+            out.push(row);
+        }
+    }
+    Ok(out)
+}
+
+fn write_export(
+    path: &str,
+    request: &ExportRequest,
+    posts: &[Post],
+    attachments: &[crate::stored::Attachment],
+    profiles: &[crate::stored::Profile],
+    hits: &[crate::stored::MentionHit],
+) -> Result<(), HostError> {
+    let format = match request.format {
+        ExportFormat::Json => crate::export::Format::Json,
+        ExportFormat::Html => crate::export::Format::Html,
+    };
+    if !request.compress {
+        let doc = crate::export::json::build_json("", posts, attachments, profiles, hits, &|attachment| {
+            attachment.local_path.display().to_string()
+        });
+        let rendered = crate::export::render(format, &doc).map_err(host_err)?;
+        if let Some(parent) = Path::new(path).parent()
+            && !parent.as_os_str().is_empty()
+        {
+            std::fs::create_dir_all(parent).map_err(host_err)?;
+        }
+        return std::fs::write(path, rendered).map_err(host_err);
+    }
+    let dest = PathBuf::from(path);
+    let parent = dest.parent().filter(|parent| !parent.as_os_str().is_empty()).map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+    std::fs::create_dir_all(&parent).map_err(host_err)?;
+    let stage = parent.join(format!("export-stage-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&stage);
+    let att_dir = stage.join("attachments");
+    std::fs::create_dir_all(&att_dir).map_err(host_err)?;
+    for attachment in attachments {
+        if let Some(name) = attachment.local_path.file_name()
+            && attachment.local_path.is_file()
+        {
+            std::fs::copy(&attachment.local_path, att_dir.join(name)).map_err(host_err)?;
+        }
+    }
+    let mut profiles = profiles.to_vec();
+    if request.profile_images {
+        for profile in &mut profiles {
+            for slot in [&mut profile.avatar_path, &mut profile.banner_path] {
+                let Some(src) = slot.clone().map(PathBuf::from) else { continue };
+                let Some(name) = src.file_name() else { continue };
+                let dir = att_dir.join(crate::config::PROFILE_IMAGES_DIR);
+                if src.is_file() && std::fs::create_dir_all(&dir).is_ok() && std::fs::copy(&src, dir.join(name)).is_ok() {
+                    *slot = Some(format!(
+                        "attachments/{}/{}",
+                        crate::config::PROFILE_IMAGES_DIR,
+                        name.to_string_lossy()
+                    ));
+                }
+            }
+        }
+    }
+    let doc = crate::export::json::build_json("", posts, attachments, &profiles, hits, &|attachment| {
+        format!(
+            "attachments/{}",
+            attachment.local_path.file_name().unwrap_or_default().to_string_lossy()
+        )
+    });
+    let rendered = crate::export::render(format, &doc).map_err(host_err)?;
+    let name = format!("export.{}", format.ext());
+    std::fs::write(stage.join(&name), rendered).map_err(host_err)?;
+    let file = std::fs::File::create(&dest).map_err(host_err)?;
+    let gz = flate2::write::GzEncoder::new(file, flate2::Compression::default());
+    let mut tar = tar::Builder::new(gz);
+    tar.append_dir_all("export", &stage).map_err(host_err)?;
+    tar.into_inner().map_err(host_err)?.finish().map_err(host_err)?;
+    let _ = std::fs::remove_dir_all(&stage);
+    Ok(())
+}
+
 fn host_err(err: impl std::fmt::Display) -> HostError {
     HostError::new(err.to_string())
 }
@@ -807,10 +1114,10 @@ mod tests {
         assert!(summary.contains("would remove"), "{summary}");
 
         let export = home.join("page.json");
-        host.export(&export.display().to_string(), ExportFormat::Json)
+        host.export(&export.display().to_string(), &ExportRequest::new(ExportFormat::Json))
             .unwrap();
         let html = home.join("page.html");
-        host.export(&html.display().to_string(), ExportFormat::Html)
+        host.export(&html.display().to_string(), &ExportRequest::new(ExportFormat::Html))
             .unwrap();
         let html_text = std::fs::read_to_string(&html).unwrap();
         assert!(html_text.contains("hello from the service"), "{html_text}");
@@ -863,5 +1170,84 @@ mod tests {
         assert!(echoed.to_ascii_lowercase().contains("x-test: yes"), "{echoed}");
         host.clear_cookies("redstar").unwrap();
         assert!(host.cookies("redstar").unwrap().is_empty());
+    }
+
+    #[test]
+    fn outbox_bookmarks_and_a_chosen_export_stay_on_the_host() {
+        let home = temp_home("rich");
+        let host = CoreHost::for_home(&home);
+        let saved = host
+            .save_outbox("draft-1", "Hello", "body text", "", false)
+            .unwrap();
+        assert!(saved.contains("state=draft"), "{saved}");
+        let queued = host.enqueue_outbox("draft-1").unwrap();
+        assert!(queued.contains("status=queued"), "{queued}");
+        let lines = host.list_outbox().unwrap();
+        assert!(lines.iter().any(|line| line.contains("status=queued")), "{lines:?}");
+        let cancelled = host.cancel_outbox("Q-draft-1").unwrap();
+        assert!(cancelled.contains("status=cancelled"), "{cancelled}");
+
+        host.add_bookmark("local-1").unwrap();
+        let sync = host
+            .sync_bookmarks("redstar", &[SiteBookmark::new("site-9", "post-9")], true)
+            .unwrap();
+        assert_eq!(sync.pulled, 1);
+        assert_eq!(sync.push_add.len(), 1);
+        assert_eq!(sync.push_add[0].post_id, "local-1");
+        host.bookmark_pushed("redstar", "local-1", "site-1", true).unwrap();
+        assert!(host.list_bookmarks().unwrap().iter().any(|id| id == "local-1"));
+        assert!(host.list_bookmarks().unwrap().iter().any(|id| id == "post-9"));
+
+        let id = SourceId::new(ServiceId::new("redstar"), "post-1");
+        let mut item = ItemRec::new(id, "hello from the service");
+        item.nick = "ada".into();
+        item.title = "Hello".into();
+        let other = ItemRec::new(SourceId::new(ServiceId::new("redstar"), "post-2"), "second");
+        let account = AccountRec::new(SourceId::new(ServiceId::new("redstar"), "user-ada"), "ada");
+        let page = Page {
+            items: vec![item, other],
+            accounts: vec![account],
+            ..Page::empty()
+        };
+        host.save_page(&page).unwrap();
+        let image = home.join("ada.png");
+        std::fs::write(&image, b"png").unwrap();
+        let db = crate::storage::db::open_db(&home.join(crate::config::DB_REL_PATH)).unwrap();
+        db.execute(
+            "UPDATE profiles SET avatar_path = ?1 WHERE nick = 'ada'",
+            rusqlite::params![image.display().to_string()],
+        )
+        .unwrap();
+        let mut request = ExportRequest::new(ExportFormat::Json);
+        request.post_ids = vec!["post-1".into()];
+        request.profile_images = true;
+        request.compress = true;
+        let archive = home.join("chosen.tar.gz");
+        host.export(&archive.display().to_string(), &request).unwrap();
+        let bytes = std::fs::read(&archive).unwrap();
+        assert_eq!(&bytes[..2], &[0x1f, 0x8b]);
+        let decoder = flate2::read::GzDecoder::new(&bytes[..]);
+        let mut archive = tar::Archive::new(decoder);
+        let mut saw_post = false;
+        let mut saw_profile = false;
+        let mut saw_image = false;
+        for entry in archive.entries().unwrap() {
+            let mut entry = entry.unwrap();
+            let name = entry.path().unwrap().to_string_lossy().to_string();
+            let mut text = String::new();
+            std::io::Read::read_to_string(&mut entry, &mut text).unwrap();
+            if name.ends_with("export.json") {
+                assert!(text.contains("hello from the service"), "{text}");
+                assert!(!text.contains("second"), "{text}");
+                assert!(text.contains("ada"), "{text}");
+                saw_post = true;
+                saw_profile = text.contains("avatar_path");
+            }
+            if name.contains("ada.png") {
+                saw_image = true;
+            }
+        }
+        assert!(saw_post && saw_profile && saw_image, "post={saw_post} profile={saw_profile} image={saw_image}");
+        let _ = std::fs::remove_dir_all(&home);
     }
 }

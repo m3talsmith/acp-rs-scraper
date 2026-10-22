@@ -15,6 +15,7 @@
 //! - [`outbox`]: Drafts and the local send queue (3.34.0). Sending a row is the service package.
 //! - [`plugins`]: the package gate. A failed archive is quarantined. A version mismatch is refused and is not moved. A discovered package stays off.
 //! - [`host_api`]: the [`acp_rs_plugin::Host`] a service calls instead of opening the database.
+//! - [`drive`]: scrape, sync, login, and compose flags call a loaded service. Until one implements the capability, those commands are not in this binary.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`branding`]: the slogan shared by the welcome screen, About, and the status bar.
@@ -46,6 +47,7 @@ pub mod bookmarks;
 pub mod cli;
 pub mod config;
 pub mod crypto;
+pub mod drive;
 pub mod eggs;
 pub mod export;
 pub mod host_api;

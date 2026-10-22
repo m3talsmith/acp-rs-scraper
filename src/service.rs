@@ -72,6 +72,12 @@ pub fn admit(rustc_version: &str, core_version: &str) -> Result<(), String> {
     acp_rs_plugin::versions_match(rustc_version, core_version)
 }
 
+/// The process-wide built-in registry. A package is not opened here.
+pub fn runtime() -> &'static Registry {
+    static REG: std::sync::OnceLock<Registry> = std::sync::OnceLock::new();
+    REG.get_or_init(Registry::builtins)
+}
+
 /// Text `--doctor` prints. Authors read the pin only here.
 pub fn doctor_lines() -> [String; 2] {
     [

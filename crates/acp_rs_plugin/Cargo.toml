@@ -1,6 +1,6 @@
 [package]
 name = "acp_rs_plugin"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
@@ -16,3 +16,7 @@ flate2 = "1"
 sha2 = "0.10"
 tar = "0.4"
 toml = "1.1.8"
+
+[features]
+# In-memory Host for a service crate's tests. The core binary does not enable this.
+test-host = []

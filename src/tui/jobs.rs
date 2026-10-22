@@ -1,6 +1,8 @@
 //! Background jobs: scans, exports, imports and maintenance run as the headless
 //! CLI in a child process (same binary, argv built by [`crate::tui::commands`]),
 //! in its own process group with output in `~/.acp/logs/tui-<kind>-<stamp>.log`.
+//! Those flags call a loaded service when it implements the job. Until one does,
+//! those commands are not in this binary.
 //! Cancel kills it; quitting the TUI leaves it running (detached).
 //!
 //! When this process has already unlocked the database, the child receives that

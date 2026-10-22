@@ -381,5 +381,17 @@ pub async fn run() -> Result<()> {
         let (profiles, hits) = load_profiles_mentions(&home()?.join(DB_REL_PATH), &nicks)?;
         return export(&a, &name, &label, &posts, &atts, &profiles, &hits, &home()?.join(EXPORTS_REL_PATH));
     }
+    if crate::drive::handles(acp_rs_plugin::CapabilityId::Authenticator) {
+        crate::drive::login(crate::host_api::CoreHost::shared().as_ref()).await?;
+    }
+    if crate::drive::handles(acp_rs_plugin::CapabilityId::Reader) {
+        return crate::drive::read_flags(&args).await;
+    }
+    if let Some(text) = crate::drive::compose(&args).await? {
+        if !text.is_empty() {
+            println!("{text}");
+        }
+        return Ok(());
+    }
     bail!("{}", crate::service::SERVICE_ABSENT);
 }
