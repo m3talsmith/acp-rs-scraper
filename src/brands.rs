@@ -239,7 +239,7 @@ pub fn hold_installed<R>(brand: &Brand, f: impl FnOnce() -> R) -> R {
 pub fn selected(explicit: Option<&str>) -> (Brand, Option<String>) {
     let name = explicit
         .map(str::to_string)
-        .or_else(|| crate::auth::prefs::load_prefs().ui.and_then(|u| u.brand))
+        .or_else(|| crate::prefs::load_prefs().ui.and_then(|u| u.brand))
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| DEFAULT_BRAND.into());
     let dir = match brands_dir() {

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["detect_code_form","find_redirect","login","login_flow","session_valid","trigger_action_post"],"mod":["prefs","session"]};

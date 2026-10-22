@@ -1,9 +1,9 @@
 //! Scrape, sync, login, and compose flags call the loaded service.
 //!
 //! This binary is the headless CLI. The terminal UI starts the same flags in a
-//! child process, and its in-process login and compose use this module too.
-//! A service that implements the capability runs the job. The built-in site
-//! modules run when none is loaded. The service does not ship its own command line.
+//! child process. A service that implements the capability runs the job. Until
+//! one is loaded, those commands are not in this binary. The service does not
+//! ship its own command line.
 
 use acp_rs_plugin::{
     Budget, CapabilityId, Cursor, Draft, DynService, FilledFields, Host, RouteKind, ServiceError,
@@ -157,16 +157,6 @@ pub async fn compose(args: &Args) -> Result<Option<String>> {
     Ok(Some(outcome_text(outcome)))
 }
 
-/// A compose box plan, as a draft the loaded service can publish.
-pub fn draft_from_plan(plan: &crate::site::WritePlan) -> Draft {
-    let mut draft = Draft::text(plan.preview_text.clone());
-    draft.title = plan.title.clone();
-    if plan.kind == crate::site::Kind::Reply {
-        draft.in_reply_to = Some(SourceId::new(ServiceId::new("redstar"), plan.page.clone()));
-    }
-    draft
-}
-
 /// Publish `draft` through the loaded service.
 pub async fn publish_draft(draft: &Draft) -> Result<String> {
     let reply = draft.in_reply_to.is_some();
@@ -285,13 +275,12 @@ mod tests {
     }
 
     #[test]
-    fn the_builtin_adapter_leaves_scrape_login_and_compose_to_this_binary() {
+    fn this_binary_registers_no_reader_authenticator_or_writer() {
         let reg = crate::service::Registry::builtins();
-        assert!(reg.services().iter().any(|service| service.id() == "redstar"));
+        assert!(reg.services().is_empty());
         assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Reader)));
         assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Authenticator)));
         assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Post)));
-        assert!(reg.services().iter().any(|service| service.has(CapabilityId::Outbox)));
     }
 
     #[test]

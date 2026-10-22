@@ -103,7 +103,7 @@ impl ListOrders {
         }
     }
     /// Fill from `[ui.list_order]`. Unknown or missing values stay newest.
-    pub fn apply_prefs(&mut self, p: &crate::auth::prefs::ListOrderPrefs) {
+    pub fn apply_prefs(&mut self, p: &crate::prefs::ListOrderPrefs) {
         let one = |s: &Option<String>| {
             s.as_deref()
                 .and_then(|s| ScrapeOrder::parse(s).ok())
@@ -121,9 +121,9 @@ impl ListOrders {
         self,
         nick_order: ScrapeOrder,
         nick_limit: Option<u64>,
-    ) -> crate::auth::prefs::ListOrderPrefs {
+    ) -> crate::prefs::ListOrderPrefs {
         let s = |o: ScrapeOrder| (o == ScrapeOrder::Oldest).then(|| o.to_string());
-        crate::auth::prefs::ListOrderPrefs {
+        crate::prefs::ListOrderPrefs {
             timeline: s(self.timeline),
             bookmarks: s(self.bookmarks),
             search: s(self.search),

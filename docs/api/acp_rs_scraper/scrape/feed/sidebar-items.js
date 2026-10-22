@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["check_profile_landing","fetch_feed","merge_feed_items","page_all_known","page_rest","profile_nick_of"],"struct":["FeedPage"]};

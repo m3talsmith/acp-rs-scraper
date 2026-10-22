@@ -1,6 +1,6 @@
-//! Gherkin end-to-end tests: the real binary against a mock acp.us
-//! (`tests/support/mock.rs`), with a temporary `HOME`. Never touches the real
-//! site: `ACP_BASE_URL` points every request at the local mock.
+//! Gherkin end-to-end tests: the real binary, a temporary `HOME`, and a local
+//! file server for themes and one article (`tests/support/themes.rs`).
+//! Fetching, login, and publishing are not in this binary.
 //!
 //! Run with `cargo test --test e2e`. Feature files live in `tests/features/`.
 
@@ -8,7 +8,7 @@ mod support;
 
 use cucumber::{World, given, then, when};
 use std::path::PathBuf;
-use support::mock::{CODE, Mock};
+use support::themes::{CODE, Mock};
 use tokio::io::AsyncWriteExt;
 use acp_red_star::tui::commands::{CommandId, Menu};
 
@@ -97,6 +97,13 @@ impl Drop for E2e {
 
 #[given("a mock Red Star site")]
 async fn site(w: &mut E2e) { w.mock = Some(Mock::start().await); }
+
+#[given("I have imported the offline fixture")]
+async fn import_fixture(w: &mut E2e) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/offline/alice.json");
+    w.run(&format!("--import {}", path.display())).await;
+    assert_eq!(w.last.code, 0, "import stderr:\n{}", w.last.stderr);
+}
 
 #[given("the site's \"Posts and replies\" URL is broken")]
 async fn broken_replies(w: &mut E2e) { w.mock().inner.lock().unwrap().replies_url_broken = true; }
@@ -251,7 +258,7 @@ async fn basket_twice(w: &mut E2e) {
     let dir = w.home.join("exports");
     std::fs::create_dir_all(&dir).unwrap();
     let out = dir.join("basket.html");
-    let post = acp_red_star::scrape::Post {
+    let post = acp_red_star::stored::Post {
         post_id: "p1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(),
         nick: "sample".into(), title: "Notes".into(), content: "hello basket".into(),
         posted_at: "2026-10-15T00:00:00Z".into(), media: Vec::new(), truncated: false,

@@ -3,7 +3,9 @@
 //! A service reaches storage, HTTP, configuration, secrets, bookmarks, the
 //! outbox, export, import, rules, research, maintenance, notices, and
 //! preferences through this type. It does not open SQLCipher and it does not
-//! link the node crate.
+//! link the node crate. HTTP here is a plain client with one cookie jar per
+//! service. It does not impersonate a browser. The LiveView socket client
+//! stays in the service.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -16,9 +18,9 @@ use acp_rs_plugin::{
 };
 use rusqlite::{Connection, params};
 
-use crate::auth::prefs::{Prefs, UiPrefs};
 use crate::config::{ATTACH_REL_PATH, DB_REL_PATH, PREFS_REL_PATH};
-use crate::scrape::Post;
+use crate::prefs::{Prefs, UiPrefs};
+use crate::stored::Post;
 
 const SECRET_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS host_secrets (
     field TEXT PRIMARY KEY,
@@ -164,7 +166,7 @@ impl Host for CoreHost {
                 if row.url.is_empty() {
                     return Err(HostError::new("an attachment needs a url"));
                 }
-                attachments.push(crate::media::Attachment {
+                attachments.push(crate::stored::Attachment {
                     post_id: item.source_id.native.clone(),
                     url: row.url.clone(),
                     kind: if row.kind.is_empty() {
@@ -367,7 +369,7 @@ impl Host for CoreHost {
             site_posts.push(post);
         }
         let local = crate::bookmarks::load_bookmarks(&db).map_err(host_err)?;
-        let plan = crate::bookmarks::plan_sync(&local, &site_posts, complete);
+        let plan = plan_bookmark_sync(&local, &site_posts, complete);
         let now = chrono::Local::now().to_rfc3339();
         for id in &plan.insert_remote {
             db.execute(
@@ -665,7 +667,11 @@ impl CoreHost {
                 });
                 let observed = Arc::new(ObservedJar::new(Arc::clone(&jar)));
                 let names = Arc::clone(&observed);
-                let client = crate::http::client_with(observed, policy).map_err(host_err)?;
+                let client = reqwest::Client::builder()
+                    .redirect(policy)
+                    .cookie_provider(observed)
+                    .build()
+                    .map_err(host_err)?;
                 let mut request = match method.as_str() {
                     "POST" => client
                         .post(&url)
@@ -904,6 +910,54 @@ fn load_attachment_rows(db: &rusqlite::Connection, post_id: &str) -> Result<Vec<
     rows.collect::<Result<Vec<_>, _>>().map_err(host_err)
 }
 
+struct BookmarkPlan {
+    push_add: Vec<String>,
+    push_remove: Vec<String>,
+    insert_remote: Vec<String>,
+    set_remote: Vec<String>,
+    delete_rows: Vec<String>,
+}
+
+/// Reconcile a site bookmark list with local rows. Local changes win.
+fn plan_bookmark_sync(local: &[crate::bookmarks::Bookmark], site: &[String], site_complete: bool) -> BookmarkPlan {
+    let site_set: std::collections::HashSet<&String> = site.iter().collect();
+    let local_ids: std::collections::HashSet<&String> = local.iter().map(|row| &row.post_id).collect();
+    let mut plan = BookmarkPlan {
+        push_add: Vec::new(),
+        push_remove: Vec::new(),
+        insert_remote: Vec::new(),
+        set_remote: Vec::new(),
+        delete_rows: Vec::new(),
+    };
+    for row in local {
+        let on_site = site_set.contains(&row.post_id);
+        match (row.deleted, on_site) {
+            (false, true) => {
+                if !row.remote {
+                    plan.set_remote.push(row.post_id.clone());
+                }
+            }
+            (false, false) => {
+                if row.remote {
+                    if site_complete {
+                        plan.delete_rows.push(row.post_id.clone());
+                    }
+                } else {
+                    plan.push_add.push(row.post_id.clone());
+                }
+            }
+            (true, true) => plan.push_remove.push(row.post_id.clone()),
+            (true, false) => plan.delete_rows.push(row.post_id.clone()),
+        }
+    }
+    for id in site {
+        if !local_ids.contains(id) {
+            plan.insert_remote.push(id.clone());
+        }
+    }
+    plan
+}
+
 fn mapped_site_id(db: &rusqlite::Connection, service: &str, post_id: &str) -> Result<String, HostError> {
     match db.query_row(
         "SELECT site_id FROM bookmark_sites WHERE service = ?1 AND post_id = ?2",
@@ -916,7 +970,7 @@ fn mapped_site_id(db: &rusqlite::Connection, service: &str, post_id: &str) -> Re
     }
 }
 
-fn attachments_for_posts(db: &rusqlite::Connection, posts: &[Post]) -> Result<Vec<crate::media::Attachment>, HostError> {
+fn attachments_for_posts(db: &rusqlite::Connection, posts: &[Post]) -> Result<Vec<crate::stored::Attachment>, HostError> {
     crate::storage::db::ensure_attachments_schema(db).map_err(host_err)?;
     let ids: std::collections::HashSet<&str> = posts.iter().map(|post| post.post_id.as_str()).collect();
     let mut statement = db
@@ -924,7 +978,7 @@ fn attachments_for_posts(db: &rusqlite::Connection, posts: &[Post]) -> Result<Ve
         .map_err(host_err)?;
     let rows = statement
         .query_map([], |row| {
-            Ok(crate::media::Attachment {
+            Ok(crate::stored::Attachment {
                 post_id: row.get(0)?,
                 url: row.get(1)?,
                 kind: "file".into(),
@@ -948,9 +1002,9 @@ fn write_export(
     path: &str,
     request: &ExportRequest,
     posts: &[Post],
-    attachments: &[crate::media::Attachment],
-    profiles: &[crate::scrape::mentions::Profile],
-    hits: &[crate::scrape::mentions::MentionHit],
+    attachments: &[crate::stored::Attachment],
+    profiles: &[crate::stored::Profile],
+    hits: &[crate::stored::MentionHit],
 ) -> Result<(), HostError> {
     let format = match request.format {
         ExportFormat::Json => crate::export::Format::Json,
@@ -1044,7 +1098,7 @@ fn item_to_post(item: &ItemRec) -> Result<Post, HostError> {
         media: item
             .media
             .iter()
-            .map(|media| crate::media::MediaRef {
+            .map(|media| crate::stored::MediaRef {
                 url: media.url.clone(),
                 kind: media.kind.clone(),
             })
@@ -1081,11 +1135,11 @@ fn post_to_item(post: &Post) -> ItemRec {
     item
 }
 
-fn account_to_profile(account: &AccountRec) -> Result<crate::scrape::mentions::Profile, HostError> {
+fn account_to_profile(account: &AccountRec) -> Result<crate::stored::Profile, HostError> {
     if account.nick.is_empty() {
         return Err(HostError::new("an account needs a nick"));
     }
-    let mut profile = crate::scrape::mentions::Profile {
+    let mut profile = crate::stored::Profile {
         nick: account.nick.clone(),
         user_id: Some(account.source_id.native.clone()),
         display_name: none_if_empty(&account.display_name),
@@ -1096,7 +1150,7 @@ fn account_to_profile(account: &AccountRec) -> Result<crate::scrape::mentions::P
         followers: account.followers,
         following: account.following,
         posts_count: account.posts_count,
-        ..crate::scrape::mentions::Profile::default()
+        ..crate::stored::Profile::default()
     };
     if profile.scraped_at.is_empty() {
         profile.scraped_at = chrono::Local::now().to_rfc3339();

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["fetch_thread","harvest_replies"]};

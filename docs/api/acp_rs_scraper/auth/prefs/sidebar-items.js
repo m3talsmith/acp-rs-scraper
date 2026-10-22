@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["load_email","load_prefs","save_email","save_sync_prefs","save_ui_theme","saved_email"],"struct":["Prefs","SyncPrefs","ThemePrefs","UiPrefs"]};

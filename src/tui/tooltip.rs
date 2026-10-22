@@ -122,7 +122,6 @@ fn modal_tip(app: &App, h: ModalHit) -> Option<Tip> {
         }
         Some(crate::tui::modals::Modal::About(_)) => ("Close About (Esc)", "about-credits"),
         Some(crate::tui::modals::Modal::Help(_)) => ("Close Help (Esc)", "keys"),
-        Some(crate::tui::modals::Modal::Login(_)) => ("Log in", "login"),
         Some(crate::tui::modals::Modal::Search(_)) => ("Search", "search"),
         Some(crate::tui::modals::Modal::Rules(m)) => {
             let label = m.buttons().get(i).copied().unwrap_or("Rules");

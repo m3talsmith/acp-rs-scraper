@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["fetch_replies_feed","replies_via_form"]};

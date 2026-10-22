@@ -290,7 +290,7 @@ pub const WEB_MAX: usize = 20 * 1024 * 1024;
 pub async fn web_item(project: &str, url: &str, note: &str) -> Result<NewItem> {
     let u = url::Url::parse(url.trim()).with_context(|| format!("not a URL: {url}"))?;
     if !matches!(u.scheme(), "http" | "https") { bail!("only http and https URLs can be added (got {})", u.scheme()); }
-    let http = client(Arc::new(Jar::default()))?;
+    let http = crate::get::client()?;
     let resp = http.get(u.clone()).send().await.with_context(|| format!("fetching {u}"))?;
     let status = resp.status();
     let final_url = resp.url().to_string();

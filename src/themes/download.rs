@@ -39,7 +39,7 @@ pub fn auto_enabled_now(prefs: &Prefs) -> bool { auto_enabled(std::env::var(THEM
 /// Fetch `url` with the program's HTTP client and an empty cookie jar (no cookies are
 /// sent), refusing bodies over [`THEME_MAX_BYTES`] and giving up after `timeout`.
 pub async fn fetch(url: &str, timeout: std::time::Duration) -> Result<Vec<u8>> {
-    let http = crate::http::client(Arc::new(Jar::default()))?;
+    let http = crate::get::client()?;
     let go = async {
         let mut r = http.get(url).header(reqwest::header::ACCEPT, "text/plain, application/toml, */*").send().await
             .with_context(|| format!("fetching {url}"))?;

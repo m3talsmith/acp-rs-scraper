@@ -3,11 +3,6 @@
 
 mod commands;
 mod compose;
-mod delete;
-mod edit;
-mod repost;
-mod subscribe;
-mod vote;
 mod bookmarks;
 mod data;
 mod empty_anim;
@@ -24,16 +19,13 @@ mod render;
 mod slogan;
 mod state;
 mod theme;
-mod sync;
 mod views;
 mod history;
 mod notices;
 mod history_bar;
 mod nick_filter;
 mod order;
-mod site_attachments;
 mod color;
-mod reads;
 mod session;
 mod theming;
 mod brands;
