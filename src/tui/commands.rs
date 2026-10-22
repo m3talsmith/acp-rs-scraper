@@ -171,6 +171,12 @@ pub enum Action {
     OpenExplore,
     /// Open the Spaces list (View › Spaces). Read-only. No join.
     OpenSpaces,
+    /// Follow the open thread (View › Live). The service keeps the socket.
+    OpenLive,
+    /// Follow the home feed (View › Live feed).
+    OpenLiveFeed,
+    /// Site notification pane (View › Site notifications). Not View › Notifications.
+    OpenSiteNotifications,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
     /// The brand picker (the header's `«brand» ▾`).
@@ -392,6 +398,9 @@ fn view_item() -> MenuCommand {
         opt("explore_latest", "Explore latest", "--explore-latest", false, check(false)),
         opt("explore", "Explore", "--explore", false, button(Action::OpenExplore)),
         opt("spaces", "Spaces", "--spaces", false, button(Action::OpenSpaces)),
+        opt_topic("live", "Live", "--live", "live", false, button(Action::OpenLive)),
+        opt_topic("live_feed", "Live feed", "--live-feed", "live", false, button(Action::OpenLiveFeed)),
+        opt_topic("site_notifications", "Site notifications", "--site-notifications", "site-notifications", false, button(Action::OpenSiteNotifications)),
         opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
         opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
     ])
@@ -889,6 +898,31 @@ impl Menu {
     /// argv for the Spaces list (`--spaces`).
     pub fn spaces_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--spaces".into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for View › Live (`--live THREAD`).
+    pub fn live_argv(&self, thread: &str) -> std::result::Result<Vec<String>, String> {
+        let thread = thread.trim();
+        if thread.is_empty() {
+            return Err("Live follows the open post. Open a thread first.".into());
+        }
+        let mut v = vec![ARGV0.to_string(), "--live".into(), thread.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for View › Live feed (`--live-feed`).
+    pub fn live_feed_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--live-feed".into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for View › Site notifications (`--site-notifications`).
+    pub fn site_notifications_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--site-notifications".into()];
         v.extend(self.debug_args());
         validate(v)
     }

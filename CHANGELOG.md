@@ -20,6 +20,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.44.0] - 2026-10-22
+
+### Added
+
+- **Site notifications.** `--site-notifications` and View › Site notifications store the pane the loaded service returns. `raw` stays empty. Rules run when the related post is already stored. This is not View › Notifications. `--dry-run` prints the request and does not call the service. The service keeps the socket.
+
+## [3.43.0] - 2026-10-22
+
+### Added
+
+- **Live follow.** `--live THREAD`, `--live-feed`, and `--live-for` ask the loaded service. View › Live follows the open thread. View › Live feed follows the home feed. A new reply is stored and rules run on it. The core does not open a websocket. A second call waits 30 seconds. `--dry-run` prints the request and does not call the service.
+
 ## [3.42.0] - 2026-10-22
 
 ### Added

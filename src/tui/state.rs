@@ -1039,6 +1039,33 @@ impl App {
             Err(e) => self.error("Spaces", &e),
         }
     }
+    /// View › Live. Follows the open thread. No new key.
+    pub fn open_live(&mut self) {
+        let Some(id) = self.current_post_id() else {
+            self.push_status("Live follows the open post. Open a thread first.");
+            return;
+        };
+        let thread = self.top().map(|f| f.post.clone()).or_else(|| self.view().posts.iter().find(|p| p.post_id == id).cloned());
+        let thread_id = thread.map(|p| if p.parent_post_id.is_empty() { p.post_id } else { p.parent_post_id }).unwrap_or(id);
+        match self.menu.menu.live_argv(&thread_id) {
+            Ok(argv) => self.start_job(JobKind::Read, argv),
+            Err(e) => self.error("Live", &e),
+        }
+    }
+    /// View › Live feed. The service keeps the socket.
+    pub fn open_live_feed(&mut self) {
+        match self.menu.menu.live_feed_argv() {
+            Ok(argv) => self.start_job(JobKind::Read, argv),
+            Err(e) => self.error("Live feed", &e),
+        }
+    }
+    /// View › Site notifications. This is not View › Notifications.
+    pub fn open_site_notifications(&mut self) {
+        match self.menu.menu.site_notifications_argv() {
+            Ok(argv) => self.start_job(JobKind::Read, argv),
+            Err(e) => self.error("Site notifications", &e),
+        }
+    }
     fn space_post(&self, row: &crate::spaces::SpaceRow) -> Post {
         let id = if row.post_id.is_empty() { row.slug.clone() } else { row.post_id.clone() };
         if let Ok(Some(post)) = self.store.post(&id) {
@@ -2271,6 +2298,9 @@ impl App {
             Action::OpenEb => self.open_eb(),
             Action::OpenExplore => self.open_explore(),
             Action::OpenSpaces => self.open_spaces(),
+            Action::OpenLive => self.open_live(),
+            Action::OpenLiveFeed => self.open_live_feed(),
+            Action::OpenSiteNotifications => self.open_site_notifications(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }

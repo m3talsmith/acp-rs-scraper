@@ -34,6 +34,7 @@ mod eggs;
 mod rules;
 mod help_about;
 mod spaces;
+mod live;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

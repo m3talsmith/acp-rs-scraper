@@ -1,3 +1,15 @@
+acp-red-star (3.44.0) unstable; urgency=medium
+
+  * Package 3.44.0. Site notifications store the pane from a loaded service. The raw column stays empty.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 10:40:00 +0000
+
+acp-red-star (3.43.0) unstable; urgency=medium
+
+  * Package 3.43.0. Live follow calls a loaded service. This binary does not open a socket.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 10:30:00 +0000
+
 acp-red-star (3.42.0) unstable; urgency=medium
 
   * Package 3.42.0. Spaces stores the list from a loaded service. Joining a room is not built.

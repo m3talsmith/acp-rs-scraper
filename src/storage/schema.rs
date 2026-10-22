@@ -233,6 +233,19 @@ pub const TOMBSTONES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_tombstones 
             deleted_at TEXT NOT NULL
         );";
 
+/// Site notification pane. `raw` stays empty. The service keeps the socket.
+pub const SITE_NOTIFICATIONS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_notifications (
+            id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL DEFAULT '',
+            actor TEXT NOT NULL DEFAULT '',
+            post_id TEXT NOT NULL DEFAULT '',
+            thread_id TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT '',
+            read INTEGER NOT NULL DEFAULT 0,
+            body TEXT NOT NULL DEFAULT '',
+            raw TEXT NOT NULL DEFAULT ''
+        );";
+
 /// One space. A LiveKit token is not a column. Joining a room is not built.
 pub const SPACES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS spaces (
             slug TEXT PRIMARY KEY,

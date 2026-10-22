@@ -387,6 +387,9 @@ pub async fn run() -> Result<()> {
     if args.spaces {
         return crate::spaces::run(&args).await;
     }
+    if crate::livefeed::cli_requested(&args) {
+        return crate::livefeed::run(&args).await;
+    }
     if crate::actions::cli_requested(&args) {
         return crate::actions::run(&args).await;
     }

@@ -250,6 +250,18 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
         "  --dry-run prints the action and does not call the service. The site does not allow a plain repost.",
         "  The site half of each write is the service package.",
     ]);
+    push_topic(&mut v, "live", "Live", &[
+        "  View › Live follows the open thread. View › Live feed follows the home feed.",
+        "  The loaded service keeps the socket. This program does not open one.",
+        "  A new reply is stored and rules run on it. --dry-run prints the request and does not call the service.",
+        "  A second call waits 30 seconds.",
+    ]);
+    push_topic(&mut v, "site-notifications", "Site notifications", &[
+        "  View › Site notifications is the site pane. It is not View › Notifications.",
+        "  Rows are stored in site_notifications. The raw column stays empty.",
+        "  Rules run when the related post is already stored. The service keeps the socket.",
+        "  --dry-run prints the request and does not call the service.",
+    ]);
     push_topic(&mut v, "research", "Research", &[
         "  r, or the ◈ on a card, adds the current post to a research project.",
         "  Add current view / search queues the list on screen. Export project writes that project.",
