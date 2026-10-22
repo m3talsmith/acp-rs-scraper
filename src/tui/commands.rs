@@ -179,6 +179,18 @@ pub enum Action {
     Reply,
     /// Compose › Quote.
     Quote,
+    /// Compose › Save draft. Stored locally. Nothing is sent.
+    SaveDraft,
+    /// Compose › List drafts.
+    ShowDrafts,
+    /// Compose › Queue the draft id.
+    QueueDraft,
+    /// Compose › List the outbox.
+    ShowOutbox,
+    /// Compose › Send one outbox row, after confirm.
+    SendOutbox,
+    /// Compose › Cancel one outbox row.
+    CancelOutbox,
     /// Search the site with the Search menu's query (`--site-search`).
     RunSiteSearch,
     /// Open a menu that is not on the bar (Library › Export, and the rest).
@@ -397,6 +409,18 @@ fn compose_item() -> MenuCommand {
         opt("new", "New post", "n", false, button(Action::NewPost)),
         opt("reply", "Reply", "r on an open post", false, button(Action::Reply)),
         opt("quote", "Quote", "Q on an open post", false, button(Action::Quote)),
+        opt_topic("draft_id", "Draft id", "--draft-id", "outbox", false, text("")),
+        opt_topic("draft_title", "Draft title", "--draft-title", "outbox", false, text("")),
+        opt_topic("body", "Draft body", "--body", "outbox", false, text("")),
+        opt_topic("thread", "Draft thread", "--draft-thread", "outbox", false, text("")),
+        opt_topic("keep", "Keep local", "--keep-local", "outbox", false, check(false)),
+        opt_topic("save", "Save draft", "--draft-save", "outbox", false, button(Action::SaveDraft)),
+        opt_topic("drafts", "List drafts", "--draft-list", "outbox", false, button(Action::ShowDrafts)),
+        opt_topic("queue", "Queue draft", "--outbox-queue", "outbox", false, button(Action::QueueDraft)),
+        opt_topic("outbox", "Outbox", "--outbox-list", "outbox", false, button(Action::ShowOutbox)),
+        opt_topic("send_id", "Outbox id", "--outbox-send", "outbox", false, text("")),
+        opt_topic("send", "Send from outbox", "--outbox-send", "outbox", false, button(Action::SendOutbox)),
+        opt_topic("cancel", "Cancel outbox item", "--outbox-cancel", "outbox", false, button(Action::CancelOutbox)),
     ])
 }
 

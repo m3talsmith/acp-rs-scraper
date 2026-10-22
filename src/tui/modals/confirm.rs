@@ -28,6 +28,8 @@ pub enum ConfirmAction {
     },
     /// Repost. The form is not built. The send stays gated.
     Repost(String),
+    /// Send one outbox row. The id is the `Q-` id.
+    SendOutbox(String),
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.

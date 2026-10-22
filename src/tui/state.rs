@@ -527,6 +527,8 @@ pub struct App {
     /// Unix seconds of the last confirmed post or reply in this session.
     /// The capture gate still applies; the stamp only feeds the rate limit.
     pub last_write_unix: Option<i64>,
+    /// Outbox id whose send is in flight. Cleared when the publish finishes.
+    pub pending_outbox: Option<String>,
     /// Newest or oldest for each list.
     pub orders: crate::tui::order::ListOrders,
     /// Newest or oldest for the nick bar, by each nick's latest post.
@@ -613,7 +615,7 @@ impl App {
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, paused_login: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
-            pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None,
+            pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None, pending_outbox: None,
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
             konami: crate::eggs::Konami::new(), egg: None, logo_taps: 0, logo_tap_at: None,
@@ -766,8 +768,93 @@ impl App {
         self.modal = Some(Modal::Message(MessageModal::error(title, text)));
     }
 
+    /// Show a draft or outbox result. A failure stays in an error modal.
+    fn show_outbox_text(&mut self, title: &str, result: Result<String>) {
+        match result {
+            Ok(text) => {
+                self.close_menu();
+                self.modal = Some(Modal::Message(MessageModal::info(title, &text)));
+            }
+            Err(e) => self.error(title, &format!("{e:#}")),
+        }
+    }
+
+    /// Compose › Save draft. The id field is kept when it is filled in.
+    fn save_menu_draft(&mut self) {
+        let raw = self.menu.menu.text(CommandId::Compose, "draft_id");
+        let id = if raw.trim().is_empty() { format!("D{:08x}", rand::random::<u32>()) } else { raw.trim().to_string() };
+        let title = self.menu.menu.text(CommandId::Compose, "draft_title");
+        let body = self.menu.menu.text(CommandId::Compose, "body");
+        let thread = self.menu.menu.text(CommandId::Compose, "thread");
+        let keep = self.menu.menu.check(CommandId::Compose, "keep");
+        self.show_outbox_text("Draft", crate::outbox::save_fields(&id, &title, &body, &thread, keep));
+    }
+
+    /// Save draft on the compose box. Attachments stay out of the stored body.
+    fn store_compose_draft(&mut self, c: &crate::tui::modals::ComposeModal) {
+        let (thread, title) = match &c.kind {
+            crate::tui::modals::ComposeKind::NewPost => (String::new(), c.title.clone()),
+            crate::tui::modals::ComposeKind::Reply { thread, .. } => (thread.clone(), String::new()),
+            crate::tui::modals::ComposeKind::EditReply { .. } => (String::new(), String::new()),
+        };
+        let body = if c.body.trim().is_empty() { c.quote.clone().unwrap_or_default() } else { c.body.clone() };
+        let id = format!("D{:08x}", rand::random::<u32>());
+        match crate::outbox::save_fields(&id, &title, &body, &thread, false) {
+            Ok(text) => {
+                let extra = if c.attachments.is_empty() { text } else { format!("{text}\nattachments stay on this machine and are not in the draft") };
+                self.modal = Some(Modal::Message(MessageModal::info("Draft", &extra)));
+            }
+            Err(e) => self.error("Draft", &format!("{e:#}")),
+        }
+    }
+
+    /// A confirmed outbox send. Cancel never reaches here.
+    fn send_outbox(&mut self, id: &str) {
+        match crate::outbox::begin_send(id, true, false) {
+            Ok(crate::outbox::SendStep::Print(text)) => {
+                self.push_status(text.clone());
+                self.modal = Some(Modal::Message(MessageModal::info("Outbox", &text)));
+            }
+            Ok(crate::outbox::SendStep::Go { id, draft }) => {
+                let mut draft = *draft;
+                draft.last_write_unix = self.last_write_unix.or_else(crate::site::load_last_write);
+                match crate::site::decide(&draft, true, false) {
+                    Ok(crate::site::Gate::Send(plan)) => {
+                        self.last_write_unix = Some(draft.now_unix);
+                        self.pending_outbox = Some(id);
+                        self.push_status("publishing…");
+                        self.effects.push(Effect::Publish(plan));
+                    }
+                    Ok(crate::site::Gate::Done(text)) => {
+                        let _ = crate::outbox::complete_send(&id, &Err(text.clone()));
+                        self.push_status(text);
+                    }
+                    Err(e) => {
+                        let _ = crate::outbox::complete_send(&id, &Err(e.message.clone()));
+                        self.error("Outbox", &e.message);
+                    }
+                }
+            }
+            Err(e) => self.error("Outbox", &format!("{e:#}")),
+        }
+    }
+
     /// The compose publish finished. Success names the post. A rejection is not retried.
     pub fn publish_finished(&mut self, result: std::result::Result<String, String>) {
+        if let Some(id) = self.pending_outbox.take() {
+            let stored = match &result {
+                Ok(text) => text.lines().next().and_then(|l| l.strip_prefix("published ")).and_then(|r| r.split_whitespace().next()).map(str::to_string),
+                Err(_) => None,
+            };
+            let finish = match (&result, stored) {
+                (Ok(_), Some(post_id)) => crate::outbox::complete_send(&id, &Ok(post_id)),
+                (Ok(text), None) => crate::outbox::complete_send(&id, &Err(text.clone())),
+                (Err(text), _) => crate::outbox::complete_send(&id, &Err(text.clone())),
+            };
+            if let Err(e) = finish {
+                self.push_status(format!("error: outbox {id}: {e:#}"));
+            }
+        }
         match result {
             Ok(text) => {
                 self.push_status(text.clone());
@@ -2202,6 +2289,32 @@ impl App {
             Action::NewPost => { self.close_menu(); self.open_new_post(); }
             Action::Reply => { self.close_menu(); self.open_reply(); }
             Action::Quote => { self.close_menu(); self.open_quote(); }
+            Action::SaveDraft => self.save_menu_draft(),
+            Action::ShowDrafts => self.show_outbox_text("Drafts", crate::outbox::show_drafts()),
+            Action::ShowOutbox => self.show_outbox_text("Outbox", crate::outbox::show_outbox()),
+            Action::QueueDraft => {
+                let id = self.menu.menu.text(CommandId::Compose, "draft_id");
+                if id.trim().is_empty() { self.error("Outbox", "type the draft id, then queue it"); }
+                else { self.show_outbox_text("Outbox", crate::outbox::queue_local(id.trim())); }
+            }
+            Action::SendOutbox => {
+                let id = self.menu.menu.text(CommandId::Compose, "send_id");
+                if id.trim().is_empty() { self.error("Outbox", "type the outbox id (Q- plus the draft id)"); }
+                else {
+                    self.close_menu();
+                    self.modal = Some(Modal::Confirm(ConfirmModal::new("Send from the outbox", vec![
+                        format!("Send {}?", id.trim()),
+                        "Cancel is the default. This sends a text post or a reply, the same way Publish does.".into(),
+                        "An item older than 24 hours is sent only because you confirm here.".into(),
+                        "A row left in sending is read back first, so it is not posted twice.".into(),
+                    ], "Send", ConfirmAction::SendOutbox(id.trim().to_string()))));
+                }
+            }
+            Action::CancelOutbox => {
+                let id = self.menu.menu.text(CommandId::Compose, "send_id");
+                if id.trim().is_empty() { self.error("Outbox", "type the outbox id, then cancel it"); }
+                else { self.show_outbox_text("Outbox", crate::outbox::cancel_item(id.trim())); }
+            }
             Action::RunSiteSearch => {
                 let q = self.menu.menu.text(CommandId::Search, "query");
                 let nick = self.menu.menu.text(CommandId::Search, "nick");
@@ -2550,6 +2663,7 @@ impl App {
                     Ok(text) => self.push_status(text),
                     Err(e) => self.error("Repost", &e.message),
                 },
+                ConfirmAction::SendOutbox(id) => self.send_outbox(&id),
             },
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
@@ -2608,6 +2722,10 @@ impl App {
                 let _ = c;
             }
             (Modal::Compose(c), ModalResult::ClosedSubmitted) => {
+                if c.close_as_draft {
+                    self.store_compose_draft(&c);
+                    return;
+                }
                 if let crate::tui::modals::ComposeKind::EditReply { id } = &c.kind {
                     let mut confirm = ConfirmModal::new(
                         "Edit",

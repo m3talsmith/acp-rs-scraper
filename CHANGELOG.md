@@ -6,11 +6,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.33.1] - 2026-10-21
+## [3.34.1] - 2026-10-21
 
 ### Fixed
 
 - **The recovery phrase and the shares are shown.** First-run setup on the command line and in the terminal UI shows the 24-word phrase, asks for it to be typed back, then shows each of the 5 shares on its own screen. The screen says share N of 5, threshold 3, and group threshold 1 of 1. The next share waits until this one is typed back. The words are not logged, not written as text, and not put in notices or history. `--show-recovery` and Account › Security ask for the password and show the phrase again from `~/.acp/recovery.seal`. Shares are a new split of the same master secret, so any older shares should be destroyed. Without the seal, the password cannot rebuild the words.
+
+## [3.34.0] - 2026-10-21
+
+### Added
+
+- **Drafts and the outbox.** A post is stored on this machine before it is sent. `--draft-save` writes a draft. The same `--draft-id` writes another `post_versions` row. `--keep-local` leaves the post off the queue. `--draft-list` prints them. `--outbox-queue ID` queues that local id. `--outbox-list` prints the queue. `--outbox-cancel ID` marks a queued, failed, or draft row cancelled. `--outbox-send ID` asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same validate and save frames as a direct text publish and opens no connection. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Votes and the other gated writes are not sent from it. In the terminal UI, Save draft is on the compose box and under Compose. Send from outbox starts on Cancel.
 
 ## [3.33.0] - 2026-10-21
 
