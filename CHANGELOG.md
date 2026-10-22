@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.40.0] - 2026-10-22
+
+### Added
+
+- **Organizations.** A local organization is a source. `--org-create`, `--org-edit`, `--org-delete`, `--org-list`, `--org-show`, `--org-post`, `--org-roles`, and `--org-members` keep it on this machine. A new organization is gated and private, and registration starts Closed. Creating it adds the Owner, User, and Viewer roles, and the creator is the active Owner. The slug is the author nick. Making an organization, its default for new posts, or one post public asks first. Cancel is the default. `--dry-run` writes nothing. `--list-nicks` and the nick bar include the organization. Library › Organizations opens the same commands. An Owner removal archives a post or asset: the row stays, becomes private, and custody moves to the organization Owner. Templates, the website, publishing the org as a service, invites, and the browser registration flow are later minors.
+
 ## [3.39.2] - 2026-10-22
 
 ### Fixed

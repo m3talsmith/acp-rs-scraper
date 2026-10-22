@@ -1,6 +1,6 @@
 # Plan: Organizations
 
-Status: **plan, 2026-10-22.** Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
+Status: **3.40.0 implements create, 2026-10-22.** Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. Those rules, including open versus closed registration, separate join defaults, the hierarchy, a public ungated guest write, and archive-not-delete, are in the library and tested. Templates, the website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
 
 Base: `main` at `274a9e01` (crate `3.39.0`). This plan does not bump the version. `AGENTS.md` bumps a version for a feature or a fix, not for a plan.
 

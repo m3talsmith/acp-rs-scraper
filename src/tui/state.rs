@@ -2372,6 +2372,18 @@ impl App {
                 Ok(argv) => self.start_online_job(JobKind::Sync, argv),
                 Err(e) => self.error("Cannot sync", &e),
             },
+            Action::OrgList => match self.menu.menu.org_list_argv() {
+                Ok(argv) => self.org_side(argv),
+                Err(e) => self.error("Organizations", &e),
+            },
+            Action::OrgShow => match self.menu.menu.org_show_argv() {
+                Ok(argv) => self.org_side(argv),
+                Err(e) => self.error("Organizations", &e),
+            },
+            Action::OrgCreate => self.org_create(),
+            Action::OrgSave => self.org_save(),
+            Action::OrgDelete => self.org_delete(),
+            Action::OrgPost => self.org_post(),
             Action::Quit => {
                 self.close_menu();
                 if let Some(j) = &self.job {
@@ -2393,6 +2405,69 @@ impl App {
         self.load_base();
         self.base.cursor = c.min(self.base.posts.len().saturating_sub(1));
         self.base.offset = o.min(self.base.cursor);
+    }
+    fn org_side(&mut self, argv: Vec<String>) {
+        self.close_menu();
+        self.effects.push(Effect::RunSideJob(JobKind::Org, argv));
+    }
+    fn org_confirm(&mut self, title: &str, line: &str, confirm: &str, argv: Vec<String>) {
+        self.close_menu();
+        self.modal = Some(Modal::Confirm(ConfirmModal::new(
+            title,
+            vec![line.into()],
+            confirm,
+            ConfirmAction::Job(JobKind::Org, argv),
+        )));
+    }
+    fn org_create(&mut self) {
+        let public = self.menu.menu.org_choice_public("visibility") || self.menu.menu.org_choice_public("default_visibility");
+        match self.menu.menu.org_create_argv(public) {
+            Ok(argv) if public => self.org_confirm(
+                "Make this public?",
+                "This would make content readable by others. Cancel is the default.",
+                "Make public",
+                argv,
+            ),
+            Ok(argv) => self.org_side(argv),
+            Err(e) => self.error("Organizations", &e),
+        }
+    }
+    fn org_save(&mut self) {
+        let public = self.menu.menu.org_choice_public("visibility") || self.menu.menu.org_choice_public("default_visibility");
+        match self.menu.menu.org_edit_argv(public) {
+            Ok(argv) if public => self.org_confirm(
+                "Make this public?",
+                "This would make content readable by others. Cancel is the default.",
+                "Make public",
+                argv,
+            ),
+            Ok(argv) => self.org_side(argv),
+            Err(e) => self.error("Organizations", &e),
+        }
+    }
+    fn org_delete(&mut self) {
+        match self.menu.menu.org_delete_argv() {
+            Ok(argv) => self.org_confirm(
+                "Delete organization?",
+                "This deletes the organization and its posts. Cancel is the default.",
+                "Delete",
+                argv,
+            ),
+            Err(e) => self.error("Organizations", &e),
+        }
+    }
+    fn org_post(&mut self) {
+        let public = self.menu.menu.org_choice_public("post_visibility");
+        match self.menu.menu.org_post_argv(public) {
+            Ok(argv) if public => self.org_confirm(
+                "Make this public?",
+                "This would make content readable by others. Cancel is the default.",
+                "Make public",
+                argv,
+            ),
+            Ok(argv) => self.org_side(argv),
+            Err(e) => self.error("Organizations", &e),
+        }
     }
     fn start_job(&mut self, kind: JobKind, argv: Vec<String>) {
         if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F6)"); return; }
@@ -2555,7 +2630,10 @@ impl App {
         match (m, r) {
             (Modal::Help(_), _) => {}
             (Modal::Confirm(c), ModalResult::ClosedSubmitted) => match c.action {
-                ConfirmAction::Job(k, argv) => self.start_job(k, argv),
+                ConfirmAction::Job(k, argv) => {
+                    if k == JobKind::Org { self.effects.push(Effect::RunSideJob(k, argv)); }
+                    else { self.start_job(k, argv); }
+                }
                 ConfirmAction::Quit => self.effects.push(Effect::Quit { cancel_job: c.chosen == 1 }),
                 ConfirmAction::Delete(_)
                 | ConfirmAction::Vote(_, _)

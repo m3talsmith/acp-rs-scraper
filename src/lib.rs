@@ -53,6 +53,7 @@ pub mod export;
 pub mod host_api;
 pub mod import;
 pub mod maintenance;
+pub mod orgs;
 pub mod outbox;
 pub mod plugins;
 pub mod research;
