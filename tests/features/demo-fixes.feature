@@ -9,3 +9,7 @@ Feature: Demo fixes
     When I search Help for "basket"
     Then the Help text contains "Search: basket"
     And the Help text contains "Basket"
+
+  Scenario: Sorting a thread while logged out stays on this machine
+    When I sort an open thread while logged out
+    Then sorting stays on this machine

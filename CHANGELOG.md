@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.7] - 2026-10-22
+
+### Fixed
+
+- **Thread sort offline.** `s` in an open thread reorders the replies already stored on this machine. It does not start a job, and it does not open the login window. A refresh from the site is still `--sort-thread`.
+
 ## [3.35.6] - 2026-10-22
 
 ### Fixed

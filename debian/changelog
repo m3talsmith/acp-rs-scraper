@@ -1,3 +1,9 @@
+acp-red-star (3.35.7) unstable; urgency=medium
+
+  * Package 3.35.7. Thread sort reorders stored replies and does not open login.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 04:50:00 +0000
+
 acp-red-star (3.35.6) unstable; urgency=medium
 
   * Package 3.35.6. Help search keeps j and k.

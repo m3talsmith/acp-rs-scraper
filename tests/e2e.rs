@@ -220,6 +220,31 @@ async fn help_has(w: &mut E2e, s: String) {
     assert!(w.screen.contains(&s), "Help lacks {s:?}:\n{}", w.screen);
 }
 
+#[when("I sort an open thread while logged out")]
+async fn sort_logged_out(w: &mut E2e) {
+    use clap::Parser;
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    app.open_post(0);
+    app.cycle_thread_sort();
+    let modal = format!("{:?}", app.modal);
+    let effects = format!("{:?}", app.effects);
+    w.screen = format!("{modal}\n{effects}\n{}", app.status.last().cloned().unwrap_or_default());
+}
+
+#[then("sorting stays on this machine")]
+async fn sort_stays(w: &mut E2e) {
+    assert!(w.screen.contains("None"), "a modal opened:\n{}", w.screen);
+    assert!(w.screen.contains("[]"), "a job was queued:\n{}", w.screen);
+    assert!(w.screen.contains("stored"), "status did not say the sort is stored:\n{}", w.screen);
+    assert!(!w.screen.contains("Login"), "login opened:\n{}", w.screen);
+}
+
 #[then(expr = "stdout does not contain {string}")]
 async fn stdout_lacks(w: &mut E2e, s: String) { assert!(!w.last.stdout.contains(&s), "stdout has {s:?}:\n{}", w.last.stdout); }
 

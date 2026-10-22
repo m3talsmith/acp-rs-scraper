@@ -1204,28 +1204,15 @@ impl App {
             else { format!("fetching {key} from the site…") });
         self.start_online_job(JobKind::Read, argv);
     }
-    /// `s` in a thread: cycle reply order and, for oldest/top, refresh scores from the site.
+    /// `s` in a thread: cycle the stored replies. This does not connect.
+    ///
+    /// A refresh from the site is a separate request (`--sort-thread`), not this key.
     pub fn cycle_thread_sort(&mut self) {
         if self.top().is_none() { self.push_status("open a thread to sort its replies"); return; }
         let next = self.top().map(|f| f.sort.cycle()).unwrap_or_default();
         if let Some(f) = self.top_mut() { f.sort = next; }
         self.apply_reply_sort();
-        self.push_status(format!("replies · {}", next.label()));
-        let Some(order) = next.hook() else { return };
-        let post = self.top().map(|f| f.post.clone());
-        let Some(post) = post else { return };
-        let thread = if post.parent_post_id.is_empty() { post.post_id.clone() } else { post.parent_post_id.clone() };
-        if self.job.is_some() {
-            self.push_status("reply order changed locally; a job is already running");
-            return;
-        }
-        match self.menu.menu.sort_thread_argv(&thread, order) {
-            Ok(argv) => {
-                self.pending_sort = Some((post.post_id.clone(), next));
-                self.start_online_job(JobKind::Read, argv);
-            }
-            Err(e) => self.error("Thread sort", &e),
-        }
+        self.push_status(format!("replies · {} · stored", next.label()));
     }
     /// Put the open detail's reply links in its current order, using stored scores.
     pub fn apply_reply_sort(&mut self) {

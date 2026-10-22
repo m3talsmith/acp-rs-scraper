@@ -370,6 +370,22 @@ fn args_nicks_preselect() {
 }
 
 #[test]
+fn thread_sort_uses_stored_replies_and_does_not_open_login() {
+    let mut a = app();
+    assert_eq!(a.session, SessionState::LoggedOut);
+    a.select_only(nick_idx(&a, "alice"));
+    let i = a.view().posts.iter().position(|p| p.post_id == "ALICE0001").unwrap();
+    a.open_post(i);
+    a.cycle_thread_sort();
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert_eq!(a.session, SessionState::LoggedOut);
+    assert!(a.status.back().unwrap().contains("stored"));
+    let replies: Vec<_> = a.top().unwrap().links.iter().filter(|l| l.kind == crate::tui::state::LinkKind::Reply).map(|l| l.id.clone()).collect();
+    assert_eq!(replies, ["BOB000002"]);
+}
+
+#[test]
 fn animation_progress_and_finish() {
     use std::time::{Duration, Instant};
     let t0 = Instant::now();
