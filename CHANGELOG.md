@@ -42,7 +42,7 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Vote.** `--vote POST` with `--vote-state` `1`, `0`, or `-1` sends the hook once. The default is `1`. The terminal asks `Vote? [y/N]`. `--dry-run` prints the hook and does not connect. The reply shows score, vote, and upvote percentage.
 
-## [3.35.6] - 2026-10-21
+## [3.35.15] - 2026-10-22
 
 ### Changed
 
