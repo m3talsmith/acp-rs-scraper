@@ -1,6 +1,12 @@
-acp-red-star (3.35.0) unstable; urgency=medium
+acp-red-star (3.43.0) unstable; urgency=medium
 
-  * Package 3.35.0. Live updates are 3.34.0. The site Notifications pane is 3.35.0.
+  * Package 3.43.0. Live updates are 3.42.0. The site Notifications pane is 3.43.0.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 23:40:00 +0000
+
+acp-red-star (3.34.0) unstable; urgency=medium
+
+  * Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish. A dry-run opens no connection.
 
  -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 23:40:00 +0000
 

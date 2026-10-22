@@ -6,17 +6,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.35.0] - 2026-10-21
+## [3.43.0] - 2026-10-21
 
 ### Added
 
 - **Site notifications.** `--site-notifications` and View › Site notifications read `/rs/notifications`. Items are stored. Opening the page may mark them read when the socket sends `clear-app-badge`. Each new item is a Sync notice. A stored post is handed to the rule engine. Nothing is sent as a write.
 
-## [3.34.0] - 2026-10-21
+## [3.42.0] - 2026-10-21
 
 ### Added
 
 - **Live updates.** `--live THREAD` follows that thread on the LiveView socket. `--live-feed` follows the home feed. A new reply is stored. An update patches the row. A delete removes it. A refresh raises a new-posts chip. `refresh-posts` runs at most once every 30 seconds. Each insert is a Sync notice and is handed to the rule engine. View › Live and View › Live feed open the same watches. There is no new key.
+
+## [3.34.0] - 2026-10-21
+
+### Added
+
+- **Drafts and the outbox.** A post is stored on this machine before it is sent. `--draft-save` writes a draft. The same `--draft-id` writes another `post_versions` row. `--keep-local` leaves the post off the queue. `--draft-list` prints them. `--outbox-queue ID` queues that local id. `--outbox-list` prints the queue. `--outbox-cancel ID` marks a queued, failed, or draft row cancelled. `--outbox-send ID` asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same validate and save frames as a direct text publish and opens no connection. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Votes and the other gated writes are not sent from it. In the terminal UI, Save draft is on the compose box and under Compose. Send from outbox starts on Cancel.
 
 ## [3.33.0] - 2026-10-21
 

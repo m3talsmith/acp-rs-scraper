@@ -39,7 +39,8 @@ fn new_post_cancel_sends_nothing_and_publish_is_gated() {
     key(&mut a, KeyCode::Enter);
     key(&mut a, KeyCode::Char('h'));
     key(&mut a, KeyCode::Char('i'));
-    // Body, Attach, Cancel, Publish.
+    // Body, Attach, Cancel, Save draft, Publish.
+    key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Tab);
@@ -181,6 +182,7 @@ fn attach_line_lists_a_local_file_and_publish_stays_gated() {
     assert!(screen.contains("Attach"), "{screen}");
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Tab);
+    key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Enter);
     assert!(a.modal.is_none(), "publish closes the compose box: {:?}", a.modal);
     assert!(a.status.iter().any(|s| s.contains("publishing")), "{:?}", a.status);
@@ -304,6 +306,19 @@ fn attach_tab_completes_a_real_segment_and_an_empty_line_still_moves() {
     assert!(m.path_matches.is_empty());
     assert!(m.attach_path.ends_with("photo.jpg"), "{}", m.attach_path);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn outbox_send_confirm_starts_on_cancel() {
+    use crate::tui::commands::{Action, CommandId};
+    use crate::tui::modals::ConfirmAction;
+    let mut a = app();
+    a.menu.menu.set_text(CommandId::Compose, "send_id", "Q-D1");
+    a.act(Action::SendOutbox);
+    let Some(Modal::Confirm(c)) = &a.modal else { panic!("{:?}", a.modal) };
+    assert_eq!(c.focus, 1, "Cancel is the default");
+    assert!(matches!(c.action, ConfirmAction::SendOutbox(ref id) if id == "Q-D1"));
+    assert!(a.effects.is_empty(), "confirm does not send");
 }
 
 #[test]
