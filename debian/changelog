@@ -1,3 +1,9 @@
+acp-red-star (3.46.0) unstable; urgency=medium
+
+  * Package 3.46.0. An organization invite carries public keys. A matching fingerprint adds the member.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 23:40:00 +0000
+
 acp-red-star (3.45.0) unstable; urgency=medium
 
   * Package 3.45.0. An organization can publish a loopback service. Remote posts stay off until they are allowed.

@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.45.0
+Version:        3.46.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.46.0-1
+- Package 3.46.0. An organization invite carries public keys. A matching fingerprint adds the member.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.45.0-1
 - Package 3.45.0. An organization can publish a loopback service. Remote posts stay off until they are allowed.
 

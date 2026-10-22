@@ -70,10 +70,15 @@ impl E2e {
     }
     /// Run the binary with these arguments (no `argv[0]`); `$HOME` is expanded.
     async fn run_argv(&mut self, args: &[String]) {
+        self.run_in(&self.home.clone(), args).await;
+    }
+    /// `$HOME` in arguments stays the scenario home. `home` is the process home.
+    async fn run_in(&mut self, home: &std::path::Path, args: &[String]) {
         let base = self.mock.as_ref().map(|m| m.base.clone()).unwrap_or_else(|| "http://127.0.0.1:9".into());
-        let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &self.home.to_string_lossy()).replace("$SITE", &base)).collect();
+        let root = self.home.to_string_lossy().to_string();
+        let args: Vec<String> = args.iter().map(|a| a.replace("$HOME", &root).replace("$SITE", &base)).collect();
         let mut child = tokio::process::Command::new(env!("CARGO_BIN_EXE_acp-red-star"))
-            .args(&args).env("HOME", &self.home).env("ACP_HOME", &self.home).env("ACP_THEME_URL", self.theme_url.clone().unwrap_or_else(|| format!("{base}/themes/")))
+            .args(&args).env("HOME", home).env("ACP_HOME", home).env("ACP_THEME_URL", self.theme_url.clone().unwrap_or_else(|| format!("{base}/themes/")))
             .env("ACP_BASE_URL", base).env("ACP_PASSWORD", E2E_PASSWORD).env("ACP_ARGON_FAST", "1").env_remove("ACP_DEBUG").env_remove("ACP_THEME_DOWNLOAD").envs(self.env.iter().cloned())
             .stdin(std::process::Stdio::piped()).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::piped())
             .spawn().unwrap();
@@ -126,6 +131,44 @@ async fn write_under_home(w: &mut E2e, body: String, path: String) {
 async fn run(w: &mut E2e, args: String) {
     if let Some(m) = &w.mock { let i = m.inner.lock().unwrap(); w.counters_before = (i.page_next, i.thread_gets); }
     w.run(&args).await;
+}
+
+fn printed_fingerprint(stdout: &str) -> String {
+    stdout.lines().find_map(|l| l.trim().strip_prefix("fingerprint:")).map(|s| s.trim().to_string()).unwrap_or_default()
+}
+
+fn second_home(w: &E2e) -> std::path::PathBuf {
+    let second = w.home.join("second-home");
+    std::fs::create_dir_all(second.join(".acp")).unwrap();
+    let prefs = second.join(".acp/preferences.toml");
+    if !prefs.is_file() {
+        std::fs::write(prefs, "email = \"bob@example.test\"\n").unwrap();
+    }
+    second
+}
+
+#[when(expr = "I run in a second home {string}")]
+async fn run_second(w: &mut E2e, args: String) {
+    let second = second_home(w);
+    let argv: Vec<String> = args.split_whitespace().map(String::from).collect();
+    w.run_in(&second, &argv).await;
+}
+
+#[when(expr = "I run with that fingerprint {string}")]
+async fn run_with_fingerprint(w: &mut E2e, args: String) {
+    let fp = printed_fingerprint(&w.last.stdout);
+    assert!(!fp.is_empty(), "no fingerprint in stdout:\n{}", w.last.stdout);
+    w.run(&args.replace("$FINGERPRINT", &fp)).await;
+}
+
+#[when(expr = "I run in a second home with that fingerprint {string}")]
+async fn run_second_with_fingerprint(w: &mut E2e, args: String) {
+    let fp = printed_fingerprint(&w.last.stdout);
+    assert!(!fp.is_empty(), "no fingerprint in stdout:\n{}", w.last.stdout);
+    let second = second_home(w);
+    let args = args.replace("$FINGERPRINT", &fp);
+    let argv: Vec<String> = args.split_whitespace().map(String::from).collect();
+    w.run_in(&second, &argv).await;
 }
 
 impl E2e {

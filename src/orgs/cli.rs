@@ -32,6 +32,15 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.org_add.is_some()
         || args.org_services
         || args.org_browse.is_some()
+        || args.org_identity
+        || args.org_invite.is_some()
+        || args.role.is_some()
+        || args.org_invite_out.is_some()
+        || args.org_invite_accept.is_some()
+        || args.org_invite_reply.is_some()
+        || args.org_fingerprint.is_some()
+        || args.org_invite_finish.is_some()
+        || args.org_invite_serve.is_some()
         || args.org_post.is_some()
         || args.org_name.is_some()
         || args.org_description.is_some()
@@ -137,10 +146,104 @@ pub fn run_cli(args: &Args) -> Result<()> {
     if let Some(slug) = &args.org_browse {
         return browse_org(slug);
     }
+    if args.org_identity {
+        return show_identity(&db);
+    }
+    if let Some(slug) = &args.org_invite {
+        return invite_org(args, &db, slug);
+    }
+    if let Some(path) = &args.org_invite_accept {
+        return accept_org(args, &db, path);
+    }
+    if let Some(path) = &args.org_invite_finish {
+        return finish_org(args, &db, path);
+    }
     if let Some(slug) = &args.org_post {
         return post(args, &db, slug);
     }
-    bail!("--org-name, --org-description, --org-visibility, --org-default-visibility, --org-title, and --org-post-visibility belong to --org-create, --org-edit, or --org-post");
+    bail!("--org-name, --org-description, --org-visibility, --org-default-visibility, --org-title, --org-post-visibility, --role, and --org-fingerprint belong to an organization command");
+}
+
+fn show_identity(db: &Path) -> Result<()> {
+    let secret = crate::orgs::access::local_identity(db)?;
+    println!("fingerprint: {}", secret.fingerprint());
+    Ok(())
+}
+
+fn invite_org(args: &Args, db: &Path, slug: &str) -> Result<()> {
+    let role = args.role.as_deref().ok_or_else(|| anyhow!("--org-invite needs --role"))?;
+    if args.org_invite_out.is_none() && args.org_invite_serve.is_none() {
+        bail!("--org-invite needs --org-invite-out or --org-invite-serve");
+    }
+    let serve = if let Some(raw) = &args.org_invite_serve {
+        let addr: std::net::SocketAddr = raw.parse().with_context(|| format!("parsing {raw}"))?;
+        crate::orgs::members::require_loopback(addr)?;
+        Some(addr)
+    } else {
+        None
+    };
+    if args.dry_run {
+        println!("would invite a {role} to {slug}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    let inviter = crate::orgs::access::local_identity(db)?;
+    let c = org_conn(db)?;
+    let invite = crate::orgs::members::create_invite(&c, slug, &inviter, role, crate::orgs::members::INVITE_TTL_SECS)?;
+    if let Some(addr) = serve {
+        let (listener, bound) = crate::orgs::members::listen_invite(addr)?;
+        println!("listening: {bound}");
+        let line = serde_json::to_string(&invite)?;
+        let reply = crate::orgs::members::send_invite(listener, &line)?;
+        let answered = crate::orgs::members::from_json(&reply)?;
+        let fp = crate::orgs::members::shown_fingerprint(&inviter, &answered)?;
+        println!("fingerprint: {fp}");
+        let typed = args.org_fingerprint.as_deref().unwrap_or("");
+        crate::orgs::members::finish_invite(&c, &answered, &inviter, typed)?;
+        println!("member added");
+        println!("role: {}", answered.role);
+    }
+    if let Some(path) = &args.org_invite_out {
+        crate::orgs::members::write_invite(Path::new(path), &invite)?;
+        println!("invite written");
+        println!("role: {}", invite.role);
+    }
+    Ok(())
+}
+
+fn accept_org(args: &Args, db: &Path, path: &str) -> Result<()> {
+    let reply = args.org_invite_reply.as_deref().ok_or_else(|| anyhow!("--org-invite-accept needs --org-invite-reply"))?;
+    let invite = crate::orgs::members::read_invite(Path::new(path))?;
+    let invitee = crate::orgs::access::local_identity(db)?;
+    let fp = crate::orgs::members::shown_fingerprint(&invitee, &invite)?;
+    println!("fingerprint: {fp}");
+    if args.dry_run {
+        println!("would accept the invite for {}", invite.slug);
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    let typed = args.org_fingerprint.as_deref().unwrap_or("");
+    let (answered, _) = crate::orgs::members::accept_invite(&invite, &invitee, typed)?;
+    crate::orgs::members::write_invite(Path::new(reply), &answered)?;
+    println!("invite accepted");
+    Ok(())
+}
+
+fn finish_org(args: &Args, db: &Path, path: &str) -> Result<()> {
+    let invite = crate::orgs::members::read_invite(Path::new(path))?;
+    let inviter = crate::orgs::access::local_identity(db)?;
+    let fp = crate::orgs::members::shown_fingerprint(&inviter, &invite)?;
+    println!("fingerprint: {fp}");
+    if args.dry_run {
+        println!("would add the member to {}", invite.slug);
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    let typed = args.org_fingerprint.as_deref().unwrap_or("");
+    crate::orgs::members::finish_invite(&org_conn(db)?, &invite, &inviter, typed)?;
+    println!("member added");
+    println!("role: {}", invite.role);
+    Ok(())
 }
 
 fn create(args: &Args, db: &Path, slug: &str) -> Result<()> {

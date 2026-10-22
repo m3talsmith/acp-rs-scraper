@@ -211,21 +211,27 @@ fn identity_path(db: &Path) -> PathBuf {
     db.parent().unwrap_or_else(|| Path::new(".")).join("org-identity.key")
 }
 
-/// The local organization's signing key, sealed next to the database.
-///
-/// The file is created the first time, mode `0600`, under `keystore_key`.
-pub fn local_identity_pub(db: &Path) -> Result<String> {
+/// The local organization's identity. Both seeds stay sealed. Debug prints `[redacted]`.
+pub fn local_identity(db: &Path) -> Result<NodeSecret> {
     let path = identity_path(db);
     let key = crate::crypto::atrest::cached_key(db).ok_or_else(|| anyhow!("unlock the database before creating an organization"))?;
     if path.is_file() {
-        return Ok(pub_hex(&load_identity(&path, &key)?));
+        return load_identity(&path, &key);
     }
     let secret = NodeSecret::generate();
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
     store_identity(&path, &secret, &key)?;
-    Ok(pub_hex(&secret))
+    Ok(secret)
+}
+
+/// The local organization's signing key, sealed next to the database.
+///
+/// The file is created the first time, mode `0600`, under `keystore_key`.
+/// The returned value is the public key. The seed stays in the sealed file.
+pub fn local_identity_pub(db: &Path) -> Result<String> {
+    Ok(pub_hex(&local_identity(db)?))
 }
 
 /// Seal both seeds. Debug output of [`NodeSecret`] stays `[redacted]`.
@@ -432,6 +438,16 @@ pub fn invite_member(c: &Connection, org_id: i64, actor: &str, identity: &str) -
     require(c, org_id, actor, "invite")?;
     let org = org_by_id(c, org_id)?;
     let role = role_named(c, org_id, &org.default_invite_role)?;
+    add_member(c, org_id, identity, &role, MemberStatus::Active)
+}
+
+/// Add an active member at a named role. The actor needs `invite`. Owner is refused.
+pub fn add_invited_member(c: &Connection, org_id: i64, actor: &str, identity: &str, role_name: &str) -> Result<Member> {
+    require(c, org_id, actor, "invite")?;
+    if is_owner(role_name) {
+        bail!("the Owner role cannot be given to a new member");
+    }
+    let role = role_named(c, org_id, role_name)?;
     add_member(c, org_id, identity, &role, MemberStatus::Active)
 }
 

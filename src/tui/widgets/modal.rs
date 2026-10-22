@@ -592,6 +592,21 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             }
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
         },
+        Modal::Members(m) => {
+            let rows = (m.rows.len().max(1) as u16).saturating_add(5);
+            let r = modal_rect(area, 72, rows);
+            let inner = frame(f, &t, r, "Members · compare the fingerprint out of band · Esc closes");
+            f.render_widget(Paragraph::new(Span::styled(clip(&format!(" fingerprint: {}", m.fingerprint), inner.width as usize), t.plain())), Rect { height: 1, ..inner });
+            if m.rows.is_empty() {
+                f.render_widget(Paragraph::new(Span::styled(" No members yet.", t.muted())), Rect { y: inner.y + 1, height: 1, ..inner });
+            }
+            for (i, row) in m.rows.iter().enumerate() {
+                if i as u16 + 2 >= inner.height { break; }
+                let rr = Rect { y: inner.y + 1 + i as u16, height: 1, ..inner };
+                f.render_widget(Paragraph::new(Span::styled(clip(row, inner.width as usize), t.plain())), rr);
+            }
+            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], Some(0));
+        },
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

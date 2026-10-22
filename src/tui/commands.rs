@@ -233,6 +233,8 @@ pub enum Action {
     OrgTemplate,
     /// Library › Organizations › Assets.
     OrgAssets,
+    /// Library › Organizations › Members. Roster and the fingerprint.
+    OrgMembers,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -480,6 +482,7 @@ fn organizations_item() -> MenuCommand {
         opt("post", "Post", "--org-post", false, button(Action::OrgPost)),
         opt("template", "Template", "--org-template-show", false, button(Action::OrgTemplate)),
         opt("assets", "Assets", "--org-asset-list", false, button(Action::OrgAssets)),
+        opt("members", "Members", "--org-members", false, button(Action::OrgMembers)),
     ])
 }
 
@@ -662,6 +665,7 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Discover, _) => Some("discover"),
         (CommandId::Organizations, "template") => Some("org-templates"),
         (CommandId::Organizations, "assets") => Some("org-assets"),
+        (CommandId::Organizations, "members") => Some("org-members"),
         (CommandId::Organizations, _) => Some("orgs"),
         (CommandId::View, "nested" | "stack" | "pane" | "carousel_inf" | "carousel" | "grid") => Some("layout"),
         (CommandId::View, "notifications") => Some("notifications"),

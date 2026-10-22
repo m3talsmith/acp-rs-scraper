@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.46.0] - 2026-10-22
+
+### Added
+
+- **Organization members.** `--org-identity` prints the membership fingerprint and not the seed. `--org-invite` writes a single-use invite that lasts 48 hours and holds public keys only. `--org-invite-accept` and `--org-invite-finish` add the member when the typed fingerprint matches. A mismatch, an expired invite, and a second finish add nobody. `--org-invite-serve` exchanges that invite on `127.0.0.1` and refuses any other address. Organizations › Members shows the roster and the fingerprint. The same transcript over QUIC is 3.49.0.
+
 ## [3.45.0] - 2026-10-22
 
 ### Added

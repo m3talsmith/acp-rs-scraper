@@ -600,6 +600,11 @@ An organization is a local source. It does not need a service. A new organizatio
 | `--org-add URL` | Add another install's service. The address must be `127.0.0.1`. Asks first. |
 | `--org-services` | List published and added manifests. |
 | `--org-browse SLUG` | Read the public page of an added service. |
+| `--org-identity` | Print this install's membership fingerprint. The seed stays sealed. |
+| `--org-invite SLUG --role NAME --org-invite-out PATH` | Write a single-use invite. It lasts 48 hours and holds public keys only. Owner is refused. |
+| `--org-invite-accept PATH --org-fingerprint CODE --org-invite-reply PATH` | Answer an invite. A code that does not match writes nothing. |
+| `--org-invite-finish PATH --org-fingerprint CODE` | Add the member. A mismatch, an expired invite, and a second finish add nobody. |
+| `--org-invite-serve` | Exchange one invite on `127.0.0.1`. Any other address is refused before bind. The peer transport is 3.49.0. |
 | `--org-post SLUG` | Store a post. Requires `--org-title`. The body is `--body` or `--body-file`. `--org-post-visibility` overrides the org default for this post only. |
 | `--org-visibility private\|public` | With create or edit. |
 | `--org-default-visibility private\|public` | With create or edit. |

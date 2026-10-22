@@ -10,6 +10,7 @@ use crate::prelude::*;
 pub mod access;
 pub mod assets;
 pub mod cli;
+pub mod members;
 pub mod service;
 pub mod site;
 pub mod template;
@@ -230,6 +231,15 @@ const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS organizations (
             name TEXT NOT NULL DEFAULT 'default',
             html TEXT NOT NULL,
             updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS org_invites (
+            id TEXT PRIMARY KEY,
+            org_id INTEGER NOT NULL,
+            role_id INTEGER NOT NULL,
+            inviter_pub TEXT NOT NULL,
+            expires_at TEXT NOT NULL,
+            used_at TEXT,
+            nonce TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS org_write_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

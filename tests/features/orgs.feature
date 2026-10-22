@@ -222,3 +222,57 @@ Feature: Organizations
     When I run "--org-services"
     Then it succeeds
     And stdout contains "No organization services yet"
+
+  Scenario: An invite adds a member only when the fingerprint matches
+    When I run "--org-create hold"
+    Then it succeeds
+    When I run "--org-identity"
+    Then it succeeds
+    And stdout contains "fingerprint:"
+    And stdout does not contain "sign_seed"
+    And the file "$HOME/.acp/ai/data/org-identity.key" exists
+    When I run "--org-invite hold --role Viewer --org-invite-out $HOME/invite.json --dry-run"
+    Then it succeeds
+    And stdout contains "dry-run: nothing was written"
+    And the file "$HOME/invite.json" does not exist
+    When I run "--org-invite hold --role Owner --org-invite-out $HOME/owner.json"
+    Then it fails
+    And stderr contains "Owner"
+    And the file "$HOME/owner.json" does not exist
+    When I run "--org-invite hold --role Viewer --org-invite-serve 0.0.0.0:9"
+    Then it fails
+    And stderr contains "127.0.0.1"
+    When I run "--org-invite hold --role Viewer --org-invite-out $HOME/invite.json"
+    Then it succeeds
+    And stdout contains "invite written"
+    And the file "$HOME/invite.json" exists
+    And the file "$HOME/invite.json" contains "inviter_ed25519"
+    And the file "$HOME/invite.json" does not contain "sign_seed"
+    When I run in a second home "--org-invite-accept $HOME/invite.json --org-fingerprint 00000000 --org-invite-reply $HOME/reply.json"
+    Then it fails
+    And stdout contains "fingerprint:"
+    And stderr contains "fingerprint does not match"
+    And the file "$HOME/reply.json" does not exist
+    When I run in a second home with that fingerprint "--org-invite-accept $HOME/invite.json --org-fingerprint $FINGERPRINT --org-invite-reply $HOME/reply.json"
+    Then it succeeds
+    And stdout contains "invite accepted"
+    And the file "$HOME/reply.json" exists
+    And the file "$HOME/reply.json" does not contain "sign_seed"
+    When I run "--org-invite-finish $HOME/reply.json --org-fingerprint 00000000"
+    Then it fails
+    And stderr contains "fingerprint does not match"
+    When I run "--org-members hold"
+    Then it succeeds
+    And stdout contains "Owner"
+    And stdout does not contain "Viewer"
+    When I run with that fingerprint "--org-invite-finish $HOME/reply.json --org-fingerprint $FINGERPRINT"
+    Then it succeeds
+    And stdout contains "member added"
+    And stdout contains "role: Viewer"
+    When I run "--org-members hold"
+    Then it succeeds
+    And stdout contains "Viewer"
+    And stdout contains "active"
+    When I run with that fingerprint "--org-invite-finish $HOME/reply.json --org-fingerprint $FINGERPRINT"
+    Then it fails
+    And stderr contains "already used"
