@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.35.14
+Version:        3.37.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,12 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.37.0-1
+- Package 3.37.0. The built-in Red Star motto is "Research starts here."
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.36.0-1
+- Package 3.36.0. Branding (logo, title, motto) lives on the theme. Shift-F5 shows a live preview beside the editor.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.14-1
 - Package 3.35.14. A pending recovery phrase is asked in the terminal UI. Not now is the default.
 

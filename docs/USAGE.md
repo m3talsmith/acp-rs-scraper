@@ -182,12 +182,12 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   section needed into a temporary directory, which is deleted); the format is gzip'd text:
   `ACPANIM 1`, `fps N`, `size COLS ROWS`, then each frame after a `%%` line.
 - **Themes:** files in `~/.acp/themes/`; `F5` or the header `‹name› ▾` switch picks one, `Shift-F5`
-  edits them. See [Themes](#themes).
+  edits colours and branding (logo, title, motto) with a live preview beside the list. See [Themes](#themes).
 - **Keys:** `?`/`F1` lists them all next to the full `--help`.
 
 ## Themes
 
-Every colour of the terminal UI comes from a theme file; nothing is compiled in.
+Every colour of the terminal UI comes from a theme file. `red-star` and `plain` also ship in the binary, branding included, and a file of the same name overrides them.
 
 - **Where.** `~/.acp/themes/<name>.toml`. Names are lowercase letters, digits, `-` and `_`, at
   most 32 characters; anything else (such as `../x`) is refused. This folder (under `$HOME`) is
@@ -230,23 +230,32 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
   (`OSC 11`), else dark. `--theme NAME` overrides for one run; `--list-themes`
   lists them.
-- **Brands.** The logo, the title, and the motto are a brand. The theme is a different choice:
-  any brand works with any theme. The built-in `default` brand is ACP Red Star (the red-star logo,
-  the word ACP, the title, and "The future belongs to the working class"). The built-in `plain`
-  brand is the title Red Star, a star, and no motto. `acp-red-star --brand plain` uses it for this
-  run and does not write the preference. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps
-  it. `--list-brands` lists built-ins and files. A user brand is `~/.acp/brands/<name>.toml`
-  (names: lowercase letters, digits, `-` and `_`, at most 32 characters). A file overrides a
-  built-in of the same name. `version = 1` is required. `title` is the header, the window title,
-  About, `--help`, `--version`, and the HTML export header. `motto` is the status bar and the
-  About border; an empty motto is hidden. `word` is the big letters beside the logo; empty draws
-  none. `logo` is `builtin` (the red star), `text` (`logo_text`, one line per row), or `file`
-  (`logo_file`, a path inside `~/.acp/brands`). An absolute path, `..`, or a symlink that leaves
-  that folder is refused. A broken file is reported and never overwritten. The header switch
-  `«name» ▾` opens the picker (moving the highlight previews it; Esc puts the old brand back).
-  Edit brands… and the command palette's Brand: edit… open the editor. Ctrl-S saves, Ctrl-R
-  reverts, Ctrl-N saves as new, Ctrl-D duplicates, Ctrl-X deletes, Ctrl-C closes. Credits and the
-  other surprises keep their own text.
+- **Branding.** The logo, the title, and the motto live on the theme, in a `[brand]` table
+  (`title`, `motto`, `word`, `logo`, `logo_text`, `logo_file`). `F5` (or the header `‹name› ▾`)
+  opens the theme picker; each row shows that theme's title. Moving the highlight previews the
+  colours and the branding; Esc puts the previous theme back. `e` jumps to Edit themes… and Enter
+  opens the editor. `Shift-F5` opens the editor directly: Branding, then the palette, then the
+  elements, on the left, and Preview (sample posts) on the right. The preview updates as you type
+  a title, motto, word, or logo text, when Enter cycles the logo (`builtin`, `text`, `file`), and
+  when a colour changes. Tab flips dark and light. Ctrl-S saves the theme, including `[brand]`.
+  Esc closes. The built-in `red-star` theme is red, black, and gold with the ACP Red Star branding
+  (the red-star logo, the word ACP, the title, and "Research starts here.").
+  The built-in `plain` theme is neutral colours, the title Red Star, a star, and no motto.
+  `acp-red-star --brand plain` still uses that branding for this run and does not write the
+  preference. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps it until you pick a theme
+  or save `[brand]` into the theme file. `--list-brands` lists built-ins and files. A user brand
+  is still `~/.acp/brands/<name>.toml` (names: lowercase letters, digits, `-` and `_`, at most 32
+  characters). A file overrides a built-in of the same name, and it supplies branding for a theme
+  of that name that has no `[brand]`. Saving the theme writes the branding into the theme file
+  and does not change the brand file. `version = 1` is required on a brand file. `title` is the
+  header, the window title, About, `--help`, `--version`, and the HTML export header. `motto` is
+  the status bar and the About border; an empty motto is hidden. `word` is the big letters beside
+  the logo; empty draws none. `logo` is `builtin` (the red star), `text` (`logo_text`, one line
+  per row), or `file` (`logo_file`, a path inside `~/.acp/brands`). An absolute path, `..`, or a
+  symlink that leaves that folder is refused. A broken file is reported and never overwritten.
+  Brand: use…, Brand: list, Brand: edit…, and Brand: reload in the command palette open the theme
+  picker, the theme list, the theme editor, and a theme reload. Credits and the other surprises
+  keep their own text.
 - **Colour.** `--color auto|always|never`. `auto` (the default) follows `NO_COLOR`: a non-empty value
   turns colours off and leaves bold, dim, and underline. `always` forces colours on, which is what a
   recording needs when the shell exported `NO_COLOR=1`. `never` turns colours off. `[ui] color` in

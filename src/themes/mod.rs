@@ -1,15 +1,19 @@
 //! Theme files: every theme, the default included, is `~/.acp/themes/<name>.toml`
-//! ([`format`] describes the file). Themes are read from that folder only: nothing
-//! is built into the binary or installed by the packages. The first run with an empty
-//! folder downloads `default.toml` from the repo ([`download`]). A missing or broken
-//! theme falls back to the terminal's own colours (`Color::Reset`) with a notice;
-//! broken files are never overwritten.
+//! ([`format`] describes the file). `red-star` and `plain` also ship in the binary
+//! (colours plus branding) and a file of the same name overrides them. The first run
+//! with an empty folder downloads `default.toml` from the repo ([`download`]). A
+//! missing or broken theme falls back to the terminal's own colours (`Color::Reset`)
+//! with a notice; broken files are never overwritten.
 
 pub mod download;
 pub mod format;
 
 pub use format::*;
 use crate::prelude::*;
+use ratatui::style::Color;
+
+/// Built-in theme names, in picker order after files are sorted by name.
+pub const BUILTIN_THEMES: [&str; 2] = ["plain", "red-star"];
 
 /// `~/.acp/themes`.
 pub fn themes_dir() -> Result<PathBuf> { Ok(home()?.join(THEMES_REL_DIR)) }
@@ -71,9 +75,16 @@ pub fn load_path(path: &Path) -> std::result::Result<Loaded, LoadError> {
     Ok(Loaded { path: path.into(), file, warnings })
 }
 
-/// Read theme `name` from `dir`.
+/// Read theme `name` from `dir`. `red-star` and `plain` load from the binary when no file is there.
 pub fn load(dir: &Path, name: &str) -> std::result::Result<Loaded, LoadError> {
-    load_path(&theme_path(dir, name).map_err(LoadError::BadName)?)
+    let path = theme_path(dir, name).map_err(LoadError::BadName)?;
+    match load_path(&path) {
+        Err(LoadError::Missing(_)) => match builtin_file(name) {
+            Some(file) => Ok(Loaded { path, file, warnings: Vec::new() }),
+            None => Err(LoadError::Missing(path)),
+        },
+        other => other,
+    }
 }
 
 /// One theme file, for the picker and `--list-themes`.
@@ -83,24 +94,75 @@ pub struct Entry {
     pub name: String,
     /// Its description.
     pub description: String,
+    /// Title from `[brand]`, when the file or a built-in sets one.
+    pub title: String,
+    /// Motto from `[brand]`. Empty means hidden.
+    pub motto: String,
     /// Why it can't be used, if so.
     pub error: Option<String>,
     /// How many keys were skipped.
     pub warnings: usize,
+    /// Shipped in the binary, and no file of this name is in the folder.
+    pub builtin: bool,
 }
 
-/// Every `*.toml` in `dir` with a valid name, sorted by name.
+/// The red, black, and gold Red Star theme, with ACP Red Star branding.
+pub fn builtin_red_star() -> ThemeFile {
+    let (mut file, _) = parse(include_str!("../../themes/red-star.toml"), "red-star").expect("shipped red-star theme");
+    file.name = "red-star".into();
+    file.brand = Some(ThemeBrand::red_star());
+    file
+}
+
+/// Neutral colours and the plain brand, for a demo that is not red, black, and gold.
+pub fn builtin_plain() -> ThemeFile {
+    let mut file = ThemeFile::empty("plain");
+    file.description = "Neutral colours, the title Red Star, and a star. No motto.".into();
+    for (k, v) in [
+        ("accent", Color::Gray),
+        ("muted", Color::DarkGray),
+        ("border", Color::DarkGray),
+        ("on_accent", Color::Black),
+        ("fg", Color::Reset),
+        ("bg", Color::Reset),
+    ] {
+        file.dark.set(k, ColorSpec::Value(v));
+    }
+    file.brand = Some(ThemeBrand::plain());
+    file
+}
+
+/// A theme that ships in the binary.
+pub fn builtin_file(name: &str) -> Option<ThemeFile> {
+    match name {
+        "red-star" => Some(builtin_red_star()),
+        "plain" => Some(builtin_plain()),
+        _ => None,
+    }
+}
+
+fn entry_of(name: String, file: &ThemeFile, error: Option<String>, warnings: usize, builtin: bool) -> Entry {
+    let (title, motto) = file.brand.as_ref().map(|b| (b.title.clone(), b.motto.clone())).unwrap_or_default();
+    Entry { name, description: file.description.clone(), title, motto, error, warnings, builtin }
+}
+
+/// Every `*.toml` in `dir` with a valid name, plus built-ins that have no file, sorted by name.
 pub fn list(dir: &Path) -> Vec<Entry> {
     let mut v: Vec<Entry> = std::fs::read_dir(dir).into_iter().flatten().flatten()
         .filter_map(|e| {
             let p = e.path();
             let name = p.file_name()?.to_str()?.strip_suffix(".toml")?.to_string();
             valid_name(&name).then(|| match load_path(&p) {
-                Ok(l) => Entry { name, description: l.file.description, error: None, warnings: l.warnings.len() },
-                Err(LoadError::Broken(_, e)) => Entry { name, description: String::new(), error: Some(e), warnings: 0 },
-                Err(e) => Entry { name, description: String::new(), error: Some(e.notice()), warnings: 0 },
+                Ok(l) => entry_of(name, &l.file, None, l.warnings.len(), false),
+                Err(LoadError::Broken(_, e)) => Entry { name, description: String::new(), title: String::new(), motto: String::new(), error: Some(e), warnings: 0, builtin: false },
+                Err(e) => Entry { name, description: String::new(), title: String::new(), motto: String::new(), error: Some(e.notice()), warnings: 0, builtin: false },
             })
         }).collect();
+    for name in BUILTIN_THEMES {
+        if !v.iter().any(|e| e.name == name) && let Some(file) = builtin_file(name) {
+            v.push(entry_of(name.into(), &file, None, 0, true));
+        }
+    }
     v.sort_by(|a, b| a.name.cmp(&b.name));
     v
 }

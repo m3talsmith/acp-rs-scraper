@@ -1,10 +1,12 @@
 //! Brands: the logo, the title, and the motto.
 //!
-//! A brand is independent of the theme. The built-in `default` brand is ACP Red
-//! Star. The built-in `plain` brand is a neutral title and a star, with no motto.
-//! A file `~/.acp/brands/<name>.toml` overrides a built-in of the same name.
-//! Loading, the size limit, and a broken file follow the theme rules: a broken
-//! file is reported and never overwritten.
+//! Branding travels with a theme (`[brand]` in the theme file). The built-in
+//! `default` brand is ACP Red Star. The built-in `plain` brand is a neutral title
+//! and a star, with no motto. A file `~/.acp/brands/<name>.toml` still overrides a
+//! built-in of the same name, and `--brand` still selects one for this run.
+//! Saving a theme writes that branding into the theme. Loading, the size limit,
+//! and a broken file follow the theme rules: a broken file is reported and never
+//! overwritten.
 
 use crate::branding::SLOGAN;
 use crate::config::{home, BRANDS_REL_DIR, BRAND_FORMAT_VERSION, BRAND_LOGO_MAX_BYTES, BRAND_MAX_BYTES, DEFAULT_BRAND, PLAIN_BRAND, TUI_TITLE};
@@ -98,7 +100,7 @@ impl LoadError {
             LoadError::BadName(e) => e.clone(),
             LoadError::Missing(p) => format!(
                 "brand file {} is missing, and there is no built-in with that name. Using the default brand. \
-                 Pick one with the header's «brand» ▾ switch, or add a file under ~/.acp/brands.",
+                 Pick a theme with F5, or add a file under ~/.acp/brands.",
                 p.display()
             ),
             LoadError::Broken(p, e) => format!(
@@ -166,6 +168,38 @@ pub fn builtin_plain() -> Brand {
         logo_file: String::new(),
         logo_path: None,
         from_file: false,
+    }
+}
+
+/// The theme's `[brand]` table for this brand.
+pub fn theme_brand_of(b: &Brand) -> crate::themes::ThemeBrand {
+    crate::themes::ThemeBrand {
+        title: b.title.clone(),
+        motto: b.motto.clone(),
+        word: b.word.clone(),
+        logo: b.logo.as_str().into(),
+        logo_text: b.logo_text.clone(),
+        logo_file: b.logo_file.clone(),
+    }
+}
+
+/// A brand from a theme's `[brand]` table. A `file` logo is resolved only when `dir` is set.
+pub fn from_theme_brand(name: &str, b: &crate::themes::ThemeBrand, dir: Option<&Path>) -> Brand {
+    let brand = Brand {
+        name: name.into(),
+        description: String::new(),
+        title: b.title.clone(),
+        motto: b.motto.clone(),
+        word: b.word.clone(),
+        logo: LogoKind::parse(&b.logo).unwrap_or(LogoKind::Builtin),
+        logo_text: b.logo_text.clone(),
+        logo_file: b.logo_file.clone(),
+        logo_path: None,
+        from_file: false,
+    };
+    match (dir, brand.logo) {
+        (Some(dir), LogoKind::File) => finalize(&brand, dir).unwrap_or(brand),
+        _ => brand,
     }
 }
 

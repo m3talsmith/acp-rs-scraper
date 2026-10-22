@@ -163,12 +163,12 @@ fn about_header_is_the_slogan() {
 #[test]
 fn the_footer_slogan_is_right_aligned_only_when_the_status_line_still_fits() {
     let mut a = app();
-    let narrow = buffer(&mut a, 140, 30);
+    let narrow = buffer(&mut a, 130, 30);
     assert!(
         slogans(&narrow)
             .iter()
             .all(|&(_, y)| y + 1 != narrow.area.height),
-        "140 still covers the default hint"
+        "130 still covers the default hint"
     );
     assert!(row(&narrow, narrow.area.height - 1).contains("? help"));
     assert!(row(&narrow, narrow.area.height - 1).contains("q quit"));
@@ -199,13 +199,13 @@ fn the_footer_slogan_is_right_aligned_only_when_the_status_line_still_fits() {
     assert!(row(&buf, y).contains("scan finished"));
 
     a.status.clear();
-    a.push_status("x".repeat(50));
+    a.push_status("x".repeat(58));
     let buf = buffer(&mut a, 80, 30);
     assert!(
         slogans(&buf).iter().all(|&(_, y)| y + 1 != buf.area.height),
-        "a 50-column line leaves no room at 80"
+        "a 58-column line leaves no room at 80"
     );
-    assert!(row(&buf, buf.area.height - 1).contains(&"x".repeat(50)));
+    assert!(row(&buf, buf.area.height - 1).contains(&"x".repeat(58)));
 }
 
 #[test]

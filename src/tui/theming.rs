@@ -26,6 +26,12 @@ impl App {
             Ok(l) => {
                 if let Some(n) = themes::warning_notice(&l.path, &l.warnings) { self.push_status(n); }
                 let t = Theme::from_file(&l.file, self.variant());
+                let has_brand = l.file.brand.is_some();
+                if !self.brand_pinned || has_brand {
+                    let b = self.branding_of(&l.file);
+                    self.install_brand(b);
+                    if has_brand { self.brand_pinned = false; }
+                }
                 self.theme_file = Some(l.file);
                 self.theme_error = None;
                 self.theme_fault = None;
@@ -64,33 +70,89 @@ impl App {
     pub fn theme_entries(&self) -> Vec<themes::Entry> { self.themes_dir.as_deref().map(themes::list).unwrap_or_default() }
 
     /// Open the theme picker (F5).
+    /// Branding for `file`: its `[brand]`, else `~/.acp/brands/<name>.toml`, else a built-in.
+    pub fn branding_of(&self, file: &themes::ThemeFile) -> crate::brands::Brand {
+        if let Some(b) = &file.brand {
+            return crate::brands::from_theme_brand(&file.name, b, self.brands_dir.as_deref());
+        }
+        if let Some(dir) = &self.brands_dir && let Ok(b) = crate::brands::resolve(dir, &file.name) {
+            return b;
+        }
+        match file.name.as_str() {
+            "plain" => crate::brands::builtin_plain(),
+            _ => crate::brands::builtin_default(),
+        }
+    }
+
+    /// Put `brand` on screen (header, menus, About). Does not write preferences.
+    pub fn install_brand(&mut self, brand: crate::brands::Brand) {
+        self.brand_name = brand.name.clone();
+        self.menu.menu.apply_brand(&brand);
+        crate::brands::install(&brand);
+        self.brand_error = None;
+        self.brand_fault = None;
+        self.brand = brand;
+    }
+
+    /// Open the theme picker (F5).
     pub fn open_theme_picker(&mut self) {
         let entries = self.theme_entries();
-        self.modal = Some(Modal::ThemePicker(Box::new(ThemePickerModal::new(entries, &self.theme_name, self.theme))));
+        self.modal = Some(Modal::ThemePicker(Box::new(ThemePickerModal::new(entries, &self.theme_name, self.theme, self.brand.clone()))));
         self.note_no_color();
     }
 
     /// Show the highlighted picker entry (without selecting it).
     pub fn preview_picker(&mut self) {
         let Some(Modal::ThemePicker(p)) = &self.modal else { return };
-        let (Some(name), Some(dir)) = (p.highlighted().map(str::to_string), self.themes_dir.clone()) else {
-            let t = p.restore;
-            self.apply_theme(t);
-            return;
-        };
-        let t = themes::load(&dir, &name).map(|l| Theme::from_file(&l.file, self.variant())).unwrap_or(p.restore);
-        self.apply_theme(t);
+        let restore = p.restore;
+        let restore_brand = p.restore_brand.clone();
+        let highlighted = p.highlighted().map(str::to_string);
+        let dir = self.themes_dir.clone();
+        let loaded = highlighted.zip(dir).and_then(|(name, dir)| themes::load(&dir, &name).ok());
+        match loaded {
+            Some(l) => {
+                if !self.brand_pinned {
+                    let b = self.branding_of(&l.file);
+                    self.install_brand(b);
+                }
+                self.apply_theme(Theme::from_file(&l.file, self.variant()));
+            }
+            None => {
+                if !self.brand_pinned { self.install_brand(restore_brand); }
+                self.apply_theme(restore);
+            }
+        }
     }
 
     /// The picker closed.
     pub fn theme_picked(&mut self, p: ThemePickerModal, r: ModalResult) {
+        let choice = p.chosen();
         let restore = p.restore;
-        match (r, p.chosen()) {
-            (ModalResult::ClosedSubmitted, PickerChoice::Theme(name)) => { self.use_theme(&name, true); }
-            (ModalResult::ClosedSubmitted, PickerChoice::Edit) => { self.apply_theme(restore); self.open_theme_editor(); }
-            (ModalResult::ClosedSubmitted, PickerChoice::Download) => { self.apply_theme(restore); self.init_theme(); }
-            (ModalResult::ClosedSubmitted, PickerChoice::Starter) => { self.apply_theme(restore); self.write_starter_theme(None, true); }
-            _ => self.apply_theme(restore),
+        let restore_brand = p.restore_brand;
+        match (r, choice) {
+            (ModalResult::ClosedSubmitted, PickerChoice::Theme(name)) => {
+                self.brand_pinned = false;
+                self.use_theme(&name, true);
+            }
+            (ModalResult::ClosedSubmitted, PickerChoice::Edit) => {
+                self.install_brand(restore_brand);
+                self.apply_theme(restore);
+                self.open_theme_editor();
+            }
+            (ModalResult::ClosedSubmitted, PickerChoice::Download) => {
+                self.install_brand(restore_brand);
+                self.apply_theme(restore);
+                self.init_theme();
+            }
+            (ModalResult::ClosedSubmitted, PickerChoice::Starter) => {
+                self.install_brand(restore_brand);
+                self.apply_theme(restore);
+                self.write_starter_theme(None, true);
+            }
+            _ => {
+                self.install_brand(restore_brand);
+                self.apply_theme(restore);
+            }
         }
     }
 
@@ -112,7 +174,10 @@ impl App {
             let mark = if e.name == self.theme_name { "●" } else { " " };
             lines.push(match e.error {
                 Some(err) => format!("{mark} {}  ⚠ can't be used: {err}", e.name),
-                None => format!("{mark} {}  {}", e.name, e.description),
+                None => {
+                    let title = if e.title.is_empty() { String::new() } else { format!("  · {}", e.title) };
+                    format!("{mark} {}  {}{title}", e.name, e.description)
+                }
             });
         }
         lines.push(String::new());
@@ -123,7 +188,7 @@ impl App {
     /// Export the selected theme (a copy in the exports folder).
     pub fn export_theme(&mut self) {
         match self.theme_file.clone() {
-            Some(f) => self.effects.push(Effect::ExportTheme(f)),
+            Some(f) => self.effects.push(Effect::ExportTheme(Box::new(f))),
             None => self.error("Export theme", self.theme_error.clone().as_deref().unwrap_or("no theme loaded")),
         }
     }

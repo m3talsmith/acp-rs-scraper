@@ -58,7 +58,7 @@ These paths are the white-label app. They are not moved, and they are not in the
 | Political history posts | `docs/history/` |
 | Packaging, changelog history, the export example name `comrades` | kept; history text is not rewritten except where the replace-text spec hits a site endpoint or frame literal |
 
-Public pages stay as written: `https://acp.us/join`, `https://acp.us/program`, `https://acp.us/docs`. The slogan "The future belongs to the working class" stays. "Neon Lust" stays.
+Public pages stay as written: `https://acp.us/join`, `https://acp.us/program`, `https://acp.us/docs`. The slogan "Research starts here." stays. "Neon Lust" stays.
 
 ## What moves to acp--red-star-service
 
@@ -300,7 +300,7 @@ After the scrub is pushed, GitHub can still serve the old commits from a closed 
 
 ## Default brand (on hold)
 
-Pull request #57 keeps the built-in `default` brand as ACP Red Star (logo, big ACP, title, "The future belongs to the working class"). `plain` stays opt-in: `acp-red-star --brand plain`, or `[ui] brand = "plain"` in `~/.acp/preferences.toml`. This plan does not change that.
+Pull request #57 keeps the built-in `default` brand as ACP Red Star (logo, big ACP, title, "Research starts here."). `plain` stays opt-in: `acp-red-star --brand plain`, or `[ui] brand = "plain"` in `~/.acp/preferences.toml`. This plan does not change that.
 
 Options, with no recommendation:
 

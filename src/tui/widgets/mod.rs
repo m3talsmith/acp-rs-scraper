@@ -197,29 +197,21 @@ pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
         (false, Some(f)) => format!("‹{}: {f}› ▾", app.theme_name),
         (false, None) => format!("‹{}› ▾", app.theme_name),
     };
-    let bfault = app.brand_fault.or(app.brand_error.is_some().then_some("broken"));
-    let bswitch = match bfault {
-        Some(f) => format!("«{}: {f}» ▾", app.brand_name),
-        None => format!("«{}» ▾", app.brand_name),
-    };
     let right = format!("  {session} ");
     let rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
-    let used = left.chars().count() + job.chars().count() + bswitch.chars().count() + switch.chars().count() + right.chars().count();
+    let used = left.chars().count() + job.chars().count() + switch.chars().count() + right.chars().count();
     let pad = (rest.width as usize).saturating_sub(used);
-    let bsw_x = rest.x + (left.chars().count() + pad + job.chars().count()) as u16;
-    let sw_x = bsw_x + bswitch.chars().count() as u16;
+    let sw_x = rest.x + (left.chars().count() + pad + job.chars().count()) as u16;
     if (used as u16) < rest.width {
         if !job_body.is_empty() {
             let job_x = rest.x + (left.chars().count() + pad) as u16;
             let w = job_body.chars().count() as u16;
             if w > 0 { app.hits.push((Rect { x: job_x, y: rest.y, width: w, height: 1 }, Hit::Job)); }
         }
-        app.hits.push((Rect { x: bsw_x, y: rest.y, width: bswitch.chars().count() as u16, height: 1 }, Hit::BrandSwitch));
         app.hits.push((Rect { x: sw_x, y: rest.y, width: switch.chars().count() as u16, height: 1 }, Hit::ThemeSwitch));
     }
     f.render_widget(Paragraph::new(Line::from(vec![
         Span::styled(left, t.bar().bold(true)), Span::styled(" ".repeat(pad), &bar), Span::styled(job, &bar),
-        Span::styled(bswitch, t.bar().underline(true)),
         Span::styled(switch, t.bar().underline(true)), Span::styled(right, &bar),
     ])), rest);
     if r.width > 2 && r.height > 0 {

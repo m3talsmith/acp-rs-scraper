@@ -267,7 +267,7 @@ pub struct Args {
     /// Use this theme (a file in ~/.acp/themes, without .toml) in the terminal UI for this run; ui.theme in preferences.toml sets it for good.
     #[arg(long, value_name = "NAME", help_heading = "Interface")]
     pub theme: Option<String>,
-    /// Use this brand (a built-in, or a file in ~/.acp/brands, without .toml) for this run. plain is a neutral title and star with no motto. ui.brand in preferences.toml sets it for good. A brand is independent of the theme.
+    /// Use this brand (a built-in, or a file in ~/.acp/brands, without .toml) for this run. plain is a neutral title and star with no motto. ui.brand in preferences.toml sets it for good. Branding is part of a theme; --brand still selects the logo, title, and motto, and saving a theme writes them into the theme file.
     #[arg(long, value_name = "NAME", help_heading = "Interface")]
     pub brand: Option<String>,
     /// List built-in brands and the files in ~/.acp/brands (● marks the one in use; broken files say why) and exit.

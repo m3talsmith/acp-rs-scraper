@@ -31,7 +31,7 @@ Embedded AI assistance is **not** a 3.0 focus; that waits for a later 4.0 line s
 
 ## Why this matters for the ACP and Red Star
 
-Our slogan points forward: **the future belongs to the working class.** A party forum that only lives behind one website is fragile. Members should be able to:
+Our slogan points forward: **Research starts here.** A party forum that only lives behind one website is fragile. Members should be able to:
 
 - Keep a **local archive** of education, debate, and organizing discussion
 - Work **offline** on what they already have

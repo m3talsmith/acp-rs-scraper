@@ -56,6 +56,13 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
         let base = if sel { ui.selected() } else { ui.plain() };
         let line = match r {
             Row::Heading(t) => Line::styled(format!(" {t}"), ui.accent_bold()),
+            Row::Brand(k) => {
+                let typing = ed.editing.as_ref().is_some_and(|e| e.key == *k);
+                let v = if typing { ed.editing.as_ref().map(|e| format!("{}▏", e.field.value)).unwrap_or_default() } else { ed.row_value(r) };
+                let room = (inner.width as usize).saturating_sub(16);
+                let v: String = if v.chars().count() > room { v.chars().take(room.saturating_sub(1)).chain(['…']).collect() } else { v };
+                Line::from(vec![Span::styled(format!(" {k:<11} {v}{mark}"), &base)])
+            }
             Row::Palette(n) => Line::from(vec![Span::raw(" "), swatch(ed.row_color(r)), Span::styled(format!(" {n:<11} {:<10}{mark}", ed.row_value(r)), &base),
                 Span::styled(warn, ui.accent_bold())]),
             Row::Element(e) => {
@@ -113,13 +120,17 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
     if let Some(h) = hint {
         f.render_widget(Paragraph::new(Span::styled(format!(" {h}"), ui.accent_bold())), Rect { height: 1, ..foot });
     }
-    let (err, text) = ed.message.clone().unwrap_or_else(|| (false, match ed.current() {
+    let (err, text) = ed.message.clone().unwrap_or_else(|| (false, if ed.editing.is_some() {
+        "typing · the preview updates with each key · Enter or Esc stops".into()
+    } else { match ed.current() {
+        Row::Brand("logo") => "Enter cycles builtin / text / file · the preview updates at once".into(),
+        Row::Brand(_) => "Enter edits · the preview updates as you type · Esc stops".into(),
         Row::Palette(n) => PALETTE_KEYS.iter().find(|(k, _)| *k == n).map(|(_, a)| a.to_string()).unwrap_or_else(|| format!("@{n}: your own colour for references")) + " · Enter picks · Del resets · a adds a colour",
         Row::Element(e) => format!("{} · Enter shows its keys · Del clears its overrides · r reverts", e.about()),
         Row::Field(_, k) if ["fg", "bg", "border"].contains(&k) => "Enter picks a colour · Del clears (built-in)".into(),
         Row::Field(..) => "Enter cycles on / off / built-in · Del clears".into(),
         Row::Heading(_) => String::new(),
-    }));
+    } }));
     let msg = Rect { y: foot.y + u16::from(hint.is_some()), height: 1, ..foot };
     f.render_widget(Paragraph::new(Span::styled(format!(" {text}"), if err { ui.accent_bold() } else { ui.muted() })), msg);
 

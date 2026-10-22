@@ -463,7 +463,10 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                         let cur = if e.name == p.current { "●" } else { " " };
                         match &e.error {
                             Some(err) => (format!(" {cur} {:<16} ⚠ {err}", e.name), true),
-                            None => (format!(" {cur} {:<16} {}", e.name, e.description), false),
+                            None => {
+                                let label = if e.title.is_empty() { e.description.clone() } else { e.title.clone() };
+                                (format!(" {cur} {:<12} {label}", e.name), false)
+                            }
                         }
                     }
                     None => (match p.action_row(i) {

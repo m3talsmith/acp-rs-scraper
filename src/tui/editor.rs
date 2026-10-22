@@ -1,13 +1,14 @@
-//! The theme editor (Shift-F5): full screen, the palette and every element on the
-//! left (swatch, value, `*` when changed, `⚠` below 3:1 contrast), a live preview
-//! on the right drawn by the real UI code over sample posts. `Tab` flips dark /
-//! light; colours come from a hex field or a grid (16 colours, the 216 cube, 24
-//! greys, `@` palette references). `^S` saves, `^R` reverts, `^N` new, `^D`
-//! duplicate, `^X` delete, `[` `]` other themes, `Esc` closes (asking first when
-//! there are unsaved changes).
+//! The theme editor (Shift-F5): full screen, branding then the palette and every
+//! element on the left (swatch, value, `*` when changed, `⚠` below 3:1 contrast),
+//! a live preview on the right drawn by the real UI code over sample posts. The
+//! preview follows branding (logo, title, motto) as you type, and colours as you
+//! set them. `Tab` flips dark / light; colours come from a hex field or a grid
+//! (16 colours, the 216 cube, 24 greys, `@` palette references). `^S` saves, `^R`
+//! reverts, `^N` new, `^D` duplicate, `^X` delete, `[` `]` other themes, `Esc`
+//! closes (asking first when there are unsaved changes).
 
 use crate::prelude::*;
-use crate::themes::{self, ColorSpec, Element, PALETTE_KEYS, STYLE_KEYS, ThemeFile, Variant, contrast};
+use crate::themes::{self, ColorSpec, Element, PALETTE_KEYS, STYLE_KEYS, ThemeBrand, ThemeFile, Variant, contrast};
 use crate::tui::state::{App, Focus};
 use crate::tui::theme::Theme;
 use crate::tui::widgets::text::TextField;
@@ -19,12 +20,26 @@ use ratatui::style::Color;
 pub enum Row {
     /// A section heading.
     Heading(&'static str),
+    /// One branding field (`title`, `motto`, `word`, `logo`, `logo_text`, `logo_file`).
+    Brand(&'static str),
     /// A palette colour.
     Palette(String),
     /// An element (Enter shows its keys).
     Element(Element),
     /// One key of the expanded element.
     Field(Element, &'static str),
+}
+
+/// Branding rows, in editor order.
+pub const BRAND_ROWS: [&str; 6] = ["title", "motto", "word", "logo", "logo_text", "logo_file"];
+
+/// A branding line being typed. Each key updates the preview.
+#[derive(Clone, Debug, PartialEq)]
+pub struct BrandEdit {
+    /// Which [`BRAND_ROWS`] key.
+    pub key: &'static str,
+    /// The line so far.
+    pub field: TextField,
 }
 
 /// What a colour pick changes.
@@ -118,6 +133,8 @@ pub struct ThemeEditor {
     pub truecolor: bool,
     /// The preview: the real UI over sample posts.
     pub preview: Box<App>,
+    /// A branding line open for typing. The preview updates on each key.
+    pub editing: Option<BrandEdit>,
 }
 
 /// After a key: keep the editor open or close it.
@@ -153,13 +170,22 @@ impl ThemeEditor {
     pub fn open(app: &App, name: &str) -> Self {
         let dir = app.themes_dir.clone().unwrap_or_default();
         let disk = themes::theme_path(&dir, name).ok().and_then(|p| std::fs::read_to_string(p).ok());
-        let (file, saved, message, broken) = match themes::load(&dir, name) {
+        let (mut file, mut saved, message, broken) = match themes::load(&dir, name) {
             Ok(l) => (l.file.clone(), Some(l.file), None, false),
             Err(e) => (ThemeFile::empty(name), None, Some((true, e.notice())), matches!(e, themes::LoadError::Broken(..))),
         };
+        // A theme file with no [brand] shows the branding already on screen, so saving
+        // writes it into the theme. Both copies match, so opening is not a change.
+        if file.brand.is_none() {
+            let seeded = crate::brands::theme_brand_of(&app.brand);
+            file.brand = Some(seeded.clone());
+            if let Some(s) = saved.as_mut() { s.brand = Some(seeded); }
+        }
+        let shown = file.brand.as_ref().map(|b| crate::brands::from_theme_brand(&file.name, b, app.brands_dir.as_deref()))
+            .unwrap_or_else(|| app.brand.clone());
         let t = Theme::from_file(&file, app.variant());
         let mut ed = ThemeEditor { file, saved, variant: app.variant(), cursor: 1, scroll: 0, expanded: None, picker: None, prompt: None, message, highlight: true,
-            disk, broken, truecolor: truecolor(std::env::var("COLORTERM").ok().as_deref()), preview: preview_app(t, &app.brand_name, &app.brand) };
+            disk, broken, truecolor: truecolor(std::env::var("COLORTERM").ok().as_deref()), preview: preview_app(t, &shown.name, &shown), editing: None };
         ed.sync_preview();
         ed
     }
@@ -167,7 +193,7 @@ impl ThemeEditor {
     /// What the selected row is called in the preview title (`None` for a heading).
     pub fn row_name(&self) -> Option<String> {
         match self.current() {
-            Row::Heading(_) => None,
+            Row::Heading(_) | Row::Brand(_) => None,
             Row::Palette(n) => Some(format!("@{n}")),
             Row::Element(e) => Some(e.name().to_string()),
             Row::Field(e, k) => Some(format!("{}.{k}", e.name())),
@@ -179,7 +205,7 @@ impl ThemeEditor {
     /// with it and with [`ThemeEditor::theme`] shows which cells that row paints.
     pub fn marked_theme(&self) -> Option<Theme> {
         let row = self.current();
-        if matches!(row, Row::Heading(_)) { return None; }
+        if matches!(row, Row::Heading(_) | Row::Brand(_)) { return None; }
         let base = self.theme();
         let mut used: Vec<Color> = vec![base.accent, base.muted, base.border, base.on_accent, base.fg, base.bg];
         for e in Element::ALL {
@@ -199,7 +225,7 @@ impl ThemeEditor {
                 if e.is_box() { st.set_color("border", Some(ColorSpec::Value(a))); }
                 s.set_style(e, st);
             }
-            Row::Heading(_) => {}
+            Row::Heading(_) | Row::Brand(_) => {}
         }
         Some(Theme::from_file(&f, self.variant))
     }
@@ -210,7 +236,12 @@ impl ThemeEditor {
     /// The edited theme in the shown variant.
     pub fn theme(&self) -> Theme { Theme::from_file(&self.file, self.variant) }
 
-    fn sync_preview(&mut self) { self.preview.theme = self.theme(); }
+    fn sync_preview(&mut self) {
+        self.preview.theme = self.theme();
+        if let Some(b) = &self.file.brand {
+            self.preview.brand = crate::brands::from_theme_brand(&self.file.name, b, None);
+        }
+    }
 
     /// Palette names in the shown variant: the six used ones, then any others.
     pub fn palette_names(&self) -> Vec<String> {
@@ -222,7 +253,9 @@ impl ThemeEditor {
 
     /// The list rows.
     pub fn rows(&self) -> Vec<Row> {
-        let mut v = vec![Row::Heading("Palette")];
+        let mut v = vec![Row::Heading("Branding")];
+        v.extend(BRAND_ROWS.map(Row::Brand));
+        v.push(Row::Heading("Palette"));
         v.extend(self.palette_names().into_iter().map(Row::Palette));
         v.push(Row::Heading("Elements"));
         for e in Element::ALL {
@@ -248,6 +281,7 @@ impl ThemeEditor {
     pub fn row_value(&self, r: &Row) -> String {
         let s = self.file.section(self.variant);
         match r {
+            Row::Brand(k) => self.file.brand.as_ref().map(|b| brand_field(b, k)).filter(|s| !s.is_empty()).unwrap_or_else(|| "–".into()),
             Row::Palette(n) => s.get(n).map(themes::color_text).unwrap_or_else(|| "(unset)".into()),
             Row::Element(e) => {
                 let st = s.style(*e);
@@ -271,6 +305,7 @@ impl ThemeEditor {
         let Some(saved) = &self.saved else { return !matches!(r, Row::Heading(_)) };
         let (a, b) = (self.file.section(self.variant), saved.section(self.variant));
         match r {
+            Row::Brand(k) => self.file.brand.as_ref().map(|x| brand_field(x, k)) != saved.brand.as_ref().map(|x| brand_field(x, k)),
             Row::Palette(n) => a.get(n) != b.get(n),
             Row::Element(e) => a.style(*e) != b.style(*e),
             Row::Field(e, k) => { let (x, y) = (a.style(*e), b.style(*e)); x.color(k) != y.color(k) || x.flag(k) != y.flag(k) }
@@ -400,6 +435,15 @@ impl ThemeEditor {
 
     fn activate(&mut self) {
         match self.current() {
+            Row::Brand("logo") => {
+                let b = self.file.brand.get_or_insert_with(ThemeBrand::red_star);
+                b.logo = cycle_logo(&b.logo).into();
+                self.sync_preview();
+            }
+            Row::Brand(k) => {
+                let v = self.file.brand.as_ref().map(|b| brand_field(b, k)).unwrap_or_default();
+                self.editing = Some(BrandEdit { key: k, field: TextField::new(&v) });
+            }
             Row::Palette(n) => self.open_picker(Target::Palette(n)),
             Row::Element(e) => { self.expanded = if self.expanded == Some(e) { None } else { Some(e) }; }
             Row::Field(e, k) if ["fg", "bg", "border"].contains(&k) => self.open_picker(Target::Field(e, k)),
@@ -417,6 +461,12 @@ impl ThemeEditor {
     fn clear(&mut self) {
         let v = self.variant;
         match self.current() {
+            Row::Brand("logo") => {
+                if let Some(b) = self.file.brand.as_mut() { b.logo = "builtin".into(); }
+            }
+            Row::Brand(k) => {
+                if let Some(b) = self.file.brand.as_mut() { set_brand_field(b, k, String::new()); }
+            }
             Row::Palette(n) => {
                 let core = PALETTE_KEYS.iter().any(|(k, _)| *k == n);
                 let sec = self.file.section_mut(v);
@@ -466,10 +516,16 @@ impl ThemeEditor {
     /// element's overrides, or one key of an element.
     pub fn revert_row(&mut self) {
         let row = self.current();
+        if let Row::Brand(k) = &row {
+            let old = self.saved.as_ref().and_then(|s| s.brand.as_ref()).map(|b| brand_field(b, k)).unwrap_or_default();
+            let b = self.file.brand.get_or_insert_with(ThemeBrand::red_star);
+            set_brand_field(b, k, old);
+        } else {
         let saved = self.saved.as_ref().map(|s| s.section(self.variant)).unwrap_or_default();
         let s = self.file.section_mut(self.variant);
         match &row {
             Row::Heading(_) => return,
+            Row::Brand(_) => {}
             Row::Palette(n) => match saved.get(n) {
                 Some(c) => s.set(n, c.clone()),
                 None => s.palette.retain(|(k, _)| k != n),
@@ -482,10 +538,11 @@ impl ThemeEditor {
                 s.set_style(*e, st);
             }
         }
+        }
         // Nothing left that differs: the file is the saved one again (e.g. no `[light]` copy).
         if let Some(sv) = &self.saved
             && [Variant::Dark, Variant::Light].iter().all(|v| self.file.section(*v) == sv.section(*v))
-            && self.file.name == sv.name && self.file.description == sv.description {
+            && self.file.name == sv.name && self.file.description == sv.description && self.file.brand == sv.brand {
             self.file = sv.clone();
         }
         self.message = Some((false, format!("{} reverted", self.row_name().unwrap_or_default())));
@@ -613,9 +670,25 @@ impl ThemeEditor {
     }
 
     /// Handle a key.
+    fn edit_key(&mut self, k: KeyEvent) {
+        let Some(mut edit) = self.editing.take() else { return };
+        match k.code {
+            KeyCode::Enter | KeyCode::Esc => (),
+            _ => {
+                edit.field.on_key(k);
+                let b = self.file.brand.get_or_insert_with(ThemeBrand::red_star);
+                set_brand_field(b, edit.key, edit.field.value.clone());
+                self.editing = Some(edit);
+                self.sync_preview();
+            }
+        }
+    }
+
+    /// Handle a key.
     pub fn on_key(&mut self, app: &mut App, k: KeyEvent) -> Outcome {
         if self.prompt.is_some() { return self.prompt_key(app, k); }
         if self.picker.is_some() { self.picker_key(k); return Outcome::Stay; }
+        if self.editing.is_some() { self.edit_key(k); return Outcome::Stay; }
         let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
         self.message = None;
         match k.code {
@@ -657,7 +730,7 @@ impl ThemeEditor {
 
     /// A click on list row `i` selects it (a second click activates it).
     pub fn click_row(&mut self, i: usize) {
-        if self.prompt.is_some() || self.picker.is_some() { return; }
+        if self.prompt.is_some() || self.picker.is_some() || self.editing.is_some() { self.editing = None; return; }
         if matches!(self.rows().get(i), Some(Row::Heading(_)) | None) { return; }
         if self.cursor == i { self.activate(); } else { self.cursor = i; }
     }
@@ -711,9 +784,41 @@ pub fn warning(f: &ThemeFile, v: Variant, r: &Row) -> Option<f64> {
             if st.add_modifier.contains(ratatui::style::Modifier::REVERSED) { std::mem::swap(&mut a, &mut b); }
             contrast(a, b)
         }
-        Row::Heading(_) => None,
+        Row::Heading(_) | Row::Brand(_) => None,
     };
     ratio.filter(|x| *x < THEME_MIN_CONTRAST)
+}
+
+fn brand_field(b: &ThemeBrand, k: &str) -> String {
+    match k {
+        "title" => b.title.clone(),
+        "motto" => b.motto.clone(),
+        "word" => b.word.clone(),
+        "logo" => b.logo.clone(),
+        "logo_text" => b.logo_text.clone(),
+        "logo_file" => b.logo_file.clone(),
+        _ => String::new(),
+    }
+}
+
+fn set_brand_field(b: &mut ThemeBrand, k: &str, v: String) {
+    match k {
+        "title" => b.title = v,
+        "motto" => b.motto = v,
+        "word" => b.word = v,
+        "logo" => b.logo = v,
+        "logo_text" => b.logo_text = v,
+        "logo_file" => b.logo_file = v,
+        _ => {}
+    }
+}
+
+fn cycle_logo(cur: &str) -> &'static str {
+    match cur {
+        "text" => "file",
+        "file" => "builtin",
+        _ => "text",
+    }
 }
 
 /// Whether `$COLORTERM` says the terminal shows 24-bit colour.

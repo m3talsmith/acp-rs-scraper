@@ -133,8 +133,10 @@ fn save_is_atomic_private_and_lists_back() {
     std::fs::write(d.join("broken.toml"), "nope = [").unwrap();
     std::fs::write(d.join("Not-Valid.toml"), "").unwrap();
     let l = list(&d);
-    assert_eq!(l.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["broken", "mine"]);
+    assert_eq!(l.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["broken", "mine", "plain", "red-star"]);
     assert!(l[0].error.is_some() && l[1].description == "Mine");
+    assert!(l.iter().any(|e| e.name == "plain" && e.builtin && e.title == "Red Star"));
+    assert!(l.iter().any(|e| e.name == "red-star" && e.builtin && e.title == "ACP Red Star"));
     assert!(std::fs::read_dir(&d).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().ends_with(".tmp")), "no temp files left");
     delete(&d, "mine").unwrap();
     assert!(!p.exists());
@@ -193,6 +195,27 @@ fn contrast_ratios() {
     assert_eq!(contrast(Color::Reset, Color::White), None);
     assert_eq!(rgb(Color::Indexed(196)), Some((255, 0, 0)));
     assert_eq!(rgb(Color::Indexed(232)), Some((8, 8, 8)));
+}
+
+#[test]
+fn a_brand_table_round_trips_and_builtins_carry_branding() {
+    let src = "version = 1\nname = \"mine\"\n[brand]\ntitle = \"North Star\"\nmotto = \"hold the line\"\nword = \"NS\"\nlogo = \"text\"\nlogo_text = \"N\"\nlogo_file = \"\"\n[dark.palette]\naccent = \"#112233\"\n";
+    let (f, w) = parse(src, "mine").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    let b = f.brand.clone().unwrap();
+    assert_eq!((b.title.as_str(), b.motto.as_str(), b.logo.as_str(), b.logo_text.as_str()), ("North Star", "hold the line", "text", "N"));
+    let (again, w2) = parse(&to_toml(&f), "mine").unwrap();
+    assert!(w2.is_empty(), "{w2:?}");
+    assert_eq!(again.brand, f.brand);
+    let red = builtin_red_star();
+    assert_eq!(red.dark.color("accent"), Color::Rgb(0xc8, 0x10, 0x2e));
+    assert_eq!(red.dark.color("bg"), Color::Rgb(0x0e, 0x04, 0x04));
+    assert_eq!(red.brand.as_ref().unwrap().title, "ACP Red Star");
+    let plain = builtin_plain();
+    assert_ne!(plain.dark.color("accent"), red.dark.color("accent"));
+    assert_eq!(plain.brand.as_ref().unwrap().title, "Red Star");
+    assert!(plain.brand.as_ref().unwrap().motto.is_empty());
+    assert!(plain.brand.as_ref().unwrap().logo_text.contains('★'));
 }
 
 #[test]

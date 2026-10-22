@@ -1,7 +1,8 @@
 Feature: Brands
-  The logo, title, and motto are a brand. Built-ins ship with the program.
-  A file in ~/.acp/brands overrides a built-in of the same name. --brand selects
-  one for this run. The theme is a different choice.
+  The logo, title, and motto travel with a theme. Built-in brands still ship
+  with the program. A file in ~/.acp/brands overrides a built-in of the same
+  name. --brand selects one for this run. Saving a theme writes that branding
+  into the theme file.
 
   Background:
     Given a mock Red Star site
@@ -14,7 +15,7 @@ Feature: Brands
     And stdout contains "plain"
     And stdout contains "Red Star"
     And stdout contains "(no motto)"
-    And stdout contains "The future belongs to the working class"
+    And stdout contains "Research starts here."
 
   Scenario: --brand plain changes help and version and does not save the choice
     When I run "--brand plain -h"
@@ -34,6 +35,16 @@ Feature: Brands
     When I run "--help"
     Then stdout contains "ACP Red Star"
 
+  Scenario: The theme editor preview sits beside the editor and follows branding
+    When I edit the theme preview branding to title "North Star", motto "hold the line", and logo text "NS"
+    Then the theme preview contains "Theme editor"
+    And the theme preview contains "Branding"
+    And the theme preview contains "Preview (sample posts)"
+    And the theme preview contains "North Star"
+    And the theme preview contains "hold the line"
+    And the theme preview contains "NS"
+    And the theme preview contains "#112233"
+
   Scenario: The theme editor preview uses the selected brand and the sample nicks
     When I open the theme editor preview on the brand "plain"
     Then the theme preview contains "Red Star"
@@ -41,7 +52,7 @@ Feature: Brands
     And the theme preview contains "@sample"
     And the theme preview contains "@reader"
     And the theme preview does not contain "ACP Red Star"
-    And the theme preview does not contain "The future belongs to the working class"
+    And the theme preview does not contain "Research starts here."
     And the theme preview does not contain "comrade"
 
   Scenario: --brand plain still opens the terminal UI

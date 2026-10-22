@@ -7,7 +7,7 @@
 │ ★ Bookmarks (1)          ││Select a nick on the left  0 posts                                                            [Order: newest ▸]  [View: Nested ▸] │
 │ EB                       ││                                                                                                                                  │
 │ Explore                  ││ACP Red Star                                                                                                                      │
-│ / filter nicks (/)       ││The future belongs to the working class                                                                                           │
+│ / filter nicks (/)       ││Research starts here.                                                                                                             │
 │ @alice                 3 ││                                                                                                                                  │
 │ @bob                   2 ││Click a nick (Space / Ctrl-click to select several) to read their posts and replies.                                              │
 │                          ││                                                                                                                                  │
@@ -42,4 +42,4 @@
 │                          ││                                                                                                                                  │
 │                          ││                                                                                                                                  │
 └──────────────────────────┘└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit             The future belongs to the working class
+? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit             Research starts here.                  
