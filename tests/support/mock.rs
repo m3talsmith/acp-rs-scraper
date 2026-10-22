@@ -56,6 +56,9 @@ pub struct Inner {
     pub theme_gets: usize,
     /// Cookie headers sent with `/themes/...` requests (there must be none).
     pub theme_cookies: Vec<String>,
+    /// `/rs/explore` answers a LiveView page, and its `phx_join` never replies.
+    /// Heartbeats still do.
+    pub explore_hang: bool,
     /// Reply-edit `validate` events. A top-level post edit must stay at 0.
     pub edit_validates: usize,
     /// Reply-edit `save` events. One confirmed reply edit sends one.
@@ -227,6 +230,12 @@ fn bookmark_feed(m: &Mock) -> Vec<Value> {
     v
 }
 
+async fn explore_page(State(_m): State<Mock>, h: HeaderMap) -> Response {
+    if !logged_in(&h) { return to_auth("/rs/explore"); }
+    // No forum/Feed: the client joins the LiveView instead of reading props.
+    html(lv_page(r#"<div id="explore"></div>"#))
+}
+
 async fn bookmarks_page(State(m): State<Mock>, h: HeaderMap) -> Response {
     if !logged_in(&h) { return to_auth("/rs/bookmarks"); }
     let props = page_of(&bookmark_feed(&m), 0);
@@ -380,12 +389,17 @@ async fn lv_conn(m: Mock, mut ws: WebSocket) {
                     vec![reply(&msg, json!({"rendered": {"s": [form]}}))]
                 } else {
                     let url = payload["url"].as_str().unwrap_or("");
-                    c.auth = url.contains("/auth");
-                    c.replies = url.contains("replies=1");
-                    c.bookmarks = url.contains("/rs/bookmarks");
-                    c.nick = url.split("/rs/@").nth(1).map(|r| r.split(['?', '/']).next().unwrap_or("").to_string());
-                    let s = if c.auth { r#"<form phx-submit="send-login-email" phx-target="1"><input type="email" name="user[email]"></form>"# } else { "<div></div>" };
-                    vec![reply(&msg, json!({"rendered": {"s": [s]}}))]
+                    if m.inner.lock().unwrap().explore_hang && url.contains("/rs/explore") {
+                        // Leave the join unanswered. A heartbeat still gets a reply below.
+                        vec![]
+                    } else {
+                        c.auth = url.contains("/auth");
+                        c.replies = url.contains("replies=1");
+                        c.bookmarks = url.contains("/rs/bookmarks");
+                        c.nick = url.split("/rs/@").nth(1).map(|r| r.split(['?', '/']).next().unwrap_or("").to_string());
+                        let s = if c.auth { r#"<form phx-submit="send-login-email" phx-target="1"><input type="email" name="user[email]"></form>"# } else { "<div></div>" };
+                        vec![reply(&msg, json!({"rendered": {"s": [s]}}))]
+                    }
                 }
             }
             "event" => match (payload["type"].as_str(), payload["event"].as_str()) {
@@ -463,6 +477,8 @@ impl Mock {
             .route("/rs/latest", get(site_feed))
             .route("/rs/spaces", get(spaces_page))
             .route("/rs/bookmarks", get(bookmarks_page))
+            .route("/rs/explore", get(explore_page))
+            .route("/rs/explore/latest", get(explore_page))
             .route("/rs/{at}", get(profile))
             .route("/rs/post/{id}", get(thread))
             .route("/auth", get(auth_page))
