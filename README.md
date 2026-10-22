@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.41.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.42.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,9 +23,11 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.41.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.42.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.41.0** lists spaces. View › Spaces and `--spaces` read `/rs/spaces`. A live room shows a live badge. Scheduled and ended are the states the page exposes. A recording link is shown when the page has one. Sync and `--scrape-all` store the list. A LiveKit token is dropped and is not stored. Joining a room is not built.
+**3.35.0** makes the logo, the title, and the motto a brand. The built-in default is still ACP Red Star. `acp-red-star --brand plain` is the title Red Star, a star, and no motto, for a demo that should not show ACP. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps that choice. A file in `~/.acp/brands/` overrides a built-in. The theme stays a separate choice.
+
+**3.42.0** lists spaces. View › Spaces and `--spaces` read `/rs/spaces`. A live room shows a live badge. Scheduled and ended are the states the page exposes. A recording link is shown when the page has one. Sync and `--scrape-all` store the list. A LiveKit token is dropped and is not stored. Joining a room is not built.
 
 **3.34.0** stores a draft before it is sent. `--draft-save` writes it. The same `--draft-id` keeps another version. `--keep-local` leaves it off the queue. `--outbox-queue` queues it. `--outbox-send` asks first, and Cancel is the default. `--dry-run` prints the same frames as a text publish and does not connect. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Save draft is on the compose box.
 
@@ -227,6 +229,12 @@ Interface:
 
       --theme <NAME>
           Use this theme (a file in ~/.acp/themes, without .toml) in the terminal UI for this run; ui.theme in preferences.toml sets it for good
+
+      --brand <NAME>
+          Use this brand (a built-in, or a file in ~/.acp/brands, without .toml) for this run. plain is a neutral title and star with no motto. ui.brand in preferences.toml sets it for good. A brand is independent of the theme
+
+      --list-brands
+          List built-in brands and the files in ~/.acp/brands (● marks the one in use; broken files say why) and exit
 
       --list-themes
           List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit
@@ -559,7 +567,9 @@ Examples:
   acp-red-star                      # terminal UI
   acp-red-star --tui --nicks @hazaldin -v
   acp-red-star --theme default      # terminal UI with this theme
+  acp-red-star --brand plain        # this run: neutral title and star, no motto
   acp-red-star --list-themes
+  acp-red-star --list-brands
   acp-red-star --theme-init all     # download every theme in the repo into ~/.acp/themes
   acp-red-star --theme-starter mine # a minimal theme to edit (Shift-F5)
   acp-red-star --scrape             # headless scrape; asks for nicks
@@ -627,7 +637,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.41.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.42.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -668,8 +678,10 @@ headless scrape is now `--scrape`.
   star drawn in white across all four rows, square on screen), a big "ACP"
   ([tui-big-text](https://crates.io/crates/tui-big-text), one-third-height pixels) on the lower
   three rows so it has a row of room above it, then the name, version, session and running job on
-  the middle row of the "ACP". At the right of the header the theme switch `‹default› ▾` shows
-  the theme in use; click it (or press `F5`) to pick another (see *Themes* below).
+  the middle row of the "ACP". That logo, word, title, and the status-bar motto are the brand
+  (see *Brands* below). The built-in default is this ACP Red Star header. At the right of the
+  header, `«default» ▾` opens the brand picker and `‹default› ▾` shows the theme; click the theme
+  switch (or press `F5`) to pick another (see *Themes* below).
 - **Images in the terminal.** At start the TUI asks the terminal which graphics protocol it speaks
   (a kitty graphics query, sixel in the device attributes, the cell size in pixels); iTerm2 and
   WezTerm get iTerm2 inline images. Terminals that don't answer (the Linux console, tmux, many SSH,
@@ -938,6 +950,27 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
   unsaved changes asks Save / Discard / Cancel.
 - Without a true-colour terminal (`$COLORTERM` isn't `truecolor`/`24bit`) the preview notes that
   `#rrggbb` colours show as the nearest of 256.
+
+## Brands
+
+A brand is the logo, the title, and the motto. It is not the theme: any brand works with any theme.
+
+The built-in `default` brand is ACP Red Star, unchanged: the red-star logo, the big word ACP, the title, and "The future belongs to the working class". The built-in `plain` brand is the title Red Star, a star, and no motto. A demo that should not show ACP runs:
+
+```sh
+acp-red-star --brand plain
+```
+
+That is this run only. To keep it, put this in `~/.acp/preferences.toml`:
+
+```toml
+[ui]
+brand = "plain"
+```
+
+The header switch `«name» ▾` opens the picker. Moving the highlight previews the brand; Esc puts the previous one back. Edit brands… opens the editor (title, motto, word, logo). Ctrl-S saves, Ctrl-R reverts, Ctrl-N saves as new, Ctrl-D duplicates, Ctrl-X deletes, Ctrl-C closes. The command palette has Brand: use…, Brand: list, Brand: edit…, and Brand: reload.
+
+A user brand is `~/.acp/brands/<name>.toml` and overrides a built-in of the same name. `logo` is `builtin`, `text`, or `file`. A file logo stays inside `~/.acp/brands`; a path that leaves that folder is refused. `--help`, `--version`, the terminal title, and HTML export headers use the brand title. Credits and the other surprises keep their own text.
 
 ## Bookmarks
 

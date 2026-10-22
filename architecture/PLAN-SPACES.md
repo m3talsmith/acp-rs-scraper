@@ -1,6 +1,6 @@
 # Spaces
 
-Read-only list: crate **3.41.0**. Joining a room is not built. Nothing in this
+Read-only list: crate **3.42.0**. Joining a room is not built. Nothing in this
 file is implemented past the list, and none of it runs until Michael records
 the frames described below and they are redacted on his machine.
 
@@ -25,7 +25,7 @@ stored, printed, or logged. It is not a database column. It is not written to
 notices, action history, or a crash line. A recording link that is itself a
 LiveKit URL is dropped with the token.
 
-The 3.41.0 fixtures are a stand-in for the read-only page shape. They are not
+The 3.42.0 fixtures are a stand-in for the read-only page shape. They are not
 a capture of acp.us.
 
 ## Keys

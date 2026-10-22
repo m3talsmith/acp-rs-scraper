@@ -173,6 +173,14 @@ pub enum Action {
     OpenSpaces,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
+    /// The brand picker (the header's `«brand» ▾`).
+    BrandPicker,
+    /// The brand editor.
+    BrandEditor,
+    /// List built-in brands and brand files.
+    BrandList,
+    /// Read the selected brand again.
+    BrandReload,
     /// Compose › New post.
     NewPost,
     /// Compose › Reply.

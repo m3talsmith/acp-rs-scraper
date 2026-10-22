@@ -20,6 +20,7 @@
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`branding`]: the slogan shared by the welcome screen, login, About, and the status bar.
+//! - [`brands`]: logo, title, and motto. The built-in default is ACP Red Star. User files live in `~/.acp/brands`.
 //! - [`bookmarks`]: local bookmarks and `--sync-bookmarks` with the site.
 //! - [`maintenance`]: `--remove-nick` and `--clear-all`.
 //! - [`themes`]: theme files in `~/.acp/themes` (format, loading, first-run download, migration).
@@ -38,6 +39,7 @@ pub mod notify;
 pub mod app;
 pub mod auth;
 pub mod branding;
+pub mod brands;
 pub mod bookmarks;
 pub mod cli;
 pub mod config;
