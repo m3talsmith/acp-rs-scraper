@@ -52,6 +52,8 @@ pub enum CapabilityId {
     MediaFetcher,
     /// Spend estimate and caps. Required on a paid API route.
     CostMeter,
+    /// Red Star Spaces. This is not an X Spaces read.
+    Spaces,
     /// Local drafts and the send queue.
     Outbox,
     /// A post stored on this machine before it is sent.
@@ -78,6 +80,7 @@ impl CapabilityId {
             Self::Feeds => "feeds",
             Self::MediaFetcher => "media",
             Self::CostMeter => "cost",
+            Self::Spaces => "spaces",
             Self::Outbox => "outbox",
             Self::LocalPost => "local_post",
         }
@@ -89,7 +92,7 @@ impl CapabilityId {
     }
 }
 
-const ALL: [CapabilityId; 18] = [
+const ALL: [CapabilityId; 19] = [
     CapabilityId::Authenticator,
     CapabilityId::Reader,
     CapabilityId::Live,
@@ -106,6 +109,7 @@ const ALL: [CapabilityId; 18] = [
     CapabilityId::Feeds,
     CapabilityId::MediaFetcher,
     CapabilityId::CostMeter,
+    CapabilityId::Spaces,
     CapabilityId::Outbox,
     CapabilityId::LocalPost,
 ];
@@ -137,18 +141,34 @@ pub trait DynService: Send + Sync {
         self.implemented().contains(&cap)
     }
 
-    /// Probe `cap`. A capability left off `implemented()` returns not-implemented.
-    fn probe<'a>(&'a self, cap: CapabilityId) -> CapFut<'a, ()> {
-        let ok = self.has(cap);
-        let service = self.id().to_string();
-        let capability = cap.as_str().to_string();
-        Box::pin(async move {
-            if ok {
-                Ok(())
-            } else {
-                Err(ServiceError::not_implemented(&service, &capability))
-            }
-        })
+    /// Probe `cap` against a real target, draft, or page.
+    ///
+    /// A capability left off `implemented()` returns not-implemented. A
+    /// capability that is implemented still refuses an empty subject or the
+    /// wrong kind. The check is [`probe_subject`].
+    fn probe<'a>(&'a self, cap: CapabilityId, subject: Probe<'a>) -> CapFut<'a, ()> {
+        let result = if self.has(cap) {
+            probe_subject(cap, subject)
+        } else {
+            Err(ServiceError::not_implemented(self.id(), cap.as_str()))
+        };
+        Box::pin(async move { result })
+    }
+
+    /// The host calls this after the package gate, before the service is stored.
+    ///
+    /// The default does nothing. A service that calls [`crate::Host`] stores
+    /// the value here.
+    fn attach(&mut self, _host: std::sync::Arc<dyn crate::host::Host>) {}
+
+    /// Red Star Spaces for `target`.
+    fn spaces<'a>(
+        &'a self,
+        _target: &'a Target,
+        _cursor: &'a Cursor,
+        _budget: &'a mut Budget,
+    ) -> CapFut<'a, Page> {
+        not_implemented(self.id(), CapabilityId::Spaces.as_str())
     }
 
     /// [`schema`](DynService::schema) plus the service id.
@@ -271,6 +291,31 @@ pub trait DynService: Send + Sync {
     fn estimate<'a>(&'a self, _budget: &'a Budget) -> CapFut<'a, Spend> {
         not_implemented(self.id(), CapabilityId::CostMeter.as_str())
     }
+
+    /// Save `draft` under `id`. `keep` true leaves it off the send queue.
+    fn save_local<'a>(&'a self, _id: &'a str, _draft: &'a Draft, _keep: bool) -> CapFut<'a, String> {
+        not_implemented(self.id(), CapabilityId::LocalPost.as_str())
+    }
+
+    /// Drafts and keep-local posts, newest update first.
+    fn list_local<'a>(&'a self) -> CapFut<'a, Vec<String>> {
+        not_implemented(self.id(), CapabilityId::LocalPost.as_str())
+    }
+
+    /// Queue a saved local post.
+    fn enqueue<'a>(&'a self, _local_id: &'a str) -> CapFut<'a, String> {
+        not_implemented(self.id(), CapabilityId::Outbox.as_str())
+    }
+
+    /// Queue rows, newest first.
+    fn queued<'a>(&'a self) -> CapFut<'a, Vec<String>> {
+        not_implemented(self.id(), CapabilityId::Outbox.as_str())
+    }
+
+    /// Cancel a queued item.
+    fn cancel_queued<'a>(&'a self, _id: &'a str) -> CapFut<'a, String> {
+        not_implemented(self.id(), CapabilityId::Outbox.as_str())
+    }
 }
 
 /// What a plugin exports. The host casts the `plugin_declaration` symbol to this.
@@ -332,8 +377,170 @@ macro_rules! declare_plugin {
     };
 }
 
-/// Built-in ids a plugin is not allowed to replace.
+/// Built-in ids a third-party package is not allowed to replace.
 pub const RESERVED_IDS: &[&str] = &["redstar", "x", "youtube"];
+
+/// Reserved ids an official package may claim. `x` and `youtube` stay reserved.
+///
+/// This is an allow-list, not a signature. The repository does not ship a
+/// private key. A package that rewrites its own manifest can write the field.
+/// That is the same limit as a rewritten sha256.
+pub const OFFICIAL_IDS: &[&str] = &["redstar"];
+
+/// `meta_name` may be the package name when `[meta] official` is `official`.
+///
+/// A name that is not reserved needs no `official` field. A reserved name is
+/// accepted only when `official` equals that name and the name is in
+/// [`OFFICIAL_IDS`].
+pub fn claim_allowed(meta_name: &str, official: Option<&str>) -> Result<(), String> {
+    if !RESERVED_IDS.contains(&meta_name) {
+        if let Some(claimed) = official
+            && claimed != meta_name
+        {
+            return Err(format!(
+                "official {claimed} does not match package {meta_name}"
+            ));
+        }
+        return Ok(());
+    }
+    match official {
+        Some(claimed) if claimed == meta_name && OFFICIAL_IDS.contains(&meta_name) => Ok(()),
+        Some(_) | None => Err(format!("{meta_name} is reserved")),
+    }
+}
+
+/// `id` may be registered.
+///
+/// `from_official_package` is true for a built-in and for a package whose
+/// manifest passed [`claim_allowed`]. A package registrar must pass the
+/// manifest's flag. Passing true for every plugin would let a third party
+/// take `redstar`.
+pub fn service_id_allowed(id: &str, from_official_package: bool) -> Result<(), String> {
+    if !RESERVED_IDS.contains(&id) {
+        return Ok(());
+    }
+    if from_official_package && OFFICIAL_IDS.contains(&id) {
+        return Ok(());
+    }
+    Err(format!("{id} is reserved"))
+}
+
+/// The subject of [`DynService::probe`].
+#[derive(Clone, Copy, Debug)]
+pub enum Probe<'a> {
+    /// A read or a write aimed at one account, item, or thread.
+    Target(&'a Target),
+    /// A local draft.
+    Draft(&'a Draft),
+    /// A page the service already returned.
+    Page(&'a Page),
+}
+
+/// Whether `subject` is a real input for `cap`.
+///
+/// An empty subject, or the wrong kind, is [`ServiceError::Message`]. This
+/// does not check [`DynService::implemented`].
+pub fn probe_subject(cap: CapabilityId, subject: Probe<'_>) -> Result<(), ServiceError> {
+    let fits = match cap {
+        CapabilityId::Post
+        | CapabilityId::Reply
+        | CapabilityId::Edit
+        | CapabilityId::Outbox
+        | CapabilityId::LocalPost => match subject {
+            Probe::Draft(draft) => !draft.body.trim().is_empty(),
+            Probe::Target(_) | Probe::Page(_) => false,
+        },
+        CapabilityId::Upload => match subject {
+            Probe::Draft(draft) => !draft.attachments.is_empty(),
+            Probe::Target(_) | Probe::Page(_) => false,
+        },
+        CapabilityId::Repost => match subject {
+            Probe::Draft(draft) => !draft.body.trim().is_empty() || draft.in_reply_to.is_some(),
+            Probe::Target(Target::Item { id }) => !id.native.is_empty(),
+            Probe::Page(page) => !page.items.is_empty(),
+            Probe::Target(_) => false,
+        },
+        CapabilityId::Reader
+        | CapabilityId::Live
+        | CapabilityId::Feeds
+        | CapabilityId::MediaFetcher
+        | CapabilityId::Spaces => match subject {
+            Probe::Target(target) => target_filled(target),
+            Probe::Page(page) => page_filled(page),
+            Probe::Draft(_) => false,
+        },
+        CapabilityId::Authenticator => match subject {
+            Probe::Target(Target::Account { handle }) => !handle.trim().is_empty(),
+            Probe::Target(_) | Probe::Draft(_) | Probe::Page(_) => false,
+        },
+        CapabilityId::Vote | CapabilityId::Subscribe | CapabilityId::Delete => match subject {
+            Probe::Target(Target::Item { id } | Target::Conversation { id }) => {
+                !id.native.is_empty()
+            }
+            Probe::Page(page) => !page.items.is_empty(),
+            Probe::Target(_) | Probe::Draft(_) => false,
+        },
+        CapabilityId::Notification | CapabilityId::CostMeter => match subject {
+            Probe::Target(target) => target_filled(target),
+            Probe::Draft(draft) => draft_filled(draft),
+            Probe::Page(page) => page_filled(page),
+        },
+        CapabilityId::Research => match subject {
+            Probe::Target(Target::Item { id }) => !id.native.is_empty(),
+            Probe::Page(page) => !page.items.is_empty(),
+            Probe::Target(_) | Probe::Draft(_) => false,
+        },
+    };
+    if fits {
+        Ok(())
+    } else {
+        Err(ServiceError::Message(format!(
+            "{} probe needs {}",
+            cap.as_str(),
+            probe_expect(cap)
+        )))
+    }
+}
+
+fn probe_expect(cap: CapabilityId) -> &'static str {
+    match cap {
+        CapabilityId::Post
+        | CapabilityId::Reply
+        | CapabilityId::Edit
+        | CapabilityId::Outbox
+        | CapabilityId::LocalPost => "a draft with text",
+        CapabilityId::Upload => "a draft with an attachment",
+        CapabilityId::Repost => "a draft, an item, or a page of items",
+        CapabilityId::Reader
+        | CapabilityId::Live
+        | CapabilityId::Feeds
+        | CapabilityId::MediaFetcher
+        | CapabilityId::Spaces => "a target or a page",
+        CapabilityId::Authenticator => "an account target",
+        CapabilityId::Vote | CapabilityId::Subscribe | CapabilityId::Delete => {
+            "an item, a conversation, or a page of items"
+        }
+        CapabilityId::Notification | CapabilityId::CostMeter => "a target, a draft, or a page",
+        CapabilityId::Research => "an item or a page of items",
+    }
+}
+
+fn target_filled(target: &Target) -> bool {
+    match target {
+        Target::Account { handle } => !handle.trim().is_empty(),
+        Target::Search { query } => !query.trim().is_empty(),
+        Target::Playlist { id } => !id.trim().is_empty(),
+        Target::Item { id } | Target::Conversation { id } => !id.native.is_empty(),
+    }
+}
+
+fn page_filled(page: &Page) -> bool {
+    !page.accounts.is_empty() || !page.items.is_empty() || !page.segments.is_empty()
+}
+
+fn draft_filled(draft: &Draft) -> bool {
+    !draft.body.trim().is_empty() || !draft.attachments.is_empty() || draft.in_reply_to.is_some()
+}
 
 /// The rustc and core versions match this binary.
 pub fn versions_match(rustc_version: &str, core_version: &str) -> Result<(), String> {
@@ -392,6 +599,24 @@ mod tests {
     }
 
     #[test]
+    fn the_official_redstar_id_passes_and_x_stays_reserved() {
+        assert!(claim_allowed("redstar", Some("redstar")).is_ok());
+        assert!(claim_allowed("redstar", None).unwrap_err().contains("reserved"));
+        assert!(claim_allowed("x", Some("x")).unwrap_err().contains("reserved"));
+        assert!(claim_allowed("youtube", Some("youtube"))
+            .unwrap_err()
+            .contains("reserved"));
+        assert!(claim_allowed("example", None).is_ok());
+        assert!(claim_allowed("example", Some("redstar")).is_err());
+        assert!(service_id_allowed("redstar", true).is_ok());
+        assert!(service_id_allowed("redstar", false).is_err());
+        assert!(service_id_allowed("x", true).is_err());
+        assert!(service_id_allowed("demo", false).is_ok());
+        assert_eq!(CapabilityId::Spaces.as_str(), "spaces");
+        assert_eq!(CapabilityId::all().len(), 19);
+    }
+
+    #[test]
     fn a_placeholder_edit_is_not_a_time() {
         assert_eq!(combine_sort_key("2020-01-01", Some("~0001")), "2020-01-01");
         assert_eq!(
@@ -438,9 +663,29 @@ mod tests {
             [&bare as &dyn DynService],
             CapabilityId::Notification
         ));
-        let err = futures_block(bare.probe(CapabilityId::Vote)).unwrap_err();
+        let item = Target::Item {
+            id: crate::records::SourceId::new(crate::records::ServiceId::new("bare"), "1"),
+        };
+        let err = futures_block(bare.probe(CapabilityId::Vote, Probe::Target(&item))).unwrap_err();
         assert!(err.to_string().contains("does not implement vote"), "{err}");
-        assert!(futures_block(bare.probe(CapabilityId::Notification)).is_ok());
+        let empty = Page::empty();
+        let err =
+            futures_block(bare.probe(CapabilityId::Notification, Probe::Page(&empty))).unwrap_err();
+        assert!(err.to_string().contains("notification probe needs"), "{err}");
+        let page = Page {
+            items: vec![crate::records::ItemRec::new(
+                crate::records::SourceId::new(crate::records::ServiceId::new("bare"), "1"),
+                "hi",
+            )],
+            ..Page::empty()
+        };
+        assert!(futures_block(bare.probe(CapabilityId::Notification, Probe::Page(&page))).is_ok());
+        let draft = Draft::text("hello");
+        let err = probe_subject(CapabilityId::Post, Probe::Draft(&Draft::default())).unwrap_err();
+        assert!(err.to_string().contains("post probe needs a draft with text"), "{err}");
+        assert!(probe_subject(CapabilityId::Post, Probe::Draft(&draft)).is_ok());
+        assert!(probe_subject(CapabilityId::Spaces, Probe::Target(&item)).is_ok());
+        assert!(probe_subject(CapabilityId::Spaces, Probe::Draft(&draft)).is_err());
         let sid = crate::records::SourceId::new(crate::records::ServiceId::new("bare"), "1");
         let err = futures_block(bare.vote(&sid, crate::records::VoteChoice::Up)).unwrap_err();
         assert!(err.to_string().contains("does not implement vote"), "{err}");

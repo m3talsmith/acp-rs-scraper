@@ -30,15 +30,32 @@
 //! [`Service`], is the other path. The in-tree adapter uses that path.
 //! [`CORE_VERSION`] in the declaration is this crate's version, not the root
 //! crate's version.
+//!
+//! The core opens the database. A service calls [`Host`] for storage, HTTP,
+//! configuration, sealed secrets, bookmarks, the outbox, export, import,
+//! rules, research, maintenance, notices, and preferences. HTTP takes request
+//! headers and a cookie jar scoped to the service. `save_page` stores
+//! `body_state` and attachment rows. `known_ids` includes per-thread reply
+//! counts. `export` writes JSON or HTML. [`Outbox`] and [`LocalPost`] are
+//! traits. `impl_default_caps!(Ty, except Reader, Post)` takes a
+//! comma-separated list. Store the host in [`Service::attach`]. This crate
+//! does not link SQLCipher or the node crate. This crate is `0.2.0`.
+//!
+//! [`SESSION_SCHEMA`] is the email and base URL fields. [`CapabilityId::Spaces`]
+//! is the Red Star Spaces id. An official package claims the reserved
+//! `redstar` id with `[meta] official = "redstar"`. Libraries are
+//! `[install].libraries` entries with `path` and `sha256`.
 
 #![warn(missing_docs)]
 
 mod abi;
 mod caps;
 mod gate;
+mod host;
 mod records;
 
 pub use abi::*;
 pub use caps::*;
 pub use gate::*;
+pub use host::*;
 pub use records::*;

@@ -14,6 +14,7 @@
 //! - [`stored`]: rows the database and the export already know.
 //! - [`outbox`]: Drafts and the local send queue (3.34.0). Sending a row is the service package.
 //! - [`plugins`]: the package gate. A failed archive is quarantined. A version mismatch is refused and is not moved. A discovered package stays off.
+//! - [`host_api`]: the [`acp_rs_plugin::Host`] a service calls instead of opening the database.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`branding`]: the slogan shared by the welcome screen, About, and the status bar.
@@ -47,6 +48,7 @@ pub mod config;
 pub mod crypto;
 pub mod eggs;
 pub mod export;
+pub mod host_api;
 pub mod import;
 pub mod maintenance;
 pub mod outbox;

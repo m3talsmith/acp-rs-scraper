@@ -128,8 +128,21 @@ The shapes are PLAN-SCRAPERS §2.2–§2.4. Short form of what crosses the crate
 | `Feeds` | a feed rule over stored rows, or a remote refresh target | rows the core inserts |
 | `MediaFetcher` | a URL the service already resolved | bytes the core stores under the attachment path |
 | `CostMeter` | the run's caps | `Spend` estimate and ledger delta |
+| `Spaces` | a `Target` and a `Cursor` | a `Page` of Red Star Spaces. This is not an X Spaces read |
+
+`probe(cap, subject)` takes a `Target`, a `Draft`, or a `Page`. A capability left off `implemented()` is not-implemented. A capability that is implemented still refuses an empty subject or the wrong kind.
+
+`schema()` for Red Star is `SESSION_SCHEMA`: `email` and `base_url`, both stored as config.
 
 `DynService` is the object-safe adapter. Each async capability returns `Pin<Box<dyn Future<Output = Result<…>> + Send + '_>>`. `declare_plugin!` emits `plugin_declaration`. The host checks rustc and `acp_rs_plugin`'s version before `register`. A mismatch refuses registration and does not quarantine. A bad `package.toml` or a sha256 mismatch quarantines to `~/.acp/quarantined/plugins/`.
+
+## Host API
+
+The service does not open the database, and it does not depend on `acp_red_star_node_core`. `Host` in `acp_rs_plugin` is how a service reaches the core's HTTP client, configuration, storage, sealed secrets, bookmarks, outbox, export, import, rules, research, maintenance, notices, preferences, and the binary name. The core implements that trait in `src/host_api.rs`. `Registry::register_service` calls `attach` with it. A service stores the `Arc<dyn Host>`. The trait crate has no SQLCipher dependency.
+
+HTTP calls take extra request headers and a cookie jar the host keeps per service id. The service reads and writes that jar. It does not pass a `Cookie` header. `save_page` writes `body_state` (`full`, `truncated`, `unknown`) and attachment rows. `known_ids` returns those post ids and the stored reply count of each thread root, which is what a trait read uses to skip an unchanged thread. `export` writes JSON or HTML, so a service does not ship its own exporter. `Outbox` and `LocalPost` are traits with methods, not only capability ids. `impl_default_caps!(Ty, except Reader, Post)` takes a comma-separated list. The LiveView socket client stays in the service. It is site-specific.
+
+`RESERVED_IDS` is `redstar`, `x`, and `youtube`. `OFFICIAL_IDS` is `redstar` only. The official package sets `[meta] official = "redstar"`, and `claim_allowed` accepts that pair. `x` and `youtube` stay refused, including when the manifest sets `official` to its own name. This is an allow-list, not a signature. The repository does not ship a private key. A package that rewrites its own manifest can write the field. That is the same limit as a rewritten sha256.
 
 Bookmarks, search of stored rows, and edit history stay global actions. They are not traits.
 
@@ -162,13 +175,15 @@ Archive name: `redstar-<os>-<arch>-<version>.tar.gz`.
 [meta]
 name = "redstar"
 version = "0.0.0"   # the service crate's version, quoted semver
+official = "redstar" # required for this reserved id. x and youtube cannot set this.
 
-[[libraries]]
-path = "libredstar.so"   # or .dylib / .dll for the host
-sha256 = "<hex of that file>"
+[install]
+libraries = [
+  { path = "libredstar.so", sha256 = "<64 lowercase hex digits of that file>" }
+]
 ```
 
-`[meta]` name and version match the archive name. `os` and `architecture` match the host. Every path is relative and stays inside the package. The sha256 is of the file, not a sidecar.
+The gate reads `[install].libraries` and `[install].binaries` as arrays of tables. Each entry needs `path` and `sha256`. A top-level `[[libraries]]` array is not read. `[meta]` name and version match the archive name. `os` and `architecture` match the host. Every path is relative and stays inside the package. The sha256 is of the file, not a sidecar. `official = "redstar"` is how this package passes `RESERVED_IDS`.
 
 CI on the private repo:
 

@@ -33,6 +33,8 @@ pub struct Verified {
     pub root: PathBuf,
     /// First library, already hashed.
     pub library: PathBuf,
+    /// `[meta] official` was set and [`crate::claim_allowed`] accepted it.
+    pub official: bool,
 }
 
 /// Host operating system token used in the archive name.
@@ -98,7 +100,13 @@ pub fn verify_archive(archive: &Path, dest: &Path) -> Result<Verified, GateFailu
     let Some(library) = library else {
         return Err(GateFailure::new(meta.name, "package has no library"));
     };
-    Ok(Verified { name: meta.name, version: meta.version, root: dest.to_path_buf(), library })
+    Ok(Verified {
+        name: meta.name,
+        version: meta.version,
+        root: dest.to_path_buf(),
+        library,
+        official: meta.official.is_some(),
+    })
 }
 
 struct Named {
@@ -232,6 +240,7 @@ struct Meta {
     name: String,
     version: String,
     license: Option<String>,
+    official: Option<String>,
     binaries: Vec<Entry>,
     libraries: Vec<Entry>,
 }
@@ -259,10 +268,12 @@ fn parse_manifest(text: &str) -> Result<Meta, String> {
         check_uri_or_node(&src)?;
     }
     let license = optional_str(meta, "license")?;
+    let official = optional_str(meta, "official")?;
+    crate::abi::claim_allowed(&name, official.as_deref())?;
     let install = table.get("install").and_then(|v| v.as_table()).ok_or("package.toml needs [install]")?;
     let binaries = entries(install, "binaries", false)?;
     let libraries = entries(install, "libraries", true)?;
-    Ok(Meta { name, version, license, binaries, libraries })
+    Ok(Meta { name, version, license, official, binaries, libraries })
 }
 
 fn req_str(t: &toml::Table, key: &str) -> Result<String, String> {
@@ -403,6 +414,7 @@ libraries = [
         assert_eq!(got.name, "example");
         assert_eq!(got.version, "1.2.3");
         assert!(got.library.ends_with("libexample.so"));
+        assert!(!got.official);
 
         let bad = tar_gz(&[
             ("package.toml", manifest(&"ab".repeat(32)).as_bytes()),
@@ -427,6 +439,23 @@ libraries = [
         let err = parse_manifest(&email).err().unwrap();
         assert!(err.contains("email"), "{err}");
         assert!(!err.contains("not-an-email"), "{err}");
+        let reserved = manifest(&"ab".repeat(32)).replacen("name = \"example\"", "name = \"redstar\"", 1);
+        let err = parse_manifest(&reserved).err().expect("reserved name");
+        assert!(err.contains("reserved"), "{err}");
+        let official = reserved.replacen(
+            "name = \"redstar\"",
+            "name = \"redstar\"\nofficial = \"redstar\"",
+            1,
+        );
+        let parsed = parse_manifest(&official).unwrap();
+        assert_eq!(parsed.name, "redstar");
+        assert_eq!(parsed.official.as_deref(), Some("redstar"));
+        let x = official.replace("redstar", "x");
+        let err = parse_manifest(&x).err().expect("x stays reserved");
+        assert!(err.contains("reserved"), "{err}");
+        let top_level = "[meta]\nname = \"example\"\nversion = \"1.2.3\"\n[[libraries]]\npath = \"libexample.so\"\nsha256 = \"abababababababababababababababababababababababababababababababab\"\n";
+        let err = parse_manifest(top_level).err().expect("top-level libraries");
+        assert!(err.contains("[install]"), "{err}");
     }
 
     #[test]

@@ -15,16 +15,30 @@ pub fn install(reg: &mut dyn acp_rs_plugin::PluginRegistrar) {
 }
 
 /// The host's list of built-in services. This binary has none.
-#[derive(Default)]
 pub struct Registry {
     services: Vec<Box<dyn DynService>>,
+    /// Built-in registration may claim `redstar`. A package registrar copies this from [`acp_rs_plugin::Verified::official`].
+    official: bool,
+}
+
+impl Default for Registry {
+    fn default() -> Self {
+        Self {
+            services: Vec::new(),
+            official: true,
+        }
+    }
 }
 
 impl acp_rs_plugin::PluginRegistrar for Registry {
-    fn register_service(&mut self, service: Box<dyn DynService>) {
+    fn register_service(&mut self, mut service: Box<dyn DynService>) {
         if self.services.iter().any(|s| s.id() == service.id()) {
             return;
         }
+        if acp_rs_plugin::service_id_allowed(service.id(), self.official).is_err() {
+            return;
+        }
+        service.attach(crate::host_api::CoreHost::shared());
         self.services.push(service);
     }
 }
@@ -35,6 +49,14 @@ impl Registry {
         let mut reg = Self::default();
         install(&mut reg);
         reg
+    }
+
+    /// A registrar for one package. `official` comes from the manifest, not from the plugin.
+    pub fn external(official: bool) -> Self {
+        Self {
+            services: Vec::new(),
+            official,
+        }
     }
 
     /// Services in registration order.
@@ -61,10 +83,38 @@ pub fn doctor_lines() -> [String; 2] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use acp_rs_plugin::{Field, PluginRegistrar, RuntimeCtx};
+
+    struct Claim;
+
+    impl DynService for Claim {
+        fn id(&self) -> &'static str {
+            "redstar"
+        }
+        fn display_name(&self) -> &'static str {
+            "Red Star"
+        }
+        fn implemented(&self) -> &'static [CapabilityId] {
+            &[]
+        }
+        fn schema(&self) -> &'static [Field] {
+            &[]
+        }
+        fn availability(&self, _cap: CapabilityId, _ctx: &RuntimeCtx) -> Availability {
+            Availability::Off
+        }
+    }
 
     #[test]
     fn this_binary_registers_no_built_in_service() {
         assert!(Registry::builtins().services().is_empty());
+        let mut external = Registry::external(false);
+        external.register_service(Box::new(Claim));
+        assert!(external.services().is_empty());
+        let mut official = Registry::external(true);
+        official.register_service(Box::new(Claim));
+        assert_eq!(official.services().len(), 1);
+        assert_eq!(official.services()[0].id(), "redstar");
     }
 
     #[test]

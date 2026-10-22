@@ -32,6 +32,12 @@ pub trait Service: Send + Sync {
         self.implemented().contains(&cap)
     }
 
+    /// The host calls this before the service is stored.
+    ///
+    /// The default does nothing. Store `host` in a [`crate::HostSlot`] when
+    /// this service calls the core.
+    fn attach(&mut self, _host: std::sync::Arc<dyn crate::host::Host>) {}
+
     /// [`schema`](Service::schema) plus the service id.
     fn config_schema(&self) -> ConfigSchema {
         ConfigSchema {
@@ -203,6 +209,50 @@ pub trait MediaFetcher: Service {
     }
 }
 
+/// Red Star Spaces. This is not an X Spaces read.
+pub trait Spaces: Service {
+    /// One page of Spaces for `target`.
+    fn spaces<'a>(
+        &'a self,
+        _target: &'a Target,
+        _cursor: &'a Cursor,
+        _budget: &'a mut Budget,
+    ) -> CapFut<'a, Page> {
+        not_implemented(self.service_id().as_str(), CapabilityId::Spaces.as_str())
+    }
+}
+
+/// A post stored on this machine before it is sent.
+pub trait LocalPost: Service {
+    /// Save `draft` under `id`. `keep` true leaves it off the send queue.
+    fn save_local<'a>(&'a self, _id: &'a str, _draft: &'a Draft, _keep: bool) -> CapFut<'a, String> {
+        not_implemented(self.service_id().as_str(), CapabilityId::LocalPost.as_str())
+    }
+
+    /// Drafts and keep-local posts, newest update first.
+    fn list_local<'a>(&'a self) -> CapFut<'a, Vec<String>> {
+        not_implemented(self.service_id().as_str(), CapabilityId::LocalPost.as_str())
+    }
+}
+
+/// Local drafts and the send queue.
+pub trait Outbox: Service {
+    /// Queue a saved local post.
+    fn enqueue<'a>(&'a self, _local_id: &'a str) -> CapFut<'a, String> {
+        not_implemented(self.service_id().as_str(), CapabilityId::Outbox.as_str())
+    }
+
+    /// Queue rows, newest first. An empty queue is one line, `outbox none`.
+    fn queued<'a>(&'a self) -> CapFut<'a, Vec<String>> {
+        not_implemented(self.service_id().as_str(), CapabilityId::Outbox.as_str())
+    }
+
+    /// Cancel a queued item. Returns the host's status line.
+    fn cancel_queued<'a>(&'a self, _id: &'a str) -> CapFut<'a, String> {
+        not_implemented(self.service_id().as_str(), CapabilityId::Outbox.as_str())
+    }
+}
+
 /// Estimate and ledger. Required on a paid or quota API route.
 pub trait CostMeter: Service {
     /// The estimate for what `budget` still allows.
@@ -229,7 +279,10 @@ where
         + Research
         + Feeds
         + MediaFetcher
-        + CostMeter,
+        + Spaces
+        + CostMeter
+        + LocalPost
+        + Outbox,
 {
     fn id(&self) -> &'static str {
         self.service_id().as_str()
@@ -249,6 +302,10 @@ where
 
     fn availability(&self, cap: CapabilityId, ctx: &RuntimeCtx) -> Availability {
         Service::availability(self, cap, ctx)
+    }
+
+    fn attach(&mut self, host: std::sync::Arc<dyn crate::host::Host>) {
+        Service::attach(self, host);
     }
 
     fn authenticate<'a>(
@@ -345,32 +402,67 @@ where
     fn estimate<'a>(&'a self, budget: &'a Budget) -> CapFut<'a, Spend> {
         CostMeter::estimate(self, budget)
     }
+
+    fn spaces<'a>(
+        &'a self,
+        target: &'a Target,
+        cursor: &'a Cursor,
+        budget: &'a mut Budget,
+    ) -> CapFut<'a, Page> {
+        Spaces::spaces(self, target, cursor, budget)
+    }
+
+    fn save_local<'a>(&'a self, id: &'a str, draft: &'a Draft, keep: bool) -> CapFut<'a, String> {
+        LocalPost::save_local(self, id, draft, keep)
+    }
+
+    fn list_local<'a>(&'a self) -> CapFut<'a, Vec<String>> {
+        LocalPost::list_local(self)
+    }
+
+    fn enqueue<'a>(&'a self, local_id: &'a str) -> CapFut<'a, String> {
+        Outbox::enqueue(self, local_id)
+    }
+
+    fn queued<'a>(&'a self) -> CapFut<'a, Vec<String>> {
+        Outbox::queued(self)
+    }
+
+    fn cancel_queued<'a>(&'a self, id: &'a str) -> CapFut<'a, String> {
+        Outbox::cancel_queued(self, id)
+    }
 }
 
 /// Implement every capability trait with its default body, except the ones named.
 ///
 /// A service writes its own `impl Reader for Ty` (and any other trait it
-/// overrides), then calls this macro for the rest. Together with [`Service`],
-/// that satisfies the blanket [`DynService`](crate::DynService) impl.
+/// overrides), then calls this macro for the rest. `except` takes a
+/// comma-separated list: `impl_default_caps!(Ty, except Reader, Post)`.
+/// Together with [`Service`], that satisfies the blanket
+/// [`DynService`](crate::DynService) impl.
 #[macro_export]
 macro_rules! impl_default_caps {
-    ($ty:ty $(, except $($skip:ident),+ $(,)?)?) => {
-        $crate::__impl_one_cap!(Authenticator, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Reader, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Live, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Notification, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Post, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Reply, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Upload, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Vote, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Subscribe, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Edit, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Delete, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Repost, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Research, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(Feeds, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(MediaFetcher, $ty $(, $($skip),+)?);
-        $crate::__impl_one_cap!(CostMeter, $ty $(, $($skip),+)?);
+    ($ty:ty) => { $crate::impl_default_caps!($ty, except); };
+    ($ty:ty, except $($skip:ident),* $(,)?) => {
+        $crate::__impl_one_cap!(Authenticator, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Reader, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Live, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Notification, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Post, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Reply, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Upload, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Vote, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Subscribe, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Edit, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Delete, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Repost, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Research, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Feeds, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(MediaFetcher, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Spaces, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(CostMeter, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(LocalPost, $ty, [$($skip),*]);
+        $crate::__impl_one_cap!(Outbox, $ty, [$($skip),*]);
     };
 }
 
@@ -378,101 +470,119 @@ macro_rules! impl_default_caps {
 #[macro_export]
 #[doc(hidden)]
 macro_rules! __impl_one_cap {
-    (Authenticator, $ty:ty, Authenticator $($rest:ident)*) => {};
-    (Authenticator, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Authenticator, $ty, $($rest)*);
+    (Authenticator, $ty:ty, [Authenticator $(, $rest:ident)*]) => {};
+    (Authenticator, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Authenticator, $ty, [$($rest),*]);
     };
-    (Authenticator, $ty:ty $(,)?) => { impl $crate::Authenticator for $ty {} };
+    (Authenticator, $ty:ty, []) => { impl $crate::Authenticator for $ty {} };
 
-    (Reader, $ty:ty, Reader $($rest:ident)*) => {};
-    (Reader, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Reader, $ty, $($rest)*);
+    (Reader, $ty:ty, [Reader $(, $rest:ident)*]) => {};
+    (Reader, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Reader, $ty, [$($rest),*]);
     };
-    (Reader, $ty:ty $(,)?) => { impl $crate::Reader for $ty {} };
+    (Reader, $ty:ty, []) => { impl $crate::Reader for $ty {} };
 
-    (Live, $ty:ty, Live $($rest:ident)*) => {};
-    (Live, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Live, $ty, $($rest)*);
+    (Live, $ty:ty, [Live $(, $rest:ident)*]) => {};
+    (Live, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Live, $ty, [$($rest),*]);
     };
-    (Live, $ty:ty $(,)?) => { impl $crate::Live for $ty {} };
+    (Live, $ty:ty, []) => { impl $crate::Live for $ty {} };
 
-    (Notification, $ty:ty, Notification $($rest:ident)*) => {};
-    (Notification, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Notification, $ty, $($rest)*);
+    (Notification, $ty:ty, [Notification $(, $rest:ident)*]) => {};
+    (Notification, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Notification, $ty, [$($rest),*]);
     };
-    (Notification, $ty:ty $(,)?) => { impl $crate::Notification for $ty {} };
+    (Notification, $ty:ty, []) => { impl $crate::Notification for $ty {} };
 
-    (Post, $ty:ty, Post $($rest:ident)*) => {};
-    (Post, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Post, $ty, $($rest)*);
+    (Post, $ty:ty, [Post $(, $rest:ident)*]) => {};
+    (Post, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Post, $ty, [$($rest),*]);
     };
-    (Post, $ty:ty $(,)?) => { impl $crate::Post for $ty {} };
+    (Post, $ty:ty, []) => { impl $crate::Post for $ty {} };
 
-    (Reply, $ty:ty, Reply $($rest:ident)*) => {};
-    (Reply, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Reply, $ty, $($rest)*);
+    (Reply, $ty:ty, [Reply $(, $rest:ident)*]) => {};
+    (Reply, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Reply, $ty, [$($rest),*]);
     };
-    (Reply, $ty:ty $(,)?) => { impl $crate::Reply for $ty {} };
+    (Reply, $ty:ty, []) => { impl $crate::Reply for $ty {} };
 
-    (Upload, $ty:ty, Upload $($rest:ident)*) => {};
-    (Upload, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Upload, $ty, $($rest)*);
+    (Upload, $ty:ty, [Upload $(, $rest:ident)*]) => {};
+    (Upload, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Upload, $ty, [$($rest),*]);
     };
-    (Upload, $ty:ty $(,)?) => { impl $crate::Upload for $ty {} };
+    (Upload, $ty:ty, []) => { impl $crate::Upload for $ty {} };
 
-    (Vote, $ty:ty, Vote $($rest:ident)*) => {};
-    (Vote, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Vote, $ty, $($rest)*);
+    (Vote, $ty:ty, [Vote $(, $rest:ident)*]) => {};
+    (Vote, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Vote, $ty, [$($rest),*]);
     };
-    (Vote, $ty:ty $(,)?) => { impl $crate::Vote for $ty {} };
+    (Vote, $ty:ty, []) => { impl $crate::Vote for $ty {} };
 
-    (Subscribe, $ty:ty, Subscribe $($rest:ident)*) => {};
-    (Subscribe, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Subscribe, $ty, $($rest)*);
+    (Subscribe, $ty:ty, [Subscribe $(, $rest:ident)*]) => {};
+    (Subscribe, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Subscribe, $ty, [$($rest),*]);
     };
-    (Subscribe, $ty:ty $(,)?) => { impl $crate::Subscribe for $ty {} };
+    (Subscribe, $ty:ty, []) => { impl $crate::Subscribe for $ty {} };
 
-    (Edit, $ty:ty, Edit $($rest:ident)*) => {};
-    (Edit, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Edit, $ty, $($rest)*);
+    (Edit, $ty:ty, [Edit $(, $rest:ident)*]) => {};
+    (Edit, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Edit, $ty, [$($rest),*]);
     };
-    (Edit, $ty:ty $(,)?) => { impl $crate::Edit for $ty {} };
+    (Edit, $ty:ty, []) => { impl $crate::Edit for $ty {} };
 
-    (Delete, $ty:ty, Delete $($rest:ident)*) => {};
-    (Delete, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Delete, $ty, $($rest)*);
+    (Delete, $ty:ty, [Delete $(, $rest:ident)*]) => {};
+    (Delete, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Delete, $ty, [$($rest),*]);
     };
-    (Delete, $ty:ty $(,)?) => { impl $crate::Delete for $ty {} };
+    (Delete, $ty:ty, []) => { impl $crate::Delete for $ty {} };
 
-    (Repost, $ty:ty, Repost $($rest:ident)*) => {};
-    (Repost, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Repost, $ty, $($rest)*);
+    (Repost, $ty:ty, [Repost $(, $rest:ident)*]) => {};
+    (Repost, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Repost, $ty, [$($rest),*]);
     };
-    (Repost, $ty:ty $(,)?) => { impl $crate::Repost for $ty {} };
+    (Repost, $ty:ty, []) => { impl $crate::Repost for $ty {} };
 
-    (Research, $ty:ty, Research $($rest:ident)*) => {};
-    (Research, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Research, $ty, $($rest)*);
+    (Research, $ty:ty, [Research $(, $rest:ident)*]) => {};
+    (Research, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Research, $ty, [$($rest),*]);
     };
-    (Research, $ty:ty $(,)?) => { impl $crate::Research for $ty {} };
+    (Research, $ty:ty, []) => { impl $crate::Research for $ty {} };
 
-    (Feeds, $ty:ty, Feeds $($rest:ident)*) => {};
-    (Feeds, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(Feeds, $ty, $($rest)*);
+    (Feeds, $ty:ty, [Feeds $(, $rest:ident)*]) => {};
+    (Feeds, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Feeds, $ty, [$($rest),*]);
     };
-    (Feeds, $ty:ty $(,)?) => { impl $crate::Feeds for $ty {} };
+    (Feeds, $ty:ty, []) => { impl $crate::Feeds for $ty {} };
 
-    (MediaFetcher, $ty:ty, MediaFetcher $($rest:ident)*) => {};
-    (MediaFetcher, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(MediaFetcher, $ty, $($rest)*);
+    (MediaFetcher, $ty:ty, [MediaFetcher $(, $rest:ident)*]) => {};
+    (MediaFetcher, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(MediaFetcher, $ty, [$($rest),*]);
     };
-    (MediaFetcher, $ty:ty $(,)?) => { impl $crate::MediaFetcher for $ty {} };
+    (MediaFetcher, $ty:ty, []) => { impl $crate::MediaFetcher for $ty {} };
 
-    (CostMeter, $ty:ty, CostMeter $($rest:ident)*) => {};
-    (CostMeter, $ty:ty, $other:ident $($rest:ident)*) => {
-        $crate::__impl_one_cap!(CostMeter, $ty, $($rest)*);
+    (Spaces, $ty:ty, [Spaces $(, $rest:ident)*]) => {};
+    (Spaces, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Spaces, $ty, [$($rest),*]);
     };
-    (CostMeter, $ty:ty $(,)?) => { impl $crate::CostMeter for $ty {} };
+    (Spaces, $ty:ty, []) => { impl $crate::Spaces for $ty {} };
+
+    (CostMeter, $ty:ty, [CostMeter $(, $rest:ident)*]) => {};
+    (CostMeter, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(CostMeter, $ty, [$($rest),*]);
+    };
+    (CostMeter, $ty:ty, []) => { impl $crate::CostMeter for $ty {} };
+
+    (LocalPost, $ty:ty, [LocalPost $(, $rest:ident)*]) => {};
+    (LocalPost, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(LocalPost, $ty, [$($rest),*]);
+    };
+    (LocalPost, $ty:ty, []) => { impl $crate::LocalPost for $ty {} };
+
+    (Outbox, $ty:ty, [Outbox $(, $rest:ident)*]) => {};
+    (Outbox, $ty:ty, [$other:ident $(, $rest:ident)*]) => {
+        $crate::__impl_one_cap!(Outbox, $ty, [$($rest),*]);
+    };
+    (Outbox, $ty:ty, []) => { impl $crate::Outbox for $ty {} };
 }
 
 #[cfg(test)]
@@ -534,6 +644,9 @@ mod tests {
 
     #[test]
     fn a_git_rev_service_registers_and_pages() {
+        assert_eq!(crate::SESSION_SCHEMA[0].key, "email");
+        assert_eq!(crate::SESSION_SCHEMA[1].key, "base_url");
+        assert!(crate::SESSION_SCHEMA.iter().all(|field| field.store == Store::Config));
         assert_eq!(plugin_declaration.core_version, CORE_VERSION);
         assert_eq!(plugin_declaration.rustc_version, RUSTC_VERSION);
         let mut reg = Rec::default();
@@ -562,6 +675,14 @@ mod tests {
         assert_eq!(budget.remaining_items, Some(0));
         let err = block(DynService::vote(&demo, &resolved.source_id, VoteChoice::Up)).unwrap_err();
         assert!(err.to_string().contains("does not implement vote"), "{err}");
+        let err = block(DynService::spaces(
+            &demo,
+            &resolved.target,
+            &Cursor::default(),
+            &mut budget,
+        ))
+        .unwrap_err();
+        assert!(err.to_string().contains("does not implement spaces"), "{err}");
     }
 
     #[test]
@@ -573,6 +694,47 @@ mod tests {
         assert!(budget.try_spend(Spend::new(1, 5)).is_ok());
         assert_eq!(budget.remaining_items, Some(0));
         assert_eq!(budget.remaining_micros, Some(0));
+    }
+
+    #[derive(Default)]
+    struct Two;
+
+    impl Service for Two {
+        fn service_id(&self) -> ServiceId {
+            ServiceId::new("two")
+        }
+        fn display_name(&self) -> &'static str {
+            "Two"
+        }
+        fn implemented(&self) -> &'static [CapabilityId] {
+            &[CapabilityId::Reader, CapabilityId::Post]
+        }
+        fn schema(&self) -> &'static [Field] {
+            &[]
+        }
+        fn availability(&self, cap: CapabilityId, ctx: &RuntimeCtx) -> Availability {
+            if ctx.enabled && Service::has(self, cap) {
+                Availability::Ready
+            } else {
+                Availability::Off
+            }
+        }
+    }
+
+    impl Reader for Two {}
+    impl Post for Two {}
+    impl_default_caps!(Two, except Reader, Post);
+
+    #[test]
+    fn except_takes_a_comma_separated_list() {
+        let two = Two;
+        let sid = SourceId::new(ServiceId::new("two"), "1");
+        let err = block(DynService::vote(&two, &sid, VoteChoice::Up)).unwrap_err();
+        assert!(err.to_string().contains("does not implement vote"), "{err}");
+        let err = block(DynService::enqueue(&two, "local-1")).unwrap_err();
+        assert!(err.to_string().contains("does not implement outbox"), "{err}");
+        let err = block(DynService::list_local(&two)).unwrap_err();
+        assert!(err.to_string().contains("does not implement local_post"), "{err}");
     }
 
     #[derive(Default)]
