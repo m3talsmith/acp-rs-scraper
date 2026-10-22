@@ -1,3 +1,9 @@
+acp-red-star (3.41.0) unstable; urgency=medium
+
+  * Package 3.41.0. Vote, subscribe, bookmark, delete, edit, and quote repost call a loaded service. Dry-run does not.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 09:50:00 +0000
+
 acp-red-star (3.35.14) unstable; urgency=medium
 
   * Package 3.35.14. A pending recovery phrase is asked in the terminal UI. Not now is the default.

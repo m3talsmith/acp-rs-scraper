@@ -227,6 +227,12 @@ pub const SITE_STATE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_state (
             value TEXT NOT NULL
         );";
 
+/// A post deleted through the loaded service. The `posts` row stays.
+pub const TOMBSTONES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_tombstones (
+            post_id TEXT PRIMARY KEY,
+            deleted_at TEXT NOT NULL
+        );";
+
 /// Rules and the log of what they did (3.32.0). A system row is read-only.
 /// `trigger`, `conditions`, and `actions` are canonical JSON. Lower `priority` runs first.
 pub const RULES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS rules (

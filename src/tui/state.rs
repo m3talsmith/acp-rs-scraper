@@ -1082,7 +1082,7 @@ impl App {
             "Vote",
             vec![
                 format!("{label} {}?", post.post_id),
-                "Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+                "Cancel is the default. A confirm calls the loaded service.".into(),
             ],
             label,
             ConfirmAction::Vote(post.post_id, state.into()),
@@ -1105,14 +1105,33 @@ impl App {
         let (nicks, tags) = self.compose_sources();
         self.modal = Some(Modal::Compose(ComposeModal::reply(&thread, None, Some(post.content.clone()), Some(post.post_id.clone()), nicks, tags)));
     }
-    /// Post menu › Edit. The hour is checked first. A root post stays gated. A reply opens the body editor on Cancel.
+    /// Post menu › Edit. A reply opens the body editor. A root post asks, then calls the loaded service.
     fn edit_post(&mut self, id: &str) {
         if !self.writes_are_on() {
             self.show_writes_off();
             return;
         }
-        let _ = id;
-        self.push_status(crate::service::SERVICE_ABSENT.to_string());
+        let post = self.current_post().filter(|p| p.post_id == id);
+        if post.as_ref().is_some_and(|p| !p.parent_post_id.is_empty()) {
+            let (nicks, tags) = self.compose_sources();
+            let mut modal = crate::tui::modals::ComposeModal::edit_reply(id, nicks, tags);
+            if let Some(p) = &post {
+                modal.body = p.content.clone();
+            }
+            self.modal = Some(Modal::Compose(modal));
+            return;
+        }
+        let mut confirm = ConfirmModal::new(
+            "Edit",
+            vec![
+                format!("Edit {id}?"),
+                "Type yes. Cancel is the default. A confirmed edit calls the loaded service.".into(),
+            ],
+            "Edit",
+            ConfirmAction::Edit(id.into()),
+        );
+        confirm.strict = true;
+        self.modal = Some(Modal::Confirm(confirm));
     }
     /// Post menu › View reposts.
     pub fn open_reposts(&mut self, id: &str) {
@@ -2555,14 +2574,35 @@ impl App {
             (Modal::Confirm(c), ModalResult::ClosedSubmitted) => match c.action {
                 ConfirmAction::Job(k, argv) => self.start_job(k, argv),
                 ConfirmAction::Quit => self.effects.push(Effect::Quit { cancel_job: c.chosen == 1 }),
-                ConfirmAction::Delete(_)
-                | ConfirmAction::Vote(_, _)
-                | ConfirmAction::Subscribe(_)
-                | ConfirmAction::Edit(_)
-                | ConfirmAction::EditReply { .. }
-                | ConfirmAction::Repost(_) => {
-                    self.push_status(crate::service::SERVICE_ABSENT.to_string());
-                },
+                ConfirmAction::Delete(id) => self.start_job(JobKind::Write, vec![
+                    crate::tui::commands::ARGV0.into(), "--delete".into(), id, "--yes".into(),
+                ]),
+                ConfirmAction::Vote(id, state) => self.start_job(JobKind::Write, vec![
+                    crate::tui::commands::ARGV0.into(), "--vote".into(), id, "--vote-state".into(), state, "--yes".into(),
+                ]),
+                ConfirmAction::Subscribe(id) => self.start_job(JobKind::Write, vec![
+                    crate::tui::commands::ARGV0.into(), "--subscribe".into(), id, "--subscribe-state".into(), "1".into(), "--yes".into(),
+                ]),
+                ConfirmAction::Edit(id) => {
+                    let mut argv = vec![crate::tui::commands::ARGV0.into(), "--edit".into(), id.clone(), "--yes".into()];
+                    if let Some(post) = self.current_post().filter(|p| p.post_id == id) {
+                        if !post.title.is_empty() {
+                            argv.push("--edit-title".into());
+                            argv.push(post.title);
+                        }
+                        if !post.content.is_empty() {
+                            argv.push("--body".into());
+                            argv.push(post.content);
+                        }
+                    }
+                    self.start_job(JobKind::Write, argv);
+                }
+                ConfirmAction::EditReply { id, body } => self.start_job(JobKind::Write, vec![
+                    crate::tui::commands::ARGV0.into(), "--edit".into(), id, "--body".into(), body, "--yes".into(),
+                ]),
+                ConfirmAction::Repost(id) => self.start_job(JobKind::Write, vec![
+                    crate::tui::commands::ARGV0.into(), "--repost".into(), id, "--yes".into(),
+                ]),
                 ConfirmAction::SendOutbox(id) => self.send_outbox(&id),
                 ConfirmAction::CreatePhrase => self.effects.push(Effect::CreatePhrase),
             },
@@ -2585,7 +2625,7 @@ impl App {
                             "Subscribe",
                             vec![
                                 format!("Subscribe to {}?", m.post_id),
-                                "Cancel is the default. The live frame is not captured, so a confirm still sends nothing.".into(),
+                                "Cancel is the default. A confirm calls the loaded service.".into(),
                             ],
                             "Subscribe",
                             ConfirmAction::Subscribe(m.post_id),
@@ -2600,7 +2640,7 @@ impl App {
                             "Delete post",
                             vec![
                                 format!("Delete {}?", m.post_id),
-                                "Type yes. On the site, open the post menu and click Delete, cancel once, then confirm a throwaway post. Nothing is sent here.".into(),
+                                "Type yes. Cancel is the default. A confirmed delete calls the loaded service. The local copy stays, with a tombstone.".into(),
                             ],
                             "Delete",
                             ConfirmAction::Delete(m.post_id),
@@ -2618,7 +2658,7 @@ impl App {
                             "Repost",
                             vec![
                                 format!("Repost {}?", m.post_id),
-                                "Cancel is the default. The repost form has not been captured, so a confirm still sends nothing.".into(),
+                                "Cancel is the default. The site does not allow a plain repost. A quote needs --repost-title and --body.".into(),
                             ],
                             "Repost",
                             ConfirmAction::Repost(m.post_id),
@@ -2640,7 +2680,7 @@ impl App {
                         "Edit",
                         vec![
                             format!("Edit reply {id}?"),
-                            "Type yes. This sends validate, then save, once.".into(),
+                            "Type yes. Cancel is the default. A confirmed edit calls the loaded service.".into(),
                             "The body replaces the reply. A quote already on it is not kept.".into(),
                         ],
                         "Edit",

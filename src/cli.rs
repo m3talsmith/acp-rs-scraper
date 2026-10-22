@@ -112,9 +112,9 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview", "rules_watch", "rules_saved", "rules_replies"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "outbox_send"]).multiple(true)))]
+#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "outbox_send"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("outbox").args(["draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
+#[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
     "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
 ])))]
 #[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
@@ -176,30 +176,39 @@ pub struct Args {
     /// Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. A confirmed reply uploads the site copy, then sends the captured validate and save frames. Same confirm and dry-run rules as `--new-post`.
     #[arg(long, value_name = "THREAD", help_heading = "Writing")]
     pub reply: Option<String>,
-    /// Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. The terminal asks `Repost? [y/N]`. `--dry-run` prints the route and does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list.
+    /// Quote-repost a post. Needs `--repost-title` and `--body` or `--body-file`. The terminal asks `Repost? [y/N]`. Cancel is the default. `--dry-run` prints the repost and does not call the service. A confirmed repost calls the loaded service. The site does not allow a plain repost. This is not `--reposts`, which only reads the list.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub repost: Option<String>,
-    /// Edit a reply (`/rs/post/ID/edit`). Needs `--body` or `--body-file`. A confirmed edit sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The hour is one hour after `--posted-at` (unix seconds); without it the hour is not checked. `--dry-run` prints the frames and does not connect. A top-level post edit is not sent. The site does not support changing attachments on an edit.
+    /// With `--repost`. The title of the quote repost.
+    #[arg(long, value_name = "TITLE", requires = "repost", help_heading = "Writing")]
+    pub repost_title: Option<String>,
+    /// Edit a reply or a top-level post. A reply needs `--body` or `--body-file`. A top-level post takes `--edit-title` and/or a body. The terminal asks `Edit? [y/N]`, then `Type yes`. The hour is one hour after `--posted-at` (unix seconds); without it the hour is not checked. `--dry-run` prints the edit and does not call the service. A confirmed edit calls the loaded service. The site does not support changing attachments on an edit.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub edit: Option<String>,
+    /// With `--edit`. New title for a top-level post.
+    #[arg(long, value_name = "TITLE", requires = "edit", help_heading = "Writing")]
+    pub edit_title: Option<String>,
     /// With `--edit`. Unix seconds of the post's `posted_at`. Used only for the one-hour window.
     #[arg(long, value_name = "UNIX", requires = "edit", help_heading = "Writing")]
     pub posted_at: Option<i64>,
-    /// Delete a post. The terminal asks `Delete? [y/N]`, then `Type yes`. `--yes` confirms both. `--dry-run` prints the documented hook and does not connect. A confirmed delete does not send: the live frame has not been captured.
+    /// Delete a post. The terminal asks `Delete? [y/N]`, then `Type yes`. `--yes` confirms both. `--dry-run` prints the delete and does not call the service. A confirmed delete calls the loaded service. The local copy stays, with a tombstone.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub delete: Option<String>,
-    /// Subscribe to a thread. STATE is `1` (subscribe) or `0` (clear). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed subscribe does not send: the live frame has not been captured.
+    /// Subscribe to a thread. STATE `1` subscribes. STATE `0` is refused before a call, including on `--dry-run`. The default is `1`. The terminal asks `Subscribe? [y/N]`. Cancel is the default. `--dry-run` prints the subscribe and does not call the service.
     #[arg(long, value_name = "THREAD", help_heading = "Writing")]
     pub subscribe: Option<String>,
     /// With `--subscribe`. `1` or `0`.
     #[arg(long, value_name = "STATE", requires = "subscribe", value_parser = ["1", "0"], help_heading = "Writing")]
     pub subscribe_state: Option<String>,
-    /// Vote on a post. STATE is `1` (upvote), `0` (clear), or `-1` (downvote). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed vote does not send: the live frame has not been captured.
+    /// Vote on a post. STATE is `1` (upvote), `0` (clear), or `-1` (downvote). The default is `1`. The terminal asks `Vote? [y/N]`. Cancel is the default. `--dry-run` prints the vote and does not call the service. A confirmed vote calls the loaded service.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub vote: Option<String>,
     /// With `--vote`. `1`, `0`, or `-1`.
-    #[arg(long, value_name = "STATE", requires = "vote", value_parser = ["1", "0", "-1"], help_heading = "Writing")]
+    #[arg(long, value_name = "STATE", requires = "vote", value_parser = ["1", "0", "-1"], allow_hyphen_values = true, help_heading = "Writing")]
     pub vote_state: Option<String>,
+    /// Bookmark a post on the site. This is not the local `--bookmark`. The terminal asks `Bookmark? [y/N]`. Cancel is the default. `--dry-run` prints the bookmark and does not call the service. Clearing a site bookmark is not sent.
+    #[arg(long, value_name = "POST", help_heading = "Writing")]
+    pub site_bookmark: Option<String>,
     /// Markdown body for `--new-post`, `--reply`, or `--edit`.
     #[arg(long, value_name = "MARKDOWN", help_heading = "Writing")]
     pub body: Option<String>,
@@ -488,10 +497,10 @@ pub struct Args {
     /// With a rules command: `toml` or `json`. Import and export otherwise follow the file extension.
     #[arg(long, value_enum, value_name = "toml|json", help_heading = "Rules")]
     pub rules_format: Option<RulesFormat>,
-    /// With a write: print the documented frames and open no connection. With --remove-nick / --clear-all: show what would be removed and change nothing.
+    /// With a write: print the action and do not call the service. With --remove-nick / --clear-all: show what would be removed and change nothing.
     #[arg(long, requires = "confirmable", help_heading = "Writing")]
     pub dry_run: bool,
-    /// Confirm. With a write, this is Publish (the send stays gated). With --remove-nick / --clear-all, skip the prompt. Required when stdin is not a terminal for those maintenance commands.
+    /// Confirm. With a write, skip the prompt and call the loaded service. With --remove-nick / --clear-all, skip the prompt. Required when stdin is not a terminal for those maintenance commands.
     #[arg(short = 'y', long, requires = "confirmable", help_heading = "Writing")]
     pub yes: bool,
 
@@ -527,7 +536,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "acp_id", "shares_print", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub identity_init: bool,
     /// Print the pinned acp-id.
@@ -538,7 +547,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "shares_print", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub acp_id: bool,
     /// Print five SLIP-39 recovery sheets (3 of 5) for the pinned account. Needs a terminal.
@@ -550,7 +559,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub shares_print: bool,
     /// Check three to five recovery shares against the pinned acp-id. Writes nothing secret.
@@ -561,7 +570,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub shares_verify: bool,
     /// Sheet or paste to read instead of typing shares. Used with --shares-print or --shares-verify.
@@ -576,7 +585,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "restore", "backup_schedule", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub backup: bool,
     /// Restore an *.acpbackup into this home. A new machine also asks for the phrase or 3 shares.
@@ -587,7 +596,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "backup_schedule", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub restore: Option<PathBuf>,
     /// Remember a daily or weekly backup. The headless service that runs it is a later release.
@@ -598,7 +607,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub backup_schedule: Option<String>,
     /// How many *.acpbackup files to keep. Used with --backup-schedule.
@@ -615,7 +624,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub encrypt_db: bool,
     /// Change the password on an encrypted database. Rewraps the local key and the
@@ -627,7 +636,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub change_password: bool,
     /// Show the 24-word recovery phrase again. Asks for the password on a terminal.
@@ -639,7 +648,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub show_phrase: bool,
 
@@ -652,7 +661,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "show_phrase", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "show_phrase", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub node_init: bool,
     /// Name for --node-init. The default is this computer's hostname.
@@ -666,7 +675,7 @@ pub struct Args {
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "show_phrase", "node_init", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
+        "show_phrase", "node_init", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
     ])]
     pub node_id: bool,
 }

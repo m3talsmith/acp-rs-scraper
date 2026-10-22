@@ -384,6 +384,9 @@ pub async fn run() -> Result<()> {
         let (profiles, hits) = load_profiles_mentions(&home()?.join(DB_REL_PATH), &nicks)?;
         return export(&a, &name, &label, &posts, &atts, &profiles, &hits, &home()?.join(EXPORTS_REL_PATH));
     }
+    if crate::actions::cli_requested(&args) {
+        return crate::actions::run(&args).await;
+    }
     if crate::drive::handles(acp_rs_plugin::CapabilityId::Reader) {
         if crate::drive::handles(acp_rs_plugin::CapabilityId::Authenticator) {
             crate::drive::login(crate::host_api::CoreHost::shared().as_ref()).await?;

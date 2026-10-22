@@ -11,22 +11,22 @@ pub enum ConfirmAction {
     Job(crate::tui::jobs::JobKind, Vec<String>),
     /// Quit; button 0 detaches the job, button 1 cancels it first.
     Quit,
-    /// Delete a post. The send stays gated.
+    /// Delete a post. A confirm calls the loaded service. The local row stays.
     Delete(String),
-    /// Upvote, clear, or downvote. The send stays gated.
+    /// Upvote, clear, or downvote. A confirm calls the loaded service.
     Vote(String, String),
-    /// Subscribe. The send stays gated.
+    /// Subscribe. A confirm calls the loaded service.
     Subscribe(String),
-    /// Edit a top-level post. The form is not built. The send stays gated.
+    /// Edit a top-level post. A confirm calls the loaded service.
     Edit(String),
-    /// Edit a reply. Confirm sends validate, then save, once.
+    /// Edit a reply. A confirm calls the loaded service.
     EditReply {
         /// Reply id.
         id: String,
         /// Markdown body that replaces the document.
         body: String,
     },
-    /// Repost. The form is not built. The send stays gated.
+    /// Repost. A plain repost is refused. A quote calls the loaded service.
     Repost(String),
     /// Send one outbox row. The id is the `Q-` id.
     SendOutbox(String),

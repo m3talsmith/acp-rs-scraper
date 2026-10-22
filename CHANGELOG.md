@@ -20,6 +20,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.41.0] - 2026-10-22
+
+### Added
+
+- **Interactions call the loaded service.** Vote, subscribe, site bookmark, delete, edit, and quote repost ask first. Cancel is the default. Delete and edit also ask for the word yes. `--dry-run` prints the action and does not call the service. A plain repost is refused before that, including on `--dry-run`. Unsubscribe and clearing a site bookmark are refused before a call. A confirmed delete keeps the local post and writes `post_tombstones`. The site half of each write is the service package.
+
 ## [3.35.14] - 2026-10-22
 
 ### Fixed

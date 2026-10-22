@@ -207,6 +207,7 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
     c.execute_batch(LOCAL_POSTS_SCHEMA)?;
     c.execute_batch(OUTBOX_SCHEMA)?;
     c.execute_batch(SITE_STATE_SCHEMA)?;
+    c.execute_batch(TOMBSTONES_SCHEMA)?;
     c.execute_batch(RULES_SCHEMA)?;
     c.execute_batch(CRAWL_SCHEMA)?;
     Ok(())
@@ -216,6 +217,17 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
 pub fn site_state_get(c: &Connection, key: &str) -> Result<Option<String>> {
     c.execute_batch(SITE_STATE_SCHEMA)?;
     c.query_row("SELECT value FROM site_state WHERE key = ?1", params![key], |r| r.get(0)).optional().map_err(Into::into)
+}
+
+/// Remember that `post_id` was deleted. The `posts` row is left in place.
+pub fn note_tombstone(c: &Connection, post_id: &str, deleted_at: &str) -> Result<()> {
+    c.execute_batch(TOMBSTONES_SCHEMA)?;
+    c.execute(
+        "INSERT INTO post_tombstones (post_id, deleted_at) VALUES (?1, ?2)
+         ON CONFLICT(post_id) DO UPDATE SET deleted_at = excluded.deleted_at",
+        params![post_id, deleted_at],
+    )?;
+    Ok(())
 }
 
 /// Write one `site_state` value.

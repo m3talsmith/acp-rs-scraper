@@ -121,6 +121,7 @@ pub fn job_label(kind: JobKind) -> &'static str {
         JobKind::Sync => "Sync",
         JobKind::Research => "Research",
         JobKind::Read => "Read",
+        JobKind::Write => "Write",
     }
 }
 

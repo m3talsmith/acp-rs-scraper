@@ -232,7 +232,7 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
         "  --dry-run prints the frames and does not connect. The reply names the new post.",
         "  Attach lists local files. Images, videos, and PDFs upload, then the text is sent.",
         "  + and - ask before a vote. Post menu subscribe, delete, edit, and repost ask too.",
-        "  Cancel is the default. Delete and edit also ask you to type yes. None of them send.",
+        "  Cancel is the default. Delete and edit also ask you to type yes. A confirm calls the loaded service.",
     ]);
     push_topic(&mut v, "outbox", "Drafts and outbox", &[
         "  Save draft, in the compose box or Compose › Save draft, writes the post on this machine.",
@@ -244,11 +244,11 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
         "  Cancel outbox item marks a queued row cancelled. A sending row waits for the read-back.",
     ]);
     push_topic(&mut v, "post-actions", "Post actions", &[
-        "  Vote, subscribe, delete, edit, and repost stay gated. No live frame is in the repo.",
+        "  Vote, subscribe, delete, edit, and repost call the loaded service.",
         "  + asks before an upvote. - asks before a downvote. Cancel is the default.",
         "  Post menu Subscribe and Repost ask the same way. Delete and Edit also ask you to type yes.",
-        "  A confirm still sends nothing. --dry-run prints the stub and does not connect.",
-        "  The clicks to record are in architecture/INTERACTIONS-CAPTURE.md.",
+        "  --dry-run prints the action and does not call the service. The site does not allow a plain repost.",
+        "  The site half of each write is the service package.",
     ]);
     push_topic(&mut v, "research", "Research", &[
         "  r, or the ◈ on a card, adds the current post to a research project.",

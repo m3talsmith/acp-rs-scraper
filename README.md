@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.35.14** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.41.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,7 +23,7 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI Help topic `recovery`. `?` opens the key list.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.35.14`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.41.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
 **3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file. **3.35.14** asks about a pending recovery phrase in the terminal UI. Not now is the default.
 
@@ -33,7 +33,7 @@ The header of the terminal UI shows `v3.35.14`. Details are in [CHANGELOG.md](CH
 
 **3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.32.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
-**3.33.0** edits a reply. `--edit REPLY --body TEXT` sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The compose box starts on Cancel. `--dry-run` prints the frames and does not connect. The one-hour window still applies. A top-level post edit, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.
+**3.41.0** asks before a vote, a subscribe, a site bookmark, a delete, an edit, and a quote repost. Cancel is the default. Delete and edit also ask for the word yes. `--dry-run` prints the action and does not call the service. A plain repost is refused, including on `--dry-run`. A confirmed delete keeps the local post and writes a tombstone. The site half of each write is the service package. The site does not support changing attachments on an edit.
 
 **3.4.0** adds New post and Reply. In the terminal UI, `n` composes a post and `r` on an open post replies (`Q` quotes it). The command line is `--new-post` and `--reply`. Cancel is the default. `--dry-run` prints the frames and does not connect. A confirmed text post or reply sends validate, then save, once, and prints the new post id and URL. The site copy uploads first (3.32.0). Turn writes off with `ui.writes = false` or `ACP_WRITES=off`. It also includes the 3.3.2 certificate lifetimes: an authorizer certificate lasts 30 days and a node certificate lasts 365 days.
 
@@ -639,7 +639,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.35.14  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.41.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
