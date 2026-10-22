@@ -6,11 +6,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.34.1] - 2026-10-21
+## [3.35.1] - 2026-10-22
 
 ### Fixed
 
 - **The recovery phrase and the shares are shown.** First-run setup on the command line and in the terminal UI shows the 24-word phrase, asks for it to be typed back, then shows each of the 5 shares on its own screen. The screen says share N of 5, threshold 3, and group threshold 1 of 1. The next share waits until this one is typed back. The words are not logged, not written as text, and not put in notices or history. `--show-recovery` and Account › Security ask for the password and show the phrase again from `~/.acp/recovery.seal`. Shares are a new split of the same master secret, so any older shares should be destroyed. Without the seal, the password cannot rebuild the words. The phrase is 24 BIP-39 words. Each share is 33 SLIP-39 words of that same 256-bit secret. Any 3 of 5 restore it. The password is not in a share. A 20-word share is accepted only so the official 128-bit test vectors still parse. This program does not issue 20-word shares.
+
+## [3.35.0] - 2026-10-22
+
+### Added
+
+- **Brands.** The logo, the title, and the motto follow a brand, the same way colours follow a theme. The built-in `default` brand is still ACP Red Star: the red-star logo, the word ACP, the title, and "The future belongs to the working class". The built-in `plain` brand is the title Red Star, a star, and no motto (`acp-red-star --brand plain`). `--brand NAME` selects one for this run. `[ui] brand` in `~/.acp/preferences.toml` keeps it. The header switch `«name» ▾` opens the picker; moving the highlight previews it and Esc puts the old brand back. The brand editor edits the title, motto, word, and logo (Ctrl-S save, Ctrl-R revert, Ctrl-N save as new, Ctrl-D duplicate, Ctrl-X delete, Ctrl-C close). User brands are `~/.acp/brands/<name>.toml`. A logo is built-in, inline text, or a file inside that folder; a path that leaves the folder is refused. A brand is independent of the theme. `--help`, `--version`, the terminal title, and HTML export headers use the title. Credits and the other surprises keep their own text.
 
 ## [3.34.0] - 2026-10-21
 

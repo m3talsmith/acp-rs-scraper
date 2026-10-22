@@ -11,7 +11,7 @@ pub mod modal;
 pub mod nicks;
 pub mod text;
 
-use crate::branding::{slogan_in_status, slogan_style, SLOGAN, SLOGAN_COLS};
+use crate::branding::slogan_style;
 use crate::prelude::*;
 use crate::tui::state::{status_line_is_problem, App, Focus, Hit, SessionState};
 use ratatui::Frame;
@@ -38,6 +38,14 @@ pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     if let Some(mut ed) = app.theme_editor.take() {
         editor::draw(f, app, &mut ed, now);
         app.theme_editor = Some(ed);
+        if app.modal.is_some() { modal::draw(f, app, area); }
+        crate::tui::tooltip::paint(f, app, area);
+        if app.egg.is_some() { draw_egg(f, app, area, now); }
+        return;
+    }
+    if let Some(mut ed) = app.brand_editor.take() {
+        ed.draw(f, app);
+        app.brand_editor = Some(ed);
         if app.modal.is_some() { modal::draw(f, app, area); }
         crate::tui::tooltip::paint(f, app, area);
         if app.egg.is_some() { draw_egg(f, app, area, now); }
@@ -123,9 +131,8 @@ fn draw_toasts(f: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-/// The header: the red star logo, a big "ACP", the title and the session, all
-/// vertically centred in [`TUI_HEADER_ROWS`] rows.
-fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
+/// The header: the brand logo, the brand's big letters, the title and the session.
+pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
     let bar = t.bar();
     f.render_widget(Paragraph::new("").style(&bar), r);
@@ -137,27 +144,31 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     // header height, in on-accent over the red bar. Without terminal graphics it
     // is a sextant silhouette of the same PNG.
     let logo = Rect { x: r.x + 1, y: r.y, width: (r.height * 2).min(r.width.saturating_sub(1)), height: r.height };
-    let drawn = app.images.as_mut().is_some_and(|im| im.draw_logo(f.buffer_mut(), logo));
-    if !drawn { crate::tui::images::draw_logo_text(f.buffer_mut(), logo, t.on_accent, t.accent); }
+    draw_brand_logo(f, app, logo);
     app.hits.push((logo, Hit::Logo));
     let mut x = logo.x + logo.width + 1;
-    let big_w = 3 * 8;
-    if r.height >= 3 && x + big_w + 2 < r.width {
-        let big = tui_big_text::BigText::builder()
-            .pixel_size(tui_big_text::PixelSize::ThirdHeight)
-            .style(t.bar().bold(true))
-            .lines(vec![Line::from("ACP")])
-            .build();
-        f.render_widget(big, Rect { x, y: big_top, width: big_w, height: 3 });
-        x += big_w + 2;
-    } else {
-        f.render_widget(Paragraph::new(Span::styled("ACP", t.bar().bold(true))), Rect { x, ..mid });
-        x += 5;
+    let word = app.brand.word.clone();
+    if !word.is_empty() {
+        let big_w = (word.chars().count() as u16).saturating_mul(8).max(1);
+        if r.height >= 3 && x + big_w + 2 < r.width {
+            let big = tui_big_text::BigText::builder()
+                .pixel_size(tui_big_text::PixelSize::ThirdHeight)
+                .style(t.bar().bold(true))
+                .lines(vec![Line::from(word)])
+                .build();
+            f.render_widget(big, Rect { x, y: big_top, width: big_w, height: 3 });
+            x += big_w + 2;
+        } else {
+            let small = word.chars().count() as u16 + 1;
+            f.render_widget(Paragraph::new(Span::styled(word, t.bar().bold(true))), Rect { x, ..mid });
+            x += small;
+        }
     }
+    let title = app.brand.title.clone();
     let left = if app.node_chip.is_empty() {
-        format!("{}  v{}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"))
+        format!("{title}  v{}", env!("CARGO_PKG_VERSION"))
     } else {
-        format!("{}  v{}  {}", TUI_SUBTITLE, env!("CARGO_PKG_VERSION"), app.node_chip)
+        format!("{title}  v{}  {}", env!("CARGO_PKG_VERSION"), app.node_chip)
     };
     let session = match app.session {
         SessionState::LoggedOut => "○ logged out",
@@ -175,21 +186,29 @@ fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
         (false, Some(f)) => format!("‹{}: {f}› ▾", app.theme_name),
         (false, None) => format!("‹{}› ▾", app.theme_name),
     };
+    let bfault = app.brand_fault.or(app.brand_error.is_some().then_some("broken"));
+    let bswitch = match bfault {
+        Some(f) => format!("«{}: {f}» ▾", app.brand_name),
+        None => format!("«{}» ▾", app.brand_name),
+    };
     let right = format!("  {session} ");
     let rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
-    let used = left.chars().count() + job.chars().count() + switch.chars().count() + right.chars().count();
+    let used = left.chars().count() + job.chars().count() + bswitch.chars().count() + switch.chars().count() + right.chars().count();
     let pad = (rest.width as usize).saturating_sub(used);
-    let sw_x = rest.x + (left.chars().count() + pad + job.chars().count()) as u16;
+    let bsw_x = rest.x + (left.chars().count() + pad + job.chars().count()) as u16;
+    let sw_x = bsw_x + bswitch.chars().count() as u16;
     if (used as u16) < rest.width {
         if !job_body.is_empty() {
             let job_x = rest.x + (left.chars().count() + pad) as u16;
             let w = job_body.chars().count() as u16;
             if w > 0 { app.hits.push((Rect { x: job_x, y: rest.y, width: w, height: 1 }, Hit::Job)); }
         }
+        app.hits.push((Rect { x: bsw_x, y: rest.y, width: bswitch.chars().count() as u16, height: 1 }, Hit::BrandSwitch));
         app.hits.push((Rect { x: sw_x, y: rest.y, width: switch.chars().count() as u16, height: 1 }, Hit::ThemeSwitch));
     }
     f.render_widget(Paragraph::new(Line::from(vec![
         Span::styled(left, t.bar().bold(true)), Span::styled(" ".repeat(pad), &bar), Span::styled(job, &bar),
+        Span::styled(bswitch, t.bar().underline(true)),
         Span::styled(switch, t.bar().underline(true)), Span::styled(right, &bar),
     ])), rest);
     if r.width > 2 && r.height > 0 {
@@ -214,17 +233,65 @@ fn status(f: &mut Frame, app: &mut App, r: Rect) {
     };
     let bottom = (r.height as usize).saturating_sub(1);
     let bottom_cols = lines.get(bottom).map(line_cols).unwrap_or(0);
-    let show_slogan = r.height > 0 && slogan_in_status(r.width, bottom_cols);
+    let motto = app.brand.motto.clone();
+    let motto_cols = crate::branding::motto_cols(&motto);
+    let show_slogan = r.height > 0 && crate::branding::motto_in_status(&motto, r.width, bottom_cols);
     f.render_widget(Paragraph::new(lines), r);
     if show_slogan {
         let y = r.y + r.height - 1;
-        let x = r.x + r.width - SLOGAN_COLS;
+        let x = r.x + r.width - motto_cols;
         f.render_widget(
-            Paragraph::new(Span::styled(SLOGAN, slogan_style(app.color_mode, app.no_color, true))),
-            Rect { x, y, width: SLOGAN_COLS, height: 1 },
+            Paragraph::new(Span::styled(motto, slogan_style(app.color_mode, app.no_color, true))),
+            Rect { x, y, width: motto_cols, height: 1 },
         );
     }
     app.hits.push((r, Hit::Status));
+}
+
+fn draw_brand_logo(f: &mut Frame, app: &mut App, logo: Rect) {
+    use crate::brands::LogoKind;
+    let t = app.theme;
+    match app.brand.logo {
+        LogoKind::Builtin => {
+            let drawn = app.images.as_mut().is_some_and(|im| im.draw_logo(f.buffer_mut(), logo));
+            if !drawn { crate::tui::images::draw_logo_text(f.buffer_mut(), logo, t.on_accent, t.accent); }
+        }
+        LogoKind::Text => paint_logo_text(f, logo, &app.brand.logo_text, t.on_accent, t.accent),
+        LogoKind::File => {
+            let path = app.brand.logo_path.clone();
+            let mut drew = false;
+            if let Some(path) = path.as_ref() && let Some(im) = app.images.as_mut() {
+                match im.draw_file(f.buffer_mut(), logo, path, true) {
+                    Ok(()) => drew = true,
+                    Err(e) if e.starts_with('…') => drew = true,
+                    Err(_) => {}
+                }
+            }
+            if !drew {
+                if let Some(path) = path.as_ref() {
+                    drew = crate::tui::images::draw_halfblocks_file(f.buffer_mut(), logo, path);
+                }
+                if !drew { paint_logo_text(f, logo, "★", t.on_accent, t.accent); }
+            }
+        }
+    }
+}
+
+fn paint_logo_text(f: &mut Frame, area: Rect, text: &str, fg: ratatui::style::Color, bg: ratatui::style::Color) {
+    let lines: Vec<&str> = text.lines().filter(|l| !l.is_empty()).collect();
+    let lines: Vec<&str> = if lines.is_empty() { vec!["★"] } else { lines };
+    let h = lines.len().min(area.height as usize);
+    let y0 = area.y + area.height.saturating_sub(h as u16) / 2;
+    let style = ratatui::style::Style::default().fg(fg).bg(bg);
+    for (i, line) in lines.iter().take(h).enumerate() {
+        let w = unicode_width::UnicodeWidthStr::width(*line).min(area.width as usize) as u16;
+        let x = area.x + area.width.saturating_sub(w) / 2;
+        let shown: String = line.chars().take(area.width as usize).collect();
+        f.render_widget(
+            Paragraph::new(Span::styled(shown, style)),
+            Rect { x, y: y0 + i as u16, width: w.max(1), height: 1 },
+        );
+    }
 }
 
 fn line_cols(line: &Line) -> u16 {
