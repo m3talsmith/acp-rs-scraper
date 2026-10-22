@@ -507,7 +507,7 @@ pub struct Args {
     pub error_log: Option<PathBuf>,
 
     /// Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id.
-    /// The phrase is shown on this terminal, then each of the 5 shares, one at a time. An encrypted copy of the phrase is kept so --show-recovery can show it again. Needs a terminal.
+    /// The phrase is shown on this terminal, then each of the 5 shares, one at a time. Each share is 33 words. Any 3 of 5 rebuild the same secret. An encrypted copy of the phrase is kept so --show-recovery can show it again. Needs a terminal.
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
@@ -618,7 +618,7 @@ pub struct Args {
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub change_password: bool,
-    /// Show the 24-word recovery phrase again, then each share. Same screen as --show-recovery.
+    /// Show the 24-word recovery phrase again, then each share. Each share is 33 words. Same screen as --show-recovery.
     /// Asks for the password on a terminal. The words are not logged.
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
@@ -630,7 +630,7 @@ pub struct Args {
         "show_recovery", "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub show_phrase: bool,
-    /// Show the 24-word phrase and then each recovery share. Asks for the password
+    /// Show the 24-word phrase and then each recovery share. Each share is 33 words. Asks for the password
     /// on a terminal. A fresh split is printed, because an older split cannot be
     /// reproduced. Needs a terminal.
     #[arg(long, help_heading = "Identity", conflicts_with_all = [

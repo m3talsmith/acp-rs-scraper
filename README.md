@@ -20,7 +20,7 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 - **What breaks.** Startup will not open `~/.acp/ai/data/rs.database` from 2.x. A new database asks for a password before the terminal UI or a headless command uses it. 2.x cannot read a 3.0.0 database, `rs.database.bootstrap`, or a `*.acpbackup`.
 - **Migrate.** Copy `~/.acp/ai/data/rs.database` somewhere outside `~/.acp` if you may want 2.x again. Then run `acp-red-star --encrypt-db`. It writes a `*.acpbackup` first, encrypts the file, and removes the plaintext copy only after the encrypted copy matches. The password you set is required the next time the program starts (or set `ACP_PASSWORD` when there is no terminal). A session that has already unlocked the database does not ask again.
-- **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app shows the 24 words and then each of the 5 shares (any 3 rebuild it), one at a time. Show them again with `acp-red-star --show-recovery` (it asks for the password). Account › Security does the same. The same steps are in `--help` and in the terminal UI under `?`.
+- **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app shows the 24-word phrase and then each of the 5 shares, one at a time. Each share is 33 words. Any 3 of 5 rebuild the same secret. The password is not in a share. Show them again with `acp-red-star --show-recovery` (it asks for the password). Account › Security does the same. The same steps are in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
 The header of the terminal UI shows `v3.34.1`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
@@ -465,7 +465,7 @@ Debug:
 
 Identity:
       --identity-init
-          Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id. The phrase is shown on this terminal, then each of the 5 shares, one at a time. An encrypted copy of the phrase is kept so --show-recovery can show it again. Needs a terminal
+          Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id. The phrase is shown on this terminal, then each of the 5 shares, one at a time. Each share is 33 words. Any 3 of 5 rebuild the same secret. An encrypted copy of the phrase is kept so --show-recovery can show it again. Needs a terminal
 
       --acp-id
           Print the pinned acp-id
@@ -503,10 +503,10 @@ Identity:
           Change the password on an encrypted database. Rewraps the local key and the account key. The account id stays the same. Needs a terminal
 
       --show-phrase
-          Show the 24-word recovery phrase again, then each share. Same screen as --show-recovery. Asks for the password on a terminal. The words are not logged
+          Show the 24-word recovery phrase again, then each share. Each share is 33 words. Same screen as --show-recovery. Asks for the password on a terminal. The words are not logged
 
       --show-recovery
-          Show the 24-word phrase and then each recovery share. Asks for the password on a terminal. A fresh split is printed, because an older split cannot be reproduced. Needs a terminal
+          Show the 24-word phrase and then each recovery share. Each share is 33 words. Asks for the password on a terminal. A fresh split is printed, because an older split cannot be reproduced. Needs a terminal
 
       --node-init
           Create this machine's node key and certificates. Needs a pinned acp-id. The node key is generated here. It is not derived from the master
@@ -521,19 +521,19 @@ The password that opens the database is not the master key. There is no password
 
 The master key is a 24-word recovery phrase (BIP-39). This program mixes that phrase with the password using Argon2id. A new computer needs both before it can open an encrypted backup, which is a .acpbackup file. The password is not written into the phrase.
 
-Split the phrase into 5 shares. Any 3 of those 5 shares rebuild the phrase. One share or two shares do nothing. The password is not written into the shares. Keep the shares in different places, and do not keep them with the password.
+Split that same 256-bit secret into 5 shares. Each share is 33 words (SLIP-39). Any 3 of those 5 shares rebuild the same secret the 24-word phrase names. One share or two shares do nothing. The password is not written into the shares. Keep the shares in different places, and do not keep them with the password.
 
-Write the 24 words on paper, and write each share on its own paper. Do not email them, do not put them in a screenshot, and do not put them in the same note as the password. This computer can keep an encrypted copy at ~/.acp/recovery.seal so the words can be shown again here. That file still needs the password. It does not open a backup on a new computer, and it does not replace the paper copy.
+Write the 24 words on paper, and write each 33-word share on its own paper. Do not email them, do not put them in a screenshot, and do not put them in the same note as the password. This computer can keep an encrypted copy at ~/.acp/recovery.seal so the words can be shown again here. That file still needs the password. It does not open a backup on a new computer, and it does not replace the paper copy.
 
 Create the phrase when you can write it down:
 
     acp-red-star --identity-init
 
-The words are shown once, and you type them again to confirm you saved them. The command then shows the 5 shares, one at a time. Each share is share N of 5, the threshold is 3 of 5, and the group threshold is 1 of 1. You type that share before the next one is shown. The shares are not logged and they are not stored as text. To print a fresh split later:
+The 24 words are shown once, and you type them again to confirm you saved them. The command then shows the 5 shares, one at a time. Each share is 33 words. The screen says share N of 5, the threshold is 3 of 5, and the group threshold is 1 of 1. You type that share before the next one is shown. The shares are not logged and they are not stored as text. To print a fresh split later:
 
     acp-red-star --shares-print
 
-That asks for the 24 words, or for at least 3 shares you already have, and for the password. A new split cannot reprint an older one. Destroy any older shares. An older share still rebuilds the secret until that paper is destroyed.
+That asks for the 24-word phrase, or for at least 3 shares of 33 words each, and for the password. A new split cannot reprint an older one. Destroy any older shares. An older share still rebuilds the secret until that paper is destroyed.
 
 Show the words and the shares again on this computer:
 
@@ -545,13 +545,13 @@ Check a written copy of the shares:
 
     acp-red-star --shares-verify
 
-Paste 3 to 5 shares. It checks them against the pinned account and writes nothing secret. --show-phrase can also ask you to type the 24 words from paper and tell you whether they match.
+Paste 3 to 5 shares. Each share is 33 words. It checks them against the pinned account and writes nothing secret. --show-phrase can also ask you to type the 24 words from paper and tell you whether they match.
 
 Restore a backup on this computer, or on a new one:
 
     acp-red-star --restore FILE.acpbackup
 
-This computer needs the password. A new computer asks for the 24 words, or for 3 shares, and for the password.
+This computer needs the password. A new computer asks for the 24-word phrase, or for 3 shares of 33 words each, and for the password.
 
 The same steps are on the Help screen in the terminal UI (? or F1).
 

@@ -487,7 +487,7 @@ fn account_item() -> MenuCommand {
     shown(CommandId::Session, "Account", 'n', vec![
         opt("login", "Log in", "", false, button(Action::Login)),
         opt("logout", "Log out", "--logout", false, button(Action::Logout)),
-        opt("security", "Security", "--show-recovery", false, button(Action::ShowRecovery)),
+        opt("security", "Security", "--show-recovery (24-word phrase, 33-word shares)", false, button(Action::ShowRecovery)),
     ])
 }
 

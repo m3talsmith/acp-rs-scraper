@@ -300,6 +300,8 @@ mod tests {
         assert!(GUIDE.contains("--restore"));
         assert!(GUIDE.contains(".acpbackup"));
         assert!(GUIDE.contains("Argon2id"));
+        assert!(GUIDE.contains("24-word"));
+        assert!(GUIDE.contains("33 words"));
         assert!(GUIDE.contains("scrollback"));
     }
 

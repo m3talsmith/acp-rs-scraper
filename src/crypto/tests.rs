@@ -190,6 +190,9 @@ fn shares_are_confirmed_one_at_a_time_and_not_written() {
     let second = text.find("Share 2 of 5").unwrap();
     assert!(first < missed && missed < second, "share 2 was shown before share 1 was confirmed");
     assert!(text.contains("Threshold 3 of 5"));
+    assert!(text.contains("33 words"));
+    assert!(text.contains("24 words"));
+    assert!(shares.iter().all(|s| s.split_whitespace().count() == 33));
     assert!(text.contains("Group threshold 1 of 1"));
     assert!(text.contains("Destroy any older shares"));
     assert!(!text.contains("not the share"));

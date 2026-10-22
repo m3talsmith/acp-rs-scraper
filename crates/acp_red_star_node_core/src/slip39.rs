@@ -522,7 +522,9 @@ pub fn member_position(mnemonic: &str) -> Result<(u8, u8)> {
     Ok((s.member_index + 1, MEMBER_COUNT as u8))
 }
 
-/// Pull share mnemonics out of a sheet, a file, or a paste. A share is 20 or 33 words.
+/// Pull share mnemonics out of a sheet, a file, or a paste.
+/// A share this program issues is 33 words. A 20-word share is accepted so the
+/// official 128-bit SLIP-39 vectors still parse. This program does not issue those.
 pub fn extract_mnemonics(text: &str) -> Vec<String> {
     let tokens: Vec<&str> = text.split_whitespace().collect();
     let mut out = Vec::new();
@@ -550,6 +552,7 @@ pub fn sheet(acp_id: &str, mnemonic: &str) -> Result<String> {
     let (index, of) = member_position(mnemonic)?;
     Ok(format!(
         "ACP recovery share {index} of {of}\n\
+         Each share is 33 words. Any 3 of 5 rebuild the same 256-bit secret. The phrase is 24 words.\n\
          acp-id: {acp_id}\n\
          set: {id}\n\
          Reissuing shares of this seed does not invalidate older shares. Only a master rotation does.\n\
@@ -630,6 +633,9 @@ mod tests {
         assert!(text.contains("acp-id: acp1-example"));
         assert!(text.contains("does not invalidate older shares"));
         assert!(text.contains("password is not"));
+        assert!(text.contains("33 words"));
+        assert!(text.contains("24 words"));
+        assert_eq!(shares[2].split_whitespace().count(), 33);
         let found = extract_mnemonics(&text);
         assert_eq!(found.len(), 1);
         assert_eq!(found[0], shares[2]);

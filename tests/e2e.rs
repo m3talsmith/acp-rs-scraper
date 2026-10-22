@@ -207,9 +207,64 @@ async fn one_share_at_a_time(w: &mut E2e) {
     let second = text.find("Share 2 of 5").expect("share 2 header");
     assert!(first < missed && missed < second);
     assert!(text.contains("Threshold 3 of 5"), "threshold");
+    assert!(text.contains("33 words"), "share length");
+    assert!(text.contains("24 words"), "phrase length");
     assert!(text.contains("Group threshold 1 of 1"), "group");
     assert!(text.contains("Destroy any older shares"), "fresh split");
     assert!(!text.contains("not the share"), "a wrong line was echoed");
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
+}
+
+#[when("the BIP-39 abandon phrase is restored")]
+async fn restore_abandon_phrase(w: &mut E2e) {
+    let phrase = acp_red_star::crypto::phrase_from_entropy(&[0u8; 32]).expect("phrase");
+    let seed = acp_red_star::crypto::recover_seed(&phrase).expect("restore");
+    assert_eq!(seed.as_slice(), &[0u8; 32]);
+    w.last.stdout = format!(
+        "phrase words {}\nrestored {}\n",
+        phrase.split_whitespace().count(),
+        hex_bytes(seed.as_slice())
+    );
+    w.last.stderr.clear();
+    w.last.code = 0;
+}
+
+#[when("three official SLIP-39 shares are restored")]
+async fn restore_official_shares(w: &mut E2e) {
+    let raw = include_str!("../crates/acp_red_star_node_core/src/testdata/slip39-vectors.json");
+    let vectors: Vec<(String, Vec<String>, String, String)> = serde_json::from_str(raw).expect("vectors");
+    let (desc, mnemonics, secret, _) = vectors
+        .iter()
+        .find(|(_, words, secret, _)| words.len() == 3 && secret.starts_with("5385577c"))
+        .expect("SLIP-39 vector of three 256-bit shares");
+    for mnemonic in mnemonics {
+        assert_eq!(mnemonic.split_whitespace().count(), 33, "{desc}");
+    }
+    let refs: Vec<&str> = mnemonics.iter().map(String::as_str).collect();
+    let got = acp_red_star::crypto::slip39::combine(&refs, "TREZOR").expect("combine");
+    assert_eq!(hex_bytes(&got), *secret);
+    w.last.stdout = format!("{secret}\nshare words 33\n");
+    w.last.stderr.clear();
+    w.last.code = 0;
+}
+
+#[when("the abandon secret is split and restored from three product shares")]
+async fn restore_product_shares(w: &mut E2e) {
+    let entropy = [0u8; 32];
+    let phrase = acp_red_star::crypto::phrase_from_entropy(&entropy).expect("phrase");
+    let shares = acp_red_star::crypto::slip39::split_seed(&entropy).expect("split");
+    assert!(shares.iter().all(|s| s.split_whitespace().count() == 33));
+    let text = format!("{}\n{}\n{}", shares[0], shares[2], shares[4]);
+    let from_shares = acp_red_star::crypto::cmd::seed_from_material(&text).expect("shares");
+    let from_phrase = acp_red_star::crypto::cmd::seed_from_material(&phrase).expect("phrase");
+    assert_eq!(from_shares.as_slice(), &entropy);
+    assert_eq!(from_phrase.as_slice(), &entropy);
+    w.last.stdout = "product shares 33\nphrase words 24\nsame secret\n".into();
+    w.last.stderr.clear();
+    w.last.code = 0;
 }
 
 #[then(expr = "the home has no recovery words on disk")]

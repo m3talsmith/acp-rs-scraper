@@ -30,7 +30,7 @@ A database this program creates is encrypted. The first start on a terminal asks
 acprs --identity-init
 ```
 
-That shows a 24-word recovery phrase once. You type it again to confirm. It can then split the phrase into 5 shares. Any 3 of those 5 rebuild the phrase. Write the words and the shares on paper. `--show-phrase` and `--shares-print` ask again later. On a terminal those prompts are the program waiting, not the TUI.
+That shows a 24-word recovery phrase once. You type it again to confirm. It then shows 5 shares. Each share is 33 words. Any 3 of those 5 rebuild the same secret. The password is not in a share. Write the words and the shares on paper. `--show-phrase` and `--shares-print` ask again later. On a terminal those prompts are the program waiting, not the TUI.
 
 `--encrypt-db` encrypts an older plaintext database after it writes a backup.
 

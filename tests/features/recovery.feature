@@ -27,3 +27,21 @@ Feature: Recovery phrase and shares
     When the recovery screens walk five shares
     Then the recovery screen showed one share at a time
     And the home has no recovery words on disk
+    And stdout contains "33 words"
+    And stdout contains "24 words"
+
+  Scenario: The standard 24-word phrase restores the secret
+    When the BIP-39 abandon phrase is restored
+    Then stdout contains "phrase words 24"
+    And stdout contains "restored 0000000000000000000000000000000000000000000000000000000000000000"
+
+  Scenario: Three official SLIP-39 shares restore the published secret
+    When three official SLIP-39 shares are restored
+    Then stdout contains "5385577c8cfc6c1a8aa0f7f10ecde0a3318493262591e78b8c14c6686167123b"
+    And stdout contains "share words 33"
+
+  Scenario: Product shares of that secret are 33 words and restore it
+    When the abandon secret is split and restored from three product shares
+    Then stdout contains "product shares 33"
+    And stdout contains "phrase words 24"
+    And stdout contains "same secret"

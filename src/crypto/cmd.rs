@@ -38,6 +38,7 @@ pub fn identity_init() -> Result<()> {
     let master = master::derive_master(&phrase, password.as_str(), default_params())?;
     clear_screen();
     println!("Write these 24 words on paper. A screenshot or a photo is not a safe copy.");
+    println!("Each share that follows is 33 words. Any 3 of 5 rebuild this same secret.");
     println!("There is no password reset. The password is not part of the phrase.");
     println!("This screen is the only place the words are shown. They are not logged.");
     println!();
@@ -129,7 +130,7 @@ pub fn node_init(label: Option<&str>) -> Result<()> {
             );
         }
         let typed = Zeroizing::new(read_block(
-            "Paste the 24-word phrase, or at least 3 shares, then a blank line:",
+            "Paste the 24-word phrase, or at least 3 shares of 33 words each, then a blank line:",
         )?);
         master::seed_from_material(typed.as_str())?
     };
@@ -406,7 +407,7 @@ pub fn restore_now(path: &Path) -> Result<()> {
             bail!("--restore on a new machine needs a terminal for the phrase or the shares");
         }
         Some(read_block(
-            "Paste the 24-word phrase, or at least 3 shares, then a blank line:",
+            "Paste the 24-word phrase, or at least 3 shares of 33 words each, then a blank line:",
         )?)
     } else {
         None
@@ -473,7 +474,7 @@ fn unlock_seed(
     let text = match file {
         Some(path) => std::fs::read_to_string(path)
             .map_err(|e| anyhow::anyhow!("reading {}: {e}", path.display()))?,
-        None => read_block("Paste the 24-word phrase, or at least 3 shares, then a blank line:")?,
+        None => read_block("Paste the 24-word phrase, or at least 3 shares of 33 words each, then a blank line:")?,
     };
     let seed = seed_from_material(&text)?;
     let phrase = Zeroizing::new(master::phrase_from_entropy(&seed)?);
@@ -524,7 +525,7 @@ pub fn present_shares_with(
     writeln!(out)?;
     writeln!(
         out,
-        "Any {threshold} of {count} shares rebuild the seed. One group, group threshold {group_need} of {groups}."
+        "Each share is 33 words. Any {threshold} of {count} shares rebuild the same 256-bit secret. The phrase is 24 words. One group, group threshold {group_need} of {groups}."
     )?;
     writeln!(out, "The password is not in a share. A share is not logged and is not stored.")?;
     if fresh {
@@ -718,6 +719,7 @@ pub fn show_recovery() -> Result<()> {
     let (entropy, phrase, acp_id) = opened;
     clear_screen();
     println!("Write these 24 words on paper. They are not logged and they are not stored as text.");
+    println!("Each share that follows is 33 words. Any 3 of 5 rebuild this same secret.");
     println!();
     println!("{}", phrase.as_str());
     println!();

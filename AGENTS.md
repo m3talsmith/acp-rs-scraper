@@ -33,6 +33,7 @@ All rule changes and additions go in this file.
 ## Testing
 - **Smoke and manual runs always use a throwaway `HOME`, never the real `~/.acp`.** Auto-sync is on there, and a stray run can post or sync for real.
 - End-to-end tests are mocked Gherkin scenarios (the `cucumber` crate with `.feature` files and a mock server). Tests must never touch the real acp.us site, X, YouTube or any other live service.
+- Recovery stays a 24-word BIP-39 phrase and SLIP-39 shares of that same 256-bit secret. Each share this program issues is 33 words. Any 3 of 5 restore the secret. The password is not in a share. A 20-word share is accepted only so the official 128-bit SLIP-39 vectors still parse. Do not invent a 24-word share encoding. The published `slip39` crate does not build here because it depends on a yanked `bitvec`. The implementation in `crates/acp_red_star_node_core/src/slip39.rs` is the SLIP-39 construction, checked against the official vectors. `recovery.seal` stays the sealed 256-bit entropy. An existing paper phrase still restores.
 - Every write to a live site needs a mocked test, a preview, and a confirmation where Cancel is the default; `--dry-run` must show exactly what would be sent.
 - `cargo build`, `cargo test` and `cargo clippy` (no warnings) pass before every commit. MSRV is 1.88 (check `rust-version` in `Cargo.toml` in case it has changed).
 
