@@ -546,6 +546,9 @@ Services:
       --quarantine-delete <FILE>
           Delete a quarantined copy. The plugins directory is left alone
 
+      --x-read <HANDLE>
+          Prepared read of one X handle. Does not connect. Nothing is fetched
+
 The password that opens the database is not the master key. There is no password reset. If the password is lost, the database cannot be opened, even when you still have the recovery phrase.
 
 The master key is a 24-word recovery phrase (BIP-39). This program mixes that phrase with the password using Argon2id. A new computer needs both before it can open an encrypted backup, which is a .acpbackup file. The password is not written into the phrase.

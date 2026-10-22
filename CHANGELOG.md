@@ -6,6 +6,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **X service, prepared, gated.** `crates/acp_red_star_service_x` registers through `declare_builtin!`. It is off when `~/.acp/services/x.toml` is missing. `--x-read HANDLE` stops before any connection and prints that the read is prepared, gated, and nothing was fetched. Writes are the same and nothing is sent. The session route names `UserByScreenName`, `UserTweets`, `UserTweetsAndReplies`, `TweetDetail`, and `SearchTimeline` with unpinned query ids. The API route names the `/2/` paths and a price table dated 2026-10-21. No guest token. Enabling the service does not fetch. The root crate version is unchanged.
+
 ## [3.52.0] - 2026-10-22
 
 ### Added

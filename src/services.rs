@@ -43,6 +43,7 @@ pub fn service_path(home: &Path, id: &str) -> PathBuf {
 pub fn builtins() -> Vec<Box<dyn DynService>> {
     let mut reg = BuiltinRegistrar { services: Vec::new() };
     unsafe { (acp_red_star_service_redstar::plugin_declaration.register)(&mut reg) };
+    unsafe { (acp_red_star_service_x::plugin_declaration.register)(&mut reg) };
     reg.services
 }
 
@@ -308,6 +309,11 @@ pub fn strip_secrets(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// A prepared X read. Nothing is fetched.
+pub fn x_read(handle: &str) -> Result<()> {
+    acp_red_star_service_x::prepare_read(handle).map_err(|e| anyhow!("{e}"))
+}
+
 /// Lines for the Services window.
 pub fn services_rows(home: &Path) -> Vec<ServiceRow> {
     let mut rows = Vec::new();
@@ -408,6 +414,26 @@ mod tests {
         let err = set_config(&home, "redstar", "session", "super-secret-token").unwrap_err().to_string();
         assert!(err.contains("no field") || err.contains("secret"), "{err}");
         assert!(!err.contains("super-secret-token"), "{err}");
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn an_x_bearer_in_toml_is_refused_without_the_value() {
+        let home = std::env::temp_dir().join(format!("acp-xsec-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let path = service_path(&home, "x");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "enabled = true\nbearer = \"not-a-token\"\n").unwrap();
+        let err = is_enabled(&home, "x").unwrap_err().to_string();
+        assert!(err.contains("bearer"), "{err}");
+        assert!(!err.contains("not-a-token"), "{err}");
+        let err = set_config(&home, "x", "bearer", "not-a-token").unwrap_err().to_string();
+        assert!(err.contains("secret"), "{err}");
+        assert!(!err.contains("not-a-token"), "{err}");
+        let ids: Vec<_> = builtins().iter().map(|s| s.id()).collect();
+        assert_eq!(ids, vec!["redstar", "x"]);
+        let err = x_read("alice").unwrap_err().to_string();
+        assert!(err.contains("Nothing was fetched"), "{err}");
         let _ = std::fs::remove_dir_all(&home);
     }
 

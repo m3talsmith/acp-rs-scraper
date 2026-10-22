@@ -33,7 +33,7 @@ That build also writes `./target/release/acprs` and `./target/release/acp-rs-scr
 
 You can also run it through cargo with `cargo run --release -- <flags>`, or `cargo run --release --bin acprs -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
-The workspace members are `acp-red-star` (repository root, the terminal client and binary), `acp_red_star_node_core` (`crates/acp_red_star_node_core`), and `acp_red_star_service_redstar` (`crates/acp_red_star_service_redstar`). The core library holds account identity, canonical CBOR, a secret-store interface, and the service plugin ABI. It is `publish = false`. The Red Star service crate registers Red Star on that ABI. The scrape, login, and write modules stay in the root crate. The module list is in [INSTALL.md](INSTALL.md#workspace-crates). Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
+The workspace members are `acp-red-star` (repository root, the terminal client and binary), `acp_red_star_node_core` (`crates/acp_red_star_node_core`), `acp_red_star_service_redstar` (`crates/acp_red_star_service_redstar`), and `acp_red_star_service_x` (`crates/acp_red_star_service_x`). The core library holds account identity, canonical CBOR, a secret-store interface, and the service plugin ABI. It is `publish = false`. The Red Star service crate registers Red Star on that ABI. The X service crate registers X on the same ABI and refuses reads and writes until a later capture. The scrape, login, and write modules stay in the root crate. The module list is in [INSTALL.md](INSTALL.md#workspace-crates). Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
 
 ## Terminal UI
 
@@ -634,13 +634,17 @@ These flags stand alone. They do not open the terminal UI and they do not scrape
 | `--quarantine-show FILE` | Print one quarantined item and why it was moved. |
 | `--quarantine-restore FILE` | Move that archive back to `~/.acp/plugins` and run the package check again. |
 | `--quarantine-delete FILE` | Delete the quarantined copy. The plugins directory is left alone. |
+| `--x-read HANDLE` | Prepared read of one X handle. Does not connect. The command fails and says nothing was fetched. Enabling X does not fetch either. |
 
 ```sh
 acp-red-star --doctor
 acp-red-star --services
 acp-red-star --service-set redstar mentions true
 acp-red-star --quarantine
+acp-red-star --x-read alice
 ```
+
+`--x-read` is prepared and gated. It names no live request. A write on this service is refused the same way and nothing is sent. X is off until `~/.acp/services/x.toml` sets `enabled = true`. Secrets (`bearer`, `session`) are refused if they appear in that file.
 
 A plugin archive is `<name>-<os>-<arch>-<version>.tar.gz`. It contains `package.toml` with `[meta]` and `[install]`. Every binary and library entry has a sha256. The app checks the name, the version, the operating system, the architecture, the paths, and each hash before it loads the library. A failed check is logged as a potential security threat (the name, the path, and the reason; never the file bytes) and the archive moves to `~/.acp/quarantined/plugins/`. A rustc or core-version mismatch is refused and is not quarantined. Preferences › Services and `plugins.reload` call that same loader. A changed package is checked again. A failed check waits until nothing is inside the library, unloads it, and quarantines it. A version mismatch keeps the copy already loaded.
 

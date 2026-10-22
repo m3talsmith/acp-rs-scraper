@@ -74,4 +74,5 @@ fn services_modal_lists_red_star_on() {
     a.act(Action::OpenServices);
     let Some(Modal::Services(m)) = &a.modal else { panic!("{:?}", a.modal) };
     assert!(m.rows.iter().any(|r| matches!(r, crate::services::ServiceRow::Service { id, enabled: true, .. } if id == "redstar")));
+    assert!(m.rows.iter().any(|r| matches!(r, crate::services::ServiceRow::Service { id, enabled: false, .. } if id == "x")));
 }

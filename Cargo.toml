@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/acp_red_star_node_core", "crates/acp_red_star_service_redstar"]
+members = [".", "crates/acp_red_star_node_core", "crates/acp_red_star_service_redstar", "crates/acp_red_star_service_x"]
 resolver = "2"
 
 [package]
@@ -34,6 +34,7 @@ path = "src/bin/acprs.rs"
 anyhow = "1"
 acp_red_star_node_core = { path = "crates/acp_red_star_node_core" }
 acp_red_star_service_redstar = { path = "crates/acp_red_star_service_redstar" }
+acp_red_star_service_x = { path = "crates/acp_red_star_service_x" }
 libloading = "0.8"
 reqwest = { version = "0.12", features = ["cookies", "gzip", "brotli", "deflate", "rustls-tls"], default-features = false }
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }

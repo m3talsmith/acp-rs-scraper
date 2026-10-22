@@ -238,6 +238,7 @@ pub async fn run() -> Result<()> {
     if let Ok(dir) = home() {
         let _ = crate::plugins::startup(&dir);
     }
+    if let Some(handle) = args.x_read.as_deref() { return crate::services::x_read(handle); }
     if args.doctor { return crate::services::print_doctor(); }
     if args.services { return crate::services::print_services(); }
     if let Some(id) = args.service_enable.as_deref() {

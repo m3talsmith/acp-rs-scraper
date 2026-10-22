@@ -254,6 +254,7 @@ fn area_topics() -> Vec<String> {
     ]);
     push_topic(&mut v, "services", "Services", &[
         "  Red Star is enabled when ~/.acp/services/redstar.toml is missing. Other services start off.",
+        "  X is registered and off until enabled. --x-read is prepared, gated, and fetches nothing.",
         "  Non-secret settings live in that toml file. Secrets stay in the encrypted database and are never printed.",
         "  Space toggles a service. Reload plugins runs the same check as plugins.reload.",
         "  The default chord for plugins.reload is ctrl-p in keymap/default.toml. The keymap can change it.",

@@ -8,6 +8,7 @@ version = "3.52.0"
 dependencies = [
  "acp_red_star_node_core",
  "acp_red_star_service_redstar",
+ "acp_red_star_service_x",
  "anyhow",
  "argon2",
  "axum",
@@ -82,6 +83,13 @@ dependencies = [
 
 [[package]]
 name = "acp_red_star_service_redstar"
+version = "3.52.0"
+dependencies = [
+ "acp_red_star_node_core",
+]
+
+[[package]]
+name = "acp_red_star_service_x"
 version = "3.52.0"
 dependencies = [
  "acp_red_star_node_core",
