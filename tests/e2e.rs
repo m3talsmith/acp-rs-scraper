@@ -40,6 +40,8 @@ struct E2e {
     preview: String,
     /// Text captured from an in-process terminal UI check.
     screen: String,
+    /// Last `fingerprint:` line printed by an organization invite.
+    fingerprint: String,
 }
 
 impl E2e {
@@ -48,7 +50,7 @@ impl E2e {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         std::fs::create_dir_all(home.join(".acp")).unwrap();
         std::fs::write(home.join(".acp/preferences.toml"), "email = \"alice@example.test\"\n").unwrap();
-        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None, preview: String::new(), screen: String::new() }
+        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None, preview: String::new(), screen: String::new(), fingerprint: String::new() }
     }
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
@@ -93,6 +95,10 @@ impl E2e {
         let out = child.wait_with_output().await.unwrap();
         self.last = Run { code: out.status.code().unwrap_or(-1),
             stdout: String::from_utf8_lossy(&out.stdout).into(), stderr: String::from_utf8_lossy(&out.stderr).into() };
+        let fp = printed_fingerprint(&self.last.stdout);
+        if !fp.is_empty() {
+            self.fingerprint = fp;
+        }
     }
 }
 
@@ -156,17 +162,15 @@ async fn run_second(w: &mut E2e, args: String) {
 
 #[when(expr = "I run with that fingerprint {string}")]
 async fn run_with_fingerprint(w: &mut E2e, args: String) {
-    let fp = printed_fingerprint(&w.last.stdout);
-    assert!(!fp.is_empty(), "no fingerprint in stdout:\n{}", w.last.stdout);
-    w.run(&args.replace("$FINGERPRINT", &fp)).await;
+    assert!(!w.fingerprint.is_empty(), "no fingerprint in stdout:\n{}", w.last.stdout);
+    w.run(&args.replace("$FINGERPRINT", &w.fingerprint)).await;
 }
 
 #[when(expr = "I run in a second home with that fingerprint {string}")]
 async fn run_second_with_fingerprint(w: &mut E2e, args: String) {
-    let fp = printed_fingerprint(&w.last.stdout);
-    assert!(!fp.is_empty(), "no fingerprint in stdout:\n{}", w.last.stdout);
+    assert!(!w.fingerprint.is_empty(), "no fingerprint in stdout:\n{}", w.last.stdout);
     let second = second_home(w);
-    let args = args.replace("$FINGERPRINT", &fp);
+    let args = args.replace("$FINGERPRINT", &w.fingerprint);
     let argv: Vec<String> = args.split_whitespace().map(String::from).collect();
     w.run_in(&second, &argv).await;
 }
