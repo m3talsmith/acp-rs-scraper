@@ -1,3 +1,9 @@
+acp-red-star (3.40.1) unstable; urgency=medium
+
+  * Package 3.40.1. A public ungated organization accepts an anonymous guest write and a signed non-member write. A gated organization rejects both.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 19:45:00 +0000
+
 acp-red-star (3.40.0) unstable; urgency=medium
 
   * Package 3.40.0. A local organization is a source. A new one is gated and private, and the creator is its Owner.

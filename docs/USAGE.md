@@ -832,7 +832,7 @@ CREATE TABLE org_posts (          -- the organization slug is the author nick
   title TEXT NOT NULL,
   body TEXT NOT NULL,
   visibility TEXT NOT NULL,
-  author_identity TEXT NOT NULL,  -- the writer's Ed25519 public key
+  author_identity TEXT NOT NULL,  -- a public key, or anonymous when the client did not sign
   custodian_identity TEXT NOT NULL,
   archived INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL,

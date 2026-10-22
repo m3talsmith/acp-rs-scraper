@@ -44,8 +44,14 @@ const RANK_VIEWER: i64 = 0;
 const RANK_USER: i64 = 500;
 const RANK_OWNER: i64 = 1000;
 
-/// Guest writes allowed for one identity, in one org, per minute.
+/// Guest writes allowed from one source address, in one org, per minute.
 pub const GUEST_WRITES_PER_MINUTE: i64 = 10;
+/// Largest body a non-member may store on a public org that is not gated.
+pub const GUEST_BODY_MAX: usize = 32 * 1024;
+/// Largest attachment a non-member may store on a public org that is not gated.
+pub const GUEST_ATTACHMENT_MAX: u64 = 8 * 1024 * 1024;
+/// Author stored when the client presented no Red Star identity.
+pub const ANONYMOUS_AUTHOR: &str = "anonymous";
 
 const IDENTITY_AAD: &[u8] = b"acp-org-identity-v1";
 
@@ -168,6 +174,14 @@ pub fn reply_message(nonce: &str, slug: &str, parent_id: &str, title: &str, body
 /// Canonical bytes for an attachment name on a post.
 pub fn attach_message(nonce: &str, slug: &str, post_id: &str, name: &str) -> Vec<u8> {
     format!("acp-org-attach-v1\n{nonce}\n{slug}\n{post_id}\n{name}").into_bytes()
+}
+
+/// A public key, or [`ANONYMOUS_AUTHOR`] when the client did not sign.
+pub fn check_author(raw: &str) -> Result<String> {
+    if raw == ANONYMOUS_AUTHOR {
+        return Ok(ANONYMOUS_AUTHOR.to_string());
+    }
+    check_pub(raw)
 }
 
 /// 32-byte Ed25519 public key, lowercase hex.
@@ -611,12 +625,40 @@ fn check_nonce(nonce: &str) -> Result<()> {
     Ok(())
 }
 
-fn note_write(c: &Connection, org_id: i64, identity: &str, nonce: &str, guest: bool) -> Result<()> {
+fn check_source(raw: &str) -> Result<String> {
+    let source = raw.trim();
+    if source.is_empty() || source.chars().count() > 200 || source.chars().any(char::is_control) {
+        bail!("a client address is 1-200 printable characters");
+    }
+    Ok(source.to_string())
+}
+
+fn check_guest_body(body: &str) -> Result<()> {
+    if body.len() > GUEST_BODY_MAX {
+        bail!("guest body is too large");
+    }
+    Ok(())
+}
+
+fn check_guest_attachment(byte_len: u64) -> Result<()> {
+    if byte_len > GUEST_ATTACHMENT_MAX {
+        bail!("guest attachment is too large");
+    }
+    Ok(())
+}
+
+fn fresh_nonce() -> String {
+    let mut bytes = [0u8; 16];
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut bytes);
+    data_encoding::HEXLOWER.encode(&bytes)
+}
+
+fn note_write(c: &Connection, org_id: i64, identity: &str, nonce: &str, guest: bool, source: &str) -> Result<()> {
     let cutoff = (chrono::Utc::now() - Duration::from_secs(60)).to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
     if guest {
         let n: i64 = c.query_row(
-            "SELECT COUNT(*) FROM org_write_log WHERE org_id = ?1 AND identity_pub = ?2 AND guest = 1 AND created_at >= ?3",
-            params![org_id, identity, cutoff],
+            "SELECT COUNT(*) FROM org_write_log WHERE org_id = ?1 AND source_address = ?2 AND guest = 1 AND created_at >= ?3",
+            params![org_id, source, cutoff],
             |r| r.get(0),
         )?;
         if n >= GUEST_WRITES_PER_MINUTE {
@@ -628,9 +670,16 @@ fn note_write(c: &Connection, org_id: i64, identity: &str, nonce: &str, guest: b
         bail!("that nonce was already used");
     }
     c.execute(
-        "INSERT INTO org_write_log (org_id, identity_pub, nonce, guest, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![org_id, identity, nonce, i64::from(guest), now()],
+        "INSERT INTO org_write_log (org_id, identity_pub, nonce, guest, source_address, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![org_id, identity, nonce, i64::from(guest), source, now()],
     )?;
+    Ok(())
+}
+
+fn public_ungated(org: &Org) -> Result<()> {
+    if org.visibility != Visibility::Public || org.gated {
+        bail!("not a member");
+    }
     Ok(())
 }
 
@@ -656,21 +705,113 @@ fn authorize_write(c: &Connection, org: &Org, identity: &str, permission: &str) 
     }
 }
 
-fn signed_context(c: &Connection, slug: &str, identity: &str, nonce: &str, message: &[u8], signature: &[u8], permission: &str) -> Result<(Org, String, bool)> {
+#[allow(clippy::too_many_arguments)]
+fn signed_context(
+    c: &Connection,
+    slug: &str,
+    identity: &str,
+    nonce: &str,
+    message: &[u8],
+    signature: &[u8],
+    permission: &str,
+    source: &str,
+    body: Option<&str>,
+    attachment_len: Option<u64>,
+) -> Result<(Org, String, bool)> {
     check_nonce(nonce)?;
+    let source = check_source(source)?;
     let identity = check_pub(identity)?;
     verify(&identity, message, signature)?;
     let org = super::get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
     let guest = authorize_write(c, &org, &identity, permission)?;
-    note_write(c, org.id, &identity, nonce, guest)?;
+    if guest {
+        if let Some(body) = body {
+            check_guest_body(body)?;
+        }
+        if let Some(byte_len) = attachment_len {
+            check_guest_attachment(byte_len)?;
+        }
+    }
+    note_write(c, org.id, &identity, nonce, guest, &source)?;
     Ok((org, identity, guest))
 }
 
-/// Store a signed post. A guest is rate-limited. A member with `post` is not.
+/// Store a post with no identity. The author is [`ANONYMOUS_AUTHOR`].
+///
+/// The org must be public and not gated. The write counts against `source`.
+pub fn submit_guest_post(c: &Connection, slug: &str, source: &str, title: &str, body: &str, visibility: Option<Visibility>) -> Result<OrgPost> {
+    let source = check_source(source)?;
+    check_guest_body(body)?;
+    let org = super::get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    public_ungated(&org)?;
+    note_write(c, org.id, ANONYMOUS_AUTHOR, &fresh_nonce(), true, &source)?;
+    insert_post(c, &org, ANONYMOUS_AUTHOR, None, title, body, visibility)
+}
+
+/// Store a reply with no identity.
 #[allow(clippy::too_many_arguments)]
-pub fn submit_signed_post(c: &Connection, slug: &str, identity: &str, nonce: &str, title: &str, body: &str, signature: &[u8], visibility: Option<Visibility>) -> Result<OrgPost> {
+pub fn submit_guest_reply(c: &Connection, slug: &str, source: &str, parent_id: &str, title: &str, body: &str, visibility: Option<Visibility>) -> Result<OrgPost> {
+    let source = check_source(source)?;
+    check_guest_body(body)?;
+    let org = super::get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    public_ungated(&org)?;
+    let parent = get_post(c, parent_id)?.ok_or_else(|| anyhow!("no post {parent_id}"))?;
+    if parent.org_id != org.id || parent.archived {
+        bail!("no post {parent_id}");
+    }
+    note_write(c, org.id, ANONYMOUS_AUTHOR, &fresh_nonce(), true, &source)?;
+    insert_post(c, &org, ANONYMOUS_AUTHOR, Some(parent_id), title, body, visibility)
+}
+
+/// Record an attachment with no identity. `byte_len` is the file size the client claims.
+#[allow(clippy::too_many_arguments)]
+pub fn submit_guest_attachment(c: &Connection, slug: &str, source: &str, post_id: &str, name: &str, byte_len: u64, visibility: Option<Visibility>) -> Result<Asset> {
+    let source = check_source(source)?;
+    check_guest_attachment(byte_len)?;
+    let org = super::get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    public_ungated(&org)?;
+    let post = get_post(c, post_id)?.ok_or_else(|| anyhow!("no post {post_id}"))?;
+    if post.org_id != org.id || post.archived {
+        bail!("no post {post_id}");
+    }
+    note_write(c, org.id, ANONYMOUS_AUTHOR, &fresh_nonce(), true, &source)?;
+    store_attachment(c, &org, ANONYMOUS_AUTHOR, post_id, name, visibility)
+}
+
+fn store_attachment(c: &Connection, org: &Org, identity: &str, post_id: &str, name: &str, visibility: Option<Visibility>) -> Result<Asset> {
+    let post = get_post(c, post_id)?.ok_or_else(|| anyhow!("no post {post_id}"))?;
+    if post.org_id != org.id || post.archived {
+        bail!("no post {post_id}");
+    }
+    let name = check_label(name, "an asset name")?;
+    let identity = check_author(identity)?;
+    let visibility = visibility.unwrap_or(org.default_post_visibility);
+    let mut bytes = [0u8; 8];
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut bytes);
+    let id = format!("orga-{}", data_encoding::HEXLOWER.encode(&bytes));
+    c.execute(
+        "INSERT INTO org_assets (id, org_id, name, author_identity, visibility, custodian_identity, archived, created_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?4, 0, ?6)",
+        params![id, org.id, name, identity, visibility.as_str(), now()],
+    )?;
+    list_assets(c, org.id)?.into_iter().find(|a| a.id == id).ok_or_else(|| anyhow!("asset {id} was not stored"))
+}
+
+/// Store a signed post. A non-member is rate-limited by `source`. A member with `post` is not.
+#[allow(clippy::too_many_arguments)]
+pub fn submit_signed_post(
+    c: &Connection,
+    slug: &str,
+    identity: &str,
+    nonce: &str,
+    title: &str,
+    body: &str,
+    signature: &[u8],
+    visibility: Option<Visibility>,
+    source: &str,
+) -> Result<OrgPost> {
     let message = post_message(nonce, slug, title, body);
-    let (org, identity, _) = signed_context(c, slug, identity, nonce, &message, signature, "post")?;
+    let (org, identity, _) = signed_context(c, slug, identity, nonce, &message, signature, "post", source, Some(body), None)?;
     insert_post(c, &org, &identity, None, title, body, visibility)
 }
 
@@ -686,36 +827,40 @@ pub fn submit_signed_reply(
     body: &str,
     signature: &[u8],
     visibility: Option<Visibility>,
+    source: &str,
 ) -> Result<OrgPost> {
-    let message = reply_message(nonce, slug, parent_id, title, body);
-    let (org, identity, _) = signed_context(c, slug, identity, nonce, &message, signature, "reply")?;
+    let org = super::get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
     let parent = get_post(c, parent_id)?.ok_or_else(|| anyhow!("no post {parent_id}"))?;
     if parent.org_id != org.id || parent.archived {
         bail!("no post {parent_id}");
     }
+    let message = reply_message(nonce, slug, parent_id, title, body);
+    let (org, identity, _) = signed_context(c, slug, identity, nonce, &message, signature, "reply", source, Some(body), None)?;
     insert_post(c, &org, &identity, Some(parent_id), title, body, visibility)
 }
 
-/// Record an attachment on a post. The file bytes are a later minor.
+/// Record an attachment on a post. `byte_len` is checked for a non-member. The file bytes are a later minor.
 #[allow(clippy::too_many_arguments)]
-pub fn submit_signed_attachment(c: &Connection, slug: &str, identity: &str, nonce: &str, post_id: &str, name: &str, signature: &[u8], visibility: Option<Visibility>) -> Result<Asset> {
-    let message = attach_message(nonce, slug, post_id, name);
-    let (org, identity, _) = signed_context(c, slug, identity, nonce, &message, signature, "attach")?;
+pub fn submit_signed_attachment(
+    c: &Connection,
+    slug: &str,
+    identity: &str,
+    nonce: &str,
+    post_id: &str,
+    name: &str,
+    signature: &[u8],
+    visibility: Option<Visibility>,
+    source: &str,
+    byte_len: u64,
+) -> Result<Asset> {
+    let org = super::get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
     let post = get_post(c, post_id)?.ok_or_else(|| anyhow!("no post {post_id}"))?;
     if post.org_id != org.id || post.archived {
         bail!("no post {post_id}");
     }
-    let name = check_label(name, "an asset name")?;
-    let visibility = visibility.unwrap_or(org.default_post_visibility);
-    let mut bytes = [0u8; 8];
-    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut bytes);
-    let id = format!("orga-{}", data_encoding::HEXLOWER.encode(&bytes));
-    c.execute(
-        "INSERT INTO org_assets (id, org_id, name, author_identity, visibility, custodian_identity, archived, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?4, 0, ?6)",
-        params![id, org.id, name, identity, visibility.as_str(), now()],
-    )?;
-    list_assets(c, org.id)?.into_iter().find(|a| a.id == id).ok_or_else(|| anyhow!("asset {id} was not stored"))
+    let message = attach_message(nonce, slug, post_id, name);
+    let (org, identity, _) = signed_context(c, slug, identity, nonce, &message, signature, "attach", source, None, Some(byte_len))?;
+    store_attachment(c, &org, &identity, post_id, name, visibility)
 }
 
 #[cfg(test)]
@@ -774,10 +919,10 @@ mod tests {
         assert_eq!(pending.role, "Viewer");
         let nonce = "aa11aa11aa11aa11";
         let msg = post_message(nonce, "hold", "Nope", "pending");
-        let err = submit_signed_post(&c, "hold", &guest_hex, nonce, "Nope", "pending", &guest.sign(&msg), None).unwrap_err();
+        let err = submit_signed_post(&c, "hold", &guest_hex, nonce, "Nope", "pending", &guest.sign(&msg), None, "203.0.113.8").unwrap_err();
         assert!(err.to_string().contains("pending"));
         let (other, _) = person();
-        let err = submit_signed_post(&c, "hold", &guest_hex, nonce, "Nope", "pending", &other.sign(&msg), None).unwrap_err();
+        let err = submit_signed_post(&c, "hold", &guest_hex, nonce, "Nope", "pending", &other.sign(&msg), None, "203.0.113.8").unwrap_err();
         assert!(err.to_string().contains("signature rejected"));
 
         let (_viewer, viewer_hex) = person();
@@ -879,68 +1024,86 @@ mod tests {
     }
 
     #[test]
-    fn a_public_ungated_guest_posts_with_identity_and_cannot_take_owner_actions() {
+    fn a_public_ungated_org_accepts_an_anonymous_write_and_a_signed_one() {
         let c = conn();
         let (owner, owner_hex) = person();
         let org = hold(&c, &owner_hex);
         let (guest, guest_hex) = person();
+        let src = "203.0.113.8";
         let nonce = "bb22bb22bb22bb22";
         let msg = post_message(nonce, "hold", "Outside", "secret-body");
-        let err = submit_signed_post(&c, "hold", &guest_hex, nonce, "Outside", "secret-body", &guest.sign(&msg), Some(Visibility::Public)).unwrap_err();
-        assert!(err.to_string().contains("not a member"));
+        assert!(submit_guest_post(&c, "hold", src, "Outside", "secret-body", Some(Visibility::Public)).unwrap_err().to_string().contains("not a member"));
+        assert!(submit_signed_post(&c, "hold", &guest_hex, nonce, "Outside", "secret-body", &guest.sign(&msg), Some(Visibility::Public), src).unwrap_err().to_string().contains("not a member"));
         open_the_gate(&c, &org);
         set_gated(&c, org.id, true).unwrap();
-        let err = submit_signed_post(&c, "hold", &guest_hex, nonce, "Outside", "secret-body", &guest.sign(&msg), Some(Visibility::Public)).unwrap_err();
-        assert!(err.to_string().contains("not a member"));
+        assert!(submit_guest_post(&c, "hold", src, "Outside", "secret-body", Some(Visibility::Public)).unwrap_err().to_string().contains("not a member"));
+        assert!(submit_signed_post(&c, "hold", &guest_hex, nonce, "Outside", "secret-body", &guest.sign(&msg), Some(Visibility::Public), src).unwrap_err().to_string().contains("not a member"));
         set_gated(&c, org.id, false).unwrap();
 
-        let post = submit_signed_post(&c, "hold", &guest_hex, nonce, "Outside", "secret-body", &guest.sign(&msg), Some(Visibility::Public)).unwrap();
+        let anon = submit_guest_post(&c, "hold", src, "Unsigned", "guest-body", Some(Visibility::Public)).unwrap();
+        assert_eq!(anon.author_identity, ANONYMOUS_AUTHOR);
+        assert_eq!(anon.custodian_identity, ANONYMOUS_AUTHOR);
+        assert!(public_surface(&c).unwrap().contains("guest-body"));
+        let anon_reply = submit_guest_reply(&c, "hold", src, &anon.id, "Guest reply", "guest-reply", Some(Visibility::Public)).unwrap();
+        assert_eq!(anon_reply.author_identity, ANONYMOUS_AUTHOR);
+        assert_eq!(anon_reply.parent_id.as_deref(), Some(anon.id.as_str()));
+        let anon_file = submit_guest_attachment(&c, "hold", src, &anon.id, "note.txt", 4, Some(Visibility::Public)).unwrap();
+        assert_eq!(anon_file.author_identity, ANONYMOUS_AUTHOR);
+        assert!(public_surface(&c).unwrap().contains("note.txt"));
+        assert!(submit_guest_post(&c, "hold", src, "Huge", &"x".repeat(GUEST_BODY_MAX + 1), Some(Visibility::Public)).unwrap_err().to_string().contains("too large"));
+        assert!(submit_guest_attachment(&c, "hold", src, &anon.id, "big.bin", GUEST_ATTACHMENT_MAX + 1, Some(Visibility::Public)).unwrap_err().to_string().contains("too large"));
+
+        let post = submit_signed_post(&c, "hold", &guest_hex, nonce, "Outside", "secret-body", &guest.sign(&msg), Some(Visibility::Public), src).unwrap();
         assert_eq!(post.author_identity, guest_hex);
-        assert_eq!(post.custodian_identity, guest_hex);
-        assert!(public_surface(&c).unwrap().contains("Outside"));
+        assert_ne!(post.author_identity, ANONYMOUS_AUTHOR);
         assert!(public_surface(&c).unwrap().contains("secret-body"));
-        let again = submit_signed_post(&c, "hold", &guest_hex, nonce, "Outside", "secret-body", &guest.sign(&msg), None).unwrap_err();
+        let again = submit_signed_post(&c, "hold", &guest_hex, nonce, "Outside", "secret-body", &guest.sign(&msg), None, src).unwrap_err();
         assert!(again.to_string().contains("nonce"));
         let bad = owner.sign(b"not the message");
-        let err = submit_signed_post(&c, "hold", &guest_hex, "cc33cc33cc33cc33", "Outside", "secret-body", &bad, None).unwrap_err();
+        let err = submit_signed_post(&c, "hold", &guest_hex, "cc33cc33cc33cc33", "Outside", "secret-body", &bad, None, src).unwrap_err();
         assert!(err.to_string().contains("signature rejected"));
-
         let reply_nonce = "dd44dd44dd44dd44";
         let reply_msg = reply_message(reply_nonce, "hold", &post.id, "Reply", "reply-body");
-        let reply = submit_signed_reply(&c, "hold", &guest_hex, reply_nonce, &post.id, "Reply", "reply-body", &guest.sign(&reply_msg), Some(Visibility::Public)).unwrap();
-        assert_eq!(reply.parent_id.as_deref(), Some(post.id.as_str()));
+        let reply = submit_signed_reply(&c, "hold", &guest_hex, reply_nonce, &post.id, "Reply", "reply-body", &guest.sign(&reply_msg), Some(Visibility::Public), src).unwrap();
         assert_eq!(reply.author_identity, guest_hex);
-
         let file_nonce = "ee55ee55ee55ee55";
         let file_msg = attach_message(file_nonce, "hold", &post.id, "badge.png");
-        let asset = submit_signed_attachment(&c, "hold", &guest_hex, file_nonce, &post.id, "badge.png", &guest.sign(&file_msg), Some(Visibility::Public)).unwrap();
-        assert!(public_surface(&c).unwrap().contains("badge.png"));
+        let asset = submit_signed_attachment(&c, "hold", &guest_hex, file_nonce, &post.id, "badge.png", &guest.sign(&file_msg), Some(Visibility::Public), src, 4).unwrap();
         assert_eq!(asset.author_identity, guest_hex);
 
-        assert!(archive_post(&c, org.id, &guest_hex, &post.id).unwrap_err().to_string().contains("not a member"));
+        assert!(archive_post(&c, org.id, &guest_hex, &anon.id).unwrap_err().to_string().contains("not a member"));
         assert!(remove_member(&c, org.id, &guest_hex, &owner_hex).unwrap_err().to_string().contains("not a member"));
-        assert!(get_post(&c, &post.id).unwrap().is_some());
+        let record = archive_post(&c, org.id, &owner_hex, &anon.id).unwrap();
+        assert_eq!(record.kind, "update");
+        assert_eq!(record.author_identity, ANONYMOUS_AUTHOR);
+        assert_eq!(record.custodian_identity, owner_hex);
+        let stored = get_post(&c, &anon.id).unwrap().unwrap();
+        assert!(stored.archived);
+        assert_eq!(stored.author_identity, ANONYMOUS_AUTHOR);
+        assert_eq!(stored.custodian_identity, owner_hex);
+        assert!(!public_surface(&c).unwrap().contains("guest-body"));
 
         let (viewer, viewer_hex) = person();
         invite_member(&c, org.id, &owner_hex, &viewer_hex).unwrap();
         let view_nonce = "ff66ff66ff66ff66";
         let view_msg = post_message(view_nonce, "hold", "Denied", "nope");
-        let err = submit_signed_post(&c, "hold", &viewer_hex, view_nonce, "Denied", "nope", &viewer.sign(&view_msg), None).unwrap_err();
+        let err = submit_signed_post(&c, "hold", &viewer_hex, view_nonce, "Denied", "nope", &viewer.sign(&view_msg), None, src).unwrap_err();
         assert!(err.to_string().contains("missing permission post"));
 
-        let (burst, burst_hex) = person();
+        let burst = "203.0.113.50";
         for n in 0..GUEST_WRITES_PER_MINUTE {
-            let burst_nonce = format!("{:016x}", n + 1);
             let title = format!("Burst {n}");
-            let msg = post_message(&burst_nonce, "hold", &title, "burst");
-            submit_signed_post(&c, "hold", &burst_hex, &burst_nonce, &title, "burst", &burst.sign(&msg), Some(Visibility::Public)).unwrap();
+            submit_guest_post(&c, "hold", burst, &title, "burst", Some(Visibility::Public)).unwrap();
         }
-        let msg = post_message("0011001100110011", "hold", "Eleventh", "burst");
-        let err = submit_signed_post(&c, "hold", &burst_hex, "0011001100110011", "Eleventh", "burst", &burst.sign(&msg), Some(Visibility::Public)).unwrap_err();
+        let err = submit_guest_post(&c, "hold", burst, "Eleventh", "burst", Some(Visibility::Public)).unwrap_err();
         assert!(err.to_string().contains("guest write limit"));
+        submit_guest_post(&c, "hold", "203.0.113.51", "Other address", "burst", Some(Visibility::Public)).unwrap();
+        let yard = create_org(&c, "yard", "Yard", "", Visibility::Private, Visibility::Public, &owner_hex).unwrap();
+        open_the_gate(&c, &yard);
+        submit_guest_post(&c, "yard", burst, "Other org", "burst", Some(Visibility::Public)).unwrap();
         let member_nonce = "1234123412341234";
         let member_msg = post_message(member_nonce, "hold", "Owner still writes", "fine");
-        submit_signed_post(&c, "hold", &owner_hex, member_nonce, "Owner still writes", "fine", &owner.sign(&member_msg), Some(Visibility::Public)).unwrap();
+        submit_signed_post(&c, "hold", &owner_hex, member_nonce, "Owner still writes", "fine", &owner.sign(&member_msg), Some(Visibility::Public), burst).unwrap();
     }
 
     #[test]
@@ -952,10 +1115,10 @@ mod tests {
         let (guest, guest_hex) = person();
         let nonce = "7788778877887788";
         let msg = post_message(nonce, "hold", "Keep me", "original-prose");
-        let post = submit_signed_post(&c, "hold", &guest_hex, nonce, "Keep me", "original-prose", &guest.sign(&msg), Some(Visibility::Public)).unwrap();
+        let post = submit_signed_post(&c, "hold", &guest_hex, nonce, "Keep me", "original-prose", &guest.sign(&msg), Some(Visibility::Public), "203.0.113.8").unwrap();
         let file_nonce = "8899889988998899";
         let file_msg = attach_message(file_nonce, "hold", &post.id, "map.png");
-        let asset = submit_signed_attachment(&c, "hold", &guest_hex, file_nonce, &post.id, "map.png", &guest.sign(&file_msg), Some(Visibility::Public)).unwrap();
+        let asset = submit_signed_attachment(&c, "hold", &guest_hex, file_nonce, &post.id, "map.png", &guest.sign(&file_msg), Some(Visibility::Public), "203.0.113.9", 4).unwrap();
         assert!(public_surface(&c).unwrap().contains("original-prose"));
         assert!(public_surface(&c).unwrap().contains("map.png"));
 

@@ -1,6 +1,6 @@
 # Plan: Organizations
 
-Status: **3.40.0 implements create, 2026-10-22.** Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. Those rules, including open versus closed registration, separate join defaults, the hierarchy, a public ungated guest write, and archive-not-delete, are in the library and tested. Templates, the website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
+Status: **3.40.1 confirms guest writes, 2026-10-22.** Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. Templates, the website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
 
 Base: `main` at `274a9e01` (crate `3.39.0`). This plan does not bump the version. `AGENTS.md` bumps a version for a feature or a fix, not for a plan.
 
@@ -16,7 +16,7 @@ The core stays white-label. The built-in Red Star theme can still supply the def
 - The org is a source. Its posts show up wherever source content shows up, with the org as the author.
 - A new org is private and gated. Both stay that way until someone changes them. The same private default covers each post and each asset.
 - A public org, rendered through its template, is a static site: index, post pages, asset and download pages, and a feed. Any node can export that site to a folder or serve it.
-- A public org can publish itself as a service. Another install adds it and browses it like any other source. Posting into it is allowed only when the org says so and the caller's role allows it.
+- A public org can publish itself as a service. Another install adds it and browses it like any other source. Posting into a gated org is allowed only when the caller's role allows it. A public org that is not gated also accepts a write from a client that is not a member. Section 9.
 - Members are Red Star users with their own identity keys. Invites are an authenticated Diffie-Hellman exchange. Roles decide what a member can change.
 - The person who creates an org is its Owner. The org starts with that one Owner, plus the built-in User and Viewer roles. The last Owner cannot be removed.
 - A gated org requires membership before content is shown. Non-members then get a landing page with register and login, and no posts, titles, or asset names. A private org stays closed. A public org that is not gated is the exception in section 9.
@@ -30,7 +30,7 @@ What the owner sees in the terminal UI and in `--org-show` is the local copy, in
 Create, edit, and delete from the command line and from the terminal UI.
 
 - Creating an org generates the local identity if this install does not have one yet, then adds that identity as a member with the built-in Owner role. Owner, User, and Viewer are inserted in the same write. The org cannot be saved without them. Invite transport still arrives with members (3.46.0). The owner row does not wait for that.
-- An org has a slug (the source id) and a display name. The slug is the source nick. Each post also stores the author's identity key.
+- An org has a slug (the source id) and a display name. The slug is the source nick. Each post stores an author. A member, or a client that signs with a Red Star identity, stores that public key. A write with no identity stores `anonymous`.
 - Description is optional.
 - Visibility is `private` or `public`. The default is `private`.
 - `gated` is on by default. Turning it off is a live exposure. It does not by itself make the org public. Section 10.
@@ -50,7 +50,7 @@ Posts are rows in the local database, not files beside it. The org slug is the s
   - The function is false when the org is private, when the item is private, or when the org is gated and the viewer is not a member.
   - It is true when the org is public, the item is public, the item is not archived, and either the org is not gated or the viewer is a member.
   - An archived post or asset is never readable on these paths, whatever its old visibility was.
-  - A public org that is not gated is readable by anyone, except posts and assets that are themselves private or archived. What a non-member may write there is the assumption in section 9.
+  - A public org that is not gated is readable by anyone, except posts and assets that are themselves private or archived. What a non-member may write there is the confirmed rule in section 9 (2026-10-22).
   - A public org that is gated is not readable by a non-member. That person gets the landing page in section 10 and nothing else: no bodies, no titles, no asset names. A member sees the same public posts and public assets an ungated public org would show. Private rows stay hidden from that member on these paths.
   - A private org is never readable. A post marked public inside a private org stays hidden. The gated flag does not open it. Membership does not open it on the website, on `serve`, in an export, or on the service. A new org is both private and gated, so both switches are closed.
 - The owner's nick bar, search, and `--org-show` include private posts. They are labeled private. Those screens do not call `readable_by_others`. They are the local copy.
@@ -170,7 +170,7 @@ Another install adds it with `--org-add URL`. That install then browses the org 
 
 When the org is public and gated, an anonymous caller gets readiness `gated` and an empty page. No titles, no asset names, no bodies. The same caller, after the login in section 10, is a member and then receives the public rows their role allows. Readiness `gated` here is the plugin's existing availability value. It is not the changelog marker `prepared, gated:`, and it is not a version. A private org stays unreadable on this path whether or not the flag is set. The service does not widen the role and does not skip the gate.
 
-**Assumption, for Michael to confirm.** A public org that is not gated lets a non-member use the service features view, post, reply, and attach. They still cannot do the Owner-only actions: remove a user, or archive a post or asset that belongs to someone else. A non-member who writes authenticates with the same app-to-service challenge-response as a member, so the post stores a verifiable author. Non-member writes are rate-limited (10 per identity per org per minute, unless section 16 changes that). A private org, and a gated org, do not offer this path.
+**Confirmed 2026-10-22.** The Red Star app is required for membership only: register, login, the key exchange, and anything a member does as a member. That includes role-based actions, a gated org, and Owner powers. A public org that is not gated can be used by any client — a Red Star app, a browser, curl, or other software — to view, post, reply, and attach. No Red Star identity is required for those four. A write that presents no identity is stored as `anonymous`, and it has no verifiable author. A client that does present a Red Star identity, with a valid signature over the write, is stored under that public key, so the author is verified. Neither kind of non-member can do an Owner-only action: remove a user, or archive a post or asset that belongs to someone else. An Owner archive still applies to an anonymous post or asset, the same as it applies to anyone else's. Guest writes, the ones with no identity, are limited to 10 per source address per organization per minute. A guest body is at most 32 KiB. A guest attachment is at most 8 MiB. A gated org rejects both an unauthenticated write and an identity-signed write from someone who is not a member. A private org rejects them too.
 
 Publishing, withdrawing, and turning remote posts on are live writes. The preview lists the public posts and public assets that would be exposed, names the capabilities, and asks. Cancel is the default. `--dry-run` prints the manifest and does not write it and does not listen. `--yes` confirms.
 
@@ -218,7 +218,7 @@ The website shows a single-use login request, bound to that browser session the 
 
 From then on, every path uses the member's role (section 5). A Viewer can read public rows and cannot post.
 
-The terminal UI and the command line log in to an org service with the same challenge-response and no browser step: the app asks the service for a nonce, signs it, and keeps the resulting session for that process. The org-as-service path accepts that same proof. A caller with no valid session is anonymous.
+The terminal UI and the command line log in to an org service with the same challenge-response and no browser step: the app asks the service for a nonce, signs it, and keeps the resulting session for that process. The org-as-service path accepts that proof for membership actions: a role, a gated org, and Owner powers. A public org that is not gated does not require it to view, post, reply, or attach. Section 9. A caller with no membership session is not a member.
 
 A replayed code, an expired code, a code whose browser session does not match, and a signature from the wrong key all fail. They create no member and no session.
 
@@ -480,7 +480,7 @@ Gated access. Two throwaway homes. One home owns the org and runs `serve` plus t
 - A private org stays empty on those paths when `gated` is on and when it is off.
 - Open registration: the app and the service complete the exchange, the fingerprint matches, and the new member is active with the registration default (Viewer until changed).
 - Closed registration, the default: the same exchange leaves the member pending. A role without `invite` cannot approve them. After approval the member can read.
-- A public org that is not gated accepts a non-member post when the caller signs the service nonce with their identity key. The stored author is that key. The same caller cannot remove a member and cannot archive someone else's post. The eleventh write inside a minute is refused.
+- A public org that is not gated accepts an unauthenticated guest post. The stored author is `anonymous`. The same org accepts a non-member post signed with a Red Star identity key, and that stored author is the key. Neither caller can remove a member or archive someone else's post. An Owner can archive the anonymous post. A gated org, including one that is public, rejects both the guest write and the signed non-member write. The eleventh guest write from one source address to one org inside a minute is refused. A different source address, and the same address on a different org, are not. A body over 32 KiB and an attachment over 8 MiB are refused.
 - An Owner archive leaves the row in the database, marks it archived and private, sets custody to the Owner, and keeps the original author. A public snapshot, a serve body, an export, a feed, and a service response do not contain it. The replication record is an update, not a delete.
 - A replayed registration code is refused. An expired code is refused. A code polled or finished from a different browser session is refused.
 - Login: the app signs the nonce, the browser session that created the code receives the cookie, and a later read succeeds.
@@ -507,7 +507,7 @@ Stacked draft pull requests, each based on the one above it, the first based on 
 | 3.45.0 | service | Publish a manifest and endpoint. Another install adds it. Remote posts follow the role |
 | 3.46.0 | members | Identity keys, invites, fingerprints. Create already recorded the Owner |
 | 3.47.0 | roles | Custom roles between Viewer and Owner. Separate register and invite defaults. Last-owner protection. No escalation |
-| 3.48.0 | gated access | Open versus Closed registration. Public and not gated: a non-member with an identity key can view, post, reply, and attach, and cannot do Owner-only actions. The browser holds a session cookie and no key |
+| 3.48.0 | gated access | Open versus Closed registration. Public and not gated: any client can view, post, reply, and attach. No identity stores `anonymous`. A signed identity is a verified author. A gated org rejects both. Owner-only actions still need a member. The browser holds a session cookie and no key |
 
 Stubs, with no version of their own, recorded as `prepared, gated:` on the release that first has somewhere to put the sentence (3.44.0 for replication, 3.46.0 for invite transport):
 
@@ -525,10 +525,10 @@ Plugin crate version stays where `main` left it. These minors are the root crate
 5. Markdown. The site writes `.md` files next to HTML and JSON. Say if `--format md` should become a third export format in the core.
 6. Whole-database `--export`. The plan leaves org posts out of a nick dump unless the export is `--org-export` or the selected source is that org, and even then only public rows are written. Say if a full dump should include public org posts automatically.
 7. Default serve port. The plan binds `127.0.0.1` and will pick a fixed port in the serve minor so tests can find it. Say if you already have a port reserved.
-8. Remote posts on a gated org. A member who posts through the service creates a post at the org's default visibility. A private result is stored and is not served. Say if those posts should be forced public. The public ungated non-member path is the assumption in section 9, not this question.
+8. Remote posts on a gated org. A member who posts through the service creates a post at the org's default visibility. A private result is stored and is not served. Say if those posts should be forced public. The public ungated path is the confirmed rule in section 9, not this question.
 9. Two Owners. An Owner may change another Owner's role when one Owner remains. Say if that should be refused and only a new Owner added, never a demotion.
 10. Fonts. Cinzel and Lora are named in CSS and not vendored. Say if the default template should ship the font files.
 11. Registration and login codes last 10 minutes. The session cookie lasts 8 hours. Say if you want different lifetimes.
 12. The landing page shows the org's display name plus register and login, and nothing else. Say if the name should be hidden too.
 13. The service signs the registration exchange with a dedicated org key, created when the org is first published. Say if that signature should be the owner's personal identity key instead.
-14. Rate limit. The plan refuses a browser session after 10 registration attempts and 10 login attempts in a minute, and the org after 30 of each in a minute. A public ungated org also refuses the 11th non-member write from one identity in a minute. Say if you want different numbers.
+14. Rate limit. The plan refuses a browser session after 10 registration attempts and 10 login attempts in a minute, and the org after 30 of each in a minute. A public ungated org refuses the 11th guest write from one source address to that org in a minute, a guest body over 32 KiB, and a guest attachment over 8 MiB (confirmed 2026-10-22). Say if you want different numbers.

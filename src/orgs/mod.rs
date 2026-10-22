@@ -224,6 +224,7 @@ const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS organizations (
             identity_pub TEXT NOT NULL,
             nonce TEXT NOT NULL,
             guest INTEGER NOT NULL DEFAULT 0,
+            source_address TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL,
             UNIQUE (org_id, nonce)
         );";
@@ -473,7 +474,7 @@ pub(crate) fn insert_post(
     if body.chars().any(char::is_control) && body.chars().any(|ch| ch.is_control() && ch != '\n' && ch != '\t') {
         bail!("a post body cannot contain control characters other than newlines and tabs");
     }
-    let author = access::check_pub(author)?;
+    let author = access::check_author(author)?;
     let visibility = visibility.unwrap_or(org.default_post_visibility);
     let id = new_post_id();
     let t = now();

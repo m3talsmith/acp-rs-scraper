@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.40.0
+Version:        3.40.1
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.40.1-1
+- Package 3.40.1. A public ungated organization accepts an anonymous guest write and a signed non-member write. A gated organization rejects both.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.40.0-1
 - Package 3.40.0. A local organization is a source. A new one is gated and private, and the creator is its Owner.
 
