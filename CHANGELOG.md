@@ -6,11 +6,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.34.0] - 2026-10-21
+## [3.41.0] - 2026-10-21
 
 ### Added
 
 - **Spaces list.** View › Spaces and `--spaces` read `/rs/spaces`. A live room shows a LIVE badge. Scheduled and ended are the states the page exposes. A recording link is shown when the page has one. The rows are stored in the encrypted database. Sync and `--scrape-all` pick the list up and stop early once the page is already known. A LiveKit URL or token is dropped and is not stored, logged, or printed. Joining a room is not built. The notes are [architecture/PLAN-SPACES.md](architecture/PLAN-SPACES.md).
+
+## [3.34.0] - 2026-10-21
+
+### Added
+
+- **Drafts and the outbox.** A post is stored on this machine before it is sent. `--draft-save` writes a draft. The same `--draft-id` writes another `post_versions` row. `--keep-local` leaves the post off the queue. `--draft-list` prints them. `--outbox-queue ID` queues that local id. `--outbox-list` prints the queue. `--outbox-cancel ID` marks a queued, failed, or draft row cancelled. `--outbox-send ID` asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same validate and save frames as a direct text publish and opens no connection. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Votes and the other gated writes are not sent from it. In the terminal UI, Save draft is on the compose box and under Compose. Send from outbox starts on Cancel.
 
 ## [3.33.0] - 2026-10-21
 

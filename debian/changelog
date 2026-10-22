@@ -1,8 +1,14 @@
-acp-red-star (3.34.0) unstable; urgency=medium
+acp-red-star (3.41.0) unstable; urgency=medium
 
-  * Package 3.34.0. A read-only Spaces list, with a live badge and a recording link. A LiveKit token is dropped. Joining a room is not built.
+  * Package 3.41.0. A read-only Spaces list, with a live badge and a recording link. A LiveKit token is dropped. Joining a room is not built.
 
  -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 23:10:00 +0000
+
+acp-red-star (3.34.0) unstable; urgency=medium
+
+  * Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish. A dry-run opens no connection.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 23:40:00 +0000
 
 acp-red-star (3.33.0) unstable; urgency=medium
 

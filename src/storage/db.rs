@@ -204,6 +204,8 @@ pub fn ensure_posts_schema(c: &Connection) -> Result<()> {
     c.execute_batch(crate::storage::history::ACTION_TREE_SCHEMA)?;
     c.execute_batch(crate::storage::notices::NOTICES_SCHEMA)?;
     c.execute_batch(POST_VERSIONS_SCHEMA)?;
+    c.execute_batch(LOCAL_POSTS_SCHEMA)?;
+    c.execute_batch(OUTBOX_SCHEMA)?;
     c.execute_batch(SITE_STATE_SCHEMA)?;
     c.execute_batch(RULES_SCHEMA)?;
     c.execute_batch(CRAWL_SCHEMA)?;
