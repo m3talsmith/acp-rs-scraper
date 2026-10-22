@@ -591,23 +591,6 @@ pub fn tui_recovery_offer(home: &std::path::Path) -> Result<RecoveryOffer> {
     Ok(RecoveryOffer::Ask)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn a_pending_recovery_asks_without_reading_stdin() {
-        let home = std::env::temp_dir().join(format!("acp-recovery-ask-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&home);
-        std::fs::create_dir_all(home.join(".acp")).unwrap();
-        std::fs::write(home.join(".acp/recovery-next"), b"pending\n").unwrap();
-        assert_eq!(tui_recovery_offer(&home).unwrap(), RecoveryOffer::Ask);
-        assert!(home.join(".acp/recovery-next").is_file(), "Not now is what clears it");
-        assert_eq!(tui_recovery_offer(&home.join("missing")).unwrap(), RecoveryOffer::Quiet);
-        let _ = std::fs::remove_dir_all(&home);
-    }
-}
-
 /// Show the 24 words again. Always asks for the password, even when `ACP_PASSWORD` is set.
 pub fn show_phrase() -> Result<()> {
     if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
@@ -723,4 +706,21 @@ fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_pending_recovery_asks_without_reading_stdin() {
+        let home = std::env::temp_dir().join(format!("acp-recovery-ask-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(home.join(".acp")).unwrap();
+        std::fs::write(home.join(".acp/recovery-next"), b"pending\n").unwrap();
+        assert_eq!(tui_recovery_offer(&home).unwrap(), RecoveryOffer::Ask);
+        assert!(home.join(".acp/recovery-next").is_file(), "Not now is what clears it");
+        assert_eq!(tui_recovery_offer(&home.join("missing")).unwrap(), RecoveryOffer::Quiet);
+        let _ = std::fs::remove_dir_all(&home);
+    }
 }
