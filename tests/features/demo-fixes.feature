@@ -18,6 +18,12 @@ Feature: Demo fixes
     Then the Help text contains "not the master key"
     And the Help text contains "Any 3 of those 5"
 
+  Scenario: Help search finds the layout topic
+    When I search Help for "layout"
+    Then the Help text contains "[[layout]]"
+    And the Help text contains "Nested"
+    And the Help text contains "Grid"
+
   Scenario: Sorting a thread while logged out stays on this machine
     When I sort an open thread while logged out
     Then sorting stays on this machine

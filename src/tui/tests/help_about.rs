@@ -86,6 +86,16 @@ fn help_search_keeps_j_and_k_in_the_query() {
 }
 
 #[test]
+fn help_search_finds_layout() {
+    let mut h = HelpModal::new();
+    for c in "layout".chars() { h.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)); }
+    let view = h.view_lines().join("\n");
+    assert!(view.contains("[[layout]]"), "{view}");
+    assert!(view.contains("Nested"), "{view}");
+    assert!(!view.contains("No matching topic"), "{view}");
+}
+
+#[test]
 fn help_search_filters_and_arrows_jump_topics() {
     let mut h = HelpModal::new();
     for c in ['g', 'e', 't', 't', 'i', 'n', 'g'] { h.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)); }

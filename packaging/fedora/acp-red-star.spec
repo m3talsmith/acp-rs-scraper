@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.35.9
+Version:        3.35.10
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.10-1
+- Package 3.35.10. Help search finds the layout topic.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.9-1
 - Package 3.35.9. Question mark opens the key list. The recovery phrase is its own Help topic.
 

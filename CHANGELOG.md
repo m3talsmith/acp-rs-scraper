@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.10] - 2026-10-22
+
+### Fixed
+
+- **Help layout.** Searching Help for layout finds the layout topic: Nested, Stack, Stack + content pane, Carousel, and Grid. `?` on those View choices opens it.
+
 ## [3.35.9] - 2026-10-22
 
 ### Fixed
