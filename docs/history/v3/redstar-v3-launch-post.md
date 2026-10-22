@@ -133,7 +133,7 @@ Coming from 2.x? Copy your database, run `--encrypt-db`, and save the recovery p
 
 ## Why this matters
 
-Our slogan points forward: **Research starts here.** The working class needs its own memory.
+Our slogan points forward: **the future belongs to the working class.** The working class needs its own memory.
 
 Years of education, debate, and organizing live on Red Star. That knowledge shouldn't depend on one website, one server, or one browser tab. With Red Star 3.0, every comrade can hold an archive they own, encrypted on their own machine, readable offline, shareable on their own terms. And because the network is decentralized, every comrade who runs a node makes the whole thing harder to lose.
 

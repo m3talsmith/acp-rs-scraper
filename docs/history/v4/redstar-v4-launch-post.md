@@ -30,7 +30,7 @@ Comrade-to-comrade sync, relays, and the network node stayed in the 3.x line, wh
 
 ## Why this matters
 
-Research starts here, and the working class needs a memory it can search. Education, debate, and the long public conversations around them should be readable together, with the source still attached, on a machine you control.
+The future belongs to the working class, and the working class needs a memory it can search. Education, debate, and the long public conversations around them should be readable together, with the source still attached, on a machine you control.
 
 ACP Red Star 4.0 is that reading room. Local. Encrypted. Open source. Built for the people who already call Red Star home.
 
