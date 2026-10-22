@@ -74,6 +74,37 @@ fn the_action_bar_jumps_back_to_a_search() {
 }
 
 #[test]
+fn the_nick_bar_corner_and_right_edge_collapse_it() {
+    fn click_at(a: &mut App, x: u16, y: u16) {
+        on_mouse(a, MouseEvent { kind: MouseEventKind::Down(MouseButton::Left), column: x, row: y, modifiers: KeyModifiers::NONE });
+    }
+    // 100×30: header is 4 rows, the menu is row 4, the nick bar starts at row 5
+    // and is 28 columns. ‹ is (27, 5). The cells beside it and the right edge
+    // are the same control. 0-based (27, 6) is the right border, not a nick row.
+    for (x, y) in [(27u16, 5u16), (26, 5), (25, 5), (27, 6)] {
+        let mut a = app();
+        a.focus = crate::tui::state::Focus::Nicks;
+        render(&mut a, 100, 30);
+        assert!(a.nicks_open);
+        let before = a.nick_cursor;
+        click_at(&mut a, x, y);
+        assert!(!a.nicks_open, "click ({x},{y}) should collapse the nick bar");
+        on_key(&mut a, KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        assert_eq!(a.nick_cursor, before + 1, "Down still moves the nick cursor");
+        on_key(&mut a, KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE));
+        assert_eq!(a.nick_cursor, before, "k still moves the nick cursor");
+        let focus = a.focus;
+        on_key(&mut a, KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+        assert_ne!(a.focus, focus, "Tab still moves focus");
+    }
+    let mut a = app();
+    render(&mut a, 100, 30);
+    let (r, _) = *a.hits.iter().rev().find(|(_, h)| matches!(h, Hit::Nick(_))).expect("a nick row");
+    click_at(&mut a, r.x, r.y);
+    assert!(a.nicks_open, "an inner nick row is not the collapse control");
+}
+
+#[test]
 fn the_nick_bar_collapses() {
     let mut a = app();
     let s = render(&mut a, 120, 30);

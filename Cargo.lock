@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acp-red-star"
-version = "3.35.0"
+version = "3.35.14"
 dependencies = [
  "acp_red_star_node_core",
  "anyhow",

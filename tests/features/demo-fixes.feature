@@ -1,0 +1,86 @@
+Feature: Demo fixes
+  Bugs found while recording the demo. These scenarios stay on the mock site
+  or on the in-process terminal UI. They do not open acp.us.
+
+  Background:
+    Given a mock Red Star site
+
+  Scenario: Help search keeps j and k
+    When I search Help for "basket"
+    Then the Help text contains "Search: basket"
+    And the Help text contains "Basket"
+
+  Scenario: Question mark opens the keys list
+    When I open Help at the start
+    Then the Help text contains "Terminal UI keys"
+    And the Help text does not contain "not the master key"
+    When I open the Help topic "recovery"
+    Then the Help text contains "not the master key"
+    And the Help text contains "Any 3 of those 5"
+
+  Scenario: A pending recovery phrase is asked in the terminal UI
+    When I prepare a pending recovery phrase
+    Then the screen contains "Not now"
+    And the screen contains "Create the phrase"
+    And the screen contains "focus 1"
+    And the screen contains "[[recovery]]"
+    And the screen does not contain "[y/N]"
+
+  Scenario: Exporting the basket twice leaves the first file
+    When I export a basket HTML file twice
+    Then the screen contains "left"
+    And the screen contains "in place"
+
+  Scenario: Research add file shows a short path
+    When I add a research file under the home directory
+    Then the screen contains "Local file ~/docs/notes.txt"
+    And the screen does not contain "Local file /"
+
+  Scenario: HTML export renders Markdown
+    When I render an HTML export of a Markdown post
+    Then the screen contains "<h1>Hello</h1>"
+    And the screen contains "<pre><code>"
+    And the screen contains "<table>"
+    And the screen does not contain "# Hello"
+    And the screen does not contain "|---|"
+
+  Scenario: Help search finds the layout topic
+    When I search Help for "layout"
+    Then the Help text contains "[[layout]]"
+    And the Help text contains "Nested"
+    And the Help text contains "Grid"
+
+  Scenario: Sorting a thread while logged out stays on this machine
+    When I sort an open thread while logged out
+    Then sorting stays on this machine
+
+  Scenario: A neutral brand does not show the ACP wording
+    When I open Help on the brand "plain"
+    Then the screen contains "Red Star is a local client"
+    And the screen does not contain "ACP Red Star"
+    And the screen does not contain "ACP platform"
+    And the screen does not contain "Sync with acp.us"
+    And the screen does not contain "The future belongs to the working class"
+    When I open Help on the brand "default"
+    Then the screen contains "ACP Red Star is a local client"
+    And the screen contains "ACP platform"
+    And the screen contains "Sync with acp.us"
+    When I open About on the brand "plain"
+    Then the screen contains "Red Star"
+    And the screen does not contain "ACP platform"
+    When I open Bookmarks on the brand "plain"
+    Then the screen does not contain "Sync with acp.us"
+    When I open the theme editor preview on the brand "plain"
+    Then the theme preview does not contain "May Day"
+    And the theme preview does not contain "Workers of the world"
+    And the theme preview does not contain "Strike fund"
+    And the theme preview does not contain "Solidarity"
+    When I open the theme editor preview on the brand "default"
+    Then the theme preview contains "May Day"
+    And the theme preview contains "Strike fund"
+    When I run "--brand plain --list-brands"
+    Then it succeeds
+    And stdout contains "plain"
+    And stdout contains "(no motto)"
+    And stdout contains "default"
+    And stdout contains "The future belongs to the working class"
