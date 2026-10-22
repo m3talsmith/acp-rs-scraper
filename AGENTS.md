@@ -1,4 +1,4 @@
-# Working rules for agents on ACP Red Star (acp-rs-scraper)
+# Working rules for agents on ACP Red Star
 
 These are Michael's standing rules for anyone (human or agent) working in this repo.
 Follow them on every change. When a rule conflicts with a task prompt, ask Michael.
@@ -10,11 +10,11 @@ All rule changes and additions go in this file.
 - **Every version bump edits `CHANGELOG.md`** in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format: a dated `## [x.y.z]` section with Added / Changed / Fixed / Removed subsections (one heading of each kind per release). Nothing ships from `## [Unreleased]`.
 - **Tags are created and pushed only from main; never push a tag from a feature branch.** On any other branch `.githooks/post-commit` does not tag: it prints that tagging happens when the bump lands on main. A commit on local `main` is tagged by that hook. A merge on GitHub is tagged by `.github/workflows/tag-on-main.yml`, which creates `vX.Y.Z` only when `Cargo.toml`'s version changed and the tag does not exist. Don't tag by hand. `.githooks/pre-commit` blocks a version bump without a matching changelog entry.
 - Keep the version in sync everywhere: `Cargo.toml`/`Cargo.lock`, the README version line, `debian/changelog`, the Fedora spec and `PKGBUILD`.
-- Never rewrite published history: no force-pushes, and never move or delete existing tags. One exception, approved by Michael on 2026-10-22 and not yet used: a single force-push of this repo, branches and tags together, to drop Red Star site internals from history. The spec and the conditions are in `architecture/PLAN-SERVICE-SPLIT.md`. Do not run it until the split pull requests are merged and the service tree is in `acp--red-star-service`. Until that push, this sentence still forbids every force-push and every tag move. The exception does not cover a later rewrite, and it does not apply to `acp--red-star-service`.
+- Never rewrite published history: no force-pushes, and never move or delete existing tags. A history scrub of site internals is undecided. Do not run one. The draft spec is in `architecture/PLAN-SERVICE-SPLIT.md`.
 
 ## Commits, pushes and PRs
 - Commit when work is done **and tested**.
-- **Push only when Michael explicitly asks for that push.** When he does, push to all remotes: `origin` (GitHub, `git@github.com:m3talsmith/acp-rs-scraper.git`, the primary) and `mirror` (Forgejo, `https://forgejo.acp.us/m3talsmith/acp-rs-scraper.git`).
+- **Push only when Michael explicitly asks for that push.** When he does, push to `origin` and `mirror` as they are already configured. Do not retarget either remote because the GitHub repository is being renamed. GitHub redirects the old URL. After that rename, one patch updates repository URLs and badges. The placeholder those fields use until then is `<core-repo>` in the Cargo `repository` lines. The app stays Red Star.
 - Commit messages describe what the change opens up for people, not just a list of edits.
 
 ## Security and credentials
@@ -49,7 +49,7 @@ All rule changes and additions go in this file.
 - A pull request that touches the ACP Red Star service opens on <https://github.com/m3talsmith/acp--red-star-service>, not on this repo. That surface is the scraper, login and one-time codes, the LiveView socket, sync against the site, compose and publish, interactions, Spaces, live updates, account writes, notification parsing from the site, HAR and capture docs, and site fixtures.
 - This repo only takes core and white-label pull requests: traits, the plugin loader and gate, brands, themes, the encrypted database, identity, the terminal shell, and the rest of the core.
 - After the split has landed, port each still-open service pull request on this repo as a new draft on `acp--red-star-service`, then close the original with a comment that links the new draft. Do not close the original before that draft exists. Do not close it without the link. Delete the stale branch only after the pull request is closed.
-- The service repo carries the same safety rules in its own `AGENTS.md`. The history-rewrite exception above applies only to acp-rs-scraper.
+- The service repo carries the same safety rules in its own `AGENTS.md`. A history scrub of this repo is undecided, and that file does not grant a force-push either.
 - X and YouTube are not the ACP Red Star service. They stay in this repo unless Michael says otherwise.
 
 ## Services, input and UX

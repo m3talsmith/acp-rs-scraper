@@ -1,8 +1,10 @@
 # Plan: white-label core, and the ACP Red Star service in its own repo
 
-Status: **decided 2026-10-22.** This is the plan. It does not move code, and it does not rewrite history. The scrub at the bottom is approved and is not run from this pull request.
+Status: **decided 2026-10-22.** This is the plan. It does not move code, and it does not rewrite history. The scrub at the bottom is undecided. Do not run it.
 
 Base of this write-up: `main` at `3c84eb2e` (crate `3.34.0`). No version bump.
+
+The app stays Red Star. Michael is renaming this GitHub repository and its path to a Red Star name. This doc says "this repo" for the core tree. The placeholder for the GitHub path is `<core-repo>`, the same token as the `repository` field in `Cargo.toml` and `crates/acp_red_star_node_core/Cargo.toml`. Links inside the tree stay relative. After the rename, one patch pull request replaces that placeholder and the remaining repository URLs and badges in `README.md`, `docs/INSTALL.md`, `docs/USAGE.md`, `docs/GETTING-STARTED.md`, `SECURITY.md`, `architecture/PLAN-3.0-CLIENT.md`, and `.github/workflows/tag-on-main.yml`. Historical posts under `docs/history/` stay as written. GitHub redirects the old URL, so that patch does not change git remotes and does not push for the rename. The compatibility command in `Cargo.toml` is a separate name from the repository path and is not part of that patch.
 
 Companion: [PLAN-SCRAPERS.md](./PLAN-SCRAPERS.md) (the 2026-10-21 trait design). This doc overrides that file only where the two disagree, and only for the ACP Red Star service. X and YouTube are unchanged.
 
@@ -12,7 +14,7 @@ Companion: [PLAN-SCRAPERS.md](./PLAN-SCRAPERS.md) (the 2026-10-21 trait design).
 - Service source lives only in the private repo <https://github.com/m3talsmith/acp--red-star-service> (note the double dash). Default branch `main`. Nothing is pushed straight to that `main`. The first service tree is a draft pull request there.
 - The core repo keeps the white-label core, the plugin gate, and the trait crate. The service crate depends on the trait crate, pinned by git revision (or a path, while both trees are local) until the crate is published.
 - Every pull request that touches the service surface opens on `acp--red-star-service`. This repo only takes core and white-label pull requests. After the split has merged, still-open service pull requests here are ported, then closed with a link to the new draft. See `AGENTS.md`.
-- History scrub of this repo is approved, including the one force-push it needs. It runs only after the split pull requests are merged and the service tree is in the private repo. The spec and the rehearsal are below. This pull request does not run it.
+- A history scrub of this repo is undecided. The spec and the rehearsal below are a draft. Do not rewrite history and do not force-push.
 - The default built-in brand stays ACP Red Star. Changing that default is on hold. Options are at the end. Pull request #57 is not changed.
 
 `#59` (Red Star as an in-tree service crate) is not this split. Do not merge it as written. Traits and the package gate from that branch can be reused in step (a). The Red Star crate does not stay in this repo. X (`#60`) and YouTube (`#61`) are not the ACP service and do not move to the private repo unless Michael says so. They are not part of the scrub.
@@ -25,7 +27,7 @@ New workspace member: `crates/acp_rs_plugin`.
 
 - It owns `Service`, the capability traits, `CapabilityId`, records, `ConfigSchema`, `PluginDeclaration`, `PluginRegistrar`, `declare_plugin!`, and the object-safe `DynService` adapter.
 - `core_version` in the declaration is this crate's `CARGO_PKG_VERSION`, not the root crate's version. `--doctor` prints this crate's rustc pin and that version.
-- The private repo depends on it by git revision until it is published. The service is not a workspace member of acp-rs-scraper.
+- The private repo depends on it by git revision until it is published. The service is not a workspace member of this repo. The git pin uses `<core-repo>` until the rename patch fills in the path.
 - The name is confirmed when the crate is published. Until then the path is `crates/acp_rs_plugin`.
 
 This replaces PLAN-SCRAPERS §2.1's row that put the ABI in `acp_red_star_node_core::service`, and the row that linked `crates/acp_red_star_service_redstar` into this binary. The trait methods and the records in §2.2–§2.4 stay the contract.
@@ -137,11 +139,11 @@ Availability values stay `Ready`, `NeedsAuth`, `Gated`, `Limited`, `Off`.
 
 Three pull requests, in order. Michael merges. No force-push in these three.
 
-**(a) Traits, loader, and an in-tree adapter.** On acp-rs-scraper. Add `crates/acp_rs_plugin`. Add the package gate (tar name `<name>-<os>-<arch>-<version>.tar.gz`, `package.toml`, sha256 per binary and library, quarantine, `plugins.reload`, `--doctor` pin) as specified in `AGENTS.md` and PLAN-SCRAPERS §2.1. Red Star still runs through an adapter in this repo, so today's Gherkin stays green. No behaviour change. This is a core pull request.
+**(a) Traits, loader, and an in-tree adapter.** On this repo. Add `crates/acp_rs_plugin`. Add the package gate (tar name `<name>-<os>-<arch>-<version>.tar.gz`, `package.toml`, sha256 per binary and library, quarantine, `plugins.reload`, `--doctor` pin) as specified in `AGENTS.md` and PLAN-SCRAPERS §2.1. Red Star still runs through an adapter in this repo, so today's Gherkin stays green. No behaviour change. This is a core pull request.
 
-**(b) The service crate, in the private repo.** Draft pull request on `acp--red-star-service`, not a push to its `main`. The crate implements the traits. Behaviour matches the adapter. `AGENTS.md` in that repo copies the safety rules from this repo: no force-push, tags only from `main` via the hook, mocked Gherkin, never commit credentials or raw captures. It also copies the routing rule, and it says the history-rewrite exception applies only to acp-rs-scraper. The dependency is a git revision of `acp_rs_plugin` (a path override is fine on a machine that has both trees). Combined Gherkin runs against the mock in that repo.
+**(b) The service crate, in the private repo.** Draft pull request on `acp--red-star-service`, not a push to its `main`. The crate implements the traits. Behaviour matches the adapter. `AGENTS.md` in that repo copies the safety rules from this repo: no force-push, tags only from `main` via the hook, mocked Gherkin, never commit credentials or raw captures. It also copies the routing rule, and it says a history scrub of the core repo is undecided and is not an exception there either. The dependency is a git revision of `acp_rs_plugin` (a path override is fine on a machine that has both trees). Combined Gherkin runs against the mock in that repo.
 
-**(c) Core ships without Red Star.** Normal pull request on acp-rs-scraper. Delete the service code, the site fixtures, the HAR and capture docs, and the site-specific docs listed above. Re-home the mixed files first. The core build does not feature-enable the service; the default build has no Red Star code. Core tests are `cargo test` with no service present. The Gherkin that talks to the mock moves with step (b) and passes there. Core Gherkin (offline search, export, import, themes, recovery, rules preview against stored rows, eggs) passes here.
+**(c) Core ships without Red Star.** Normal pull request on this repo. Delete the service code, the site fixtures, the HAR and capture docs, and the site-specific docs listed above. Re-home the mixed files first. The core build does not feature-enable the service; the default build has no Red Star code. Core tests are `cargo test` with no service present. The Gherkin that talks to the mock moves with step (b) and passes there. Core Gherkin (offline search, export, import, themes, recovery, rules preview against stored rows, eggs) passes here.
 
 After (c) is merged, and the service tree is on `acp--red-star-service`:
 
@@ -173,20 +175,17 @@ CI on the private repo:
 - builds the cdylib against the pinned `acp_rs_plugin` revision
 - runs the service tests and the moved Gherkin against the mock (nothing contacts acp.us)
 - packs the tar.gz, writes `package.toml` with the sha256 of the library, and checks that a core loader would accept it
-- does not publish into acp-rs-scraper and does not push the package into this repo's releases
+- does not publish into this repo and does not push the package into this repo's releases
 
 CI on this repo: `cargo test` with no service crate checked out. `--doctor` still prints the trait crate's rustc and version, which is how a package author sees the pin.
 
 ## History scrub
 
-Approved by Michael on 2026-10-22. One-time exception to the no-force-push rule, recorded in `AGENTS.md`. It is not authorized to run until:
+Undecided. Do not run it. `AGENTS.md` still forbids force-pushes and tag moves. There is no exception. The spec and the rehearsal below stay in the tree so the scope is written down if Michael later decides to scrub. They are not permission to rewrite.
 
-- the split pull requests are merged, and
-- the service code is in `acp--red-star-service` (a pushed branch there, not only a local copy).
+A later approval would still wait until the split pull requests are merged and the service code is in `acp--red-star-service` (a pushed branch there, not only a local copy). It would not apply to the private repo.
 
-Until that push, nobody force-pushes this repo and nobody moves a tag. The exception does not cover a second rewrite, and it does not apply to the private repo.
-
-Scope: Red Star site internals only. Wallpapers, backgrounds, brand assets, surprises, and core code stay. Political history docs stay. The export example name `comrades` stays.
+Draft scope, if he approves it: Red Star site internals only. Wallpapers, backgrounds, brand assets, surprises, and core code stay. Political history docs stay. The export example name `comrades` stays.
 
 ### Spec
 
@@ -216,7 +215,7 @@ literal:_csrf_token==>[redacted-site-field]
 regex:https://acp\.us(?!/join|/program|/docs)==>[redacted-site-endpoint]
 ```
 
-Command, from a fresh mirror, after the path list has been checked against the scrub tip (`PATH` includes the directory that holds `git-filter-repo`; 2.47.0 is the version this rehearsal used):
+Draft command, not to be run while the scrub is undecided. It would run from a fresh mirror, after the path list has been checked against the scrub tip (`PATH` includes the directory that holds `git-filter-repo`; 2.47.0 is the version this rehearsal used):
 
 ```sh
 args=()
@@ -229,7 +228,7 @@ git filter-repo --force --invert-paths "${args[@]}" \
   --replace-text architecture/scrub-site-replacements.txt
 ```
 
-`--force` is required when the clone has an origin. filter-repo then removes that origin. Tags are rewritten in place: same names, new object ids. After the rewrite, force-push every branch and every tag once (`--force` with an explicit refspec, tags included). Before that push, port or close the remaining service pull requests so a merge cannot put the old history back.
+`--force` on filter-repo is the flag that tool wants when the clone has an origin. It then removes that origin. That flag is not a git force-push, and this draft is not permission to use one. Tags would be rewritten in place: same names, new object ids. A scrub Michael later approves would force-push every branch and every tag once, with an explicit refspec, and only after the remaining service pull requests are ported or closed so a merge cannot put the old history back.
 
 ### Rehearsal (throwaway, not published)
 
@@ -274,13 +273,13 @@ Text at the rewritten tip:
 
 That list is a cross-check, not a substitute for the path list. The replace-text spec also rewrites endpoint and frame literals inside commits that never touched those paths.
 
-Rewritten tag names from the rehearsal, with the throwaway short SHA. The live scrub keeps the same names and points each tag at the rewritten commit of whatever the post-split history produces. There is no `v3.34.0` tag today.
+Rewritten tag names from the rehearsal, with the throwaway short SHA. A scrub he later approves would keep the same names and point each tag at its rewritten commit. There is no `v3.34.0` tag today.
 
 `v1.0.0` `0f18f0cd`, `v1.4.0` `2c64d023`, `v1.12.0` `c8f77152`, `v1.15.0` `b5200c43`, `v1.16.0` `7830a42b`, `v1.17.0` `54c621f6`, `v1.20.0` `754b9412`, `v1.21.0` `e42ca20c`, `v1.22.0` `809f9ad1`, `v1.23.0` `b5f9a6cd`, `v1.24.0` `618ee075`, `v1.25.0` `6f6bf7f7`, `v1.25.1` `4c72a3b0`, `v1.26.0` `2445e302`, `v1.26.1` `a87691a3`, `v2.0.0` `6fe6211a`, `v2.1.0` `d2ebf8d3`, `v2.2.0` `a08ce8ae`, `v2.3.0` `f692be68`, `v2.4.0` `8415a806`, `v2.5.0` `75c8b439`, `v2.6.0` `85969a60`, `v2.7.0` `5a501853`, `v2.8.0` `a454b369`, `v2.9.0` `a546559f`, `v2.10.0` `6ebee8af`, `v2.11.0` `bc21184a`, `v2.11.1` `41caac13`, `v2.12.0` `f2b5401e`, `v2.13.0` `a437a7fd`, `v2.14.0` `66804406`, `v2.15.0` `e59f7d7f`, `v2.16.0` `1f0428b6`, `v2.17.0` `4ac08235`, `v2.18.0` `261aace5`, `v2.19.0` `a1719fb9`, `v2.20.0` `3b475c5b`, `v2.21.0` `67299dcd`, `v2.22.0` `2f7a15d3`, `v2.23.0` `04f594df`, `v2.24.0` `bdcd8c91`, `v2.24.1` `2ad11918`, `v2.25.0` `574c31da`, `v2.26.0` `64bb67ff`, `v2.27.0` `e8e1f678`, `v2.28.0` `dd55efc4`, `v3.0.0` `0ed7d0fd`, `v3.1.0` `db71d642`, `v3.2.0` `bb4d85c5`, `v3.3.0` `9ab4d52c`, `v3.3.1` `2dca06ac`, `v3.3.2` `16255dc2`, `v3.4.0` `2ab00d5a`, `v3.5.0` `f056b846`.
 
 ### What GitHub will still keep
 
-After the force-push, GitHub can still serve the old commits from a closed pull request, a fork cache, or its own caches. Those objects are not reachable from the rewritten branches and tags. Only GitHub Support can purge them. Do not contact support from an agent session; Michael decides if he wants that request filed. The report after the live scrub names the new `main` SHA, the tag list, and which old SHAs a closed pull request can still see.
+If a scrub is later approved and pushed, GitHub can still serve the old commits from a closed pull request, a fork cache, or its own caches. Those objects are not reachable from the rewritten branches and tags. Only GitHub Support can purge them. Do not contact support from an agent session; Michael decides if he wants that request filed. The report after the live scrub names the new `main` SHA, the tag list, and which old SHAs a closed pull request can still see.
 
 ## Default brand (on hold)
 
