@@ -18,6 +18,14 @@ Feature: Demo fixes
     Then the Help text contains "not the master key"
     And the Help text contains "Any 3 of those 5"
 
+  Scenario: A pending recovery phrase is asked in the terminal UI
+    When I prepare a pending recovery phrase
+    Then the screen contains "Not now"
+    And the screen contains "Create the phrase"
+    And the screen contains "focus 1"
+    And the screen contains "[[recovery]]"
+    And the screen does not contain "[y/N]"
+
   Scenario: Exporting the basket twice leaves the first file
     When I export a basket HTML file twice
     Then the screen contains "left"

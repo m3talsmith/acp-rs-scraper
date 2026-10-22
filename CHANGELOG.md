@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.14] - 2026-10-22
+
+### Fixed
+
+- **Recovery question.** A pending recovery phrase asks inside the terminal UI. Not now is the default and opens the recovery topic. Create leaves the screen, runs the phrase setup, and comes back. The headless prompt is unchanged. `?` still opens the key list.
+
 ## [3.35.13] - 2026-10-22
 
 ### Fixed

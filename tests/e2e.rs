@@ -217,6 +217,34 @@ async fn help_topic(w: &mut E2e, topic: String) {
     w.screen = help.lines.iter().skip(help.scroll).take(16).cloned().collect::<Vec<_>>().join("\n");
 }
 
+#[when("I prepare a pending recovery phrase")]
+async fn pending_recovery(w: &mut E2e) {
+    use clap::Parser;
+    let home = w.home.join("phrase-home");
+    std::fs::create_dir_all(home.join(".acp")).unwrap();
+    std::fs::write(home.join(".acp/recovery-next"), b"pending\n").unwrap();
+    let offer = acp_red_star::crypto::cmd::tui_recovery_offer(&home).unwrap();
+    assert_eq!(offer, acp_red_star::crypto::cmd::RecoveryOffer::Ask);
+    assert!(home.join(".acp/recovery-next").is_file());
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    app.offer_recovery(offer, &home);
+    let Some(acp_red_star::tui::modals::Modal::Confirm(c)) = &app.modal else { panic!("{:?}", app.modal) };
+    let asked = format!("{}\n{}\nfocus {}", c.lines.join("\n"), c.buttons.join(" | "), c.focus);
+    app.close_modal(acp_red_star::tui::modals::ModalResult::ClosedCancelled);
+    assert!(!home.join(".acp/recovery-next").is_file(), "Not now clears the reminder");
+    let topic = match &app.modal {
+        Some(acp_red_star::tui::modals::Modal::Help(h)) => h.lines.get(h.scroll).cloned().unwrap_or_default(),
+        other => format!("{other:?}"),
+    };
+    w.screen = format!("{asked}\n{topic}");
+}
+
 #[when("I export a basket HTML file twice")]
 async fn basket_twice(w: &mut E2e) {
     use clap::Parser;

@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.35.13** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.35.14** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,9 +23,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI Help topic `recovery`. `?` opens the key list.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.35.13`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.35.14`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file.
+**3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file. **3.35.14** asks about a pending recovery phrase in the terminal UI. Not now is the default.
 
 **3.35.0** makes the logo, the title, and the motto a brand. The built-in default is still ACP Red Star. `acp-red-star --brand plain` is the title Red Star, a star, and no motto, for a demo that should not show ACP. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps that choice. A file in `~/.acp/brands/` overrides a built-in. The theme stays a separate choice.
 
@@ -633,7 +633,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.35.13  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.35.14  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |

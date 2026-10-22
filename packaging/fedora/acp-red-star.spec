@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.35.13
+Version:        3.35.14
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.14-1
+- Package 3.35.14. A pending recovery phrase is asked in the terminal UI. Not now is the default.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.13-1
 - Package 3.35.13. A second basket export leaves the earlier file and writes a new name.
 

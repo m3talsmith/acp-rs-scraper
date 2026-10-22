@@ -6,6 +6,29 @@ use crate::tui::modals::*;
 use crate::tui::state::*;
 
 #[test]
+fn a_pending_recovery_is_asked_in_the_ui_and_not_now_opens_the_guide() {
+    let home = std::env::temp_dir().join(format!("acp-tui-recovery-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    std::fs::create_dir_all(home.join(".acp")).unwrap();
+    std::fs::write(home.join(".acp/recovery-next"), b"pending\n").unwrap();
+    let mut a = app();
+    a.offer_recovery(crate::crypto::cmd::RecoveryOffer::Ask, &home);
+    let Some(Modal::Confirm(c)) = &a.modal else { panic!("{:?}", a.modal) };
+    assert_eq!(c.focus, 1);
+    assert_eq!(c.buttons, ["Create the phrase", "Not now"]);
+    assert!(c.lines.iter().any(|l| l.contains("not the master key")));
+    a.close_modal(ModalResult::ClosedCancelled);
+    assert!(!home.join(".acp/recovery-next").is_file());
+    let Some(Modal::Help(h)) = &a.modal else { panic!("recovery topic") };
+    assert_eq!(h.lines[h.scroll], "[[recovery]]");
+    a.modal = None;
+    a.offer_recovery(crate::crypto::cmd::RecoveryOffer::Ask, &home);
+    a.close_modal(ModalResult::ClosedSubmitted);
+    assert!(matches!(a.effects.last(), Some(Effect::CreatePhrase)));
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn nick_bar_counts_and_select_loads_newest_first() {
     let mut a = app();
     assert_eq!(a.nicks.iter().map(|n| (n.nick.as_str(), n.post_count)).collect::<Vec<_>>(), [("alice", 3), ("bob", 2)]);

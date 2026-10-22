@@ -256,6 +256,8 @@ pub enum Effect {
         /// Kill the job before leaving.
         cancel_job: bool,
     },
+    /// Leave the screen, run `--identity-init`, then come back.
+    CreatePhrase,
 }
 
 /// Clickable regions recorded while drawing (topmost last).
@@ -589,6 +591,8 @@ pub struct App {
     pub tip: Option<crate::tui::tooltip::Tip>,
     /// Where that control was drawn.
     pub tip_at: Rect,
+    /// Home directory for a pending recovery phrase. Set only while the UI is asking.
+    pub recovery_home: Option<PathBuf>,
 }
 
 fn nick_label(q: &str) -> String {
@@ -637,7 +641,7 @@ impl App {
             notices: crate::notify::NoticeBoard::new(), notice_page: None,
             branches: Vec::new(), branch_at: 0, action_at: 0, action_scroll: 0, action_cursor: 0, action_page: 1,
             restoring: false, record_ready: false, nicks_open: true, actions_open: false,
-            tip: None, tip_at: Rect::default(),
+            tip: None, tip_at: Rect::default(), recovery_home: None,
         };
         app.load_notices();
         app.refresh_nicks();
@@ -1945,6 +1949,29 @@ impl App {
         let shown = self.view().posts.len();
         self.push_status(format!("{}. Help: search-limit", crate::tui::order::result_status(&format!("search {describe}"), shown, total, order, limit.is_some())));
     }
+    /// Show the recovery question, or the recovery topic, after the UI is up.
+    pub fn offer_recovery(&mut self, offer: crate::crypto::cmd::RecoveryOffer, home: &Path) {
+        use crate::crypto::cmd::RecoveryOffer;
+        match offer {
+            RecoveryOffer::Quiet => {}
+            RecoveryOffer::Guide => self.open_help(Some("recovery")),
+            RecoveryOffer::Ask => {
+                self.recovery_home = Some(home.to_path_buf());
+                let mut confirm = ConfirmModal::new(
+                    "Recovery phrase",
+                    vec![
+                        "The database is encrypted. The password is not the master key.".into(),
+                        "Create the 24-word recovery phrase now, so you can write it down?".into(),
+                        "Not now opens the recovery steps. You can run --identity-init later.".into(),
+                    ],
+                    "Create the phrase",
+                    ConfirmAction::CreatePhrase,
+                );
+                confirm.buttons[1] = "Not now".into();
+                self.modal = Some(Modal::Confirm(confirm));
+            }
+        }
+    }
     /// Help scrolled to `topic`, or the general Help.
     pub fn open_help(&mut self, topic: Option<&str>) {
         self.close_menu();
@@ -2672,6 +2699,15 @@ impl App {
                     Err(e) => self.error("Repost", &e.message),
                 },
                 ConfirmAction::SendOutbox(id) => self.send_outbox(&id),
+                ConfirmAction::CreatePhrase => self.effects.push(Effect::CreatePhrase),
+            },
+            (Modal::Confirm(c), ModalResult::ClosedCancelled) => {
+                if matches!(c.action, ConfirmAction::CreatePhrase) {
+                    if let Some(home) = self.recovery_home.clone() {
+                        let _ = crate::crypto::recovery::clear_next(&home);
+                    }
+                    self.open_help(Some("recovery"));
+                }
             },
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
