@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.39.1] - 2026-10-22
+
+### Fixed
+
+- **Menu dropdown.** Opening a menu category draws the popup on the row under the bar, lined up with that category. The bar stays visible and the open category stays highlighted. The popup stays inside the screen width, and a short terminal scrolls the options so the highlighted one stays on screen. A click hits the option that was drawn.
+
 ## [3.39.0] - 2026-10-22
 
 ### Changed

@@ -220,6 +220,74 @@ fn menu_dropdown_shows_typed_options_and_required_marker() {
 }
 
 #[test]
+fn menu_dropdown_opens_under_the_bar() {
+    let mut a = app();
+    let view = a.menu.menu.items.iter().position(|c| c.id == crate::tui::commands::CommandId::View).unwrap();
+    a.focus = Focus::Menu;
+    a.menu.item = view;
+    key(&mut a, KeyCode::Enter);
+    let (text, buf) = frame(&mut a, 100, 30);
+    let bar = rect_of(&a, Hit::MenuItem(view));
+    let opt = rect_of(&a, Hit::MenuOpt(0));
+    assert!(opt.y > bar.y, "first option {opt:?} is not below the bar {bar:?}");
+    let lines: Vec<&str> = text.lines().collect();
+    assert!(lines[bar.y as usize].contains("View"), "bar row stays visible: {}", lines[bar.y as usize]);
+    assert!(!lines[bar.y as usize].contains('═'), "popup covered the bar: {}", lines[bar.y as usize]);
+    assert!(lines[(bar.y + 1) as usize].contains('═'), "popup top edge: {}", lines[(bar.y + 1) as usize]);
+    let open_bg = buf[(bar.x.saturating_add(1), bar.y)].bg;
+    let other = a.hits.iter().find_map(|(r, h)| match h {
+        Hit::MenuItem(i) if *i != view => Some(*r),
+        _ => None,
+    }).unwrap();
+    assert_ne!(open_bg, buf[(other.x.saturating_add(1), other.y)].bg, "open category stays highlighted");
+
+    let mut a = app();
+    render(&mut a, 90, 24);
+    let bars: Vec<usize> = a.hits.iter().filter_map(|(_, h)| match h { Hit::MenuItem(i) => Some(*i), _ => None }).collect();
+    let last = *bars.iter().max_by_key(|i| rect_of(&a, Hit::MenuItem(**i)).x).unwrap();
+    for i in bars {
+        click(&mut a, Hit::MenuItem(i), KeyModifiers::NONE);
+        if a.menu.open != Some(i) { continue; }
+        frame(&mut a, 90, 24);
+        let bar = rect_of(&a, Hit::MenuItem(i));
+        let top = rect_of(&a, Hit::MenuOpt(0));
+        assert_eq!(top.y, bar.y + 2, "option under the border, category {i}");
+        assert!(top.y > bar.y);
+        for (r, h) in &a.hits {
+            if let Hit::MenuOpt(_) = h {
+                assert!(r.y > bar.y, "{h:?} overlaps the bar");
+                assert!(r.x + r.width <= 90, "{h:?} runs past the screen {r:?}");
+            }
+        }
+    }
+    assert_eq!(a.menu.open, Some(last), "last category opened");
+
+    let mut a = app();
+    a.open_menu(view);
+    let n = a.menu.menu.items[view].opts.len();
+    a.menu.opt = n - 1;
+    frame(&mut a, 60, 19);
+    let bar = rect_of(&a, Hit::MenuItem(view));
+    let shown = rect_of(&a, Hit::MenuOpt(n - 1));
+    assert!(shown.y > bar.y && shown.y < 19, "scrolled option {shown:?} bar {bar:?}");
+    assert!(a.hits.iter().all(|(_, h)| *h != Hit::MenuOpt(0)), "the first option scrolled off");
+    click(&mut a, Hit::MenuOpt(n - 1), KeyModifiers::NONE);
+}
+
+fn frame(a: &mut App, w: u16, h: u16) -> (String, ratatui::buffer::Buffer) {
+    let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+    let now = Instant::now() + std::time::Duration::from_secs(5);
+    t.draw(|f| crate::tui::widgets::draw(f, a, now)).unwrap();
+    let buf = t.backend().buffer().clone();
+    let text = (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n");
+    (text, buf)
+}
+
+fn rect_of(a: &App, hit: Hit) -> ratatui::layout::Rect {
+    a.hits.iter().rev().find(|(_, h)| *h == hit).unwrap_or_else(|| panic!("no {hit:?}")).0
+}
+
+#[test]
 fn search_view_has_back_button() {
     let mut a = app();
     a.run_search(crate::tui::data::SearchFilter { keyword: "strike".into(), ..Default::default() });

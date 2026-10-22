@@ -3,7 +3,7 @@
 # Install: cd packaging/arch && makepkg -si      Uninstall: sudo pacman -R acp-red-star
 # (scripts/install.sh does this for you, scripts/uninstall.sh also purges ~/.acp.)
 pkgname=acp-red-star
-pkgver=3.39.0
+pkgver=3.39.1
 pkgrel=1
 pkgdesc="Scrape Red Star (acp.us/rs) posts into SQLite and export them"
 arch=('x86_64' 'aarch64')
