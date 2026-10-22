@@ -331,7 +331,7 @@ pub const THEME_MIN_CONTRAST: f64 = 3.0;
 
 /// Title shown for the Red Star brand: the header, About, and the terminal title.
 pub const TUI_TITLE: &str = "Red Star";
-/// The header title beside the brand word.
+/// The header title beside the logo.
 pub const TUI_SUBTITLE: &str = "Red Star";
 /// Deepest stack of nested post details (linked posts opened from a detail).
 pub const MAX_DETAIL_DEPTH: usize = 8;
@@ -355,7 +355,7 @@ pub const MAX_FLAT_DEPTH: usize = 256;
 pub const TUI_SYNC_DEFAULT_MINUTES: u64 = 15;
 /// Smallest terminal the layout supports.
 pub const TUI_MIN_SIZE: (u16, u16) = (60, 19);
-/// Rows of the TUI header (logo, brand word with a row of room above it, title, session).
+/// Rows of the TUI header (logo, then title and session on the middle row).
 pub const TUI_HEADER_ROWS: u16 = 4;
 /// Research project files (copies, web snapshots), under `$HOME`.
 pub const RESEARCH_REL_DIR: &str = ".acp/research";

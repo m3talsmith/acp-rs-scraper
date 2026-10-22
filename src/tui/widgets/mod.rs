@@ -142,13 +142,12 @@ fn draw_toasts(f: &mut Frame, app: &mut App, area: Rect) {
     }
 }
 
-/// The header: the brand logo, the brand's big letters, the title and the session.
+/// The header: the brand logo, then the title and the session. No word is drawn beside the logo.
 pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
     let bar = t.bar();
     f.render_widget(Paragraph::new("").style(&bar), r);
-    // The brand word is 3 rows: in the 4-row header it gets the spare row above it,
-    // and the title / session line sits on its middle row.
+    // Title and session sit on the middle row of the 4-row header.
     let big_top = r.y + r.height.saturating_sub(3).div_ceil(2);
     let mid = Rect { x: r.x, y: (big_top + 1).min(r.y + r.height.saturating_sub(1)), width: r.width, height: 1.min(r.height) };
     // Logo: square on screen (cells are about twice as tall as wide), the full
@@ -157,42 +156,7 @@ pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let logo = Rect { x: r.x + 1, y: r.y, width: (r.height * 2).min(r.width.saturating_sub(1)), height: r.height };
     draw_brand_logo(f, app, logo);
     app.hits.push((logo, Hit::Logo));
-    let mut x = logo.x + logo.width + 1;
-    let word = app.brand.word.clone();
-    if !word.is_empty() {
-        // Leave about 36 columns for the title, the theme switch, and the session.
-        // Third-height letters are 8 columns; sextant letters are 4. A short word
-        // such as ACP still uses third-height. RED STAR uses sextants when the row
-        // is too narrow for third-height.
-        let n = word.chars().count() as u16;
-        let room = r.width.saturating_sub(x).saturating_sub(36);
-        let third = n.saturating_mul(8);
-        let sext = n.saturating_mul(4);
-        let big = if r.height >= 3 && third.saturating_add(2) <= room {
-            Some((tui_big_text::PixelSize::ThirdHeight, third))
-        } else if r.height >= 3 && sext.saturating_add(2) <= room {
-            Some((tui_big_text::PixelSize::Sextant, sext))
-        } else {
-            None
-        };
-        if let Some((pixel, big_w)) = big {
-            let widget = tui_big_text::BigText::builder()
-                .pixel_size(pixel)
-                .style(t.bar().bold(true))
-                .lines(vec![Line::from(word)])
-                .build();
-            let word_rect = Rect { x, y: big_top, width: big_w, height: 3 };
-            f.render_widget(widget, word_rect);
-            if let Some((from, to)) = mark_gradient(&t) { paint_mark_gradient(f.buffer_mut(), word_rect, from, to); }
-            x += big_w + 2;
-        } else {
-            let small = n + 1;
-            let word_rect = Rect { x, y: mid.y, width: n.max(1), height: 1 };
-            f.render_widget(Paragraph::new(Span::styled(word, t.bar().bold(true))), word_rect);
-            if let Some((from, to)) = mark_gradient(&t) { paint_mark_gradient(f.buffer_mut(), word_rect, from, to); }
-            x += small;
-        }
-    }
+    let x = logo.x + logo.width + 1;
     let title = app.brand.title.clone();
     let left = if app.node_chip.is_empty() {
         format!("{title}  v{}", env!("CARGO_PKG_VERSION"))
@@ -210,10 +174,11 @@ pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     // The theme switch: ‹name› ▾; a click opens the picker.
     // `‹default: missing› ▾` / `‹mine: broken› ▾` when the file can't be used.
     let fault = app.theme_fault.or(app.theme_error.is_some().then_some("broken"));
+    // A leading space keeps the version from sitting against ‹name› when the row is full.
     let switch = match (app.theme_downloading.is_some(), fault) {
-        (true, _) => format!("‹{} · downloading…› ▾", app.theme_name),
-        (false, Some(f)) => format!("‹{}: {f}› ▾", app.theme_name),
-        (false, None) => format!("‹{}› ▾", app.theme_name),
+        (true, _) => format!(" ‹{} · downloading…› ▾", app.theme_name),
+        (false, Some(f)) => format!(" ‹{}: {f}› ▾", app.theme_name),
+        (false, None) => format!(" ‹{}› ▾", app.theme_name),
     };
     let right = format!("  {session} ");
     let rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
@@ -335,20 +300,6 @@ fn paint_logo_text(f: &mut Frame, area: Rect, text: &str, fg: ratatui::style::Co
 fn mark_gradient(t: &crate::tui::theme::Theme) -> Option<(ratatui::style::Color, ratatui::style::Color)> {
     use ratatui::style::Color;
     (t.mark != Color::Reset && t.mark_end != Color::Reset).then_some((t.mark, t.mark_end))
-}
-
-/// Recolour ink in `area` from `from` at the left to `to` at the right. Spaces stay the bar colour.
-fn paint_mark_gradient(buf: &mut ratatui::buffer::Buffer, area: Rect, from: ratatui::style::Color, to: ratatui::style::Color) {
-    if area.width == 0 || area.height == 0 { return; }
-    let denom = area.width.saturating_sub(1).max(1) as f64;
-    for y in area.y..area.y.saturating_add(area.height) {
-        for x in area.x..area.x.saturating_add(area.width) {
-            let Some(cell) = buf.cell_mut((x, y)) else { continue };
-            if cell.symbol() == " " { continue; }
-            let t = f64::from(x - area.x) / denom;
-            cell.set_fg(crate::tui::images::lerp_color(from, to, t));
-        }
-    }
 }
 
 fn line_cols(line: &Line) -> u16 {

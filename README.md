@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.39.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.39.2** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,9 +23,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI Help topic `recovery`. `?` opens the key list.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.39.1`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.39.2`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.39.1** opens a menu category on the row under the bar. The bar stays visible. **3.39.0** restyles the built-in `red-star` theme to the Rebel Hold teal-to-blue watercolor. The halberd and the word RED STAR run from teal to blue. The motto stays "Research starts here." **3.38.1** shows the Red Star brand's title as "Red Star". **3.38.0** draws the Red Star header mark as the star-blade halberd, with the word RED STAR in the theme's accent colours. **3.37.0** sets the built-in Red Star motto to "Research starts here." **3.36.0** puts the logo, the title, and the motto on the theme. Shift-F5 shows the editor and a live preview side by side; the preview follows branding and colours. **3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file. **3.35.14** asks about a pending recovery phrase in the terminal UI. Not now is the default.
+**3.39.2** drops the word beside the header logo, so the bar reads logo, then title. A space stays before `‹red-star›`. **3.39.1** opens a menu category on the row under the bar. The bar stays visible. **3.39.0** restyles the built-in `red-star` theme to the Rebel Hold teal-to-blue watercolor. The halberd and the word RED STAR run from teal to blue. The motto stays "Research starts here." **3.38.1** shows the Red Star brand's title as "Red Star". **3.38.0** draws the Red Star header mark as the star-blade halberd, with the word RED STAR in the theme's accent colours. **3.37.0** sets the built-in Red Star motto to "Research starts here." **3.36.0** puts the logo, the title, and the motto on the theme. Shift-F5 shows the editor and a live preview side by side; the preview follows branding and colours. **3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file. **3.35.14** asks about a pending recovery phrase in the terminal UI. Not now is the default.
 
 **3.35.0** makes the logo, the title, and the motto a brand. The built-in default is still ACP Red Star. `acp-red-star --brand plain` is the title Red Star, a star, and no motto, for a demo that should not show ACP. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps that choice. A file in `~/.acp/brands/` overrides a built-in. The theme stays a separate choice.
 
@@ -638,9 +638,9 @@ headless scrape is now `--scrape`.
 ```
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
-| 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  RED STAR, halberd,
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    Red Star        v3.39.1  |  room above, session,
-|  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
+| 🬻🬀🬭🬷🬲🬭🬁🬺                                                      |  then the title,
+| 🬬🬏🬞🬝🬬🬏🬞🬝  Red Star  v3.39.2 ‹red-star› ▾                    |  space before the marker,
+|  🬊🬩🬭🬭🬚🬆                                                      |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
 | @feistyD 369 | ╔═ Reply @hazaldin · 2026-10-16 … ══════════╗ |  the post you opened
@@ -677,11 +677,10 @@ headless scrape is now `--scrape`.
   then `Enter`) to cross-load that post: it opens on top and pushes the previous detail up into a
   header strip. Up to 8 nest; `Esc` closes the top one, a click on a header goes back to it.
 - **Header.** Four rows on the accent bar: the star-blade halberd (a halberd with a five-point
-  star cut into the axe blade), drawn as sextant blocks in the bar colours, and the word RED STAR
-  ([tui-big-text](https://crates.io/crates/tui-big-text)) beside it. The word uses one-third-height
-  pixels when the row is wide enough, and sextant pixels on a narrower row, with a row of room
-  above it. The title Red Star, the version, the session, and a running job sit on the middle row of that word. That
-  logo, word, title, and the status-bar motto are the brand (see *Brands* below). The built-in
+  star cut into the axe blade), drawn as sextant blocks in the bar colours. No word is drawn beside
+  it, in any logo mode (halberd, text, file, or builtin). The title Red Star, the version, a space,
+  the theme marker `‹name› ▾`, the session, and a running job sit on the middle row, one cell after
+  the logo. That logo, title, and the status-bar motto are the brand (see *Brands* below). The built-in
   default is this Red Star header. `‹name› ▾` shows the theme; click it (or press `F5`) to
   pick another (see *Themes* below). The built-in star picture (`assets/red-star.png`) is the
   `builtin` logo, not the Red Star default.
@@ -959,7 +958,7 @@ or `@palette-entry`. Style keys: `fg`, `bg`, `border`, `bold`, `italic`, `underl
 
 A brand is the logo, the title, and the motto. It is not the theme: any brand works with any theme.
 
-The built-in `default` brand is Red Star: the star-blade halberd, the word RED STAR, the title Red Star, and "Research starts here." The built-in `plain` brand is the title Red Star, a star, and no motto. A demo that should not show ACP runs:
+The built-in `default` brand is Red Star: the star-blade halberd, the title Red Star, and "Research starts here." The header does not draw a word beside the logo. The built-in `plain` brand is the title Red Star, a star, and no motto. A demo that should not show ACP runs:
 
 ```sh
 acp-red-star --brand plain
@@ -972,7 +971,7 @@ That is this run only. To keep it, put this in `~/.acp/preferences.toml`:
 brand = "plain"
 ```
 
-Branding lives on the theme. F5 (header `‹name› ▾`) opens the theme picker. Shift-F5 opens the editor: the list on the left, Preview (sample posts) on the right. The preview updates as you edit the title, motto, logo, and colours. Enter on Logo cycles halberd, text, file, and builtin. Ctrl-S writes `[brand]` into the theme file. The built-in `red-star` theme is the Rebel Hold teal-to-blue watercolor: the halberd and the word RED STAR run from teal to blue. The built-in `plain` theme is the neutral title and star. Brand: use… and Brand: edit… in the command palette open the theme picker and the theme editor.
+Branding lives on the theme. F5 (header `‹name› ▾`) opens the theme picker. Shift-F5 opens the editor: the list on the left, Preview (sample posts) on the right. The preview updates as you edit the title, motto, logo, and colours. Enter on Logo cycles halberd, text, file, and builtin. Ctrl-S writes `[brand]` into the theme file. The built-in `red-star` theme is the Rebel Hold teal-to-blue watercolor: the halberd runs from teal to blue, and the header does not draw a word beside it. The built-in `plain` theme is the neutral title and star. Brand: use… and Brand: edit… in the command palette open the theme picker and the theme editor.
 
 A user brand is still `~/.acp/brands/<name>.toml` and overrides a built-in of the same name. Saving a theme copies that branding into the theme file. `logo` is `halberd`, `text`, `file`, or `builtin`. A file logo stays inside `~/.acp/brands`; a path that leaves that folder is refused. `--help`, `--version`, the terminal title, and HTML export headers use the brand title. Credits and the other surprises keep their own text.
 

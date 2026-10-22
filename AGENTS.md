@@ -39,10 +39,9 @@ All rule changes and additions go in this file.
 ## Code and UI
 - Rust 2024 edition, GPL-3.0-or-later.
 - **All TUI styling goes through Michael's [`ratatui-lipgloss`](https://crates.io/crates/ratatui-lipgloss) crate** (the published crates.io version). If it's missing a feature, report the gap to Michael rather than quietly working around it.
-- The header uses `tui-big-text`.
 - Installs come from GitHub Releases binaries or building from source.
 - Themes: TOML files in `~/.acp/themes/`. Keep the theme system in sync with grokbot-tui: when themes change here, note it so the change can be ported there (and vice versa).
-- Brands: the logo, the title, and the motto. They live on the theme (`[brand]`). The built-in `red-star` theme is the Rebel Hold teal-to-blue watercolor, with the star-blade halberd and the word "RED STAR" running from teal to blue, the displayed title "Red Star", and the motto "Research starts here." The built-in `plain` theme is a neutral title and a star with no motto. `--brand plain` still selects that branding for one run. User files are `~/.acp/brands/<name>.toml` and override a built-in of the same name; saving a theme copies that branding into the theme file. Credits and the other surprises keep their own text.
+- Brands: the logo, the title, and the motto. They live on the theme (`[brand]`). The built-in `red-star` theme is the Rebel Hold teal-to-blue watercolor. The header is the star-blade halberd, then the title "Red Star". The stored word is not drawn beside the logo. The motto is "Research starts here." The built-in `plain` theme is a neutral title and a star with no motto. `--brand plain` still selects that branding for one run. User files are `~/.acp/brands/<name>.toml` and override a built-in of the same name; saving a theme copies that branding into the theme file. Credits and the other surprises keep their own text.
 - Decentralization uses libp2p.
 
 ## Where a pull request goes

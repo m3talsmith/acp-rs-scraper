@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.39.1
+Version:        3.39.2
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.39.2-1
+- Package 3.39.2. The header is the logo, then the title, with a space before the theme marker.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.39.1-1
 - Package 3.39.1. A menu category opens on the row under the bar.
 
