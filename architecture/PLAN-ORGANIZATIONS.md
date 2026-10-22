@@ -1,6 +1,6 @@
 # Plan: Organizations
 
-Status: **3.42.0 ships templates.** 3.41.0 ships the public snapshot. 3.40.1 confirms guest writes, 2026-10-22. Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. The website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
+Status: **3.43.0 ships files.** 3.42.0 ships templates. 3.41.0 ships the public snapshot. 3.40.1 confirms guest writes, 2026-10-22. Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. The website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
 
 Base: `main` at `274a9e01` (crate `3.39.0`). This plan does not bump the version. `AGENTS.md` bumps a version for a feature or a fix, not for a plan.
 

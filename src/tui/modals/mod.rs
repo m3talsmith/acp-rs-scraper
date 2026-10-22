@@ -17,6 +17,7 @@ pub mod search;
 pub mod brand_picker;
 pub mod theme_picker;
 pub mod template;
+pub mod assets;
 
 use crossterm::event::KeyEvent;
 
@@ -36,6 +37,7 @@ pub use search::*;
 pub use brand_picker::*;
 pub use theme_picker::*;
 pub use template::*;
+pub use assets::*;
 
 /// How a modal closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -106,6 +108,8 @@ pub enum Modal {
     Branches(BranchesModal),
     /// Organizations › Template. Source and a live preview.
     Template(TemplateModal),
+    /// Organizations › Assets.
+    Assets(AssetsModal),
 }
 
 impl Modal {
@@ -123,6 +127,7 @@ impl Modal {
             Modal::History(m) => m,
             Modal::Branches(m) => m,
             Modal::Template(m) => m,
+            Modal::Assets(m) => m,
         }
     }
 }

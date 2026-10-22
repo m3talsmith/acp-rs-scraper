@@ -17,6 +17,10 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.org_template_set.is_some()
         || args.org_template_reset.is_some()
         || args.org_template_file.is_some()
+        || args.org_asset_add.is_some()
+        || args.org_asset_list.is_some()
+        || !args.org_asset_visibility.is_empty()
+        || args.org_asset_remove.is_some()
         || args.org_post.is_some()
         || args.org_name.is_some()
         || args.org_description.is_some()
@@ -82,6 +86,18 @@ pub fn run_cli(args: &Args) -> Result<()> {
     }
     if let Some(slug) = &args.org_template_reset {
         return reset_template(args, &db, slug);
+    }
+    if let Some(slug) = &args.org_asset_add {
+        return add_asset(args, &db, slug);
+    }
+    if let Some(slug) = &args.org_asset_list {
+        return list_assets(&org_conn(&db)?, slug);
+    }
+    if args.org_asset_visibility.len() == 2 {
+        return asset_visibility(args, &db);
+    }
+    if let Some(id) = &args.org_asset_remove {
+        return remove_asset(args, &db, id);
     }
     if let Some(slug) = &args.org_post {
         return post(args, &db, slug);
@@ -251,6 +267,86 @@ fn reset_template(args: &Args, db: &Path, slug: &str) -> Result<()> {
     let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
     crate::orgs::template::reset_source(&c, org.id)?;
     println!("template for {slug} restored");
+    Ok(())
+}
+
+fn add_asset(args: &Args, db: &Path, slug: &str) -> Result<()> {
+    let path = args.file.as_ref().ok_or_else(|| anyhow!("--org-asset-add needs --file"))?;
+    let preview = format!("would copy {} into {slug} as a private file", path.display());
+    if args.dry_run {
+        println!("{preview}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Add this private file? [y/N] ")? {
+        println!("{preview}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let asset = crate::orgs::assets::add_file(&c, db, slug, &actor, path)?;
+    println!("{}  {}  visibility: {}", asset.id, asset.name, asset.visibility.as_str());
+    Ok(())
+}
+
+fn list_assets(c: &Connection, slug: &str) -> Result<()> {
+    let org = get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    let rows = crate::orgs::access::list_assets(c, org.id)?;
+    if rows.is_empty() {
+        println!("No files yet (--org-asset-add {slug} --file PATH).");
+        return Ok(());
+    }
+    for asset in rows {
+        let archived = if asset.archived { "  archived" } else { "" };
+        println!("{}  {}  visibility: {}{archived}", asset.id, asset.name, asset.visibility.as_str());
+    }
+    Ok(())
+}
+
+fn asset_visibility(args: &Args, db: &Path) -> Result<()> {
+    let id = &args.org_asset_visibility[0];
+    let visibility = Visibility::parse(&args.org_asset_visibility[1])?;
+    let preview = format!("would set {id} to {}", visibility.as_str());
+    if args.dry_run {
+        println!("{preview}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if visibility == Visibility::Public && !confirm_public(args)? {
+        println!("{preview}");
+        println!("cancelled");
+        return Ok(());
+    }
+    if visibility == Visibility::Private && !confirm(args, "Make this file private? [y/N] ")? {
+        println!("{preview}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let asset = crate::orgs::assets::set_visibility(&c, &actor, id, visibility)?;
+    println!("{}  {}  visibility: {}", asset.id, asset.name, asset.visibility.as_str());
+    Ok(())
+}
+
+fn remove_asset(args: &Args, db: &Path, id: &str) -> Result<()> {
+    let preview = format!("would archive {id}. The file stays on disk. This is not a delete.");
+    if args.dry_run {
+        println!("{preview}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Archive this file? [y/N] ")? {
+        println!("{preview}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let record = crate::orgs::assets::remove(&c, &actor, id)?;
+    println!("archived {id}");
+    println!("replication: {}", record.kind);
     Ok(())
 }
 

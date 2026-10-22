@@ -587,6 +587,10 @@ An organization is a local source. It does not need a service. A new organizatio
 | `--org-template-show SLUG` | Print the template. The default asks for Cinzel and Lora. The title comes from the brand. |
 | `--org-template-set SLUG --org-template-file PATH` | Replace the template. Asks first. Cancel is the default. `--dry-run` writes nothing. |
 | `--org-template-reset SLUG` | Restore the default template. Asks first. Cancel is the default. |
+| `--org-asset-add SLUG --file PATH` | Copy a file. It starts private. The bytes are mode 0600. Asks first. |
+| `--org-asset-list SLUG` | List files. |
+| `--org-asset-visibility ID private\|public` | Change one file. Public asks first. Cancel is the default. |
+| `--org-asset-remove ID` | Archive a file. The row and the bytes stay. Asks first. |
 | `--org-post SLUG` | Store a post. Requires `--org-title`. The body is `--body` or `--body-file`. `--org-post-visibility` overrides the org default for this post only. |
 | `--org-visibility private\|public` | With create or edit. |
 | `--org-default-visibility private\|public` | With create or edit. |

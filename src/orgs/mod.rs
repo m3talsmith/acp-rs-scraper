@@ -8,6 +8,7 @@
 use crate::prelude::*;
 
 pub mod access;
+pub mod assets;
 pub mod cli;
 pub mod template;
 
@@ -217,6 +218,8 @@ const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS organizations (
             archived INTEGER NOT NULL DEFAULT 0,
             archived_by TEXT,
             archived_at TEXT,
+            path TEXT NOT NULL DEFAULT '',
+            mime TEXT NOT NULL DEFAULT '',
             created_at TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS org_templates (
@@ -242,7 +245,27 @@ pub fn org_conn(db: &Path) -> Result<Connection> {
     let c = open_db(db)?;
     c.execute_batch("PRAGMA foreign_keys = ON;")?;
     c.execute_batch(SCHEMA)?;
+    ensure_asset_columns(&c)?;
     Ok(c)
+}
+
+fn ensure_asset_columns(c: &Connection) -> Result<()> {
+    if !has_table(c, "org_assets") {
+        return Ok(());
+    }
+    let mut names = Vec::new();
+    let mut st = c.prepare("PRAGMA table_info(org_assets)")?;
+    let rows = st.query_map([], |r| r.get::<_, String>(1))?;
+    for name in rows {
+        names.push(name?);
+    }
+    if !names.iter().any(|n| n == "path") {
+        c.execute("ALTER TABLE org_assets ADD COLUMN path TEXT NOT NULL DEFAULT ''", [])?;
+    }
+    if !names.iter().any(|n| n == "mime") {
+        c.execute("ALTER TABLE org_assets ADD COLUMN mime TEXT NOT NULL DEFAULT ''", [])?;
+    }
+    Ok(())
 }
 
 pub(crate) fn has_table(c: &Connection, name: &str) -> bool {

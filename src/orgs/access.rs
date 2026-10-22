@@ -119,7 +119,7 @@ pub struct Member {
     pub status: MemberStatus,
 }
 
-/// A file kept with an organization. Bytes on disk arrive in a later minor.
+/// A file kept with an organization. The bytes live beside the database, mode `0600`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Asset {
     /// Stable id (`orga-` plus 16 hex characters).
@@ -130,7 +130,7 @@ pub struct Asset {
     pub name: String,
     /// Who uploaded it.
     pub author_identity: String,
-    /// This asset's own visibility.
+    /// This asset's own visibility. Private until someone makes it public.
     pub visibility: Visibility,
     /// Author until an Owner archives it, then the organization Owner.
     pub custodian_identity: String,
@@ -140,6 +140,10 @@ pub struct Asset {
     pub archived_by: Option<String>,
     /// When the asset was archived.
     pub archived_at: Option<String>,
+    /// Path relative to the home directory. Empty when no bytes were stored.
+    pub path: String,
+    /// Media type. Empty when the file was not stored.
+    pub mime: String,
 }
 
 /// What replication carries when an Owner archives a row. There is no delete kind.
@@ -244,7 +248,7 @@ pub fn load_identity(path: &Path, local_key: &[u8; 32]) -> Result<NodeSecret> {
     Ok(NodeSecret::from_seeds(sign, enc))
 }
 
-fn write_private(path: &Path, body: &[u8]) -> Result<()> {
+pub(crate) fn write_private(path: &Path, body: &[u8]) -> Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
         std::fs::set_permissions(parent, std::fs::Permissions::from_mode(0o700))?;
@@ -354,7 +358,7 @@ fn actor_role(c: &Connection, org_id: i64, actor: &str) -> Result<Role> {
     role_named(c, org_id, &member.role)
 }
 
-fn require(c: &Connection, org_id: i64, actor: &str, permission: &str) -> Result<Role> {
+pub(crate) fn require(c: &Connection, org_id: i64, actor: &str, permission: &str) -> Result<Role> {
     let role = actor_role(c, org_id, actor)?;
     if !allows(&role, permission) {
         bail!("missing permission {permission}");
@@ -583,6 +587,8 @@ fn row_asset(r: &rusqlite::Row) -> rusqlite::Result<Asset> {
         archived: r.get::<_, i64>(6)? != 0,
         archived_by: r.get(7)?,
         archived_at: r.get(8)?,
+        path: r.get(9)?,
+        mime: r.get(10)?,
     })
 }
 
@@ -590,7 +596,7 @@ fn row_asset(r: &rusqlite::Row) -> rusqlite::Result<Asset> {
 pub fn list_assets(c: &Connection, org_id: i64) -> Result<Vec<Asset>> {
     if super::has_table(c, "org_assets") {
         let mut st = c.prepare(
-            "SELECT id, org_id, name, author_identity, visibility, custodian_identity, archived, archived_by, archived_at FROM org_assets WHERE org_id = ?1 ORDER BY created_at",
+            "SELECT id, org_id, name, author_identity, visibility, custodian_identity, archived, archived_by, archived_at, path, mime FROM org_assets WHERE org_id = ?1 ORDER BY created_at",
         )?;
         return Ok(st.query_map(params![org_id], row_asset)?.collect::<rusqlite::Result<Vec<_>>>()?);
     }

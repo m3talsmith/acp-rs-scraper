@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.43.0] - 2026-10-22
+
+### Added
+
+- **Organization files.** `--org-asset-add` copies a file into an organization. It starts private, and the bytes are mode 0600. `--org-asset-list` lists them. `--org-asset-visibility` can make one public, and that asks first. A private organization still hides it. `--org-asset-remove` archives the row: the file stays, custody moves to the Owner, and the replication record is an update. Organizations › Assets shows the list.
+
 ## [3.42.0] - 2026-10-22
 
 ### Added

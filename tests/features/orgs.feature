@@ -158,3 +158,30 @@ Feature: Organizations
     When I run "--org-template-show hold"
     Then it succeeds
     And stdout contains "Cinzel"
+
+  Scenario: A new file starts private and stays out of the public snapshot
+    When I write "hello-bytes" to "banner.txt"
+    When I run "--org-create hold"
+    Then it succeeds
+    When I run "--org-asset-add hold --file $HOME/banner.txt --dry-run"
+    Then it succeeds
+    And stdout contains "would copy"
+    And stdout contains "dry-run: nothing was written"
+    When I run "--org-asset-list hold"
+    Then it succeeds
+    And stdout contains "No files yet"
+    When I run "--org-asset-add hold --file $HOME/banner.txt --yes"
+    Then it succeeds
+    And stdout contains "banner.txt"
+    And stdout contains "visibility: private"
+    When I run "--org-asset-list hold"
+    Then it succeeds
+    And stdout contains "banner.txt"
+    And stdout contains "private"
+    When I run "--org-snapshot hold"
+    Then it succeeds
+    And stdout does not contain "banner.txt"
+    When I run "--org-asset-remove orga-missing --dry-run"
+    Then it succeeds
+    And stdout contains "would archive"
+    And stdout contains "not a delete"

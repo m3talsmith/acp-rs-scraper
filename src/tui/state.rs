@@ -2386,6 +2386,7 @@ impl App {
             Action::OrgDelete => self.org_delete(),
             Action::OrgPost => self.org_post(),
             Action::OrgTemplate => self.open_org_template(),
+            Action::OrgAssets => self.open_org_assets(),
             Action::Quit => {
                 self.close_menu();
                 if let Some(j) = &self.job {
@@ -2456,6 +2457,17 @@ impl App {
                 argv,
             ),
             Err(e) => self.error("Organizations", &e),
+        }
+    }
+    fn open_org_assets(&mut self) {
+        let slug = match self.menu.menu.org_slug() {
+            Ok(s) => s,
+            Err(e) => { self.error("Organizations", &e); return; }
+        };
+        self.close_menu();
+        match crate::tui::modals::AssetsModal::open(&slug) {
+            Ok(m) => self.modal = Some(Modal::Assets(m)),
+            Err(e) => self.error("Assets", &format!("{e:#}")),
         }
     }
     fn open_org_template(&mut self) {

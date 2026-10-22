@@ -231,6 +231,8 @@ pub enum Action {
     OrgPost,
     /// Library › Organizations › Template. Source and a live preview.
     OrgTemplate,
+    /// Library › Organizations › Assets.
+    OrgAssets,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -477,6 +479,7 @@ fn organizations_item() -> MenuCommand {
         opt("delete", "Delete", "--org-delete", false, button(Action::OrgDelete)),
         opt("post", "Post", "--org-post", false, button(Action::OrgPost)),
         opt("template", "Template", "--org-template-show", false, button(Action::OrgTemplate)),
+        opt("assets", "Assets", "--org-asset-list", false, button(Action::OrgAssets)),
     ])
 }
 
@@ -658,6 +661,7 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
         (CommandId::Discover, _) => Some("discover"),
         (CommandId::Organizations, "template") => Some("org-templates"),
+        (CommandId::Organizations, "assets") => Some("org-assets"),
         (CommandId::Organizations, _) => Some("orgs"),
         (CommandId::View, "nested" | "stack" | "pane" | "carousel_inf" | "carousel" | "grid") => Some("layout"),
         (CommandId::View, "notifications") => Some("notifications"),
