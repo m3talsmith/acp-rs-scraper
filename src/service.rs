@@ -1,6 +1,7 @@
 //! Host side of the plugin registrar.
 //!
-//! This binary does not register a site service. `--doctor` still prints the
+//! This binary does not register a site service. An installed package is
+//! loaded by [`crate::plugins`] after the gate. `--doctor` still prints the
 //! rustc pin and the `acp_rs_plugin` version a package must be built against.
 
 pub use acp_rs_plugin::{Availability, CapabilityId};
@@ -63,6 +64,11 @@ impl Registry {
     pub fn services(&self) -> &[Box<dyn DynService>] {
         &self.services
     }
+
+    /// Services this registrar accepted. The caller stores them with the library.
+    pub fn into_services(self) -> Vec<Box<dyn DynService>> {
+        self.services
+    }
 }
 
 /// Refuse a plugin whose rustc or `acp_rs_plugin` version does not match.
@@ -72,7 +78,7 @@ pub fn admit(rustc_version: &str, core_version: &str) -> Result<(), String> {
     acp_rs_plugin::versions_match(rustc_version, core_version)
 }
 
-/// The process-wide built-in registry. A package is not opened here.
+/// The process-wide built-in registry. Installed packages live in [`crate::plugins`].
 pub fn runtime() -> &'static Registry {
     static REG: std::sync::OnceLock<Registry> = std::sync::OnceLock::new();
     REG.get_or_init(Registry::builtins)

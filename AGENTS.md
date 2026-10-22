@@ -25,9 +25,9 @@ All rule changes and additions go in this file.
 ## Plugins and quarantine
 - An external plugin is a gzipped tar named `<name>-<os>-<architecture>-<version>.tar.gz` that contains `package.toml`. `version` is a quoted semver string (`version = "1.2.3"`). The app never downloads a plugin. Built-ins are linked into the binary and are not packages.
 - Before `dlopen`, unpack the archive, check `package.toml`, and require the `sha256` field on each `[install]` `binaries` and `libraries` entry (`path` and `sha256`) to match that file. A top-level `[[libraries]]` array is not read. There is no sidecar hash. The archive name's name and version match the manifest. `os` and `architecture` match the host. Every path is relative and stays inside the package. The official package sets `[meta] official = "redstar"`. `x` and `youtube` stay reserved.
-- Any failure of that check means the plugin is not loaded. The app logs it as a potential security threat and moves the archive to `~/.acp/quarantined/plugins/`. A rustc or core-version mismatch refuses registration and does not quarantine the package. `--doctor` prints that rustc and core-version pin. Authors read it only there.
+- Any failure of that check means the plugin is not loaded. The app logs it as a potential security threat and moves the archive to `~/.acp/quarantined/plugins/`. That directory is not scanned. A rustc (ABI) or plugin-crate mismatch refuses registration and does not quarantine the package. `--doctor` prints that rustc and core-version pin. Authors read it only there.
 - Quarantine is `~/.acp/quarantined/<kind>/`. Plugins are the first kind. The user can read the reason, restore, or delete from Preferences and from the CLI. Keys come from the keymap.
-- Reload from the app runs that same gate and picks up newly placed plugins. A loaded plugin whose package changed is re-verified. A failure unloads it and quarantines it.
+- Reload unloads the loaded libraries and runs that same gate. A package that passes is opened. A failure of the archive check unloads it and quarantines it. A version mismatch refuses the new library and does not quarantine the archive. A call already in progress keeps the previous library mapped until it returns.
 - A sha256 shipped inside the same package catches corruption and an accidental mismatch. It does not catch a package that was rewritten and rehashed. A user-pinned hash or signatures are possible later hardening.
 
 ## Testing
@@ -55,12 +55,12 @@ All rule changes and additions go in this file.
 
 ## Services, input and UX
 - Every service is its own crate behind the Service and capability traits, Red Star included. The UI and the CLI offer an action only when the focused or selected service implements that capability. A gated or not-ready action shows the reason.
-- Until the service split lands, the in-tree Red Star client is on by default. Every other service is off until the user turns it on in Services preferences. After the split, the shipped core does not contain the ACP Red Star client. That service is a package the user installs, and a discovered package stays off until the user enables it. A missing `~/.acp/services/redstar.toml` does not turn the package on. See `architecture/PLAN-SERVICE-SPLIT.md`.
+- Until the service split lands, the in-tree Red Star client is on by default. Every other service is off until the user turns it on in Services preferences. After the split, the shipped core does not contain the ACP Red Star client. That service is a package the user installs in `~/.acp/plugins`. A package that passes the gate is loaded. A missing `~/.acp/services/redstar.toml` does not load a package. See `architecture/PLAN-SERVICE-SPLIT.md`.
 - Credentials, keys, tokens, and cookies are sealed in the encrypted database and are never stored in a file. Other per-service settings live in `~/.acp/services/<service>.toml`.
 - A service starts on the user's logged-in session. The user can make that service's API the default. A metered API has a monthly cap and a per-run cap, an estimate, and a confirm before spending.
 - A write across services asks once and sends to every service where that write is ready. The others are skipped. The preview and `--dry-run` name each skipped service and the reason. Cancel is the default.
 - Every action that notifies implements the Notification trait.
-- Plugins use the registrar pattern in `architecture/PLAN-SCRAPERS.md`, including the version and ABI check. A plugin is enabled explicitly and is never downloaded by the app.
+- Plugins use the registrar pattern in `architecture/PLAN-SCRAPERS.md`, including the version and ABI check. An installed package that passes the gate is loaded. A plugin is never downloaded by the app.
 - Input is modal. Focus sets the mode. Global keys are Ctrl-<key>. Every other key is a mode hotkey. Help, tooltips, the action bar, and docs show the active keymap, not a hardcoded key. Bindings live in `~/.acp/keymap.toml`, reload in the app, and edit in Preferences. The design is `architecture/PLAN-MODES-KEYMAP.md`.
 
 ## Docs

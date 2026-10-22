@@ -236,6 +236,9 @@ Interface:
       --doctor
           Print the rustc pin and the acp_rs_plugin version, then exit. Plugin authors read the pin only here
 
+      --plugins-reload
+          Unload installed packages, then load every archive in ~/.acp/plugins that passes the sha256 gate. An ABI or plugin-crate mismatch is refused and the archive stays. A bad archive is quarantined and is not opened
+
       --list-themes
           List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit
 

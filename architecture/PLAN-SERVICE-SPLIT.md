@@ -32,7 +32,7 @@ New workspace member: `crates/acp_rs_plugin`.
 
 This replaces PLAN-SCRAPERS §2.1's row that put the ABI in `acp_red_star_node_core::service`, and the row that linked `crates/acp_red_star_service_redstar` into this binary. The trait methods and the records in §2.2–§2.4 stay the contract.
 
-A discovered package stays off until the user enables it. Missing `~/.acp/services/redstar.toml` does not mean on, once Red Star is an external package. That sentence in PLAN-SCRAPERS §2.5 applied to a built-in linked into the binary. It does not apply to the package.
+A package in `~/.acp/plugins` that passes the gate is loaded. Missing `~/.acp/services/redstar.toml` does not load a package. That sentence in PLAN-SCRAPERS §2.5 applied to a built-in linked into the binary. It does not apply to the package.
 
 ## What stays in the core
 
@@ -142,7 +142,7 @@ The service does not open the database, and it does not depend on `acp_red_star_
 
 HTTP calls take extra request headers and a cookie jar the host keeps per service id. The service reads and writes that jar. It does not pass a `Cookie` header. `save_page` writes `body_state` (`full`, `truncated`, `unknown`) and attachment rows. `known_ids` returns those post ids and the stored reply count of each thread root, which is what a trait read uses to skip an unchanged thread. `export` takes `ExportRequest`: JSON or HTML, a compressed archive, profile images, and a chosen set of post ids, so a service does not ship its own exporter. `save_outbox`, `enqueue_outbox`, and `cancel_outbox` write the outbox. `sync_bookmarks` and `bookmark_pushed` keep a site-bookmark id mapping in `bookmark_sites`. `Outbox` and `LocalPost` are traits with methods, not only capability ids. `impl_default_caps!(Ty, except Reader, Post)` takes a comma-separated list. The `test-host` feature exposes `MemHost`, an in-memory host, so a service test does not open SQLite. The plugin crate is `0.3.0`.
 
-This binary is the headless CLI. The terminal UI starts the same flags in a child process. Those flags call a loaded service that implements the capability. Until one is loaded, fetching, login, and publishing are not in this binary. The loader does not open a package library. `plugins.reload` still only gates archives. The LiveView socket client stays in the service. It is site-specific.
+This binary is the headless CLI. The terminal UI starts the same flags in a child process. Those flags call a loaded service that implements the capability. Until one is loaded, fetching, login, and publishing are not in this binary. After the sha256 gate, the loader opens the verified library, checks the ABI and plugin-crate version, and calls `attach`. A mismatch is refused and is not quarantined. A quarantined file is never opened. `--plugins-reload` unloads and loads. It is not bound to a key. The LiveView socket client stays in the service. It is site-specific.
 
 `RESERVED_IDS` is `redstar`, `x`, and `youtube`. `OFFICIAL_IDS` is `redstar` only. The official package sets `[meta] official = "redstar"`, and `claim_allowed` accepts that pair. `x` and `youtube` stay refused, including when the manifest sets `official` to its own name. This is an allow-list, not a signature. The repository does not ship a private key. A package that rewrites its own manifest can write the field. That is the same limit as a rewritten sha256.
 

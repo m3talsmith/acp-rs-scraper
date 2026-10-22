@@ -160,7 +160,7 @@ Every `path` is relative to the archive root. `..`, an absolute path, and a syml
 
 Reload scans `~/.acp/plugins/` again:
 
-- A new archive goes through steps 1–7. It stays off until the user enables it.
+- A new archive goes through steps 1–7. It is loaded.
 - An archive whose bytes are unchanged stays mapped.
 - An archive that changed on disk is re-verified with steps 1–3, then the version check.
   - The gate fails: the plugin takes no new work. It is unloaded once nothing in this process still holds its service objects, the unpacked tree is deleted, and the archive is quarantined and logged as a potential security threat. A mapped library cannot be unmapped while a call is still inside it.
@@ -766,7 +766,7 @@ Packaging stays on the alpha gate in §4.5 of the 3.0 plan. This plan does not c
 7. **Mixed ids.** Namespaced ids avoid collisions. The phase that adds them also refuses a Red Star write aimed at a namespaced id. A unit test calls every Red Star write with an `x:` id and expects a refusal before a frame.
 8. **Disk.** Video, audio and transcripts are available. `max_storage_gb` is the bound. The run skips new files at the cap instead of filling the disk.
 9. **Credentials.** Tokens and cookies are long-lived. They are sealed, masked, absent from argv and from backups, and the yt-dlp cookie file is 0600 and deleted in `Drop`. Tests assert each of those.
-10. **Plugins are native code.** A library that passes the package check and the version check runs with the app's privileges: the unlocked database, opened secrets, the network, the filesystem, and other services' memory. There is no sandbox. The mitigations are the ones in §2.1: nothing is auto-downloaded, a package stays off until the user enables it, sha256 must match before `dlopen`, a failed package is quarantined, a rustc or core-version mismatch is refused before `register`, and a duplicate id cannot replace a built-in. sha256 does not prove the author.
+10. **Plugins are native code.** A library that passes the package check and the version check runs with the app's privileges: the unlocked database, opened secrets, the network, the filesystem, and other services' memory. There is no sandbox. The mitigations are the ones in §2.1: nothing is auto-downloaded, an installed package is loaded only after sha256 matches, a failed package is quarantined and never opened, a rustc or core-version mismatch is refused before `register`, and a duplicate id cannot replace a built-in. sha256 does not prove the author.
 
 ---
 

@@ -13,7 +13,7 @@
 //! - [`prefs`]: saved preferences.
 //! - [`stored`]: rows the database and the export already know.
 //! - [`outbox`]: Drafts and the local send queue (3.34.0). Sending a row is the service package.
-//! - [`plugins`]: the package gate. A failed archive is quarantined. A version mismatch is refused and is not moved. A discovered package stays off.
+//! - [`plugins`]: the package gate and the loader. A failed archive is quarantined and never opened. An ABI or plugin-crate mismatch is refused and is not moved. A package that passes is loaded.
 //! - [`host_api`]: the [`acp_rs_plugin::Host`] a service calls instead of opening the database.
 //! - [`drive`]: scrape, sync, login, and compose flags call a loaded service. Until one implements the capability, those commands are not in this binary.
 //! - [`storage`]: SQLite schema and queries.

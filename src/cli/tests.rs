@@ -187,6 +187,10 @@ fn doctor_prints_the_pin_and_does_not_combine_with_another_command() {
     let help = Args::command().render_long_help().to_string();
     assert!(help.contains("--doctor"), "{help}");
     assert!(help.contains("Plugin authors read the pin only here"), "{help}");
+    assert!(Args::try_parse_from(["x", "--plugins-reload"]).unwrap().plugins_reload);
+    assert!(!parse_with_mode(["x", "--plugins-reload"]).unwrap().1, "--plugins-reload stays headless");
+    assert!(Args::try_parse_from(["x", "--plugins-reload", "--nick", "ada"]).is_err());
+    assert!(Args::try_parse_from(["x", "--plugins-reload", "--doctor"]).is_err());
 }
 
 #[test]

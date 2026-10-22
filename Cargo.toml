@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/acp_red_star_node_core", "crates/acp_rs_plugin"]
+members = [".", "crates/acp_red_star_node_core", "crates/acp_rs_plugin", "crates/acp_rs_fixture", "crates/acp_rs_fixture_next", "crates/acp_rs_fixture_mismatch"]
 resolver = "2"
 
 [package]
@@ -80,16 +80,23 @@ chacha20poly1305 = "0.10"
 zstd = "0.13"
 ciborium = "0.2"
 hpke = { version = "0.12", features = ["std", "x25519"] }
+libloading = "0.8"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 
 [dev-dependencies]
+acp_rs_fixture = { path = "crates/acp_rs_fixture" }
+acp_rs_fixture_mismatch = { path = "crates/acp_rs_fixture_mismatch" }
+acp_rs_fixture_next = { path = "crates/acp_rs_fixture_next" }
+acp_rs_plugin = { path = "crates/acp_rs_plugin" }
 axum = { version = "0.8.9", features = ["ws"] }
 cucumber = "0.23.0"
+flate2 = "1"
 futures-util = "0.3"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde_json = "1"
+tar = "0.4"
 tokio = { version = "1", features = ["full", "process"] }
 
 [[test]]
