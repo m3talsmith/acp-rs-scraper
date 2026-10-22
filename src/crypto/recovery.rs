@@ -66,6 +66,21 @@ pub(crate) fn seal(
     write_seal(home, &stretch, entropy)
 }
 
+/// Open the seal with a stretch that already uses its salt. No extra Argon2.
+pub(crate) fn open_with(home: &Path, stretch: &Stretch) -> Result<Zeroizing<[u8; 32]>> {
+    let file = read_seal(&seal_path(home))?;
+    if file.salt != *stretch.salt() || file.params != stretch.params() {
+        bail!("the recovery phrase does not match this password stretch");
+    }
+    let plain = decrypt(&stretch.key(INFO), &file.nonce, &file.wrapped)?;
+    if plain.len() != 32 {
+        bail!("the recovery phrase has the wrong length");
+    }
+    let mut entropy = Zeroizing::new([0u8; 32]);
+    entropy.copy_from_slice(&plain);
+    Ok(entropy)
+}
+
 /// Open the seal. A wrong password fails the authenticator and writes nothing.
 pub(crate) fn open(home: &Path, password: &str) -> Result<Zeroizing<[u8; 32]>> {
     let path = seal_path(home);
@@ -88,35 +103,82 @@ pub(crate) fn open(home: &Path, password: &str) -> Result<Zeroizing<[u8; 32]>> {
 }
 
 /// What [`reseal`] did with the on-disk phrase.
+#[cfg(test)]
 pub(crate) enum Reseal {
     /// There is no seal to move.
     Absent,
     /// The seal was rewritten under `fresh`. `previous` is the old file.
-    Moved { previous: Vec<u8> },
+    Moved {
+        #[allow(dead_code)]
+        previous: Vec<u8>,
+    },
     /// The seal did not open with this password, so it was left as it was.
     Kept,
 }
 
-/// Rewrite the seal under `fresh` when it opens with `old_password`.
+/// A phrase seal prepared for a password change, not yet written.
+pub(crate) enum SealPlan {
+    /// There is no seal to move.
+    Absent,
+    /// The seal did not open with this password, so it stays.
+    Kept,
+    /// `next` replaces `previous` when the change commits.
+    /// `entropy` is the phrase that was opened, so the master seal can be built
+    /// without stretching the old password a second time for the phrase.
+    Ready {
+        previous: Vec<u8>,
+        next: Vec<u8>,
+        entropy: Zeroizing<[u8; 32]>,
+    },
+}
+
+impl SealPlan {
+    /// Phrase entropy, when this plan is about to move the seal.
+    pub(crate) fn entropy(&self) -> Option<&Zeroizing<[u8; 32]>> {
+        match self {
+            Self::Ready { entropy, .. } => Some(entropy),
+            Self::Absent | Self::Kept => None,
+        }
+    }
+}
+
+/// Build the new seal without writing it.
 /// The new password is not stretched again: `fresh` is the stretch already
 /// computed for the database password change.
-pub(crate) fn reseal(home: &Path, old_password: &str, fresh: &Stretch) -> Result<Reseal> {
+pub(crate) fn plan_reseal(home: &Path, old_password: &str, fresh: &Stretch) -> Result<SealPlan> {
     let path = seal_path(home);
     if !path.is_file() {
-        return Ok(Reseal::Absent);
+        return Ok(SealPlan::Absent);
     }
     let previous = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
     let entropy = match open(home, old_password) {
         Ok(entropy) => entropy,
-        Err(err) if password_rejected(&err) => return Ok(Reseal::Kept),
+        Err(err) if password_rejected(&err) => return Ok(SealPlan::Kept),
         Err(err) => return Err(err),
     };
-    super::progress::set_stage("Saving the recovery phrase");
-    write_seal(home, fresh, &entropy)?;
-    Ok(Reseal::Moved { previous })
+    Ok(SealPlan::Ready {
+        previous,
+        next: seal_bytes(fresh, &entropy)?,
+        entropy,
+    })
+}
+
+/// Rewrite the seal under `fresh` when it opens with `old_password`.
+#[cfg(test)]
+pub(crate) fn reseal(home: &Path, old_password: &str, fresh: &Stretch) -> Result<Reseal> {
+    match plan_reseal(home, old_password, fresh)? {
+        SealPlan::Absent => Ok(Reseal::Absent),
+        SealPlan::Kept => Ok(Reseal::Kept),
+        SealPlan::Ready { previous, next, entropy: _ } => {
+            super::progress::set_stage("Saving the recovery phrase");
+            write_file(home, RECOVERY_SEAL_REL_PATH, &next)?;
+            Ok(Reseal::Moved { previous })
+        }
+    }
 }
 
 /// Put a previous seal back. Used when a later step of a password change fails.
+#[cfg(test)]
 pub(crate) fn restore_bytes(home: &Path, bytes: &[u8]) -> Result<()> {
     write_file(home, RECOVERY_SEAL_REL_PATH, bytes)
 }
@@ -136,6 +198,10 @@ fn password_rejected(err: &anyhow::Error) -> bool {
 }
 
 fn write_seal(home: &Path, stretch: &Stretch, entropy: &[u8; 32]) -> Result<()> {
+    write_file(home, RECOVERY_SEAL_REL_PATH, &seal_bytes(stretch, entropy)?)
+}
+
+fn seal_bytes(stretch: &Stretch, entropy: &[u8; 32]) -> Result<Vec<u8>> {
     let mut nonce = [0u8; 24];
     rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
     let wrapped = encrypt(&stretch.key(INFO), &nonce, entropy)?;
@@ -151,7 +217,7 @@ fn write_seal(home: &Path, stretch: &Stretch, entropy: &[u8; 32]) -> Result<()> 
     ]);
     let mut buf = Vec::new();
     ciborium::ser::into_writer(&value, &mut buf)?;
-    write_file(home, RECOVERY_SEAL_REL_PATH, &buf)
+    Ok(buf)
 }
 
 struct SealFile {

@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.34.0
+Version:        3.49.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.49.0-1
+- Package 3.49.0. A password change rewraps local data in one step and rolls back on failure. The account id does not change.
+
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.34.0-1
 - Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish.
 

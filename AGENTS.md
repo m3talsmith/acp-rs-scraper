@@ -20,6 +20,7 @@ All rule changes and additions go in this file.
 ## Security and credentials
 - Never commit credentials. The pre-commit hook blocks secret-looking files everywhere and credential patterns everywhere except generated `docs/api/**`. `build.rs` sets `core.hooksPath=.githooks`, so don't bypass hooks (`--no-verify`).
 - Never print, log or store credentials, session cookies, tokens or one-time codes. `--debug` output masks session secrets; keep it that way, and keep secrets out of test fixtures and captures (redact before committing).
+- A password change (`--change-password`) rewraps the database bootstrap, the node keystore, the recovery seal, the existing master secret, and the backup wrapping key in one step. A failure puts the previous bytes back. It does not change the SQLCipher key, derive a new master, or change the `acp-id` or node certificates. An archive written before the change still opens with the password that wrote it. An archive written after it is format 2 and restores on a new machine with the new password and the phrase.
 - Push credentials for the Forgejo mirror are only ever used through a temporary git credential helper that's deleted afterwards.
 
 ## Plugins and quarantine

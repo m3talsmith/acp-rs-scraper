@@ -1,3 +1,9 @@
+acp-red-star (3.49.0) unstable; urgency=medium
+
+  * Package 3.49.0. A password change rewraps the database, the node keystore, the recovery phrase, and the backup wrapping key in one step. The account id does not change.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 01:40:00 +0000
+
 acp-red-star (3.34.0) unstable; urgency=medium
 
   * Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish. A dry-run opens no connection.

@@ -110,9 +110,8 @@ fn id_from_sign_pub(sign_pub: &[u8; 32]) -> AcpId {
 /// The master secret and the two keys derived from it. Dropped memory is zeroized.
 /// Debug output says `[redacted]` and does not include key bytes.
 pub struct Master {
-    /// HKDF master secret. Not read after the keys are derived; kept so it is zeroized
-    /// and so a later ceremony can use it without re-running Argon2.
-    #[allow(dead_code)]
+    /// HKDF master secret. Kept so it is zeroized and so a password change can
+    /// seal this same secret without deriving a new one.
     secret: Zeroizing<[u8; 32]>,
     /// ed25519 seed. Used to sign a certificate during a ceremony, then dropped.
     sign_seed: Zeroizing<[u8; 32]>,
@@ -137,6 +136,32 @@ impl std::fmt::Debug for Master {
 }
 
 impl Master {
+    /// The HKDF secret. A password change seals these bytes. It does not derive a new master.
+    pub fn secret(&self) -> &[u8; 32] {
+        &self.secret
+    }
+
+    /// Rebuild the keys from a secret [`derive_master`] already produced.
+    /// Does not run Argon2. The phrase and the password are not inputs.
+    pub fn from_secret(secret: &[u8; 32]) -> Self {
+        let secret = Zeroizing::new(*secret);
+        let sign_seed = Zeroizing::new(hkdf(secret.as_slice(), None, SIGN_INFO));
+        let wrap_seed = Zeroizing::new(hkdf(secret.as_slice(), None, WRAP_INFO));
+        let sign = SigningKey::from_bytes(&sign_seed);
+        let sign_pub = sign.verifying_key().to_bytes();
+        let wrap = StaticSecret::from(*wrap_seed);
+        let wrap_pub = PublicKey::from(&wrap).to_bytes();
+        let acp_id = id_from_sign_pub(&sign_pub);
+        Self {
+            secret,
+            sign_seed,
+            wrap_seed,
+            acp_id,
+            sign_pub,
+            wrap_pub,
+        }
+    }
+
     /// Open an account-key wrap sealed to this master's X25519 key.
     pub fn open_account_dek(
         &self,
@@ -224,22 +249,8 @@ pub fn derive_master(phrase: &str, password: &str, params: Argon2Params) -> Resu
     let mut ikm = Zeroizing::new([0u8; 64]);
     ikm[..32].copy_from_slice(seed.as_slice());
     ikm[32..].copy_from_slice(argon_out.as_slice());
-    let secret = Zeroizing::new(hkdf(ikm.as_slice(), Some(&argon_salt), MASTER_INFO));
-    let sign_seed = Zeroizing::new(hkdf(secret.as_slice(), None, SIGN_INFO));
-    let wrap_seed = Zeroizing::new(hkdf(secret.as_slice(), None, WRAP_INFO));
-    let sign = SigningKey::from_bytes(&sign_seed);
-    let sign_pub = sign.verifying_key().to_bytes();
-    let wrap = StaticSecret::from(*wrap_seed);
-    let wrap_pub = PublicKey::from(&wrap).to_bytes();
-    let acp_id = id_from_sign_pub(&sign_pub);
-    Ok(Master {
-        secret,
-        sign_seed,
-        wrap_seed,
-        acp_id,
-        sign_pub,
-        wrap_pub,
-    })
+    let secret = hkdf(ikm.as_slice(), Some(&argon_salt), MASTER_INFO);
+    Ok(Master::from_secret(&secret))
 }
 
 /// Recover a 256-bit seed from a 24-word phrase or from three to five SLIP-39 shares.
@@ -308,6 +319,10 @@ mod secret_not_leaked {
         assert!(shown.contains("[redacted]"), "{shown}");
         assert!(!shown.contains(&hex(&*m.secret)), "{shown}");
         assert!(!shown.contains(&phrase), "{shown}");
+        let again = Master::from_secret(m.secret());
+        assert_eq!(again.acp_id, m.acp_id);
+        assert_eq!(again.sign_pub, m.sign_pub);
+        assert_eq!(again.wrap_pub, m.wrap_pub);
     }
 
     fn hex(b: &[u8]) -> String {

@@ -12,8 +12,12 @@
 //! that new node is a later stage. The header's epoch list is empty until data
 //! keys exist.
 //!
-//! The outer key is the password, not the account data key. A password-only
-//! install (§7.14.1) can restore. A new machine whose header names an `acp-id`
+//! The outer key is the password, not the account data key. Format 1 seals the
+//! archive with HKDF(`acp-backup-v1`) of that stretch. After `--change-password`,
+//! a random backup wrapping key is stored in `backup.wrap` and format 2 seals
+//! with that key. The header carries the key wrapped under the password that
+//! wrote the archive, so an older archive still opens with its own password.
+//! A password-only install (§7.14.1) can restore. A new machine whose header names an `acp-id`
 //! also has to present the phrase or three shares, and the derived id must match.
 
 use anyhow::{Context, Result, bail};
@@ -24,25 +28,35 @@ use std::fs::File;
 use std::io::{Cursor, Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
+use zeroize::Zeroizing;
 
 use super::master::{self, AcpId};
 use super::password::{Argon2Params, Stretch};
 use super::pin::Pin;
 use super::progress::set_stage;
 use crate::config::{
-    ACP_ID_REL_PATH, ATTACH_REL_PATH, DB_REL_PATH, EXPORTS_REL_PATH, LOGS_REL_DIR,
-    NODE_KEYSTORE_REL_PATH, NODE_SECRET_REL_PATH, PREFS_REL_PATH, RECOVERY_NEXT_REL_PATH,
-    RECOVERY_SEAL_REL_PATH,
-    RESEARCH_REL_DIR, SESSION_REL_PATH, SHARES_PENDING_REL_PATH, SHARES_VERIFIED_REL_PATH,
-    THEMES_REL_DIR,
+    ACP_ID_REL_PATH, ATTACH_REL_PATH, BACKUP_WRAP_REL_PATH, DB_REL_PATH, EXPORTS_REL_PATH,
+    LOGS_REL_DIR, MASTER_SEAL_REL_PATH, NODE_KEYSTORE_REL_PATH, NODE_SECRET_REL_PATH, PREFS_REL_PATH,
+    RECOVERY_NEXT_REL_PATH, RECOVERY_SEAL_REL_PATH, RESEARCH_REL_DIR, SESSION_REL_PATH,
+    SHARES_PENDING_REL_PATH, SHARES_VERIFIED_REL_PATH, THEMES_REL_DIR,
 };
 
 const MAGIC: &[u8] = b"ACPBACKUP";
-const FORMAT_VERSION: u64 = 1;
+const FORMAT_VERSION: u64 = 2;
 const SCHEMA_VERSION: u64 = 1;
 const BACKUP_INFO: &[u8] = b"acp-backup-v1";
+const WRAP_INFO: &[u8] = b"acp-backup-wrap-v1";
+const ENTROPY_INFO: &[u8] = b"acp-backup-entropy-v1";
+const MASTER_INFO: &[u8] = b"acp-backup-master-v1";
 const MAX_HEADER: usize = 1_048_576;
 const DAY_SECS: i64 = 24 * 60 * 60;
+
+/// Format number, the key that seals the archive, and the copy of that key stored in the header.
+struct ArchiveSeal {
+    format: u64,
+    key: Zeroizing<[u8; 32]>,
+    wrapped: Option<Vec<u8>>,
+}
 
 const SCHEDULE_SQL: &str = "CREATE TABLE IF NOT EXISTS backup_schedule (
     id INTEGER PRIMARY KEY CHECK (id = 1),
@@ -55,7 +69,7 @@ const SCHEDULE_SQL: &str = "CREATE TABLE IF NOT EXISTS backup_schedule (
 /// What a backup file says before it is decrypted.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Header {
-    /// Archive format. This build writes and reads `1` and refuses anything newer.
+    /// Archive format. This build writes `2` after a backup wrapping key exists, and `1` before that. It reads both and refuses anything newer.
     pub format: u64,
     /// Schema generation recorded in the header. Migrations still run on open.
     pub schema: u64,
@@ -72,6 +86,12 @@ pub struct Header {
     salt: [u8; 16],
     nonce: [u8; 24],
     content_hash: [u8; 32],
+    /// Format 2: the backup wrapping key, sealed under this archive's stretch.
+    wrapped_key: Option<Vec<u8>>,
+    /// Format 2 after a password change: the phrase entropy, sealed under this archive's stretch.
+    wrapped_entropy: Option<Vec<u8>>,
+    /// Format 2 after a password change: the existing master secret, sealed the same way.
+    wrapped_master: Option<Vec<u8>>,
 }
 
 /// A recorded `--backup-schedule`.
@@ -111,8 +131,24 @@ fn write_backup_version(
     params: Argon2Params,
     format: u64,
 ) -> Result<()> {
-    let stretch = Stretch::fresh(password, params)?;
+    let stretch = if format == FORMAT_VERSION {
+        stretch_for_archive(home, password, params)?
+    } else {
+        Stretch::fresh(password, params)?
+    };
     write_backup_with_version(home, dest, &stretch, format)
+}
+
+/// One stretch for an archive. When `backup.wrap` exists, its salt is the salt,
+/// so the same derivation opens the wrapping key and seals the header copy.
+fn stretch_for_archive(home: &Path, password: &str, params: Argon2Params) -> Result<Stretch> {
+    let path = home.join(BACKUP_WRAP_REL_PATH);
+    if path.is_file() {
+        let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+        let file = read_wrap_file(&bytes)?;
+        return Stretch::from_salt(password, file.salt, file.params);
+    }
+    Stretch::fresh(password, params)
 }
 
 fn write_backup_with_version(
@@ -131,6 +167,17 @@ fn write_backup_with_version(
     let acp_id = Pin::load(home)?
         .map(|p| p.acp_id.to_string())
         .unwrap_or_default();
+    let sealed = archive_key(home, stretch, format)?;
+    let format = sealed.format;
+    let key = sealed.key;
+    let wrapped_key = sealed.wrapped;
+    let blobs = if format == FORMAT_VERSION {
+        identity_blobs(home, stretch)?
+    } else {
+        IdentityBlobs { entropy: None, master: None }
+    };
+    let wrapped_entropy = blobs.entropy;
+    let wrapped_master = blobs.master;
     let header = Header {
         format,
         schema: SCHEMA_VERSION,
@@ -142,6 +189,9 @@ fn write_backup_with_version(
         salt: *stretch.salt(),
         nonce,
         content_hash,
+        wrapped_key,
+        wrapped_entropy,
+        wrapped_master,
     };
     let header_bytes = encode_header(&header)?;
     let mut aad = Vec::with_capacity(MAGIC.len() + 4 + header_bytes.len());
@@ -149,7 +199,7 @@ fn write_backup_with_version(
     aad.extend_from_slice(&(header_bytes.len() as u32).to_be_bytes());
     aad.extend_from_slice(&header_bytes);
     set_stage("Sealing the backup");
-    let cipher = seal_with(stretch, &header, &aad, &compressed)?;
+    let cipher = seal_with(&key, &header, &aad, &compressed)?;
     if let Some(dir) = dest.parent() {
         std::fs::create_dir_all(dir)?;
     }
@@ -199,7 +249,8 @@ pub fn restore_backup(
     }
     let aad_len = MAGIC.len() + 4 + header_len(&bytes)?;
     let stretch = Stretch::from_salt(password, header.salt, header.argon2)?;
-    let plain = open_seal_with(&stretch, &header, &bytes[..aad_len], cipher)?;
+    let key = header_key(&stretch, &header)?;
+    let plain = open_seal_with(&key, &header, &bytes[..aad_len], cipher)?;
     let tar_bytes = zstd::bulk::decompress(&plain, 512 * 1024 * 1024).context("zstd")?;
     let got = *blake3::hash(&tar_bytes).as_bytes();
     if got != header.content_hash {
@@ -352,30 +403,49 @@ pub fn default_backup_path(home: &Path) -> PathBuf {
 }
 
 fn check_material(header: &Header, password: &str, text: &str) -> Result<()> {
+    if header.wrapped_entropy.is_some() || header.wrapped_master.is_some() {
+        let stretch = Stretch::from_salt(password, header.salt, header.argon2)?;
+        let entropy_blob = header
+            .wrapped_entropy
+            .as_deref()
+            .context("this backup is missing the phrase check")?;
+        let master_blob = header
+            .wrapped_master
+            .as_deref()
+            .context("this backup is missing the account check")?;
+        let entropy = open_header_blob(&stretch, ENTROPY_INFO, entropy_blob)?;
+        let pasted = master::seed_from_material(text)?;
+        if entropy.as_slice() != pasted.as_slice() {
+            bail!("this phrase does not match the account in this backup. Nothing was written.");
+        }
+        let secret = open_header_blob(&stretch, MASTER_INFO, master_blob)?;
+        let rebuilt = master::Master::from_secret(&secret);
+        let expected = AcpId::parse(&header.acp_id)?;
+        rebuilt.require_id(&expected)?;
+        return Ok(());
+    }
     let seed = master::seed_from_material(text)?;
     let phrase = master::phrase_from_entropy(&seed)?;
-    let master = master::derive_master(&phrase, password, header.argon2)?;
+    let derived = master::derive_master(&phrase, password, header.argon2)?;
     let expected = AcpId::parse(&header.acp_id)?;
-    master.require_id(&expected)?;
+    derived.require_id(&expected)?;
     Ok(())
 }
 
-fn seal_with(stretch: &Stretch, header: &Header, aad: &[u8], plain: &[u8]) -> Result<Vec<u8>> {
-    let key = stretch.key(BACKUP_INFO);
-    let cipher = XChaCha20Poly1305::new((&*key).into());
+fn seal_with(key: &Zeroizing<[u8; 32]>, header: &Header, aad: &[u8], plain: &[u8]) -> Result<Vec<u8>> {
+    let cipher = XChaCha20Poly1305::new((&**key).into());
     cipher
         .encrypt((&header.nonce).into(), Payload { msg: plain, aad })
         .map_err(|_| anyhow::anyhow!("backup encryption failed"))
 }
 
 fn open_seal_with(
-    stretch: &Stretch,
+    key: &Zeroizing<[u8; 32]>,
     header: &Header,
     aad: &[u8],
     cipher_text: &[u8],
 ) -> Result<Vec<u8>> {
-    let key = stretch.key(BACKUP_INFO);
-    let cipher = XChaCha20Poly1305::new((&*key).into());
+    let cipher = XChaCha20Poly1305::new((&**key).into());
     cipher
         .decrypt(
             (&header.nonce).into(),
@@ -421,7 +491,7 @@ fn encode_header(header: &Header) -> Result<Vec<u8>> {
             .map(|e| Value::Integer(e.into()))
             .collect(),
     );
-    let value = Value::Array(vec![
+    let mut value = Value::Array(vec![
         Value::Integer(header.format.into()),
         Value::Integer(header.schema.into()),
         Value::Text(header.app.clone()),
@@ -435,6 +505,15 @@ fn encode_header(header: &Header) -> Result<Vec<u8>> {
         Value::Bytes(header.nonce.to_vec()),
         Value::Bytes(header.content_hash.to_vec()),
     ]);
+    if let Some(wrapped) = &header.wrapped_key
+        && let Value::Array(items) = &mut value
+    {
+        items.push(Value::Bytes(wrapped.clone()));
+        if let (Some(entropy), Some(master_blob)) = (&header.wrapped_entropy, &header.wrapped_master) {
+            items.push(Value::Bytes(entropy.clone()));
+            items.push(Value::Bytes(master_blob.clone()));
+        }
+    }
     let mut buf = Vec::new();
     ciborium::ser::into_writer(&value, &mut buf).context("encoding backup header")?;
     Ok(buf)
@@ -445,7 +524,7 @@ fn decode_header(bytes: &[u8]) -> Result<Header> {
     let Value::Array(a) = value else {
         bail!("backup header is not an array");
     };
-    if a.len() != 12 {
+    if a.len() != 12 && a.len() != 13 && a.len() != 15 {
         bail!("backup header has {} fields", a.len());
     }
     let salt = as_bytes(&a[9], 16)?;
@@ -457,6 +536,16 @@ fn decode_header(bytes: &[u8]) -> Result<Header> {
     salt_a.copy_from_slice(&salt);
     nonce_a.copy_from_slice(&nonce);
     hash_a.copy_from_slice(&hash);
+    let wrapped_key = if a.len() == 13 || a.len() == 15 {
+        Some(header_bytes_field(&a[12])?)
+    } else {
+        None
+    };
+    let (wrapped_entropy, wrapped_master) = if a.len() == 15 {
+        (Some(header_bytes_field(&a[13])?), Some(header_bytes_field(&a[14])?))
+    } else {
+        (None, None)
+    };
     let epochs = match &a[5] {
         Value::Array(items) => items.iter().map(as_u64).collect::<Result<Vec<_>>>()?,
         _ => bail!("backup epochs are not a list"),
@@ -476,7 +565,18 @@ fn decode_header(bytes: &[u8]) -> Result<Header> {
         salt: salt_a,
         nonce: nonce_a,
         content_hash: hash_a,
+        wrapped_key,
+        wrapped_entropy,
+        wrapped_master,
     })
+}
+
+fn header_bytes_field(v: &Value) -> Result<Vec<u8>> {
+    match v {
+        Value::Bytes(b) if !b.is_empty() => Ok(b.clone()),
+        Value::Bytes(_) => bail!("backup header blob is empty"),
+        _ => bail!("backup header blob is not bytes"),
+    }
 }
 
 fn as_u64(v: &Value) -> Result<u64> {
@@ -504,6 +604,231 @@ fn as_bytes(v: &Value, len: usize) -> Result<Vec<u8>> {
     }
 }
 
+/// A backup wrapping key prepared for a password change, not yet written.
+pub(crate) enum WrapPlan {
+    /// No file yet. `next` seals a new random key under `fresh`.
+    Create { next: Vec<u8> },
+    /// The file opened with `old`. `next` seals the same key under `fresh`.
+    Move { previous: Vec<u8>, next: Vec<u8> },
+}
+
+/// Build the new `backup.wrap` without writing it.
+pub(crate) fn plan_backup_wrap(home: &Path, old: &Stretch, fresh: &Stretch) -> Result<WrapPlan> {
+    let path = home.join(BACKUP_WRAP_REL_PATH);
+    if !path.is_file() {
+        let mut key = [0u8; 32];
+        rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut key);
+        return Ok(WrapPlan::Create { next: seal_wrap_file(fresh, &key)? });
+    }
+    let previous = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+    let key = open_wrap_file(&previous, old)?;
+    Ok(WrapPlan::Move { previous, next: seal_wrap_file(fresh, &key)? })
+}
+
+/// Open `backup.wrap` with `password`. A missing file is an error.
+#[cfg(test)]
+pub(crate) fn open_backup_wrap(home: &Path, password: &str) -> Result<Zeroizing<[u8; 32]>> {
+    let path = home.join(BACKUP_WRAP_REL_PATH);
+    let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+    let file = read_wrap_file(&bytes)?;
+    let stretch = Stretch::from_salt(password, file.salt, file.params)?;
+    open_wrap_file(&bytes, &stretch)
+}
+
+fn archive_key(
+    home: &Path,
+    stretch: &Stretch,
+    requested: u64,
+) -> Result<ArchiveSeal> {
+    if requested != FORMAT_VERSION {
+        return Ok(ArchiveSeal { format: requested, key: stretch.key(BACKUP_INFO), wrapped: None });
+    }
+    let path = home.join(BACKUP_WRAP_REL_PATH);
+    if !path.is_file() {
+        return Ok(ArchiveSeal { format: 1, key: stretch.key(BACKUP_INFO), wrapped: None });
+    }
+    let bytes = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+    let random = open_wrap_file(&bytes, stretch)?;
+    let wrapped = seal_wrap_blob(stretch, &random)?;
+    Ok(ArchiveSeal { format: 2, key: random, wrapped: Some(wrapped) })
+}
+
+fn header_key(stretch: &Stretch, header: &Header) -> Result<Zeroizing<[u8; 32]>> {
+    match &header.wrapped_key {
+        None => Ok(stretch.key(BACKUP_INFO)),
+        Some(blob) => open_wrap_blob(stretch, blob),
+    }
+}
+
+struct WrapFile {
+    params: Argon2Params,
+    salt: [u8; 16],
+    nonce: [u8; 24],
+    wrapped: Vec<u8>,
+}
+
+fn seal_wrap_file(stretch: &Stretch, key: &[u8; 32]) -> Result<Vec<u8>> {
+    let mut nonce = [0u8; 24];
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
+    let wrapped = wrap_encrypt(&stretch.key(WRAP_INFO), &nonce, key, WRAP_INFO)?;
+    let params = stretch.params();
+    let value = Value::Array(vec![
+        Value::Integer(1.into()),
+        Value::Integer(u64::from(params.m_kib).into()),
+        Value::Integer(u64::from(params.t).into()),
+        Value::Integer(u64::from(params.p).into()),
+        Value::Bytes(stretch.salt().to_vec()),
+        Value::Bytes(nonce.to_vec()),
+        Value::Bytes(wrapped),
+    ]);
+    let mut buf = Vec::new();
+    ciborium::ser::into_writer(&value, &mut buf).context("encoding the backup wrapping key")?;
+    Ok(buf)
+}
+
+fn open_wrap_file(bytes: &[u8], stretch: &Stretch) -> Result<Zeroizing<[u8; 32]>> {
+    let file = read_wrap_file(bytes)?;
+    if file.salt != *stretch.salt() || file.params != stretch.params() {
+        bail!("the backup wrapping key does not match this password. Nothing was written.");
+    }
+    let plain = wrap_decrypt(&stretch.key(WRAP_INFO), &file.nonce, &file.wrapped, WRAP_INFO)?;
+    if plain.len() != 32 {
+        bail!("the backup wrapping key has the wrong length");
+    }
+    let mut key = Zeroizing::new([0u8; 32]);
+    key.copy_from_slice(&plain);
+    Ok(key)
+}
+
+fn read_wrap_file(bytes: &[u8]) -> Result<WrapFile> {
+    let value: Value = ciborium::de::from_reader(bytes).context("backup wrapping key")?;
+    let Value::Array(a) = value else {
+        bail!("the backup wrapping key is not an array");
+    };
+    if a.len() != 7 {
+        bail!("the backup wrapping key has {} fields", a.len());
+    }
+    let salt = wrap_bytes(&a[4], 16)?;
+    let nonce = wrap_bytes(&a[5], 24)?;
+    let wrapped = match &a[6] {
+        Value::Bytes(b) => b.clone(),
+        _ => bail!("the backup wrapping key wrap is not bytes"),
+    };
+    let mut salt_a = [0u8; 16];
+    let mut nonce_a = [0u8; 24];
+    salt_a.copy_from_slice(&salt);
+    nonce_a.copy_from_slice(&nonce);
+    Ok(WrapFile {
+        params: Argon2Params {
+            m_kib: wrap_u64(&a[1])? as u32,
+            t: wrap_u64(&a[2])? as u32,
+            p: wrap_u64(&a[3])? as u32,
+        },
+        salt: salt_a,
+        nonce: nonce_a,
+        wrapped,
+    })
+}
+
+fn seal_wrap_blob(stretch: &Stretch, key: &[u8; 32]) -> Result<Vec<u8>> {
+    let mut nonce = [0u8; 24];
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
+    let wrapped = wrap_encrypt(&stretch.key(WRAP_INFO), &nonce, key, WRAP_INFO)?;
+    let mut out = Vec::with_capacity(24 + wrapped.len());
+    out.extend_from_slice(&nonce);
+    out.extend_from_slice(&wrapped);
+    Ok(out)
+}
+
+fn open_wrap_blob(stretch: &Stretch, blob: &[u8]) -> Result<Zeroizing<[u8; 32]>> {
+    if blob.len() < 24 + 16 {
+        bail!("the backup wrapping key in this archive is truncated");
+    }
+    let mut nonce = [0u8; 24];
+    nonce.copy_from_slice(&blob[..24]);
+    let plain = wrap_decrypt(&stretch.key(WRAP_INFO), &nonce, &blob[24..], WRAP_INFO)?;
+    if plain.len() != 32 {
+        bail!("the backup wrapping key in this archive has the wrong length");
+    }
+    let mut key = Zeroizing::new([0u8; 32]);
+    key.copy_from_slice(&plain);
+    Ok(key)
+}
+
+fn wrap_encrypt(key: &Zeroizing<[u8; 32]>, nonce: &[u8; 24], plain: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
+    let cipher = XChaCha20Poly1305::new((&**key).into());
+    cipher
+        .encrypt(nonce.into(), Payload { msg: plain, aad })
+        .map_err(|_| anyhow::anyhow!("sealing the backup wrapping key failed"))
+}
+
+fn wrap_decrypt(key: &Zeroizing<[u8; 32]>, nonce: &[u8; 24], body: &[u8], aad: &[u8]) -> Result<Vec<u8>> {
+    let cipher = XChaCha20Poly1305::new((&**key).into());
+    cipher
+        .decrypt(nonce.into(), Payload { msg: body, aad })
+        .map_err(|_| anyhow::anyhow!("the password does not open the backup wrapping key. Nothing was written."))
+}
+
+struct IdentityBlobs {
+    entropy: Option<Vec<u8>>,
+    master: Option<Vec<u8>>,
+}
+
+fn identity_blobs(home: &Path, stretch: &Stretch) -> Result<IdentityBlobs> {
+    if !home.join(MASTER_SEAL_REL_PATH).is_file() {
+        return Ok(IdentityBlobs { entropy: None, master: None });
+    }
+    let secret = super::master_seal::open_with(home, stretch)?;
+    let entropy = super::recovery::open_with(home, stretch)?;
+    Ok(IdentityBlobs {
+        entropy: Some(seal_header_blob(stretch, ENTROPY_INFO, &entropy)?),
+        master: Some(seal_header_blob(stretch, MASTER_INFO, &secret)?),
+    })
+}
+
+fn seal_header_blob(stretch: &Stretch, aad: &[u8], bytes: &[u8; 32]) -> Result<Vec<u8>> {
+    let mut nonce = [0u8; 24];
+    rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
+    let wrapped = wrap_encrypt(&stretch.key(aad), &nonce, bytes, aad)?;
+    let mut out = Vec::with_capacity(24 + wrapped.len());
+    out.extend_from_slice(&nonce);
+    out.extend_from_slice(&wrapped);
+    Ok(out)
+}
+
+fn open_header_blob(stretch: &Stretch, aad: &[u8], blob: &[u8]) -> Result<Zeroizing<[u8; 32]>> {
+    if blob.len() < 24 + 16 {
+        bail!("this backup's account check is truncated");
+    }
+    let mut nonce = [0u8; 24];
+    nonce.copy_from_slice(&blob[..24]);
+    let plain = wrap_decrypt(&stretch.key(aad), &nonce, &blob[24..], aad)?;
+    if plain.len() != 32 {
+        bail!("this backup's account check has the wrong length");
+    }
+    let mut out = Zeroizing::new([0u8; 32]);
+    out.copy_from_slice(&plain);
+    Ok(out)
+}
+
+fn wrap_u64(v: &Value) -> Result<u64> {
+    match v {
+        Value::Integer(i) => i64::try_from(*i)
+            .ok()
+            .and_then(|n| u64::try_from(n).ok())
+            .ok_or_else(|| anyhow::anyhow!("backup wrapping key integer is out of range")),
+        _ => bail!("backup wrapping key field is not an integer"),
+    }
+}
+
+fn wrap_bytes(v: &Value, n: usize) -> Result<Vec<u8>> {
+    match v {
+        Value::Bytes(b) if b.len() == n => Ok(b.clone()),
+        Value::Bytes(b) => bail!("backup wrapping key field has {} bytes, want {n}", b.len()),
+        _ => bail!("backup wrapping key field is not bytes"),
+    }
+}
+
 fn pack(home: &Path) -> Result<Vec<u8>> {
     let mut body = Vec::new();
     {
@@ -516,6 +841,8 @@ fn pack(home: &Path) -> Result<Vec<u8>> {
             PREFS_REL_PATH,
             ACP_ID_REL_PATH,
             RECOVERY_SEAL_REL_PATH,
+            BACKUP_WRAP_REL_PATH,
+            MASTER_SEAL_REL_PATH,
             SHARES_PENDING_REL_PATH,
             SHARES_VERIFIED_REL_PATH,
         ] {
