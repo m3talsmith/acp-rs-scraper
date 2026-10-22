@@ -233,6 +233,20 @@ pub const TOMBSTONES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_tombstones 
             deleted_at TEXT NOT NULL
         );";
 
+/// One space. A LiveKit token is not a column. Joining a room is not built.
+pub const SPACES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS spaces (
+            slug TEXT PRIMARY KEY,
+            post_id TEXT NOT NULL DEFAULT '',
+            title TEXT NOT NULL DEFAULT '',
+            state TEXT NOT NULL DEFAULT '',
+            live INTEGER NOT NULL DEFAULT 0,
+            scheduled_at TEXT NOT NULL DEFAULT '',
+            ended_at TEXT NOT NULL DEFAULT '',
+            recording_url TEXT NOT NULL DEFAULT '',
+            fetched_at TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS spaces_post_idx ON spaces(post_id);";
+
 /// Rules and the log of what they did (3.32.0). A system row is read-only.
 /// `trigger`, `conditions`, and `actions` are canonical JSON. Lower `priority` runs first.
 pub const RULES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS rules (

@@ -125,6 +125,8 @@ pub trait Store {
     fn research_items(&self, _name: &str) -> Result<Vec<ResearchItem>> { Ok(Vec::new()) }
     /// A saved site read (posts in site order), when this store has one.
     fn site_feed(&self, _key: &str) -> Result<Option<SiteFeed>> { Ok(None) }
+    /// Stored spaces. Empty when this store has none.
+    fn spaces(&self) -> Result<Vec<crate::spaces::SpaceRow>> { Ok(Vec::new()) }
     /// Stored edit versions of `post_id`, oldest first.
     fn post_versions(&self, _post_id: &str) -> Result<Vec<PostVersion>> { Ok(Vec::new()) }
     /// Saved searches, newest first. The rows are queries, not results.
@@ -316,6 +318,11 @@ impl Store for SqliteStore {
         let Some(c) = self.conn()? else { return Ok(None) };
         load_site_feed(&c, key)
     }
+    fn spaces(&self) -> Result<Vec<crate::spaces::SpaceRow>> {
+        let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        if !crate::maintenance::table_exists(&c, "spaces")? { return Ok(Vec::new()); }
+        crate::spaces::list_rows(&c)
+    }
     fn post_versions(&self, post_id: &str) -> Result<Vec<PostVersion>> {
         let Some(c) = self.conn()? else { return Ok(Vec::new()) };
         load_post_versions(&c, post_id)
@@ -389,6 +396,8 @@ pub struct MemStore {
     pub actions_body: Option<String>,
     /// Saved notifications, newest first.
     pub notice_rows: Vec<crate::storage::notices::NoticeRow>,
+    /// Stored spaces (tests and headless renders).
+    pub spaces: Vec<crate::spaces::SpaceRow>,
 }
 
 impl Store for MemStore {
@@ -436,6 +445,7 @@ impl Store for MemStore {
     fn site_feed(&self, key: &str) -> Result<Option<SiteFeed>> {
         Ok(self.feeds.iter().find(|f| f.key == key).cloned())
     }
+    fn spaces(&self) -> Result<Vec<crate::spaces::SpaceRow>> { Ok(self.spaces.clone()) }
     fn post_versions(&self, post_id: &str) -> Result<Vec<PostVersion>> {
         let mut v: Vec<PostVersion> = self.versions.iter().filter(|x| x.post_id == post_id).cloned().collect();
         v.sort_by(|a, b| a.edited_at.cmp(&b.edited_at).then(a.version_hash.cmp(&b.version_hash)));

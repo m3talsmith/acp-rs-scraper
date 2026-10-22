@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.41.0
+Version:        3.42.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.42.0-1
+- Package 3.42.0. Spaces stores the list from a loaded service. Joining a room is not built.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.41.0-1
 - Package 3.41.0. Vote, subscribe, bookmark, delete, edit, and quote repost call a loaded service. Dry-run does not.
 

@@ -20,6 +20,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.42.0] - 2026-10-22
+
+### Added
+
+- **Spaces.** `--spaces` and View › Spaces store the list the loaded service returns. A live room shows a live badge. A recording link is kept when it is an ordinary URL. A LiveKit token is not stored. Joining a room is not built. `--dry-run` prints the request and does not call the service. The site half is the service package.
+
 ## [3.41.0] - 2026-10-22
 
 ### Added

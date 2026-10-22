@@ -533,6 +533,8 @@ pub struct App {
     pub brand_editor: Option<Box<crate::tui::brand_editor::BrandEditor>>,
     /// Site-feed key to open when the running read job ends.
     pub pending_feed: Option<String>,
+    /// Spaces keyed by post id, for the live badge on the Spaces list.
+    pub spaces: HashMap<String, crate::spaces::SpaceRow>,
     /// Thread whose reply order a running sort job should restore.
     pub pending_sort: Option<(String, ThreadSort)>,
     /// Header chip for this machine's node (`◉ label`). Empty when no node exists.
@@ -632,6 +634,7 @@ impl App {
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
             brands_dir: None, brand_name: DEFAULT_BRAND.into(), brand: crate::brands::builtin_default(), brand_error: None, brand_fault: None, brand_editor: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None, pending_outbox: None,
+            spaces: HashMap::new(),
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
             konami: crate::eggs::Konami::new(), egg: None, logo_taps: 0, logo_tap_at: None,
@@ -1015,6 +1018,44 @@ impl App {
         match self.menu.menu.eb_argv() {
             Ok(argv) => self.open_site_read(&eb_key(replies), argv),
             Err(e) => self.error("Executive Board", &e),
+        }
+    }
+    /// View › Spaces. The saved list opens at once. The refresh does not join a room.
+    pub fn open_spaces(&mut self) {
+        let rows = self.store.spaces().unwrap_or_default();
+        self.spaces = rows.iter().filter(|row| !row.post_id.is_empty()).map(|row| (row.post_id.clone(), row.clone())).collect();
+        let posts = rows.iter().map(|row| self.space_post(row)).collect();
+        self.place_search(BodyView {
+            title: "Spaces".into(),
+            posts,
+            site_key: Some(crate::spaces::SPACES_KEY.into()),
+            kind: crate::tui::order::ListKind::Site,
+            site_order: true,
+            ..BodyView::default()
+        });
+        self.pending_feed = Some(crate::spaces::SPACES_KEY.into());
+        match self.menu.menu.spaces_argv() {
+            Ok(argv) => self.start_job(JobKind::Read, argv),
+            Err(e) => self.error("Spaces", &e),
+        }
+    }
+    fn space_post(&self, row: &crate::spaces::SpaceRow) -> Post {
+        let id = if row.post_id.is_empty() { row.slug.clone() } else { row.post_id.clone() };
+        if let Ok(Some(post)) = self.store.post(&id) {
+            return post;
+        }
+        Post {
+            post_id: id,
+            parent_post_id: String::new(),
+            in_reply_to_id: String::new(),
+            nick: String::new(),
+            title: row.title.clone(),
+            content: row.recording_url.clone(),
+            posted_at: row.fetched_at.clone(),
+            media: Vec::new(),
+            truncated: false,
+            body_json: String::new(),
+            score: None,
         }
     }
     /// The Explore row / View › Explore. Latest follows the View checkbox.
@@ -2229,6 +2270,7 @@ impl App {
             Action::OpenTop => self.open_top(),
             Action::OpenEb => self.open_eb(),
             Action::OpenExplore => self.open_explore(),
+            Action::OpenSpaces => self.open_spaces(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }

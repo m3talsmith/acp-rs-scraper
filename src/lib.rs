@@ -17,6 +17,7 @@
 //! - [`host_api`]: the [`acp_rs_plugin::Host`] a service calls instead of opening the database.
 //! - [`drive`]: scrape, sync, login, and compose flags call a loaded service. Until one implements the capability, those commands are not in this binary.
 //! - [`actions`]: vote, subscribe, site bookmark, delete, edit, and quote repost. Cancel is the default. `--dry-run` does not call a service.
+//! - [`spaces`]: the Spaces list. The core stores the rows. Joining a room is not built.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`branding`]: the slogan shared by the welcome screen, About, and the status bar.
@@ -50,6 +51,7 @@ pub mod config;
 pub mod crypto;
 pub mod drive;
 pub mod actions;
+pub mod spaces;
 pub mod eggs;
 pub mod export;
 pub mod host_api;

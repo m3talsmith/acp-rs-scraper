@@ -137,7 +137,19 @@ fn card(f: &mut Frame, app: &mut App, i: usize, cr: Rect, sel: bool) {
     let t = app.theme;
     let Some(p) = app.view().posts.get(i).cloned() else { return };
     let focused = app.focus == Focus::Body;
-    let b = boxed(&t.card(sel, focused)).title(meta_line(&p, &t));
+    let mut title = meta_line(&p, &t);
+    if let Some(row) = app.spaces.get(&p.post_id).filter(|_| app.view().site_key.as_deref() == Some(crate::spaces::SPACES_KEY)) {
+        let mut spans = Vec::new();
+        if row.live {
+            spans.push(Span::styled(" LIVE ", t.accent_bold()));
+        }
+        if !row.recording_url.is_empty() {
+            spans.push(Span::styled(format!("{} ", row.recording_url), t.link()));
+        }
+        spans.extend(std::mem::take(&mut title.spans));
+        title = Line::from(spans);
+    }
+    let b = boxed(&t.card(sel, focused)).title(title);
     let inner = b.inner(cr);
     f.render_widget(b, cr);
     let lines: Vec<Line> = crate::tui::markdown::render(post_text(&p).trim(), inner.width as usize, &t).into_iter()
@@ -298,7 +310,20 @@ fn compact(f: &mut Frame, app: &mut App, i: usize, r: Rect) {
     let head = format!(" @{} · {} ", p.nick, p.posted_at.get(..16).unwrap_or(&p.posted_at));
     let rest = ellipsize(&snippet(&p), w.saturating_sub(head.len() + 8));
     let mark = if app.is_marked(&p.post_id) { "★" } else { " " };
-    f.render_widget(Paragraph::new(Line::from(vec![Span::styled(mark, t.accent_bold()), badge(&p, &t), Span::styled(head, t.muted()), Span::raw(rest)])), r);
+    let mut spans = vec![Span::styled(mark, t.accent_bold()), badge(&p, &t)];
+    if let Some(row) = app.spaces.get(&p.post_id).filter(|_| app.view().site_key.as_deref() == Some(crate::spaces::SPACES_KEY)) {
+        if row.live {
+            spans.push(Span::styled(" LIVE ", t.accent_bold()));
+        } else if !row.state.is_empty() {
+            spans.push(Span::styled(format!(" {} ", row.state), t.muted()));
+        }
+        if !row.recording_url.is_empty() {
+            spans.push(Span::styled(format!(" {} ", row.recording_url), t.link()));
+        }
+    }
+    spans.push(Span::styled(head, t.muted()));
+    spans.push(Span::raw(rest));
+    f.render_widget(Paragraph::new(Line::from(spans)), r);
     app.hits.push((r, Hit::Post(i)));
 }
 
@@ -364,7 +389,23 @@ fn full_frame(f: &mut Frame, app: &mut App, d: usize, fr: Rect, top: bool) {
     let w = fr.width.saturating_sub(1) as usize;
     let h = fr.height as usize;
     let img_rows = if app.images.is_some() { crate::tui::images::IMAGE_ROWS.min(fr.height.saturating_sub(2)) } else { 0 };
-    let (lines, links, slots, md_links) = detail_layout(&app.view().stack[d], w, &t, img_rows);
+    let post_id = app.view().stack[d].post.post_id.clone();
+    let space = app.view().site_key.as_deref()
+        .filter(|key| *key == crate::spaces::SPACES_KEY)
+        .and_then(|_| app.spaces.get(&post_id).cloned());
+    let (mut lines, links, slots, md_links) = detail_layout(&app.view().stack[d], w, &t, img_rows);
+    if let Some(row) = space
+        && let Some(first) = lines.first_mut() {
+            let mut spans = Vec::new();
+            if row.live {
+                spans.push(Span::styled(" LIVE ", t.accent_bold()));
+            }
+            if !row.recording_url.is_empty() {
+                spans.push(Span::styled(format!("{} ", row.recording_url), t.link()));
+            }
+            spans.extend(std::mem::take(&mut first.spans));
+            *first = Line::from(spans);
+        }
     let fm = &mut app.view_mut().stack[d];
     if top && fm.follow_link
         && let Some((li, _)) = links.iter().find(|(_, k)| *k == fm.link_cursor) {

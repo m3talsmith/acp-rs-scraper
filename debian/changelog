@@ -1,3 +1,9 @@
+acp-red-star (3.42.0) unstable; urgency=medium
+
+  * Package 3.42.0. Spaces stores the list from a loaded service. Joining a room is not built.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 10:20:00 +0000
+
 acp-red-star (3.41.0) unstable; urgency=medium
 
   * Package 3.41.0. Vote, subscribe, bookmark, delete, edit, and quote repost call a loaded service. Dry-run does not.

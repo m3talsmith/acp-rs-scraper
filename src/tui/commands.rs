@@ -169,6 +169,8 @@ pub enum Action {
     OpenEb,
     /// Open Explore (the Explore row, or View › Explore).
     OpenExplore,
+    /// Open the Spaces list (View › Spaces). Read-only. No join.
+    OpenSpaces,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
     /// The brand picker (the header's `«brand» ▾`).
@@ -389,6 +391,7 @@ fn view_item() -> MenuCommand {
         opt("eb", "Executive Board", "--eb", false, button(Action::OpenEb)),
         opt("explore_latest", "Explore latest", "--explore-latest", false, check(false)),
         opt("explore", "Explore", "--explore", false, button(Action::OpenExplore)),
+        opt("spaces", "Spaces", "--spaces", false, button(Action::OpenSpaces)),
         opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
         opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
     ])
@@ -879,6 +882,13 @@ impl Menu {
     pub fn clear_all_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--clear-all".into(), "--yes".into()];
         if self.check(CommandId::Maintain, "dry_run") { v.push("--dry-run".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for the Spaces list (`--spaces`).
+    pub fn spaces_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--spaces".into()];
         v.extend(self.debug_args());
         validate(v)
     }
