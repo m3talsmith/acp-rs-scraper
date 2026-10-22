@@ -152,6 +152,20 @@ fn file_and_url_buttons_need_their_fields() {
     a.menu.menu.set_text(CommandId::Research, "file", "~/notes.txt");
     a.act(Action::AddFileToResearch);
     assert_eq!(modal(&a).what[0].1, ResearchSource::File("~/notes.txt".into()));
+    assert_eq!(modal(&a).what[0].0, "Local file ~/notes.txt");
+    let home = std::env::var("HOME").unwrap();
+    let abs = format!("{home}/docs/notes.txt");
+    a.modal = None;
+    a.menu.menu.set_text(CommandId::Research, "file", &abs);
+    a.act(Action::AddFileToResearch);
+    assert_eq!(modal(&a).what[0].0, "Local file ~/docs/notes.txt");
+    assert_eq!(modal(&a).what[0].1, ResearchSource::File(abs.clone()));
+    let card = research_post(&ResearchItem {
+        id: 1, kind: ItemKind::LocalFile, r#ref: abs, title: "notes.txt".into(), note: String::new(),
+        meta: serde_json::json!({}), content: String::new(), local_path: String::new(), added_at: String::new(),
+    });
+    assert!(card.content.contains("~/docs/notes.txt"), "{}", card.content);
+    assert!(!card.content.contains(&home), "{}", card.content);
     a.modal = None;
     a.menu.menu.set_text(CommandId::Research, "url", "ftp://x");
     a.act(Action::AddUrlToResearch);

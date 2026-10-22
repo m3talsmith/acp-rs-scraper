@@ -13,6 +13,21 @@ fn tmp(tag: &str) -> PathBuf {
 fn item(kind: ItemKind, r: &str) -> NewItem { NewItem { kind: Some(kind), r#ref: r.into(), title: format!("t {r}"), ..NewItem::default() } }
 
 #[test]
+fn a_home_path_is_shown_with_a_tilde_and_a_cwd_path_is_relative() {
+    let home = std::env::var("HOME").unwrap();
+    assert_eq!(display_path(&format!("{home}/docs/notes.txt")), "~/docs/notes.txt");
+    assert_eq!(display_path("~/docs/notes.txt"), "~/docs/notes.txt");
+    assert_eq!(display_path("https://news.example/strike"), "https://news.example/strike");
+    let cwd = std::env::current_dir().unwrap();
+    let rel = cwd.join("exports").join("basket.html");
+    assert_eq!(display_path(&rel.display().to_string()), "exports/basket.html");
+    let outside = PathBuf::from("/tmp/acp-not-home-notes.txt");
+    if !outside.starts_with(&home) && !outside.starts_with(&cwd) {
+        assert_eq!(display_path(&outside.display().to_string()), outside.display().to_string());
+    }
+}
+
+#[test]
 fn names_are_checked() {
     assert_eq!(check_name("  Strikes 2026 ").unwrap(), "Strikes 2026");
     assert!(check_name("").is_err());
