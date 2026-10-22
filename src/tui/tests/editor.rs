@@ -34,7 +34,8 @@ fn full_screen_list_and_live_preview_by_the_real_ui() {
     assert!(s.lines().next().unwrap().contains("Theme editor · default") && s.contains("‹dark› light"), "{s}");
     for t in ["Palette", "accent", "#dc2626", "Elements", "link", "card_focused", "Preview (sample posts)"] { assert!(s.contains(t), "no {t}:\n{s}"); }
     // The preview is the real UI (header, menu, nick bar) over the sample posts, not the database.
-    for t in ["ACP Red Star", "Scrape", "@comrade", "May Day"] { assert!(s.contains(t), "preview lacks {t}:\n{s}"); }
+    for t in ["ACP Red Star", "Scrape", "@sample", "Field notes"] { assert!(s.contains(t), "preview lacks {t}:\n{s}"); }
+    assert!(!s.contains("comrade") && !s.contains("May Day"), "{s}");
     assert!(!s.contains("alice"), "never the real store");
     // A swatch in the accent colour on the accent row.
     let y = s.lines().position(|l| l.contains(" accent ")).unwrap() as u16;
@@ -353,7 +354,7 @@ fn left_still_collapses_an_element_now_that_h_highlights() {
 fn the_preview_has_sample_frames_for_the_parts_the_post_view_lacks() {
     let mut a = editor("samples");
     let s = text(&draw(&mut a, 140, 40));
-    for t in ["Sample dialog", "[comrade", " Post ", " Reply ", "(post deleted)", "`--nick`", "text behind a modal", "< OK >"] {
+    for t in ["Sample dialog", "[sample", " Post ", " Reply ", "(post deleted)", "`--nick`", "text behind a modal", "< OK >"] {
         assert!(s.contains(t), "no {t}:\n{s}");
     }
 }

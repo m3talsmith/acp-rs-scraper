@@ -6,6 +6,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.34.5] - 2026-10-22
+
+### Fixed
+
+- **Theme preview samples.** The theme editor's sample posts are @sample and @reader, with ordinary preview text. Headings, code, a table, a quote, and a footnote are still there so the preview can show them.
+
+## [3.34.4] - 2026-10-22
+
+### Fixed
+
+- **Nick bar collapse.** ‹ collapses the nick bar, and so does a click on the cells beside it or on the bar's right edge. A nick row is still a nick. j, k, and Tab are unchanged.
+
+## [3.34.3] - 2026-10-22
+
+### Fixed
+
+- **Explore timeout.** Explore waits 12 seconds for one LiveView reply, not for the whole crawl. It prints `Explore: requesting` and then `Explore: still waiting`. A timeout stores nothing. A silent join no longer stays open just because heartbeats are answered.
+
 ## [3.34.0] - 2026-10-21
 
 ### Added

@@ -97,6 +97,9 @@ async fn site(w: &mut E2e) { w.mock = Some(Mock::start().await); }
 #[given("the site's \"Posts and replies\" URL is broken")]
 async fn broken_replies(w: &mut E2e) { w.mock().inner.lock().unwrap().replies_url_broken = true; }
 
+#[given("the explore feed hangs")]
+async fn explore_hangs(w: &mut E2e) { w.mock().inner.lock().unwrap().explore_hang = true; }
+
 #[given(expr = "I will enter the code {string}")]
 async fn will_enter(w: &mut E2e, code: String) { w.code = code; }
 

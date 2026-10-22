@@ -133,7 +133,7 @@ fn preview_app(theme: Theme) -> Box<App> {
     use clap::Parser;
     let args = Args::parse_from(["acp-red-star"]);
     let mut a = App::new(Box::new(crate::tui::sample::sample_store()), &args, theme, true);
-    let i = a.nicks.iter().position(|n| n.nick == "comrade").unwrap_or(0);
+    let i = a.nicks.iter().position(|n| n.nick == "sample").unwrap_or(0);
     a.select_only(i);
     a.focus = Focus::Body;
     a.open_post(0);

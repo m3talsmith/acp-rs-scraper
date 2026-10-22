@@ -147,7 +147,9 @@ fn area_topics() -> Vec<String> {
     v.push(String::new());
     push_topic(&mut v, "browse", "Browse", &[
         "  The nick bar lists who is in the database. Enter opens that nick's posts.",
+        "  ‹ collapses it. So does a click on the cells beside ‹, or on the bar's right edge.",
         "  Enter on a post opens it. Esc closes the top detail. / filters nicks.",
+        "  Explore gives up after 12 seconds with no reply and stores nothing. It says it is still waiting.",
         "  b bookmarks the open or highlighted post. The star on a card does the same.",
     ]);
     push_topic(&mut v, "compose", "Compose", &[

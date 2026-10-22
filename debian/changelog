@@ -1,3 +1,9 @@
+acp-red-star (3.34.5) unstable; urgency=medium
+
+  * Package 3.34.5. Theme editor samples use ordinary preview text. 3.34.4 widens the nick-bar collapse target. 3.34.3 stops Explore after 12 seconds with no reply and stores nothing.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 03:10:00 +0000
+
 acp-red-star (3.34.0) unstable; urgency=medium
 
   * Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish. A dry-run opens no connection.
