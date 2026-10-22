@@ -761,8 +761,10 @@ pub struct Args {
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub encrypt_db: bool,
-    /// Change the password on an encrypted database. Rewraps the local key and the
-    /// account key. The account id stays the same. Needs a terminal.
+    /// Change the password. Asks for the old password, then rewraps the database
+    /// key, the node keystore, the recovery phrase, and the backup wrapping key
+    /// in one step. A failure puts the old wraps back. The master, the account
+    /// id, and node certificates stay as they are. Needs a terminal.
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",

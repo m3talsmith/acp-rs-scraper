@@ -306,8 +306,8 @@ pub fn encrypt_db() -> Result<()> {
     Ok(())
 }
 
-/// Change the password that wraps the database key and the account key.
-/// The account id stays the same. Needs a terminal.
+/// Change the password that wraps local data.
+/// The master, the account id, and node certificates stay as they are. Needs a terminal.
 pub fn change_password() -> Result<()> {
     if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
         bail!("--change-password needs a terminal. There is no password reset.");
@@ -325,10 +325,14 @@ pub fn change_password() -> Result<()> {
     let phrase_follows = super::progress::run_busy("Changing the password", move || {
         super::atrest::rewrap_local(&db, current.as_str(), next.as_str(), params)
     })?;
-    println!("The database password was changed.");
+    println!("The password was changed.");
+    println!("The master and the account id did not change. Node certificates stay valid.");
     println!(
-        "The account id did not change. A backup written with the old password still needs that password."
+        "A backup written with the old password still needs that password. The backup wrapping key now uses the new one."
     );
+    if home.join(crate::config::NODE_KEYSTORE_REL_PATH).is_file() {
+        println!("The node keystore was resealed. The node secret is the same.");
+    }
     if super::recovery::seal_exists(&home) {
         if phrase_follows {
             println!("The recovery phrase now uses the new password. --show-phrase asks for it.");

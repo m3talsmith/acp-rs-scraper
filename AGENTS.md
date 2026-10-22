@@ -14,12 +14,14 @@ All rule changes and additions go in this file.
 
 ## Commits, pushes and PRs
 - Commit when work is done **and tested**.
+- When `main` moves, merge `origin/main` into each open feature branch (no rebase, no force-push) and renumber that branch so its versions follow main and any PR already merged. Keep both sides of a changelog, rules, or docs conflict. Each open PR stays independently mergeable against current main.
 - **Push only when Michael explicitly asks for that push.** When he does, push to `origin` and `mirror` as they are already configured. Do not retarget either remote because the GitHub repository is being renamed. GitHub redirects the old URL. After that rename, one patch updates repository URLs and badges. The placeholder those fields use until then is `<core-repo>` in the Cargo `repository` lines. The app stays Red Star.
 - Commit messages describe what the change opens up for people, not just a list of edits.
 
 ## Security and credentials
 - Never commit credentials. The pre-commit hook blocks secret-looking files everywhere and credential patterns everywhere except generated `docs/api/**`. `build.rs` sets `core.hooksPath=.githooks`, so don't bypass hooks (`--no-verify`).
 - Never print, log or store credentials, session cookies, tokens or one-time codes. `--debug` output masks session secrets; keep it that way, and keep secrets out of test fixtures and captures (redact before committing).
+- A password change (`--change-password`) rewraps the database bootstrap, the node keystore, the recovery seal, the existing master secret, and the backup wrapping key in one step. A failure puts the previous bytes back. It does not change the SQLCipher key, derive a new master, or change the `acp-id` or node certificates. An archive written before the change still opens with the password that wrote it. An archive written after it is format 2 and restores on a new machine with the new password and the phrase.
 - Push credentials for the Forgejo mirror are only ever used through a temporary git credential helper that's deleted afterwards.
 
 ## Plugins and quarantine

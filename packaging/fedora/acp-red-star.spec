@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.49.0
+Version:        3.50.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.50.0-1
+- Package 3.50.0. A password change rewraps the local keys and leaves the account id as it is.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.49.0-1
 - Package 3.49.0. Feed share and import move the rules only.
 

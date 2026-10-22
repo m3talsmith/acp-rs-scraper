@@ -20,6 +20,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.50.0] - 2026-10-22
+
+### Added
+
+- **Password change.** `--change-password` asks for the current password and a new one, then rewraps the database bootstrap, the node keystore, the recovery phrase, the existing master secret, and the backup wrapping key in one step. A failure puts the old wraps back. A wrong current password writes nothing. The SQLCipher key stays the same. The master, the account id, and node certificates stay as they are. A backup written before the change still needs that password. A backup written after it is format 2: it opens with the new password, and a new machine can still check the phrase against the same account id.
+
 ## [3.49.0] - 2026-10-22
 
 ### Added

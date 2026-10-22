@@ -231,13 +231,28 @@ fn write_keystore(path: &Path, local_key: &[u8; 32], secret: &NodeSecret) -> Res
             std::fs::set_permissions(dir, std::fs::Permissions::from_mode(0o700))?;
         }
     }
+    write_private(path, &keystore_bytes(local_key, secret)?)?;
+    Ok(())
+}
+
+/// The keystore sealed again under the same database key.
+/// `None` when this home has no keystore. The node secret does not change.
+pub(crate) fn resealed_keystore(home: &Path, local_key: &[u8; 32]) -> Result<Option<Vec<u8>>> {
+    let path = home.join(NODE_KEYSTORE_REL_PATH);
+    if !path.is_file() {
+        return Ok(None);
+    }
+    let secret = open_keystore(home, local_key)?;
+    Ok(Some(keystore_bytes(local_key, &secret)?))
+}
+
+fn keystore_bytes(local_key: &[u8; 32], secret: &NodeSecret) -> Result<Vec<u8>> {
     let plain = encode_secret(secret)?;
     let sealed = seal_blob(&keystore_key(local_key), AAD, &plain)?;
     let mut bytes = Vec::with_capacity(MAGIC.len() + sealed.len());
     bytes.extend_from_slice(MAGIC);
     bytes.extend_from_slice(&sealed);
-    write_private(path, &bytes)?;
-    Ok(())
+    Ok(bytes)
 }
 
 fn write_private(path: &Path, body: &[u8]) -> Result<()> {

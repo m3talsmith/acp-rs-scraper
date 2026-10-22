@@ -7,16 +7,18 @@
 //! node-identity stage. The master signing key and the master wrapping key are
 //! derived in the core crate.
 //!
-//! The plaintext phrase and the master secret are not written to disk. A pinned
+//! The plaintext phrase and the master secret are not written in the clear. A pinned
 //! [`pin::Pin`] stores the public `acp-id`, the Argon2 parameters and the two public
 //! keys. [`recovery`] may store the 256-bit phrase entropy sealed under the password,
 //! so the words can be shown again on this computer. The password alone cannot
-//! recreate them.
+//! recreate them. After a password change, [`master_seal`] stores that same master
+//! secret sealed under the new password. The account id does not change.
 
 pub mod atrest;
 pub mod backup;
 pub mod cmd;
 pub mod master;
+pub mod master_seal;
 pub mod password;
 pub mod node_store;
 pub mod pin;

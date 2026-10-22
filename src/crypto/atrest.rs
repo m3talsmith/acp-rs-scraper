@@ -11,10 +11,14 @@
 //!
 //! One operation (creating a database, migrating a plaintext file, writing a
 //! backup, restoring) stretches the password once. The local key, the account
-//! key, and the backup key are HKDF labels of that stretch. A password change
-//! stretches the old password and the new password, once each, when the wraps
-//! share a salt. A recovery-phrase seal has its own salt, so opening it is one
-//! more stretch. The new seal reuses the new password's stretch.
+//! key, and the backup key are HKDF labels of that stretch. `--change-password`
+//! stretches the old password and the new password once each, then replaces the
+//! bootstrap, the phrase seal, the node keystore, the backup wrapping key, and
+//! the sealed master together. A failure puts the previous bytes back. The
+//! SQLCipher key, the master, and the `acp-id` do not change. A recovery-phrase
+//! seal has its own salt, so opening it is one more stretch. The new seal reuses
+//! the new password's stretch. The first change that has both a pin and a phrase
+//! derives that existing master once and seals it. Later changes only move the seal.
 //!
 //! A separate account data key, one per epoch, is what a lost node would rotate.
 //! It is wrapped to the local password and, when an `acp-id` is pinned, to the
@@ -362,12 +366,18 @@ pub fn add_master_recipient(db: &Path, password: &str, master: &Master) -> Resul
     Ok(())
 }
 
-/// Rewrap the local key and the account passphrase wrap with a new password.
-/// The account id does not change, and the master wrap is left as it is.
+/// Rewrap local data under a new password, in one step.
 ///
-/// `Ok(true)` means there was no recovery phrase on disk, or it was resealed with
-/// the new password. `Ok(false)` means the phrase is sealed with a different
-/// password and was left unchanged.
+/// The SQLCipher key stays the same. The master is not derived again into a new
+/// id. The pinned `acp-id` and node certificates are not touched. The bootstrap,
+/// a phrase sealed with the old password, that same master secret, the node
+/// keystore, and the backup wrapping key are replaced together. If a step fails,
+/// the previous bytes are put back and the old password still opens them. A
+/// wrong old password writes nothing.
+///
+/// `Ok(true)` means there was no recovery phrase on disk, or it was resealed.
+/// `Ok(false)` means the phrase is sealed with a different password and was
+/// left unchanged.
 pub fn rewrap_local(
     db: &Path,
     old_password: &str,
@@ -380,28 +390,51 @@ pub fn rewrap_local(
     let dek = load_passphrase_dek(db, &local, old_password, &old)?;
     let fresh = Stretch::fresh(new_password, params)?;
     let home = parent_home(db)?;
-    let (phrase_follows, previous_seal) = match super::recovery::reseal(home, old_password, &fresh)?
-    {
-        super::recovery::Reseal::Absent => (true, None),
-        super::recovery::Reseal::Moved { previous } => (true, Some(previous)),
-        super::recovery::Reseal::Kept => (false, None),
-    };
-    set_stage("Saving the new password");
+    let phrase = super::recovery::plan_reseal(home, old_password, &fresh)?;
+    let phrase_follows = !matches!(phrase, super::recovery::SealPlan::Kept);
+    let master = super::master_seal::plan(home, old_password, &old, &fresh, &phrase)?;
+    let keystore = super::node_store::resealed_keystore(home, &local)?;
+    let wrap = super::backup::plan_backup_wrap(home, &old, &fresh)?;
     let boot = bootstrap_path(db);
-    let previous = std::fs::read(&boot).with_context(|| format!("reading {}", boot.display()))?;
-    if let Err(e) = write_bootstrap(db, &fresh, &local) {
-        if let Some(bytes) = previous_seal.as_deref() {
-            let _ = super::recovery::restore_bytes(home, bytes);
-        }
-        return Err(e);
+    let previous_boot = std::fs::read(&boot).with_context(|| format!("reading {}", boot.display()))?;
+    let mut puts = vec![Put {
+        path: boot,
+        previous: Some(previous_boot),
+        next: bootstrap_bytes(&fresh, &local)?,
+    }];
+    if let super::recovery::SealPlan::Ready { previous, next, entropy: _ } = phrase {
+        puts.push(Put { path: super::recovery::seal_path(home), previous: Some(previous), next });
     }
+    if let super::master_seal::Plan::Ready { previous, next } = master {
+        puts.push(Put {
+            path: home.join(crate::config::MASTER_SEAL_REL_PATH),
+            previous,
+            next,
+        });
+    }
+    if let Some(next) = keystore {
+        let path = home.join(crate::config::NODE_KEYSTORE_REL_PATH);
+        let previous = std::fs::read(&path).with_context(|| format!("reading {}", path.display()))?;
+        puts.push(Put { path, previous: Some(previous), next });
+    }
+    match wrap {
+        super::backup::WrapPlan::Create { next } => puts.push(Put {
+            path: home.join(crate::config::BACKUP_WRAP_REL_PATH),
+            previous: None,
+            next,
+        }),
+        super::backup::WrapPlan::Move { previous, next } => puts.push(Put {
+            path: home.join(crate::config::BACKUP_WRAP_REL_PATH),
+            previous: Some(previous),
+            next,
+        }),
+    }
+    set_stage("Saving the new password");
+    install_puts(&puts)?;
     if let Some((epoch, dek)) = dek
         && let Err(e) = store_passphrase_wrap(db, &local, epoch, &fresh, dek.as_slice())
     {
-        let _ = std::fs::write(&boot, previous);
-        if let Some(bytes) = previous_seal.as_deref() {
-            let _ = super::recovery::restore_bytes(home, bytes);
-        }
+        let _ = rollback_puts(&puts);
         return Err(e);
     }
     cache()
@@ -409,6 +442,86 @@ pub fn rewrap_local(
         .expect("key cache")
         .insert(cache_key(db), local);
     Ok(phrase_follows)
+}
+
+struct Put {
+    path: PathBuf,
+    previous: Option<Vec<u8>>,
+    next: Vec<u8>,
+}
+
+fn install_puts(puts: &[Put]) -> Result<()> {
+    let halt_at = puts.len() / 2;
+    let mut done = 0usize;
+    for (i, put) in puts.iter().enumerate() {
+        if let Err(e) = put_file(&put.path, &put.next) {
+            rollback_puts(&puts[..done])?;
+            return Err(e);
+        }
+        done += 1;
+        if halt_armed() && i + 1 == halt_at.max(1) && done < puts.len() {
+            disarm_halt();
+            rollback_puts(&puts[..done])?;
+            bail!("re-key stopped halfway and was rolled back");
+        }
+    }
+    disarm_halt();
+    Ok(())
+}
+
+fn rollback_puts(done: &[Put]) -> Result<()> {
+    for put in done.iter().rev() {
+        match &put.previous {
+            Some(bytes) => put_file(&put.path, bytes)?,
+            None => {
+                if put.path.exists() {
+                    std::fs::remove_file(&put.path)
+                        .with_context(|| format!("removing {}", put.path.display()))?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
+fn put_file(path: &Path, bytes: &[u8]) -> Result<()> {
+    if let Some(dir) = path.parent() {
+        std::fs::create_dir_all(dir)?;
+    }
+    std::fs::write(path, bytes).with_context(|| format!("writing {}", path.display()))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+thread_local! {
+    static REKEY_HALT: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// The next `rewrap_local` on this thread replaces nothing that stays replaced.
+#[cfg(test)]
+pub(crate) fn halt_rekey_halfway() {
+    REKEY_HALT.with(|flag| flag.set(true));
+}
+
+fn halt_armed() -> bool {
+    #[cfg(test)]
+    {
+        REKEY_HALT.with(|flag| flag.get())
+    }
+    #[cfg(not(test))]
+    {
+        false
+    }
+}
+
+fn disarm_halt() {
+    #[cfg(test)]
+    REKEY_HALT.with(|flag| flag.set(false));
 }
 
 /// An encrypted database with the fast Argon2 parameters. Unit tests only.
@@ -552,6 +665,12 @@ fn fingerprint(db: &Path, key: Option<&[u8; 32]>) -> Result<String> {
 }
 
 fn write_bootstrap(db: &Path, stretch: &Stretch, local: &[u8; 32]) -> Result<()> {
+    let buf = bootstrap_bytes(stretch, local)?;
+    let path = bootstrap_path(db);
+    put_file(&path, &buf)
+}
+
+fn bootstrap_bytes(stretch: &Stretch, local: &[u8; 32]) -> Result<Vec<u8>> {
     let mut nonce = [0u8; 24];
     rand::RngCore::fill_bytes(&mut rand::rngs::OsRng, &mut nonce);
     let params = stretch.params();
@@ -567,17 +686,7 @@ fn write_bootstrap(db: &Path, stretch: &Stretch, local: &[u8; 32]) -> Result<()>
     ]);
     let mut buf = Vec::new();
     ciborium::ser::into_writer(&value, &mut buf)?;
-    let path = bootstrap_path(db);
-    if let Some(dir) = path.parent() {
-        std::fs::create_dir_all(dir)?;
-    }
-    std::fs::write(&path, buf)?;
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-    }
-    Ok(())
+    Ok(buf)
 }
 
 struct BootFile {
@@ -1291,6 +1400,145 @@ mod tests {
     }
 
     #[test]
+    fn a_password_change_keeps_the_database_key_and_rolls_back() {
+        let next = "correct horse battery staple and more";
+        let entropy = [0x21u8; 32];
+        let phrase = super::super::master::phrase_from_entropy(&entropy).unwrap();
+        let master =
+            super::super::master::derive_master(&phrase, PASSWORD, Argon2Params::FAST).unwrap();
+        let home = scratch("rekey");
+        let db = db_of(&home);
+        create_new(&db, PASSWORD, Argon2Params::FAST).unwrap();
+        super::super::pin::Pin {
+            acp_id: master.acp_id.clone(),
+            argon2: Argon2Params::FAST,
+            sign_pub: master.sign_pub,
+            wrap_pub: master.wrap_pub,
+        }
+        .store(&home)
+        .unwrap();
+        super::super::recovery::seal(&home, PASSWORD, Argon2Params::FAST, &entropy).unwrap();
+        let node = crate::crypto::node_store::create_first_node(&home, PASSWORD, "desk", &entropy)
+            .unwrap();
+        unlock(&db, PASSWORD).unwrap();
+        let conn = rusqlite::Connection::open(&db).unwrap();
+        apply_if_needed(&conn, &db).unwrap();
+        conn.execute_batch(crate::storage::schema::POSTS_SCHEMA).unwrap();
+        conn.execute(
+            "INSERT INTO posts (post_id, parent_post_id, nick, title, content, posted_at)
+             VALUES ('p1', '', 'n', 't', 'alpha-rekey', '2026-10-22')",
+            [],
+        )
+        .unwrap();
+        drop(conn);
+        let id_path = home.join(crate::config::ACP_ID_REL_PATH);
+        let public_path = home.join(crate::config::NODE_PUBLIC_REL_PATH);
+        let boot = bootstrap_path(&db);
+        let seal = super::super::recovery::seal_path(&home);
+        let keystore = home.join(crate::config::NODE_KEYSTORE_REL_PATH);
+        let wrap_path = home.join(crate::config::BACKUP_WRAP_REL_PATH);
+        let id_bytes = std::fs::read(&id_path).unwrap();
+        let public_bytes = std::fs::read(&public_path).unwrap();
+        let boot_bytes = std::fs::read(&boot).unwrap();
+        let seal_bytes = std::fs::read(&seal).unwrap();
+        let keystore_bytes = std::fs::read(&keystore).unwrap();
+        let key_before = unwrap_local(&boot, PASSWORD).unwrap();
+        let dek_before = account_dek(&db, PASSWORD);
+        let old_archive = home.join("before.acpbackup");
+        crate::crypto::backup::write_backup(&home, &old_archive, PASSWORD, Argon2Params::FAST)
+            .unwrap();
+        assert_eq!(
+            crate::crypto::backup::inspect(&old_archive).unwrap().format,
+            1
+        );
+
+        let err = rewrap_local(&db, "not-the-password-xx", next, Argon2Params::FAST)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("password"), "{err}");
+        assert!(!err.contains(next), "{err}");
+        assert_eq!(std::fs::read(&boot).unwrap(), boot_bytes);
+        assert_eq!(std::fs::read(&seal).unwrap(), seal_bytes);
+        assert_eq!(std::fs::read(&keystore).unwrap(), keystore_bytes);
+        assert!(!wrap_path.exists());
+        assert!(!home.join(crate::config::MASTER_SEAL_REL_PATH).exists());
+
+        halt_rekey_halfway();
+        let err = rewrap_local(&db, PASSWORD, next, Argon2Params::FAST)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.contains("re-key stopped halfway and was rolled back"),
+            "{err}"
+        );
+        assert!(!err.contains(PASSWORD), "{err}");
+        assert_eq!(std::fs::read(&boot).unwrap(), boot_bytes);
+        assert_eq!(std::fs::read(&seal).unwrap(), seal_bytes);
+        assert_eq!(std::fs::read(&keystore).unwrap(), keystore_bytes);
+        assert_eq!(std::fs::read(&id_path).unwrap(), id_bytes);
+        assert_eq!(std::fs::read(&public_path).unwrap(), public_bytes);
+        assert!(!wrap_path.exists());
+        assert!(!home.join(crate::config::MASTER_SEAL_REL_PATH).exists());
+        assert_eq!(
+            unwrap_local(&boot, PASSWORD).unwrap().as_slice(),
+            key_before.as_slice()
+        );
+        assert_eq!(read_marked_post(&db, PASSWORD), "alpha-rekey");
+
+        assert!(rewrap_local(&db, PASSWORD, next, Argon2Params::FAST).unwrap());
+        let key_after = unwrap_local(&boot, next).unwrap();
+        assert_eq!(key_after.as_slice(), key_before.as_slice());
+        assert_ne!(std::fs::read(&boot).unwrap(), boot_bytes);
+        assert!(unwrap_local(&boot, PASSWORD).is_err());
+        assert_eq!(read_marked_post(&db, next), "alpha-rekey");
+        assert_eq!(account_dek(&db, next), dek_before);
+        assert!(home.join(crate::config::MASTER_SEAL_REL_PATH).is_file());
+        assert_eq!(
+            super::super::recovery::open(&home, next)
+                .unwrap()
+                .as_slice(),
+            &entropy
+        );
+        assert!(super::super::recovery::open(&home, PASSWORD).is_err());
+        let opened = crate::crypto::node_store::open_keystore(&home, &key_after).unwrap();
+        assert_eq!(opened.peer_id(), node.peer_id);
+        assert_eq!(std::fs::read(&id_path).unwrap(), id_bytes);
+        assert_eq!(std::fs::read(&public_path).unwrap(), public_bytes);
+        assert!(wrap_path.is_file());
+        let wrapped = crate::crypto::backup::open_backup_wrap(&home, next).unwrap();
+        assert!(crate::crypto::backup::open_backup_wrap(&home, PASSWORD).is_err());
+
+        let new_archive = home.join("after.acpbackup");
+        crate::crypto::backup::write_backup(&home, &new_archive, next, Argon2Params::FAST).unwrap();
+        assert_eq!(
+            crate::crypto::backup::inspect(&new_archive).unwrap().format,
+            2
+        );
+        let old_home = scratch("rekey-old");
+        crate::crypto::backup::restore_backup(&old_home, &old_archive, PASSWORD, Some(&phrase))
+            .unwrap();
+        assert_eq!(read_marked_post(&db_of(&old_home), PASSWORD), "alpha-rekey");
+        let new_home = scratch("rekey-new");
+        assert!(
+            crate::crypto::backup::restore_backup(&new_home, &new_archive, PASSWORD, Some(&phrase))
+                .is_err()
+        );
+        crate::crypto::backup::restore_backup(&new_home, &new_archive, next, Some(&phrase))
+            .unwrap();
+        assert_eq!(read_marked_post(&db_of(&new_home), next), "alpha-rekey");
+        let restored = crate::crypto::backup::open_backup_wrap(&new_home, next).unwrap();
+        assert_eq!(restored.as_slice(), wrapped.as_slice());
+        assert_eq!(
+            std::fs::read(new_home.join(crate::config::ACP_ID_REL_PATH)).unwrap(),
+            id_bytes
+        );
+
+        let _ = std::fs::remove_dir_all(&home);
+        let _ = std::fs::remove_dir_all(&old_home);
+        let _ = std::fs::remove_dir_all(&new_home);
+    }
+
+    #[test]
     fn an_account_wrap_with_its_own_salt_still_opens() {
         let home = scratch("oldsalt");
         let db = db_of(&home);
@@ -1406,6 +1654,18 @@ mod tests {
         prepare(&db, None).unwrap();
         let _ = std::fs::remove_dir_all(&home);
         forget(&db);
+    }
+
+    fn read_marked_post(db: &Path, password: &str) -> String {
+        unlock(db, password).unwrap();
+        let conn = rusqlite::Connection::open(db).unwrap();
+        apply_if_needed(&conn, db).unwrap();
+        conn.query_row(
+            "SELECT content FROM posts WHERE post_id = 'p1'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap()
     }
 
     fn account_dek(db: &Path, password: &str) -> Vec<u8> {

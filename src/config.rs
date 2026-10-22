@@ -156,6 +156,10 @@ pub const ACP_ID_REL_PATH: &str = ".acp/acp-id";
 /// Encrypted copy of the 24-word phrase entropy (mode `0600`). The words are not
 /// stored in the clear. Absent when `--identity-init` ran before this file existed.
 pub const RECOVERY_SEAL_REL_PATH: &str = ".acp/recovery.seal";
+/// The backup wrapping key, sealed under the database password.
+pub const BACKUP_WRAP_REL_PATH: &str = ".acp/backup.wrap";
+/// The existing master secret, sealed under the database password after a password change.
+pub const MASTER_SEAL_REL_PATH: &str = ".acp/master.seal";
 
 /// Present after a database is created or migrated, until the recovery steps have
 /// been shown. Not a secret, and not part of a backup.
