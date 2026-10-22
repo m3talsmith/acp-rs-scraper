@@ -1,3 +1,9 @@
+acp-red-star (3.45.0) unstable; urgency=medium
+
+  * Package 3.45.0. An organization can publish a loopback service. Remote posts stay off until they are allowed.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 22:40:00 +0000
+
 acp-red-star (3.44.0) unstable; urgency=medium
 
   * Package 3.44.0. `--org-export` writes the public site. `--org-serve` serves it on 127.0.0.1. Private rows stay out.

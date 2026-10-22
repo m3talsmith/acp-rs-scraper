@@ -205,3 +205,20 @@ Feature: Organizations
     And the file "$HOME/site/index.html" does not contain "hidden-body"
     And the file "$HOME/site/feed.json" exists
     And the file "$HOME/site/feed.json" does not contain "hidden-body"
+
+  Scenario: Publishing is off until it is confirmed
+    When I run "--org-create hold"
+    Then it succeeds
+    When I run "--org-publish hold --dry-run"
+    Then it succeeds
+    And stdout contains "would publish"
+    And stdout contains "org-hold"
+    And stdout contains "exposes nothing"
+    And stdout contains "dry-run: nothing was written"
+    And the file "$HOME/.acp/services/org-hold.toml" does not exist
+    When I run "--org-publish hold"
+    Then it fails
+    And stderr contains "refused: stdin is not a terminal"
+    When I run "--org-services"
+    Then it succeeds
+    And stdout contains "No organization services yet"

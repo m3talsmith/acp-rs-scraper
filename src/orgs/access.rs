@@ -180,6 +180,11 @@ pub fn attach_message(nonce: &str, slug: &str, post_id: &str, name: &str) -> Vec
     format!("acp-org-attach-v1\n{nonce}\n{slug}\n{post_id}\n{name}").into_bytes()
 }
 
+/// Canonical bytes for a signed read of an organization service.
+pub fn read_message(nonce: &str, slug: &str) -> Vec<u8> {
+    format!("acp-org-read-v1\n{nonce}\n{slug}").into_bytes()
+}
+
 /// A public key, or [`ANONYMOUS_AUTHOR`] when the client did not sign.
 pub fn check_author(raw: &str) -> Result<String> {
     if raw == ANONYMOUS_AUTHOR {
@@ -611,7 +616,7 @@ pub fn asset_public(org: &Org, asset: &Asset, member: bool) -> bool {
     !org.gated || member
 }
 
-fn verify(identity: &str, message: &[u8], signature: &[u8]) -> Result<()> {
+pub(crate) fn verify(identity: &str, message: &[u8], signature: &[u8]) -> Result<()> {
     if signature.len() != 64 {
         bail!("signature rejected");
     }
@@ -624,7 +629,7 @@ fn verify(identity: &str, message: &[u8], signature: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn check_nonce(nonce: &str) -> Result<()> {
+pub(crate) fn check_nonce(nonce: &str) -> Result<()> {
     if nonce.len() < 16 || nonce.len() > 64 || !nonce.chars().all(|ch| ch.is_ascii_hexdigit()) {
         bail!("a nonce is 16 to 64 hex characters");
     }

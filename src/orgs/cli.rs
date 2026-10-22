@@ -24,6 +24,14 @@ pub fn cli_requested(args: &Args) -> bool {
         || !args.org_export.is_empty()
         || args.org_serve.is_some()
         || args.org_serve_addr.is_some()
+        || args.org_publish.is_some()
+        || args.org_publish_addr.is_some()
+        || args.org_unpublish.is_some()
+        || args.org_allow_posts.is_some()
+        || args.org_refuse_posts.is_some()
+        || args.org_add.is_some()
+        || args.org_services
+        || args.org_browse.is_some()
         || args.org_post.is_some()
         || args.org_name.is_some()
         || args.org_description.is_some()
@@ -107,6 +115,27 @@ pub fn run_cli(args: &Args) -> Result<()> {
     }
     if let Some(slug) = &args.org_serve {
         return serve_site(args, &db, slug);
+    }
+    if let Some(slug) = &args.org_publish {
+        return publish_org(args, &db, slug);
+    }
+    if let Some(slug) = &args.org_unpublish {
+        return unpublish_org(args, &db, slug);
+    }
+    if let Some(slug) = &args.org_allow_posts {
+        return remote_posts(args, &db, slug, true);
+    }
+    if let Some(slug) = &args.org_refuse_posts {
+        return remote_posts(args, &db, slug, false);
+    }
+    if let Some(url) = &args.org_add {
+        return add_org(args, url);
+    }
+    if args.org_services {
+        return list_services();
+    }
+    if let Some(slug) = &args.org_browse {
+        return browse_org(slug);
     }
     if let Some(slug) = &args.org_post {
         return post(args, &db, slug);
@@ -390,6 +419,115 @@ fn serve_site(args: &Args, db: &Path, slug: &str) -> Result<()> {
     let c = org_conn(db)?;
     let site = crate::orgs::site::build(&c, db, slug)?;
     crate::orgs::site::serve(&site, addr)?;
+    Ok(())
+}
+
+fn services_dir() -> Result<PathBuf> {
+    Ok(home()?.join(".acp/services"))
+}
+
+fn publish_org(args: &Args, db: &Path, slug: &str) -> Result<()> {
+    let c = org_conn(db)?;
+    let text = crate::orgs::service::preview(&c, slug)?;
+    if args.dry_run {
+        println!("would publish {slug}");
+        println!("{text}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Publish this organization? [y/N] ")? {
+        println!("would publish {slug}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    crate::orgs::access::require(&c, org.id, &actor, "publish")?;
+    let raw = args.org_publish_addr.as_deref().unwrap_or("127.0.0.1:0");
+    let addr: std::net::SocketAddr = raw.parse().with_context(|| format!("bad address {raw}"))?;
+    let stop = std::sync::atomic::AtomicBool::new(false);
+    let (tx, _rx) = std::sync::mpsc::channel();
+    crate::orgs::service::serve_published(db, &services_dir()?, slug, addr, &tx, &stop)?;
+    Ok(())
+}
+
+fn unpublish_org(args: &Args, db: &Path, slug: &str) -> Result<()> {
+    if args.dry_run {
+        println!("would withdraw {slug}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Withdraw this organization? [y/N] ")? {
+        println!("would withdraw {slug}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let c = org_conn(db)?;
+    crate::orgs::service::unpublish(&c, &services_dir()?, slug)?;
+    println!("withdrew {slug}");
+    Ok(())
+}
+
+fn remote_posts(args: &Args, db: &Path, slug: &str, on: bool) -> Result<()> {
+    let verb = if on { "allow" } else { "refuse" };
+    if args.dry_run {
+        println!("would {verb} remote posts for {slug}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Change remote posts? [y/N] ")? {
+        println!("would {verb} remote posts for {slug}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let c = org_conn(db)?;
+    crate::orgs::service::set_remote_posts(&c, &services_dir()?, slug, on)?;
+    println!("remote posts for {slug}: {}", if on { "on" } else { "off" });
+    Ok(())
+}
+
+fn add_org(args: &Args, url: &str) -> Result<()> {
+    if args.dry_run {
+        println!("would add {url}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Add this organization service? [y/N] ")? {
+        println!("would add {url}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let slug = crate::orgs::service::add_remote(&services_dir()?, url)?;
+    println!("added {slug}");
+    Ok(())
+}
+
+fn list_services() -> Result<()> {
+    let dir = services_dir()?;
+    let mut names = Vec::new();
+    if dir.is_dir() {
+        for entry in std::fs::read_dir(&dir)? {
+            let entry = entry?;
+            let name = entry.file_name().to_string_lossy().to_string();
+            if name.ends_with(".toml") {
+                names.push(name);
+            }
+        }
+    }
+    names.sort();
+    if names.is_empty() {
+        println!("No organization services yet");
+        return Ok(());
+    }
+    for name in names {
+        println!("{name}");
+    }
+    Ok(())
+}
+
+fn browse_org(slug: &str) -> Result<()> {
+    let body = crate::orgs::service::browse(&services_dir()?, slug, &[])?;
+    println!("{body}");
     Ok(())
 }
 

@@ -593,6 +593,13 @@ An organization is a local source. It does not need a service. A new organizatio
 | `--org-asset-remove ID` | Archive a file. The row and the bytes stay. Asks first. |
 | `--org-export SLUG DIR` | Write the public site: `index.html`, post pages, Markdown sidecars, download pages, and `feed.json`. Private and gated rows are left out. Asks first. |
 | `--org-serve SLUG` | Serve that site on `127.0.0.1`. `--org-serve-addr` overrides the socket. Any other address is refused. Replication onto another node is 3.49.0. |
+| `--org-publish SLUG` | Publish a manifest and listen on `127.0.0.1`. Asks first. A private organization is refused. |
+| `--org-unpublish SLUG` | Withdraw the manifest. Posts stay. Asks first. |
+| `--org-allow-posts SLUG` | Allow remote posts. Until then they are off. Asks first. |
+| `--org-refuse-posts SLUG` | Turn remote posts off. Asks first. |
+| `--org-add URL` | Add another install's service. The address must be `127.0.0.1`. Asks first. |
+| `--org-services` | List published and added manifests. |
+| `--org-browse SLUG` | Read the public page of an added service. |
 | `--org-post SLUG` | Store a post. Requires `--org-title`. The body is `--body` or `--body-file`. `--org-post-visibility` overrides the org default for this post only. |
 | `--org-visibility private\|public` | With create or edit. |
 | `--org-default-visibility private\|public` | With create or edit. |

@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.45.0] - 2026-10-22
+
+### Added
+
+- **Organization service.** `--org-publish` writes `~/.acp/services/org-<slug>.toml` and listens on `127.0.0.1`. It is not registered as a built-in. A private organization is refused. A gated organization gives an anonymous caller readiness `gated` and an empty page. `--org-allow-posts` is off until confirmed. Another install adds the loopback URL with `--org-add` and reads it with `--org-browse`. The peer transport for this endpoint is 3.49.0.
+
 ## [3.44.0] - 2026-10-22
 
 ### Added
