@@ -28,6 +28,7 @@ fn after_modal(app: &mut App, r: Option<ModalResult>) {
     if let Some(pid) = app.take_job_cancel() { app.cancel_tracked(pid); }
     if let Some(r) = r { app.close_modal(r); }
     else if matches!(app.modal, Some(Modal::ThemePicker(_))) { app.preview_picker(); }
+    else if matches!(app.modal, Some(Modal::BrandPicker(_))) { app.preview_brand_picker(); }
 }
 
 fn editor_key(app: &mut App, k: KeyEvent) {
@@ -35,12 +36,25 @@ fn editor_key(app: &mut App, k: KeyEvent) {
     if ed.on_key(app, k) == crate::tui::editor::Outcome::Stay { app.theme_editor = Some(ed); }
 }
 
+fn brand_editor_key(app: &mut App, k: KeyEvent) {
+    let Some(mut ed) = app.brand_editor.take() else { return };
+    if ed.on_key(app, k) == crate::tui::brand_editor::Outcome::Stay {
+        app.brand_editor = Some(ed);
+    } else {
+        app.brand = ed.saved.clone();
+        crate::brands::install(&app.brand);
+        app.brand_name = ed.saved.name.clone();
+        app.brand_fault = None;
+        app.brand_error = None;
+    }
+}
+
 /// Handle a key.
 pub fn on_key(app: &mut App, k: KeyEvent) {
     if app.egg.is_some() { app.dismiss_egg(); return; }
     let ctrl = k.modifiers.contains(KeyModifiers::CONTROL);
     if k.code == KeyCode::Char('~') && !ctrl && !app.text_input_focused() { app.open_credits(); return; }
-    if ctrl && k.code == KeyCode::Char('c') && app.modal.is_none() && app.theme_editor.is_none() { app.act(Action::Quit); return; }
+    if ctrl && k.code == KeyCode::Char('c') && app.modal.is_none() && app.theme_editor.is_none() && app.brand_editor.is_none() { app.act(Action::Quit); return; }
     if !app.text_input_focused() {
         if app.konami.feed(k.code) { app.show_egg(crate::eggs::EggKind::Burst); return; }
     } else {
@@ -53,6 +67,7 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
         return;
     }
     if app.theme_editor.is_some() { editor_key(app, k); return; }
+    if app.brand_editor.is_some() { brand_editor_key(app, k); return; }
     if app.notice_page.is_some() && notice_key(app, k) { return; }
     if app.filter_editing { filter_key(app, k); return; }
     if app.focus == Focus::Menu && app.menu.editing { menu_edit_key(app, k); return; }
@@ -474,6 +489,10 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         if let (MouseEventKind::Down(MouseButton::Left), Some(Hit::EditorRow(i))) = (m.kind, hit) { ed.click_row(i); }
         return;
     }
+    if let Some(ed) = app.brand_editor.as_mut() {
+        if let (MouseEventKind::Down(MouseButton::Left), Some(Hit::EditorRow(i))) = (m.kind, hit) { ed.click_row(i); }
+        return;
+    }
     if wheel != 0 {
         match hit {
             Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::Eb | Hit::Explore | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
@@ -514,6 +533,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::MenuOpt(i)) => { app.menu.editing = false; app.activate_opt(i); }
         Some(Hit::StartScan) => app.act(Action::StartScan),
         Some(Hit::ThemeSwitch) => app.act(Action::ThemePicker),
+        Some(Hit::BrandSwitch) => app.act(Action::BrandPicker),
         Some(Hit::Back) => { app.search_back(); }
         Some(Hit::Link(i)) => { app.focus = Focus::Body; app.open_link(i); }
         Some(Hit::Frame(d)) => { app.focus = Focus::Body; app.pop_to(d); }

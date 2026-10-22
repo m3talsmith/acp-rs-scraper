@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "acp-red-star"
-version = "3.34.0"
+version = "3.35.0"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
@@ -44,7 +44,7 @@ serde_json = "1"
 toml = "1.1.8"
 regex = "1"
 url = "2"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "string"] }
 tar = "0.4"
 flate2 = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }
