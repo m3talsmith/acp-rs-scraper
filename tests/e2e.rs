@@ -313,6 +313,7 @@ async fn html_markdown(w: &mut E2e) {
 
 #[when(expr = "I search Help for {string}")]
 async fn search_help(w: &mut E2e, query: String) {
+    use acp_red_star::tui::modals::ModalState;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
     let mut help = acp_red_star::tui::modals::HelpModal::new();
     for c in query.chars() {
@@ -341,11 +342,14 @@ async fn sort_logged_out(w: &mut E2e) {
         acp_red_star::tui::theme::Theme::reset(),
         false,
     );
-    app.open_post(0);
+    let nick = app.nicks.iter().position(|n| n.nick == "sample").expect("sample nick");
+    app.select_only(nick);
+    let post = app.view().posts.iter().position(|p| p.post_id == "SAMPLE001").expect("sample thread");
+    app.open_post(post);
     app.cycle_thread_sort();
     let modal = format!("{:?}", app.modal);
     let effects = format!("{:?}", app.effects);
-    w.screen = format!("{modal}\n{effects}\n{}", app.status.last().cloned().unwrap_or_default());
+    w.screen = format!("{modal}\n{effects}\n{}", app.status.back().cloned().unwrap_or_default());
 }
 
 #[when(expr = "I open Help on the brand {string}")]
