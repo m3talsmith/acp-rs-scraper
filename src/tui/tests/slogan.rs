@@ -9,10 +9,12 @@ use ratatui::style::{Color, Modifier};
 use std::time::Instant;
 
 fn buffer(a: &mut App, w: u16, h: u16) -> ratatui::buffer::Buffer {
-    let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
-    let now = Instant::now() + std::time::Duration::from_secs(5);
-    t.draw(|f| crate::tui::widgets::draw(f, a, now)).unwrap();
-    t.backend().buffer().clone()
+    crate::brands::hold_installed(&crate::brands::builtin_default(), || {
+        let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+        let now = Instant::now() + std::time::Duration::from_secs(5);
+        t.draw(|f| crate::tui::widgets::draw(f, a, now)).unwrap();
+        t.backend().buffer().clone()
+    })
 }
 
 fn row(buf: &ratatui::buffer::Buffer, y: u16) -> String {

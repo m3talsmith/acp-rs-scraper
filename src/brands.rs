@@ -201,9 +201,25 @@ pub fn current() -> Brand {
     current_slot().lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
+fn gate() -> &'static std::sync::Mutex<()> {
+    static GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    &GATE
+}
+
 /// Remember `brand` for CLI help, HTML export, and desktop notifications.
 pub fn install(brand: &Brand) {
+    let _gate = gate().lock().unwrap_or_else(|e| e.into_inner());
     *current_slot().lock().unwrap_or_else(|e| e.into_inner()) = brand.clone();
+}
+
+/// Install `brand` and keep it in place for `f`.
+///
+/// The About header reads this process-wide brand. A test that draws About
+/// holds the default across that draw so another test's `install` waits.
+pub fn hold_installed<R>(brand: &Brand, f: impl FnOnce() -> R) -> R {
+    let _gate = gate().lock().unwrap_or_else(|e| e.into_inner());
+    *current_slot().lock().unwrap_or_else(|e| e.into_inner()) = brand.clone();
+    f()
 }
 
 /// The brand for this run: `--brand`, else `[ui] brand`, else `default`.
