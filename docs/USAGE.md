@@ -137,7 +137,8 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   (arrows move; the post opens in a modal with a Close button). View › Site Top opens `/rs/top`
   (period and replies); the **EB** row under Bookmarks opens `/rs/eb`. Both show the saved order
   at once and refresh it from the site. The **Explore** row opens `/rs/explore` (View › Explore
-  latest selects `/rs/explore/latest`). Shift-S search can look at the local database or the site.
+  latest selects `/rs/explore/latest`). Explore waits 12 seconds for each LiveView reply, prints
+  `Explore: still waiting`, then stops and stores nothing. Shift-S search can look at the local database or the site.
   `p` opens a post menu; View reposts opens `/rs/post/{id}/reposts`, and View edits
   opens `/rs/post/{thread}/{id}/edits` as a diff.
 - **Bookmarks:** a `☆`/`★` star on every card and detail (click or `b`) bookmarks locally at once
@@ -451,7 +452,7 @@ These read a site view and store it. They don't scrape nicks, and they don't pos
 | `--top-replies` | With `--top`: the feed's replies filter. |
 | `--eb` | Executive Board feed (`/rs/eb`). The **EB** row of the nick bar, or View › Executive Board. |
 | `--eb-replies` | With `--eb`: the feed's replies filter (View › EB includes replies). |
-| `--explore` | Explore (`/rs/explore`). The **Explore** row of the nick bar, or View › Explore. |
+| `--explore` | Explore (`/rs/explore`). The **Explore** row of the nick bar, or View › Explore. One LiveView reply waits 12 seconds; a timeout stores nothing. |
 | `--explore-latest` | Explore's Latest tab (`/rs/explore/latest`). View › Explore latest. |
 | `--site-search TEXT` | Search the site (`/rs/explore?q=`, form `search`, field `q`). The Search modal's **Where: Site** does the same and uses only the keyword; nicks, dates, post id and kind stay local. |
 | `--tag TAG` | Tag feed (`/rs/tag/TAG`). A `#tag` in a post body, or the Tags row on the detail, opens the same view. `#post-…` anchors, `##` headings and tags inside code are not links. |

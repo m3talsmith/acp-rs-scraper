@@ -122,7 +122,12 @@ fn run_list_brands(args: &Args) -> Result<()> {
         match &e.error {
             Some(err) => println!("{mark} {:<20} BROKEN: {err}", e.name),
             None => {
-                let motto = if e.motto.is_empty() { "(no motto)" } else { e.motto.as_str() };
+                let acp_row = e.title.contains("ACP") || e.name == DEFAULT_BRAND;
+                let motto = if e.motto.is_empty() || (e.motto == crate::branding::SLOGAN && !acp_row) {
+                    "(no motto)"
+                } else {
+                    e.motto.as_str()
+                };
                 println!("{mark} {:<20} {}  — {motto}", e.name, e.title);
             }
         }

@@ -66,7 +66,7 @@ pub fn tip_for(app: &App, hit: Hit) -> Option<Tip> {
         Hit::NoticeRow(_) => Some(tip("Notification", "notifications")),
         Hit::NoticeClear(_) => Some(tip("Clear this notification", "notifications")),
         Hit::NoticeClearAll => Some(tip("Clear all notifications", "notifications")),
-        Hit::ToggleNicks => Some(tip("Collapse or open the nick bar", "browse")),
+        Hit::ToggleNicks => Some(tip("Collapse or open the nick bar (‹, the cells beside it, or the right edge)", "browse")),
         Hit::ToggleActions => Some(tip("Collapse or open the action history", "actions")),
         Hit::Action(_) => Some(tip("Jump back to this action", "actions")),
         Hit::ActionBranches => Some(tip("Action branches (b)", "actions")),
