@@ -60,22 +60,6 @@ enum Msg {
 
 struct Terminal(ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>);
 
-fn spawn_input(
-    tx: tokio::sync::mpsc::UnboundedSender<crossterm::event::Event>,
-    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
-) -> std::thread::JoinHandle<()> {
-    std::thread::spawn(move || {
-        while !stop.load(std::sync::atomic::Ordering::Relaxed) {
-            if crossterm::event::poll(Duration::from_millis(100)).unwrap_or(false) {
-                match crossterm::event::read() {
-                    Ok(e) => { if tx.send(e).is_err() { break; } }
-                    Err(_) => break,
-                }
-            }
-        }
-    })
-}
-
 /// A status line. A recovery error that looks like a phrase or a share is not shown.
 fn recovery_status(err: &anyhow::Error) -> String {
     let text = format!("{err:#}");
@@ -149,7 +133,7 @@ pub async fn run(args: Args) -> Result<()> {
     }
     let home_dir = home()?;
     crate::crypto::cmd::prepare_db_quiet()?;
-    let show_recovery_help = crate::crypto::cmd::tui_recovery_offer(&home_dir)?;
+    let recovery_offer = crate::crypto::cmd::tui_recovery_offer(&home_dir)?;
     let db = home_dir.join(DB_REL_PATH);
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
@@ -179,9 +163,7 @@ pub async fn run(args: Args) -> Result<()> {
     if let Some(msg) = crate::crypto::backup::schedule_reminder(&home_dir) {
         app.push_status(msg);
     }
-    if show_recovery_help {
-        app.modal = Some(modals::Modal::Help(modals::HelpModal::new()));
-    }
+    app.offer_recovery(recovery_offer, &home_dir);
     app.note_no_color();
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
@@ -266,7 +248,20 @@ async fn event_loop(app: &mut App, log_tx: std::sync::mpsc::Sender<String>, log_
     // Input thread → channel.
     let (mut ev_tx, mut ev_rx) = tokio::sync::mpsc::unbounded_channel();
     let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let mut input_thread = spawn_input(ev_tx.clone(), stop.clone());
+    let pause_input = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let stop2 = stop.clone();
+    let pause2 = pause_input.clone();
+    std::thread::spawn(move || {
+        while !stop2.load(std::sync::atomic::Ordering::Relaxed) {
+            if pause2.load(std::sync::atomic::Ordering::Relaxed) {
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            }
+            if crossterm::event::poll(Duration::from_millis(100)).unwrap_or(false) {
+                match crossterm::event::read() { Ok(e) => { if ev_tx.send(e).is_err() { break; } } Err(_) => break }
+            }
+        }
+    });
     let (msg_tx, mut msg_rx) = tokio::sync::mpsc::unbounded_channel::<Msg>();
     let mut job: Option<jobs::Job> = None;
     // Small writes (bookmarks) that run next to the main job.
@@ -470,23 +465,40 @@ async fn event_loop(app: &mut App, log_tx: std::sync::mpsc::Sender<String>, log_
                     Err(e) => app.error("Logout failed", &format!("{e:#}")),
                 },
                 Effect::ShowRecovery => {
-                    stop.store(true, std::sync::atomic::Ordering::Relaxed);
-                    let _ = input_thread.join();
+                    pause_input.store(true, std::sync::atomic::Ordering::Relaxed);
+                    std::thread::sleep(Duration::from_millis(150));
+                    while ev_rx.try_recv().is_ok() {}
                     set_log_sink(None);
                     restore_terminal();
-                    let shown = crate::crypto::cmd::show_recovery();
+                    let shown = tokio::task::block_in_place(crate::crypto::cmd::show_recovery);
                     enable_raw_mode()?;
                     execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+                    let _ = execute!(std::io::stdout(), crossterm::terminal::SetTitle(app.brand.title.clone()));
                     set_log_sink(Some(log_tx.clone()));
-                    stop.store(false, std::sync::atomic::Ordering::Relaxed);
-                    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
-                    ev_tx = tx;
-                    ev_rx = rx;
-                    input_thread = spawn_input(ev_tx.clone(), stop.clone());
                     term.0.clear()?;
+                    pause_input.store(false, std::sync::atomic::Ordering::Relaxed);
                     match shown {
                         Ok(()) => app.push_status("The recovery phrase and shares were shown on this terminal. They were not saved in notices or history."),
                         Err(e) => app.error("Recovery", &recovery_status(&e)),
+                    }
+                }
+                Effect::CreatePhrase => {
+                    pause_input.store(true, std::sync::atomic::Ordering::Relaxed);
+                    std::thread::sleep(Duration::from_millis(150));
+                    while ev_rx.try_recv().is_ok() {}
+                    restore_terminal();
+                    let created = tokio::task::block_in_place(crate::crypto::cmd::identity_init);
+                    enable_raw_mode()?;
+                    execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+                    let _ = execute!(std::io::stdout(), crossterm::terminal::SetTitle(app.brand.title.clone()));
+                    term.0.clear()?;
+                    pause_input.store(false, std::sync::atomic::Ordering::Relaxed);
+                    match created {
+                        Ok(()) => {
+                            app.push_status("recovery phrase created");
+                            app.open_help(Some("recovery"));
+                        }
+                        Err(e) => app.error("Recovery phrase", &format!("{e:#}")),
                     }
                 }
                 Effect::Quit { cancel_job } => {

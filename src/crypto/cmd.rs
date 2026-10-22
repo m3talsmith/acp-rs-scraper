@@ -646,32 +646,31 @@ fn explain_recovery(home: &std::path::Path) -> Result<()> {
     offer_on_terminal(home)
 }
 
-/// Before the terminal UI covers the screen, show the phrase and the shares.
-/// `Ok(true)` opens Help when the words cannot be rebuilt.
-pub fn tui_recovery_offer(home: &std::path::Path) -> Result<bool> {
-    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        return Ok(false);
-    }
+/// What the terminal UI should do about a pending recovery phrase.
+///
+/// This does not read stdin. The question is a confirm dialog after the UI
+/// is up. [`explain_recovery`] still runs the headless ceremony.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecoveryOffer {
+    /// Nothing is pending.
+    Quiet,
+    /// The words cannot be rebuilt from the password. Open the recovery topic.
+    Guide,
+    /// Ask in the terminal UI. Not now is the default.
+    Ask,
+    /// The phrase is saved and the shares still need to be written down.
+    Show,
+}
+
+/// Decide the recovery step for the terminal UI without reading a key.
+pub fn tui_recovery_offer(home: &std::path::Path) -> Result<RecoveryOffer> {
     match recovery_next(home)? {
-        RecoveryNext::Quiet => Ok(false),
-        RecoveryNext::Create => {
-            identity_init()?;
-            prompt("Press Enter to open the terminal UI. The words above were confirmed. ")?;
-            Ok(false)
-        }
-        RecoveryNext::ShowAgain => {
-            println!("The recovery phrase and the shares still need to be written down.");
-            show_recovery()?;
-            prompt("Press Enter to open the terminal UI. ")?;
-            Ok(false)
-        }
+        RecoveryNext::Quiet => Ok(RecoveryOffer::Quiet),
+        RecoveryNext::Create => Ok(RecoveryOffer::Ask),
+        RecoveryNext::ShowAgain => Ok(RecoveryOffer::Show),
         RecoveryNext::CannotRebuild => {
-            println!(
-                "This account was created before the phrase was saved here. The password cannot rebuild the words."
-            );
-            println!("Use the paper copy, or 3 shares with --shares-print.");
             super::recovery::clear_next(home)?;
-            Ok(true)
+            Ok(RecoveryOffer::Guide)
         }
     }
 }
@@ -799,4 +798,21 @@ fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_pending_recovery_asks_without_reading_stdin() {
+        let home = std::env::temp_dir().join(format!("acp-recovery-ask-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(home.join(".acp")).unwrap();
+        std::fs::write(home.join(".acp/recovery-next"), b"pending\n").unwrap();
+        assert_eq!(tui_recovery_offer(&home).unwrap(), RecoveryOffer::Ask);
+        assert!(home.join(".acp/recovery-next").is_file(), "Not now is what clears it");
+        assert_eq!(tui_recovery_offer(&home.join("missing")).unwrap(), RecoveryOffer::Quiet);
+        let _ = std::fs::remove_dir_all(&home);
+    }
 }

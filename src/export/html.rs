@@ -132,6 +132,11 @@ body{{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:2em auto;padding
 .post{{background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:.8em 1em;margin:.8em 0}}
 .post .post{{margin-left:1.2em;border-left:3px solid #dc2626;border-radius:0 8px 8px 0}}
 h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .body{{margin:.5em 0;white-space:normal}} .body p{{margin:0 0 .7em}}
+.body h1,.body h2,.body h3,.body h4,.body h5,.body h6{{margin:.6em 0 .3em;line-height:1.3}}
+.body pre{{background:#f4f4f5;padding:.6em .8em;overflow:auto;border-radius:6px}}
+.body pre,.body code{{font-family:ui-monospace,SFMono-Regular,monospace}}
+.body table{{border-collapse:collapse;margin:.6em 0}} .body th,.body td{{border:1px solid #e4e4e7;padding:.2em .5em}}
+.body blockquote{{margin:.4em 0;padding-left:.7em;border-left:3px solid #dc2626;color:#3f3f46}}
 .att img,.att video{{max-width:100%;border-radius:6px}} .att{{margin:.4em 0}}
 .profile{{display:flex;gap:1em;align-items:flex-start;background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:1em;margin:1em 0}}
 .profile .avatar{{width:72px;height:72px;border-radius:50%;object-fit:cover}}
@@ -186,12 +191,98 @@ pub fn research_html(r: &Value, ids: &HashSet<String>) -> String {
     h
 }
 
-/// Body text as HTML paragraphs: blank lines split `<p>`s, single newlines
-/// inside a paragraph become `<br>`.
+/// Render Markdown to HTML for a post body or a research note.
+///
+/// Headings, fenced code, and tables become elements. Raw HTML in the source
+/// is escaped, so a post cannot inject a tag.
 pub fn paragraphs_html(text: &str) -> String {
-    text.split("\n\n").map(str::trim).filter(|p| !p.is_empty())
-        .map(|p| format!("<p>{}</p>", esc(p).replace('\n', "<br>")))
-        .collect()
+    use pulldown_cmark::{Alignment, Event, Options, Parser, Tag, TagEnd};
+    let mut opts = Options::empty();
+    opts.insert(Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_FOOTNOTES | Options::ENABLE_TASKLISTS);
+    let mut out = String::new();
+    let mut in_head = false;
+    let mut in_code = false;
+    let mut in_image = false;
+    let mut table_align: Vec<Alignment> = Vec::new();
+    let mut cell = 0usize;
+    let mut tbody = false;
+    let align = |a: Alignment| match a {
+        Alignment::Left => " style=\"text-align:left\"",
+        Alignment::Center => " style=\"text-align:center\"",
+        Alignment::Right => " style=\"text-align:right\"",
+        Alignment::None => "",
+    };
+    for ev in Parser::new_ext(text, opts) {
+        match ev {
+            Event::Start(Tag::Paragraph) => out.push_str("<p>"),
+            Event::End(TagEnd::Paragraph) => out.push_str("</p>"),
+            Event::Start(Tag::Heading { level, .. }) => out.push_str(&format!("<{level}>")),
+            Event::End(TagEnd::Heading(level)) => out.push_str(&format!("</{level}>\n")),
+            Event::Start(Tag::BlockQuote(_)) => out.push_str("<blockquote>"),
+            Event::End(TagEnd::BlockQuote(_)) => out.push_str("</blockquote>\n"),
+            Event::Start(Tag::CodeBlock(_)) => { in_code = true; out.push_str("<pre><code>"); }
+            Event::End(TagEnd::CodeBlock) => { in_code = false; out.push_str("</code></pre>\n"); }
+            Event::Start(Tag::List(Some(n))) => out.push_str(&format!("<ol start=\"{n}\">\n")),
+            Event::Start(Tag::List(None)) => out.push_str("<ul>\n"),
+            Event::End(TagEnd::List(ordered)) => out.push_str(if ordered { "</ol>\n" } else { "</ul>\n" }),
+            Event::Start(Tag::Item) => out.push_str("<li>"),
+            Event::End(TagEnd::Item) => out.push_str("</li>\n"),
+            Event::Start(Tag::Emphasis) => out.push_str("<em>"),
+            Event::End(TagEnd::Emphasis) => out.push_str("</em>"),
+            Event::Start(Tag::Strong) => out.push_str("<strong>"),
+            Event::End(TagEnd::Strong) => out.push_str("</strong>"),
+            Event::Start(Tag::Strikethrough) => out.push_str("<del>"),
+            Event::End(TagEnd::Strikethrough) => out.push_str("</del>"),
+            Event::Start(Tag::Link { dest_url, title, .. }) => {
+                out.push_str(&format!("<a href=\"{}\"", esc(&dest_url)));
+                if !title.is_empty() { out.push_str(&format!(" title=\"{}\"", esc(&title))); }
+                out.push('>');
+            }
+            Event::End(TagEnd::Link) => out.push_str("</a>"),
+            Event::Start(Tag::Image { dest_url, .. }) => {
+                in_image = true;
+                out.push_str(&format!("<img src=\"{}\" alt=\"", esc(&dest_url)));
+            }
+            Event::End(TagEnd::Image) => { in_image = false; out.push_str("\">"); }
+            Event::Start(Tag::Table(a)) => { table_align = a; cell = 0; tbody = false; out.push_str("<table>\n"); }
+            Event::End(TagEnd::Table) => {
+                if tbody { out.push_str("</tbody>\n"); }
+                out.push_str("</table>\n");
+            }
+            Event::Start(Tag::TableHead) => { in_head = true; out.push_str("<thead>\n"); }
+            Event::End(TagEnd::TableHead) => { in_head = false; tbody = true; out.push_str("</thead>\n<tbody>\n"); }
+            Event::Start(Tag::TableRow) => { cell = 0; out.push_str("<tr>"); }
+            Event::End(TagEnd::TableRow) => out.push_str("</tr>\n"),
+            Event::Start(Tag::TableCell) => {
+                let tag = if in_head { "th" } else { "td" };
+                let style = align(table_align.get(cell).copied().unwrap_or(Alignment::None));
+                cell += 1;
+                out.push_str(&format!("<{tag}{style}>"));
+            }
+            Event::End(TagEnd::TableCell) => out.push_str(if in_head { "</th>" } else { "</td>" }),
+            Event::Start(Tag::FootnoteDefinition(name)) => {
+                out.push_str(&format!("<div class=\"footnote\" id=\"fn-{}\">", esc(&name)));
+            }
+            Event::End(TagEnd::FootnoteDefinition) => out.push_str("</div>\n"),
+            Event::FootnoteReference(name) => {
+                let name = esc(&name);
+                out.push_str(&format!("<sup id=\"fnref-{name}\"><a href=\"#fn-{name}\">{name}</a></sup>"));
+            }
+            Event::TaskListMarker(checked) => {
+                out.push_str(if checked { "<input type=\"checkbox\" disabled checked> " } else { "<input type=\"checkbox\" disabled> " });
+            }
+            Event::Text(t) => out.push_str(&esc(&t)),
+            Event::Code(t) => out.push_str(&format!("<code>{}</code>", esc(&t))),
+            Event::Html(t) | Event::InlineHtml(t) => out.push_str(&esc(&t)),
+            Event::InlineMath(t) | Event::DisplayMath(t) => out.push_str(&esc(&t)),
+            Event::SoftBreak | Event::HardBreak => {
+                if in_code || in_image { out.push('\n'); } else { out.push_str("<br>\n"); }
+            }
+            Event::Rule => out.push_str("<hr>\n"),
+            Event::Start(_) | Event::End(_) => {}
+        }
+    }
+    out
 }
 
 #[cfg(test)]
@@ -237,5 +328,21 @@ mod tests {
         assert!(h.contains(&format!("href=\"{}/rs/post/t1/c2\"", base_url())), "{h}");
         assert!(!reply_links("t1", "t1", &ids).contains("thread"));
         assert_eq!(reply_links("", "", &ids), "");
+    }
+
+    #[test]
+    fn markdown_renders_in_the_page_body() {
+        let doc = json!({"nick": "@sample", "posts": [{
+            "post_id": "M1", "parent_post_id": "", "nick": "sample", "title": "Notes",
+            "content": "# Hello\n\n```\ncode\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n\n<script>alert(1)</script>\n",
+            "children": []
+        }]});
+        let h = build_html(&doc);
+        let body = h.split_once("<body>").expect("body").1;
+        assert!(body.contains("<h1>Hello</h1>"), "{body}");
+        assert!(body.contains("<pre><code>code"), "{body}");
+        assert!(body.contains("<table>") && body.contains("<td>1</td>"), "{body}");
+        assert!(!body.contains("# Hello") && !body.contains("```") && !body.contains("|---|"), "{body}");
+        assert!(body.contains("&lt;script&gt;") && !body.contains("<script>"), "{body}");
     }
 }

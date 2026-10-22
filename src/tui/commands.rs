@@ -620,6 +620,7 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Session, "logout") => Some("account"),
         (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
         (CommandId::Discover, _) => Some("discover"),
+        (CommandId::View, "nested" | "stack" | "pane" | "carousel_inf" | "carousel" | "grid") => Some("layout"),
         (CommandId::View, "notifications") => Some("notifications"),
         (CommandId::Scrape, "whole_site") | (CommandId::Scrape, "budget") | (CommandId::Sync, "whole_site") => Some("whole-site"),
         _ => None,
@@ -708,6 +709,21 @@ impl Menu {
     /// Set a text field.
     pub fn set_text(&mut self, id: CommandId, key: &str, v: &str) {
         if let Widget::Text(t) = &mut self.opt_mut(id, key).widget { t.set(v); }
+    }
+    /// Show or hide the party-only items. The ACP brand keeps them.
+    pub fn apply_brand(&mut self, brand: &crate::brands::Brand) {
+        let acp = brand.shows_acp();
+        for c in &mut self.items {
+            if c.id == CommandId::Bookmarks {
+                c.opts = bookmarks_item().opts;
+                if !acp { c.opts.retain(|o| o.key != "sync"); }
+            }
+            if c.id == CommandId::About {
+                c.opts = about_item().opts;
+                if !acp { c.opts.retain(|o| o.key != "platform"); }
+            }
+        }
+        self.fill_help_topics();
     }
     /// Select a choice by value (ignored when unknown).
     pub fn set_choice(&mut self, id: CommandId, key: &str, v: &str) {

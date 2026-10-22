@@ -70,6 +70,16 @@ pub struct Brand {
     pub from_file: bool,
 }
 
+impl Brand {
+    /// This brand keeps the ACP wording: the title, the word ACP, or the slogan.
+    ///
+    /// A neutral brand has none of those, so the menus, Help, and About that
+    /// follow the brand leave the party text out.
+    pub fn shows_acp(&self) -> bool {
+        self.title.contains("ACP") || self.word == "ACP" || self.motto == SLOGAN
+    }
+}
+
 /// Why a brand could not be used.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum LoadError {
@@ -201,9 +211,25 @@ pub fn current() -> Brand {
     current_slot().lock().unwrap_or_else(|e| e.into_inner()).clone()
 }
 
+fn gate() -> &'static std::sync::Mutex<()> {
+    static GATE: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    &GATE
+}
+
 /// Remember `brand` for CLI help, HTML export, and desktop notifications.
 pub fn install(brand: &Brand) {
+    let _gate = gate().lock().unwrap_or_else(|e| e.into_inner());
     *current_slot().lock().unwrap_or_else(|e| e.into_inner()) = brand.clone();
+}
+
+/// Install `brand` and keep it in place for `f`.
+///
+/// The About header reads this process-wide brand. A test that draws About
+/// holds the default across that draw so another test's `install` waits.
+pub fn hold_installed<R>(brand: &Brand, f: impl FnOnce() -> R) -> R {
+    let _gate = gate().lock().unwrap_or_else(|e| e.into_inner());
+    *current_slot().lock().unwrap_or_else(|e| e.into_inner()) = brand.clone();
+    f()
 }
 
 /// The brand for this run: `--brand`, else `[ui] brand`, else `default`.
@@ -540,6 +566,8 @@ mod tests {
         assert_eq!(b.title, "Red Star");
         assert!(b.motto.is_empty());
         assert!(b.word.is_empty());
+        assert!(!b.shows_acp());
+        assert!(builtin_default().shows_acp());
         assert_eq!(b.logo, LogoKind::Text);
         assert!(b.logo_text.contains('★'));
         assert!(!b.title.contains("ACP"));

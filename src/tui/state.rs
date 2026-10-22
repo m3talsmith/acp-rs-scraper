@@ -258,6 +258,8 @@ pub enum Effect {
         /// Kill the job before leaving.
         cancel_job: bool,
     },
+    /// Leave the screen, run `--identity-init`, then come back.
+    CreatePhrase,
 }
 
 /// Clickable regions recorded while drawing (topmost last).
@@ -591,6 +593,8 @@ pub struct App {
     pub tip: Option<crate::tui::tooltip::Tip>,
     /// Where that control was drawn.
     pub tip_at: Rect,
+    /// Home directory for a pending recovery phrase. Set only while the UI is asking.
+    pub recovery_home: Option<PathBuf>,
 }
 
 fn nick_label(q: &str) -> String {
@@ -639,7 +643,7 @@ impl App {
             notices: crate::notify::NoticeBoard::new(), notice_page: None,
             branches: Vec::new(), branch_at: 0, action_at: 0, action_scroll: 0, action_cursor: 0, action_page: 1,
             restoring: false, record_ready: false, nicks_open: true, actions_open: false,
-            tip: None, tip_at: Rect::default(),
+            tip: None, tip_at: Rect::default(), recovery_home: None,
         };
         app.load_notices();
         app.refresh_nicks();
@@ -1206,28 +1210,15 @@ impl App {
             else { format!("fetching {key} from the site…") });
         self.start_online_job(JobKind::Read, argv);
     }
-    /// `s` in a thread: cycle reply order and, for oldest/top, refresh scores from the site.
+    /// `s` in a thread: cycle the stored replies. This does not connect.
+    ///
+    /// A refresh from the site is a separate request (`--sort-thread`), not this key.
     pub fn cycle_thread_sort(&mut self) {
         if self.top().is_none() { self.push_status("open a thread to sort its replies"); return; }
         let next = self.top().map(|f| f.sort.cycle()).unwrap_or_default();
         if let Some(f) = self.top_mut() { f.sort = next; }
         self.apply_reply_sort();
-        self.push_status(format!("replies · {}", next.label()));
-        let Some(order) = next.hook() else { return };
-        let post = self.top().map(|f| f.post.clone());
-        let Some(post) = post else { return };
-        let thread = if post.parent_post_id.is_empty() { post.post_id.clone() } else { post.parent_post_id.clone() };
-        if self.job.is_some() {
-            self.push_status("reply order changed locally; a job is already running");
-            return;
-        }
-        match self.menu.menu.sort_thread_argv(&thread, order) {
-            Ok(argv) => {
-                self.pending_sort = Some((post.post_id.clone(), next));
-                self.start_online_job(JobKind::Read, argv);
-            }
-            Err(e) => self.error("Thread sort", &e),
-        }
+        self.push_status(format!("replies · {} · stored", next.label()));
     }
     /// Put the open detail's reply links in its current order, using stored scores.
     pub fn apply_reply_sort(&mut self) {
@@ -1960,10 +1951,43 @@ impl App {
         let shown = self.view().posts.len();
         self.push_status(format!("{}. Help: search-limit", crate::tui::order::result_status(&format!("search {describe}"), shown, total, order, limit.is_some())));
     }
+    /// Show the recovery question, or the recovery topic, after the UI is up.
+    pub fn offer_recovery(&mut self, offer: crate::crypto::cmd::RecoveryOffer, home: &Path) {
+        use crate::crypto::cmd::RecoveryOffer;
+        match offer {
+            RecoveryOffer::Quiet => {}
+            RecoveryOffer::Guide => {
+                self.push_status("This account was created before the phrase was saved here. The password cannot rebuild the words.");
+                self.open_help(Some("recovery"));
+            }
+            RecoveryOffer::Show => {
+                self.push_status("The recovery phrase and the shares still need to be written down.");
+                self.effects.push(Effect::ShowRecovery);
+            }
+            RecoveryOffer::Ask => {
+                self.recovery_home = Some(home.to_path_buf());
+                let mut confirm = ConfirmModal::new(
+                    "Recovery phrase",
+                    vec![
+                        "The database is encrypted. The password is not the master key.".into(),
+                        "Create the 24-word recovery phrase now, so you can write it down?".into(),
+                        "Not now opens the recovery steps. You can run --identity-init later.".into(),
+                    ],
+                    "Create the phrase",
+                    ConfirmAction::CreatePhrase,
+                );
+                confirm.buttons[1] = "Not now".into();
+                self.modal = Some(Modal::Confirm(confirm));
+            }
+        }
+    }
     /// Help scrolled to `topic`, or the general Help.
     pub fn open_help(&mut self, topic: Option<&str>) {
         self.close_menu();
-        let h = match topic { Some(t) if !t.is_empty() => crate::tui::modals::HelpModal::topic(t), _ => crate::tui::modals::HelpModal::new() };
+        let h = match topic {
+            Some(t) if !t.is_empty() => crate::tui::modals::HelpModal::topic_in(&self.brand, t),
+            _ => crate::tui::modals::HelpModal::from_brand(&self.brand),
+        };
         self.modal = Some(Modal::Help(h));
     }
     /// Write `[ui] color` when the TUI has a real preferences file (not a unit test).
@@ -2285,7 +2309,7 @@ impl App {
             Action::AddFileToResearch => {
                 let f = self.menu.menu.text(CommandId::Research, "file");
                 if f.trim().is_empty() { self.error("Add local file", "type the file's path in Research › Local file first (~ works)"); }
-                else { self.open_research_add(vec![(format!("Local file {f}"), ResearchSource::File(f))]); }
+                else { self.open_research_add(vec![(format!("Local file {}", crate::research::display_path(&f)), ResearchSource::File(f))]); }
             }
             Action::AddUrlToResearch => {
                 let u = self.menu.menu.text(CommandId::Research, "url");
@@ -2685,6 +2709,15 @@ impl App {
                     Err(e) => self.error("Repost", &e.message),
                 },
                 ConfirmAction::SendOutbox(id) => self.send_outbox(&id),
+                ConfirmAction::CreatePhrase => self.effects.push(Effect::CreatePhrase),
+            },
+            (Modal::Confirm(c), ModalResult::ClosedCancelled) => {
+                if matches!(c.action, ConfirmAction::CreatePhrase) {
+                    if let Some(home) = self.recovery_home.clone() {
+                        let _ = crate::crypto::recovery::clear_next(&home);
+                    }
+                    self.open_help(Some("recovery"));
+                }
             },
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
@@ -2987,7 +3020,8 @@ pub fn web_links(text: &str) -> Vec<String> {
 pub fn research_post(it: &ResearchItem) -> Post {
     let mut body = String::new();
     if !it.note.trim().is_empty() { body.push_str(&format!("> {}\n\n", it.note.trim())); }
-    body.push_str(&it.r#ref);
+    let shown = crate::research::display_path(&it.r#ref);
+    body.push_str(&shown);
     if let Some(s) = it.meta["size"].as_u64() { body.push_str(&format!(" · {s} bytes")); }
     if let Some(m) = it.meta["mime_type"].as_str().or(it.meta["content_type"].as_str()) { body.push_str(&format!(" · {m}")); }
     if !it.content.trim().is_empty() {
@@ -2997,7 +3031,7 @@ pub fn research_post(it: &ResearchItem) -> Post {
         if it.content.chars().count() > 6000 { body.push_str("\n\n…"); }
     }
     let nick = match it.kind { ItemKind::WebUrl => "web", ItemKind::LocalFile => "file", _ => "missing post" };
-    let content = if it.kind.is_post() { format!("{} is not in the database any more.\n\n{body}", it.r#ref) } else { body };
+    let content = if it.kind.is_post() { format!("{shown} is not in the database any more.\n\n{body}") } else { body };
     Post { post_id: format!("research:{}", it.id), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(),
         title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false, body_json: String::new(), score: None }
 }
