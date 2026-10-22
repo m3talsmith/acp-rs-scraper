@@ -68,14 +68,36 @@ pub struct Lv {
     pub rendered: Value,
     /// How often to send a Phoenix heartbeat while waiting on this socket.
     pub heartbeat: std::time::Duration,
+    /// Per-reply limit. `None` waits until the socket dies.
+    ///
+    /// Explore sets this so one unanswered join cannot sit there while
+    /// heartbeats keep the socket looking alive. A long crawl is many
+    /// replies, each with this limit, not one limit for the whole crawl.
+    pub reply_timeout: Option<std::time::Duration>,
     /// Ref of a heartbeat that has not been answered. The next heartbeat
     /// while this is set means the socket went quiet and is dead.
     pub hb_pending: Option<String>,
 }
 
+/// How long Explore waits for one LiveView reply. Other views wait until the socket dies.
+pub const EXPLORE_REPLY_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(12);
+
+/// `Some` when `url` is Explore (`/rs/explore`, its Latest tab, or `?q=`).
+pub fn explore_reply_timeout(url: &str) -> Option<std::time::Duration> {
+    let path = url.split('?').next().unwrap_or(url);
+    let path = path.split("://").nth(1).and_then(|r| r.find('/').map(|i| &r[i..])).unwrap_or(path);
+    path.starts_with("/rs/explore").then_some(EXPLORE_REPLY_TIMEOUT)
+}
+
 impl Lv {
     /// Open the LiveView websocket with the session cookies and join the page's root view.
     pub async fn connect(p: &LvPage, jar: &Jar) -> Result<Self> {
+        Self::connect_bounded(p, jar, None).await
+    }
+
+    /// [`connect`](Self::connect), and each reply on this socket (including the join)
+    /// waits at most `reply_timeout`. `None` waits until the socket dies.
+    pub async fn connect_bounded(p: &LvPage, jar: &Jar, reply_timeout: Option<std::time::Duration>) -> Result<Self> {
         let u = ws_url(&urlenc(&p.csrf));
         let mut req = u.into_client_request()?;
         let h = req.headers_mut();
@@ -85,7 +107,7 @@ impl Lv {
             h.insert("Cookie", c);
         }
         let (ws, _) = tokio_tungstenite::connect_async(req).await?;
-        let mut lv = Lv { ws, topic: format!("lv:{}", p.id), r: 0, rendered: json!({}), heartbeat: LV_HEARTBEAT, hb_pending: None };
+        let mut lv = Lv { ws, topic: format!("lv:{}", p.id), r: 0, rendered: json!({}), heartbeat: LV_HEARTBEAT, reply_timeout, hb_pending: None };
         let reply = lv
             .push("phx_join", json!({
                 "url": p.url,
@@ -192,15 +214,19 @@ impl Lv {
         let _ = self.wait_reply(&want, Some(std::time::Duration::from_secs(2))).await;
     }
 
-    /// Wait until `phx_reply` for `want`. `timeout` bounds an upload chunk. A page push passes `None`.
+    /// Wait until `phx_reply` for `want`.
+    ///
+    /// `timeout` bounds one call (an upload chunk). When it is `None`,
+    /// [`Lv::reply_timeout`] applies. A page push with neither set waits until the socket dies.
     async fn wait_reply(&mut self, want: &str, timeout: Option<std::time::Duration>) -> Result<Value> {
         let started = tokio::time::Instant::now();
+        let limit = timeout.or(self.reply_timeout);
         let mut beat = tokio::time::interval(self.heartbeat);
         beat.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         beat.tick().await;
         loop {
             let timeout_sleep = async {
-                match timeout {
+                match limit {
                     Some(limit) => tokio::time::sleep(limit.saturating_sub(started.elapsed())).await,
                     None => std::future::pending::<()>().await,
                 }
@@ -212,7 +238,10 @@ impl Lv {
                     msg = ws.next() => Some(msg),
                     _ = beat.tick() => None,
                     _ = timeout_sleep => {
-                        bail!("upload timed out waiting for a reply");
+                        if timeout.is_some() {
+                            bail!("upload timed out waiting for a reply");
+                        }
+                        bail!("timed out waiting for a reply");
                     }
                 }
             };
@@ -436,4 +465,18 @@ pub fn decode_binary_push(bytes: &[u8]) -> Option<BinaryPush<'_>> {
 pub fn reply_body(v: &Value) -> &Value {
     let r = &v["response"];
     if let Some(x) = r.pointer("/diff/r") { x } else if let Some(x) = r.get("r") { x } else { r }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_explore_urls_get_a_reply_limit() {
+        assert_eq!(explore_reply_timeout("http://127.0.0.1:9/rs/explore"), Some(EXPLORE_REPLY_TIMEOUT));
+        assert_eq!(explore_reply_timeout("http://127.0.0.1:9/rs/explore/latest"), Some(EXPLORE_REPLY_TIMEOUT));
+        assert_eq!(explore_reply_timeout("http://127.0.0.1:9/rs/explore?q=notes"), Some(EXPLORE_REPLY_TIMEOUT));
+        assert_eq!(explore_reply_timeout("http://127.0.0.1:9/rs/@alice"), None);
+        assert_eq!(explore_reply_timeout("http://127.0.0.1:9/rs/top"), None);
+    }
 }

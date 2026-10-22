@@ -10,6 +10,84 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Service traits and the package gate.** `crates/acp_rs_plugin` holds the capability traits and the archive check. Red Star still runs from this binary through an in-tree adapter. The outbox and a local post stay ready. `--doctor` prints the rustc pin and this crate's version. `plugins::reload` scans `~/.acp/plugins` with that same check. It is not called on startup and it is not bound to a key. A failed plugin archive moves to `~/.acp/quarantined/plugins/`. A rustc or plugin-crate mismatch is refused and is not quarantined. A package that passes stays off until it is enabled. There is no version bump: commands behave as they did.
 
+## [3.35.14] - 2026-10-22
+
+### Fixed
+
+- **Recovery question.** A pending recovery phrase asks inside the terminal UI. Not now is the default and opens the recovery topic. Create leaves the screen, runs the phrase setup, and comes back. The headless prompt is unchanged. `?` still opens the key list.
+
+## [3.35.13] - 2026-10-22
+
+### Fixed
+
+- **Basket export name.** Exporting the basket again leaves an existing `exports/*.html` in place and writes `{stem}-{date-time}.html`. A later collision uses `-2`, then `-3`. Other exports still replace the file they were given.
+
+## [3.35.12] - 2026-10-22
+
+### Fixed
+
+- **Research file path.** Adding a file shows `~/…` or a path relative to the working directory. The path that is stored, and the path `--file` uses, stay the real path.
+
+## [3.35.11] - 2026-10-22
+
+### Fixed
+
+- **HTML export Markdown.** Post bodies and research notes render as HTML. A heading, a fenced block, and a table are elements. Raw HTML in the text is escaped.
+
+## [3.35.10] - 2026-10-22
+
+### Fixed
+
+- **Help layout.** Searching Help for layout finds the layout topic: Nested, Stack, Stack + content pane, Carousel, and Grid. `?` on those View choices opens it.
+
+## [3.35.9] - 2026-10-22
+
+### Fixed
+
+- **Help opens on the keys.** `?` starts on the key list. The recovery phrase is the `recovery` topic. A pending recovery still opens that topic. `--help` still prints the guide.
+
+## [3.35.8] - 2026-10-22
+
+### Fixed
+
+- **Neutral brand wording.** A brand that is not ACP drives the Help intro, the Brands topic, `--help`, About, and Bookmarks. Sync with acp.us and the ACP platform tab stay on the ACP brand. `--list-brands` prints the slogan only on an ACP row. Theme-preview samples follow the brand: May Day, Workers of the world, Strike fund, and Solidarity stay on ACP; any other brand uses the ordinary notes.
+
+## [3.35.7] - 2026-10-22
+
+### Fixed
+
+- **Thread sort offline.** `s` in an open thread reorders the replies already stored on this machine. It does not start a job, and it does not open the login window. A refresh from the site is still `--sort-thread`.
+
+## [3.35.6] - 2026-10-22
+
+### Fixed
+
+- **Help search.** Letters typed in Help go into the search, including j and k. ↑ and ↓ scroll. Searching for basket shows basket.
+
+## [3.35.5] - 2026-10-22
+
+### Fixed
+
+- **Theme preview brand.** The theme editor's preview uses the brand that is on screen, and the sample nicks @sample and @reader. A neutral brand no longer shows the ACP Red Star header, logo, or motto in that preview.
+
+## [3.35.4] - 2026-10-22
+
+### Fixed
+
+- **Theme preview samples.** The theme editor's sample posts are @sample and @reader, with ordinary preview text. Headings, code, a table, a quote, and a footnote are still there so the preview can show them.
+
+## [3.35.3] - 2026-10-22
+
+### Fixed
+
+- **Nick bar collapse.** ‹ collapses the nick bar, and so does a click on the cells beside it or on the bar's right edge. A nick row is still a nick. j, k, and Tab are unchanged.
+
+## [3.35.2] - 2026-10-22
+
+### Fixed
+
+- **Explore timeout.** Explore waits 12 seconds for one LiveView reply, not for the whole crawl. It prints `Explore: requesting` and then `Explore: still waiting`. A timeout stores nothing. A silent join no longer stays open just because heartbeats are answered.
+
 ## [3.35.0] - 2026-10-22
 
 ### Added

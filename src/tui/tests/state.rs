@@ -6,6 +6,29 @@ use crate::tui::modals::*;
 use crate::tui::state::*;
 
 #[test]
+fn a_pending_recovery_is_asked_in_the_ui_and_not_now_opens_the_guide() {
+    let home = std::env::temp_dir().join(format!("acp-tui-recovery-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&home);
+    std::fs::create_dir_all(home.join(".acp")).unwrap();
+    std::fs::write(home.join(".acp/recovery-next"), b"pending\n").unwrap();
+    let mut a = app();
+    a.offer_recovery(crate::crypto::cmd::RecoveryOffer::Ask, &home);
+    let Some(Modal::Confirm(c)) = &a.modal else { panic!("{:?}", a.modal) };
+    assert_eq!(c.focus, 1);
+    assert_eq!(c.buttons, ["Create the phrase", "Not now"]);
+    assert!(c.lines.iter().any(|l| l.contains("not the master key")));
+    a.close_modal(ModalResult::ClosedCancelled);
+    assert!(!home.join(".acp/recovery-next").is_file());
+    let Some(Modal::Help(h)) = &a.modal else { panic!("recovery topic") };
+    assert_eq!(h.lines[h.scroll], "[[recovery]]");
+    a.modal = None;
+    a.offer_recovery(crate::crypto::cmd::RecoveryOffer::Ask, &home);
+    a.close_modal(ModalResult::ClosedSubmitted);
+    assert!(matches!(a.effects.last(), Some(Effect::CreatePhrase)));
+    let _ = std::fs::remove_dir_all(&home);
+}
+
+#[test]
 fn nick_bar_counts_and_select_loads_newest_first() {
     let mut a = app();
     assert_eq!(a.nicks.iter().map(|n| (n.nick.as_str(), n.post_count)).collect::<Vec<_>>(), [("alice", 3), ("bob", 2)]);
@@ -367,6 +390,22 @@ fn args_nicks_preselect() {
     assert_eq!(a.selected, ["bob"]);
     assert_eq!(a.session, SessionState::Saved);
     assert_eq!(a.view().posts.len(), 2);
+}
+
+#[test]
+fn thread_sort_uses_stored_replies_and_does_not_open_login() {
+    let mut a = app();
+    assert_eq!(a.session, SessionState::LoggedOut);
+    a.select_only(nick_idx(&a, "alice"));
+    let i = a.view().posts.iter().position(|p| p.post_id == "ALICE0001").unwrap();
+    a.open_post(i);
+    a.cycle_thread_sort();
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert_eq!(a.session, SessionState::LoggedOut);
+    assert!(a.status.back().unwrap().contains("stored"));
+    let replies: Vec<_> = a.top().unwrap().links.iter().filter(|l| l.kind == crate::tui::state::LinkKind::Reply).map(|l| l.id.clone()).collect();
+    assert_eq!(replies, ["BOB000002"]);
 }
 
 #[test]

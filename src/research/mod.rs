@@ -227,6 +227,31 @@ pub fn mime_for(p: &Path) -> &'static str {
     }
 }
 
+/// A path as shown on screen.
+///
+/// A path under the home directory is `~/…`. A path under the working
+/// directory is relative. A value that already starts with `~/` stays as typed.
+/// The stored path is not changed.
+pub fn display_path(path: &str) -> String {
+    let raw = path.trim();
+    if raw == "~" || raw.starts_with("~/") { return raw.to_string(); }
+    let p = Path::new(raw);
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = Path::new(&home);
+        if let Ok(rest) = p.strip_prefix(home) {
+            let rest = rest.display().to_string();
+            return if rest.is_empty() { "~".into() } else { format!("~/{rest}") };
+        }
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        if let Ok(rest) = p.strip_prefix(&cwd) {
+            let rest = rest.display().to_string();
+            if !rest.is_empty() { return rest; }
+        }
+    }
+    raw.to_string()
+}
+
 /// Text files small enough to keep their content searchable in the export.
 const TEXT_MAX: u64 = 2 * 1024 * 1024;
 
