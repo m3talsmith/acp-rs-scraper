@@ -119,6 +119,8 @@ pub struct BodyView {
     pub kind: crate::tui::order::ListKind,
     /// Keep `source`'s order instead of sorting by time. Site lists do this.
     pub site_order: bool,
+    /// The saved feed this view shows.
+    pub feed: Option<String>,
 }
 
 /// Which animation runs.
@@ -301,6 +303,10 @@ pub enum Hit {
     Eb,
     /// The "Explore" row of the nick bar.
     Explore,
+    /// The "Feeds" heading on the nick bar. Opens the editor.
+    Feeds,
+    /// One saved feed on the nick bar.
+    Feed(usize),
     /// The nick filter field.
     NickFilter,
     /// The nick filter's `x` (clear).
@@ -567,6 +573,8 @@ pub struct App {
     pub nicks_open: bool,
     /// The action bar is open. Collapsed, it is one column.
     pub actions_open: bool,
+    /// Saved feeds for the nick bar. Refreshed with the nick list.
+    pub feed_bar: Vec<crate::feeds::FeedSummary>,
     /// Hover tooltip for the control under the pointer.
     pub tip: Option<crate::tui::tooltip::Tip>,
     /// Where that control was drawn.
@@ -618,7 +626,7 @@ impl App {
             notices: crate::notify::NoticeBoard::new(), notice_page: None,
             branches: Vec::new(), branch_at: 0, action_at: 0, action_scroll: 0, action_cursor: 0, action_page: 1,
             restoring: false, record_ready: false, nicks_open: true, actions_open: false,
-            tip: None, tip_at: Rect::default(),
+            feed_bar: Vec::new(), tip: None, tip_at: Rect::default(),
         };
         app.load_notices();
         app.refresh_nicks();
@@ -790,6 +798,7 @@ impl App {
         self.nicks = self.arrange_shown_nicks();
         self.nick_cursor = cur.and_then(|c| self.nicks.iter().position(|n| n.nick == c))
             .unwrap_or(self.nick_cursor).min(self.nicks.len().saturating_sub(1));
+        self.feed_bar = self.store.feed_rows().unwrap_or_default();
     }
     /// Re-apply the filter after it changed: the cursor stays on its nick when still shown, else the first match.
     pub fn apply_nick_filter(&mut self) {
@@ -890,6 +899,74 @@ impl App {
         self.place_search(BodyView { title: "★ Bookmarks".into(), posts, bookmarks: true, kind: crate::tui::order::ListKind::Bookmarks, ..BodyView::default() });
         if !self.restoring { self.focus = Focus::Body; }
         self.note_view("Bookmarks");
+    }
+    /// Saved feeds for the editor and the nick bar.
+    pub fn feed_rows(&self) -> Vec<crate::feeds::FeedSummary> {
+        self.feed_bar.clone()
+    }
+    /// Open a saved feed from the local database.
+    pub fn open_feed(&mut self, name: &str) {
+        match self.store.feed_posts(name) {
+            Ok(Some(posts)) => {
+                let n = posts.len();
+                let summary = self.feed_rows().into_iter().find(|f| f.name.eq_ignore_ascii_case(name)).map(|f| f.summary).unwrap_or_default();
+                let title = if summary.is_empty() { format!("Feed: {name} ({n})") } else { format!("Feed: {name} · {summary}") };
+                self.place_search(BodyView { title: title.clone(), posts, feed: Some(name.to_string()), kind: crate::tui::order::ListKind::Site, site_order: true, ..BodyView::default() });
+                if !self.restoring { self.focus = Focus::Body; }
+                self.note_view(title);
+            }
+            Ok(None) => self.push_status(format!("no feed {name}")),
+            Err(e) => self.push_status(format!("error: reading feed {name}: {e:#}")),
+        }
+    }
+    fn open_feed_editor(&mut self) {
+        self.close_menu();
+        let rows = self.feed_rows();
+        let cur = self.menu.menu.text(CommandId::Feeds, "name");
+        let cur = if cur.trim().is_empty() { None } else { Some(cur) };
+        self.modal = Some(Modal::Feed(crate::tui::modals::FeedModal::edit(rows, cur.as_deref())));
+    }
+    fn open_add_to_feed(&mut self) {
+        self.close_menu();
+        let source = self.feed_source();
+        let rows = self.feed_rows();
+        self.modal = Some(Modal::Feed(crate::tui::modals::FeedModal::add(rows, source)));
+    }
+    /// A nick from the open post or the selection, else the current search.
+    fn feed_source(&self) -> Option<crate::tui::modals::FeedSource> {
+        if let Some(p) = self.current_post() {
+            return Some(crate::tui::modals::FeedSource { label: format!("nick {}", p.nick), kind: "nick".into(), value: p.nick.clone() });
+        }
+        if let Some(n) = self.selected.first() {
+            return Some(crate::tui::modals::FeedSource { label: format!("nick {n}"), kind: "nick".into(), value: n.clone() });
+        }
+        let q = self.search.as_ref().and_then(|v| v.filter.as_ref()).map(|f| f.keyword.trim().to_string()).unwrap_or_default();
+        if !q.is_empty() {
+            return Some(crate::tui::modals::FeedSource { label: format!("search {q}"), kind: "search".into(), value: q });
+        }
+        None
+    }
+    fn feed_submitted(&mut self, m: crate::tui::modals::FeedModal) {
+        use crate::tui::modals::FeedSubmit;
+        let name = m.name.value.trim().to_string();
+        self.menu.menu.set_text(CommandId::Feeds, "name", &name);
+        self.menu.menu.set_text(CommandId::Feeds, "description", m.description.value.trim());
+        self.menu.menu.set_text(CommandId::Feeds, "since", m.since.value.trim());
+        self.menu.menu.set_choice(CommandId::Feeds, "match_mode", m.match_mode());
+        self.menu.menu.set_choice(CommandId::Feeds, "sort", m.sort_mode());
+        self.menu.menu.set_check(CommandId::Feeds, "exclude", m.exclude);
+        let exists = m.feeds.iter().any(|f| f.name.eq_ignore_ascii_case(&name));
+        let result = match m.submit {
+            Some(FeedSubmit::Show) => { self.open_feed(&name); return; }
+            Some(FeedSubmit::Save) => self.menu.menu.feed_save_argv(exists),
+            Some(FeedSubmit::AddRule) => self.menu.menu.feed_add_argv(&name, m.kind_mode(), m.value.value.trim(), m.exclude),
+            Some(FeedSubmit::AddTo) => self.menu.menu.feed_add_argv(&name, m.kind_mode(), m.value.value.trim(), false),
+            None => return,
+        };
+        match result {
+            Ok(argv) => self.effects.push(Effect::RunSideJob(JobKind::Feed, argv)),
+            Err(e) => self.error("Feed", &e),
+        }
     }
     /// Show a saved site read, in the site's order. Returns whether it was stored.
     pub fn show_site_feed(&mut self, key: &str) -> bool {
@@ -1346,7 +1423,12 @@ impl App {
         // Re-read only once every write landed, so quick toggles don't flicker back.
         if pending == 0 {
             self.reload_marks();
+            self.feed_bar = self.store.feed_rows().unwrap_or_default();
+            if let Some(name) = self.search.as_ref().and_then(|v| v.feed.clone()) { self.open_feed(&name); }
             if let Some(name) = self.search.as_ref().and_then(|v| v.research.clone()) { self.open_research_keep(&name); }
+        }
+        if let Some(line) = tail.iter().rev().find(|l| l.contains("acpfeed1:")) {
+            self.push_status(crate::tui::modals::job::redact_line(line));
         }
     }
     /// Run `argv` (a network job) after making sure we're logged in.
@@ -2035,6 +2117,7 @@ impl App {
             Some(Modal::Search(s)) => SearchModal::text_index(s.focus).is_some(),
             Some(Modal::Compose(c)) => matches!(c.focus, ComposeFocus::Title | ComposeFocus::Body | ComposeFocus::Attach | ComposeFocus::Complete),
             Some(Modal::Research(r)) => matches!(r.focus, RField::Name | RField::Desc | RField::Note),
+            Some(Modal::Feed(f)) => matches!(f.focus, crate::tui::modals::FeedFocus::Name | crate::tui::modals::FeedFocus::Description | crate::tui::modals::FeedFocus::Since | crate::tui::modals::FeedFocus::Value),
             Some(Modal::Rules(r)) => r.text_focused(),
             Some(Modal::Confirm(c)) if c.strict => true,
             Some(Modal::Help(_)) => true,
@@ -2253,6 +2336,59 @@ impl App {
                     Err(e) => self.error("Search history", &format!("{e:#}")),
                 }
             }
+            Action::OpenFeedEditor => self.open_feed_editor(),
+            Action::ShowFeed => {
+                let name = self.menu.menu.text(CommandId::Feeds, "name");
+                self.close_menu();
+                if name.trim().is_empty() { self.push_status("type a feed name in Feeds › Name"); }
+                else { self.open_feed(name.trim()); }
+            }
+            Action::AddFeedRule => match self.menu.menu.feed_rule_argv() {
+                Ok(argv) => { self.close_menu(); self.effects.push(Effect::RunSideJob(JobKind::Feed, argv)); }
+                Err(e) => self.error("Add rule", &e),
+            },
+            Action::AddToFeed => self.open_add_to_feed(),
+            Action::ExportFeed => match self.menu.menu.feed_export_argv() {
+                Ok(argv) => { self.close_menu(); self.start_job(JobKind::Export, argv); }
+                Err(e) => self.error("Cannot export", &e),
+            },
+            Action::ShareFeed => match self.menu.menu.feed_share_argv() {
+                Ok(argv) => { self.close_menu(); self.effects.push(Effect::RunSideJob(JobKind::Feed, argv)); }
+                Err(e) => self.error("Cannot share", &e),
+            },
+            Action::ImportFeed => match self.menu.menu.feed_import_argv() {
+                Ok(argv) => { self.close_menu(); self.effects.push(Effect::RunSideJob(JobKind::Feed, argv)); }
+                Err(e) => self.error("Cannot import", &e),
+            },
+            Action::DeleteFeed => match self.menu.menu.feed_delete_argv() {
+                Ok(argv) => {
+                    let name = self.menu.menu.text(CommandId::Feeds, "name");
+                    self.close_menu();
+                    self.modal = Some(Modal::Confirm(ConfirmModal::new(
+                        "Delete feed",
+                        vec![format!("Delete feed {name}?"), "The posts stay. The rules and the seen rows go.".into()],
+                        "Delete",
+                        ConfirmAction::Feed { online: false, argv },
+                    )));
+                }
+                Err(e) => self.error("Cannot delete", &e),
+            },
+            Action::RefreshFeed => match self.menu.menu.feed_refresh_argv() {
+                Ok(argv) => {
+                    let name = self.menu.menu.text(CommandId::Feeds, "name");
+                    self.close_menu();
+                    self.modal = Some(Modal::Confirm(ConfirmModal::new(
+                        "Refresh feed",
+                        vec![
+                            format!("Refresh {name} from the site?"),
+                            "Included nicks, tags, and searches are read. Excludes are not. Cancel is the default.".into(),
+                        ],
+                        "Refresh",
+                        ConfirmAction::Feed { online: true, argv },
+                    )));
+                }
+                Err(e) => self.error("Cannot refresh", &e),
+            },
             Action::ToggleNicks => self.nicks_open = !self.nicks_open,
             Action::ToggleActions => self.toggle_actions(),
             Action::ExportResearch => match self.research_name().ok_or_else(|| "pick a research project first (Research › Projects…)".to_string())
@@ -2547,6 +2683,10 @@ impl App {
                     Ok(text) => self.push_status(text),
                     Err(e) => self.error("Repost", &e.message),
                 },
+                ConfirmAction::Feed { online, argv } => {
+                    if online { self.start_online_job(JobKind::Feed, argv); }
+                    else { self.effects.push(Effect::RunSideJob(JobKind::Feed, argv)); }
+                }
             },
             (Modal::Post(m), ModalResult::ClosedSubmitted) => match m.action() {
                 PostAction::Reposts => self.open_reposts(&m.post_id),
@@ -2584,6 +2724,7 @@ impl App {
                     }
                 }
                 PostAction::Edit => self.edit_post(&m.post_id),
+                PostAction::AddFeed => self.open_add_to_feed(),
                 PostAction::Repost => {
                     if !self.writes_are_on() {
                         self.show_writes_off();
@@ -2658,6 +2799,7 @@ impl App {
             }
             (_, ModalResult::Help(topic)) => self.open_help(Some(topic)),
             (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),
+            (Modal::Feed(m), ModalResult::ClosedSubmitted) => self.feed_submitted(m),
             (Modal::ThemePicker(p), r) => self.theme_picked(*p, r),
             (Modal::Palette(p), ModalResult::ClosedSubmitted) => match p.chosen() {
                 Some(PaletteCmd::Action(Action::ThemeStarter)) => self.theme_starter(p.argument()),
@@ -2690,6 +2832,7 @@ impl App {
             ("Bookmark current post (b)".into(), PaletteCmd::Action(Action::ToggleBookmark)),
             ("Add current post to the export basket (x)".into(), PaletteCmd::Action(Action::ToggleBasket)),
             ("Add to a research project (r)".into(), PaletteCmd::Action(Action::AddToResearch)),
+            ("Add to a feed (f)".into(), PaletteCmd::Action(Action::AddToFeed)),
         ];
         for (i, c) in self.menu.menu.items.iter().enumerate() {
             if c.opts.is_empty() { v.push((c.label.to_string(), PaletteCmd::OpenMenu(i))); continue; }

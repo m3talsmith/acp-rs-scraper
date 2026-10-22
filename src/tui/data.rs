@@ -145,6 +145,10 @@ pub trait Store {
     fn delete_notice(&mut self, _id: i64) -> Result<()> { Ok(()) }
     /// Delete every saved notification.
     fn clear_notices(&mut self) -> Result<()> { Ok(()) }
+    /// Saved feeds, in name order. Empty when this store has none.
+    fn feed_rows(&self) -> Result<Vec<crate::feeds::FeedSummary>> { Ok(Vec::new()) }
+    /// Posts the feed named `name` matches, in the feed's order. `None` means there is no such feed.
+    fn feed_posts(&self, _name: &str) -> Result<Option<Vec<Post>>> { Ok(None) }
 }
 
 /// A saved row for `f`.
@@ -363,6 +367,28 @@ impl Store for SqliteStore {
         if !self.path.exists() { return Ok(()); }
         let c = crate::storage::db::open_db(&self.path)?;
         crate::storage::notices::clear(&c)
+    }
+    fn feed_rows(&self) -> Result<Vec<crate::feeds::FeedSummary>> {
+        let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        if !table_exists(&c, "feeds")? { return Ok(Vec::new()); }
+        crate::feeds::summaries(&c, chrono::Utc::now())
+    }
+    fn feed_posts(&self, name: &str) -> Result<Option<Vec<Post>>> {
+        let ids = {
+            let Some(c) = self.conn()? else { return Ok(None) };
+            if !table_exists(&c, "feeds")? { return Ok(None); }
+            match crate::feeds::load(&c, name, chrono::Utc::now()) {
+                Ok((_, ids)) => ids,
+                Err(e) if format!("{e:#}").contains("no feed") => return Ok(None),
+                Err(e) => return Err(e),
+            }
+        };
+        let mut posts = Vec::new();
+        for id in &ids {
+            if let Some(p) = self.post(id)? { posts.push(p); }
+        }
+        let _ = crate::feeds::mark_seen_path(&self.path, name);
+        Ok(Some(posts))
     }
 }
 

@@ -18,6 +18,8 @@ pub enum PostAction {
     Edit,
     /// Prepare a repost. The form is not built, and nothing is sent.
     Repost,
+    /// Add this post's author to a feed. Nothing is sent to the site.
+    AddFeed,
 }
 
 impl PostAction {
@@ -30,6 +32,7 @@ impl PostAction {
             PostAction::Delete => "Delete",
             PostAction::Edit => "Edit",
             PostAction::Repost => "Repost",
+            PostAction::AddFeed => "Add to feed",
         }
     }
 }
@@ -50,7 +53,7 @@ pub struct PostMenu {
 impl PostMenu {
     /// Menu for `post_id` in thread `thread_id`.
     pub fn new(post_id: &str, thread_id: &str) -> Self {
-        PostMenu { post_id: post_id.into(), thread_id: thread_id.into(), items: vec![PostAction::Reposts, PostAction::Edits, PostAction::Subscribe, PostAction::Delete, PostAction::Edit, PostAction::Repost], cursor: 0 }
+        PostMenu { post_id: post_id.into(), thread_id: thread_id.into(), items: vec![PostAction::Reposts, PostAction::Edits, PostAction::Subscribe, PostAction::Delete, PostAction::Edit, PostAction::Repost, PostAction::AddFeed], cursor: 0 }
     }
     /// The selected action.
     pub fn action(&self) -> PostAction { self.items[self.cursor.min(self.items.len().saturating_sub(1))] }

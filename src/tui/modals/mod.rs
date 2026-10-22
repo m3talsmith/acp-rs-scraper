@@ -5,6 +5,7 @@ pub mod about;
 pub mod branches;
 pub mod compose;
 pub mod confirm;
+pub mod feeds;
 pub mod help;
 pub mod history;
 pub mod job;
@@ -23,6 +24,7 @@ pub use about::*;
 pub use branches::*;
 pub use compose::*;
 pub use confirm::*;
+pub use feeds::*;
 pub use help::*;
 pub use history::*;
 pub use job::JobModal;
@@ -102,6 +104,8 @@ pub enum Modal {
     History(HistoryModal),
     /// Action-history paths. Choosing one restores that path.
     Branches(BranchesModal),
+    /// Feed editor, or add the current nick, tag, or search to a feed.
+    Feed(FeedModal),
 }
 
 impl Modal {
@@ -117,6 +121,7 @@ impl Modal {
             Modal::Rules(m) => m,
             Modal::History(m) => m,
             Modal::Branches(m) => m,
+            Modal::Feed(m) => m,
         }
     }
 }

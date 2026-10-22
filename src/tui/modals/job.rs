@@ -121,6 +121,7 @@ pub fn job_label(kind: JobKind) -> &'static str {
         JobKind::Sync => "Sync",
         JobKind::Research => "Research",
         JobKind::Read => "Read",
+        JobKind::Feed => "Feed",
     }
 }
 
@@ -142,6 +143,9 @@ pub fn job_source(kind: JobKind, cmd: &str) -> String {
     if has("--export") { return "Export".into(); }
     if has("--import") { return "Import".into(); }
     if has("--remove-nick") || has("--clear-all") { return "Maintain".into(); }
+    if has("--feed-refresh") || has("--feed-export") || has("--feed-share") || has("--feed-import") || has("--feed-delete") || has("--feed-add") || has("--feed-create") {
+        return "Feeds".into();
+    }
     job_label(kind).into()
 }
 

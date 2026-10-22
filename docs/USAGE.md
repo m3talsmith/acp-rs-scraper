@@ -103,9 +103,10 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; Colour; ◂ Previous post / Next post ▸ (TUI only) |
   | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; Whole site is `acprs --sync --scrape-all` (incremental, then rules); on a timer when Auto sync is ticked; Rules… (`--rules-list`) |
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
+  | Feeds | `--feed-list`, `--feed-create` / `--feed-edit`, `--feed-add` with `--feed-nick` / `--feed-tag` / `--feed-search`, `--feed-show`, `--feed-export`, `--feed-share --share-string`, `--feed-import`, `--feed-refresh`, `--feed-delete`. Library › Feeds. `f` adds the current nick or search. Cancel is the default |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
-  The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, then Help, About, and Quit, with Scrape immediately left of Start Scanning. Library opens Export, Import, Basket, List, and Maintain. Bookmarks is its own menu: Show, Bookmark current, and Sync with acp.us. Account is Log in and Log out. Search keeps local and site search. Search › History re-runs a past query, Clear history deletes those rows and the action branches, and History kept is blank by default, which keeps every search. A number there is an optional cap. Sync keeps the local copy up to date (site sync, auto-sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is its own minor and is not part of 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
+  The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, then Help, About, and Quit, with Scrape immediately left of Start Scanning. Library opens Export, Import, Basket, List, Maintain, and Feeds. Bookmarks is its own menu: Show, Bookmark current, and Sync with acp.us. Account is Log in and Log out. Search keeps local and site search. Search › History re-runs a past query, Clear history deletes those rows and the action branches, and History kept is blank by default, which keeps every search. A number there is an optional cap. Sync keeps the local copy up to date (site sync, auto-sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is its own minor and is not part of 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
 
   Hover a button, menu item, or icon (the star, the basket, the research ◈, and the rest) and a short explanation appears, including its key when it has one, as in `Bookmark (b)`. The next line is `? {topic}` and opens the Help topic for that action. Bookmark, the basket, and research do not open the same page. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.3.
 
@@ -537,6 +538,34 @@ with `state` `"1"` or `"0"`, which is what the current page sends.
 | `--research-show NAME` | List a project's items (`--format json` for the export's `research` section). |
 | `--research-export NAME` | With `--export FILE`: the project's posts (with attachments) plus a `research` section in JSON / HTML; `--compress --tar-gz` bundles the files and snapshots. |
 
+### Feeds (local rules; refresh reads the site)
+
+A feed is rules over the local database, not a copy of the posts. Opening one does not fetch the site. The nick bar lists feeds. Library › Feeds opens the editor. `f` adds the open post's nick, the selected nick, or the current search. The add box starts on Cancel. Share writes the rules only. Import rebuilds the view from this database. Export writes the matching posts. Refresh asks `Refresh this feed from the site? [y/N]`. Delete asks `Delete this feed? [y/N]`. The posts stay. `--dry-run` prints the refresh plan and does not connect. `--feed-list` does not create a database.
+
+The nick, tag, and search on a feed are `--feed-nick`, `--feed-tag`, and `--feed-search`. `--nick`, `--tag`, and `--search` stay the scrape, reading, and local-search flags.
+
+| Flag | What it does |
+|---|---|
+| `--feed-list` | List saved feeds (name, rules, unread). Does not create a database. |
+| `--feed-create NAME` | Create a feed, or update its description and filters when the name exists. Rules stay. `--feed-description` sets the sentence. |
+| `--feed-edit NAME` | Set the description and filters of an existing feed. Rules stay. |
+| `--feed-add NAME` | Add a rule. The feed is created when it is missing. Pass `--feed-nick`, `--feed-tag`, or `--feed-search`. Repeat the nick or tag for more than one. `--feed-exclude` makes it an exclude. |
+| `--feed-remove-rule NAME` | Remove the nick, tag, or search named with `--feed-nick`, `--feed-tag`, or `--feed-search`. |
+| `--feed-show NAME` | Print the matching posts and mark them seen. |
+| `--feed-match any\|all` | How includes combine. Excludes always subtract. |
+| `--feed-sort newest\|oldest\|score` | Order of `--feed-show` and export. |
+| `--feed-since` / `--feed-until` | An ISO date, or a number of days like `30d`. |
+| `--feed-kinds posts,replies` | Keep posts, replies, or both. |
+| `--feed-min-score N` | Drop a lower score. A post with no score is dropped too. |
+| `--feed-has-media` | Keep posts that have a stored attachment. |
+| `--feed-refresh NAME` | Read the included nicks, tags, and searches. Excludes are not fetched. Asks first. `--yes` skips the prompt. `--dry-run` prints the plan and does not connect. |
+| `--feed-export NAME` | Export the matching posts. `--format json,html` and `--output`. This is the posts, not the rules. |
+| `--feed-share NAME` | Write the rules as TOML. `--output` is the file. `--share-string` prints `acpfeed1:…`. |
+| `--feed-import FILE` | A `.acpfeed` file, `-` for stdin, or an `acpfeed1:` string. `--feed-name` stores it under another name. `--feed-replace` replaces a feed that already has that name. |
+| `--feed-delete NAME` | Delete the feed, its rules, and its seen rows. Asks first. `--yes` skips the prompt. The posts stay. |
+
+A shared file has no bookmarks, notes, paths, cookies, seen rows, or last refresh. A personal key is refused. Unknown keys are dropped with a warning.
+
 ### Sync
 
 | Flag | What it does |
@@ -804,6 +833,31 @@ CREATE TABLE research_items (
   added_at TEXT NOT NULL,
   UNIQUE (project_id, kind, ref)
 );
+
+CREATE TABLE feeds (               -- 3.35.0; named local views. definition is canonical JSON
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  description TEXT NOT NULL DEFAULT '',
+  definition TEXT NOT NULL,
+  source TEXT NOT NULL DEFAULT 'local' CHECK (source IN ('local','imported','peer')),
+  origin_hash TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  last_refreshed_at TEXT
+);
+CREATE TABLE feed_rules (
+  feed_id INTEGER NOT NULL,
+  kind TEXT NOT NULL CHECK (kind IN ('nick','search','tag')),
+  value TEXT NOT NULL,
+  mode TEXT NOT NULL CHECK (mode IN ('include','exclude')),
+  grp INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE feed_seen (
+  feed_id INTEGER NOT NULL,
+  post_id TEXT NOT NULL,
+  seen_at TEXT NOT NULL,
+  PRIMARY KEY (feed_id, post_id)
+);
 ```
 
 ## Export format (version 2)
@@ -913,7 +967,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post, Reply, and local attachments), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post, Reply, and local attachments), `feeds` (local views, 3.35.0–3.38.0), `service` (Red Star capability ids), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;

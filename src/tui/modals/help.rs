@@ -276,6 +276,15 @@ fn area_topics() -> Vec<String> {
         "  The branches are stored in the encrypted database with search history. Clear history deletes them.",
         "  Search › History kept is blank by default, which keeps every search. A number keeps that many.",
     ]);
+    push_topic(&mut v, "feeds", "Feeds", &[
+        "  A feed is rules over the local database. Opening it does not fetch the site.",
+        "  Feeds on the nick bar lists them. A name opens that feed. Library › Feeds opens the menu.",
+        "  f adds the open post's nick, the selected nick, or the current search.",
+        "  The editor sets the name, the description, any or all, the sort, and one rule.",
+        "  Share writes the rules only. Import rebuilds the feed from this database.",
+        "  Export writes the matching posts. Refresh asks first. Cancel is the default.",
+        "  A shared file has no bookmarks, notes, paths, or seen rows.",
+    ]);
     push_topic(&mut v, "bookmark", "Bookmarks", &[
         "  Bookmark (b) marks the open or highlighted post. B shows the bookmark list.",
         "  Sync with acp.us is Bookmarks › Sync with acp.us.",

@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.33.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.38.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,7 +23,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.33.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.38.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+
+**3.35.0–3.38.0** add feeds. A feed is rules over the local database. **3.35.0** lists, creates, and shows them. Refresh asks before it reads the included nicks, tags, and searches. `--dry-run` does not connect. **3.36.0** is the editor and `f` to add the current nick or search. The add box starts on Cancel. **3.37.0** exports the matching posts. **3.38.0** shares the rules as TOML or `acpfeed1:…` and imports them. A shared file has no bookmarks, notes, paths, or seen rows.
 
 **3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.32.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
@@ -360,6 +362,89 @@ Research:
       --research-export <NAME>
           Offline: export research project NAME (its posts, files, pages and notes) to --export FILE (--format json,html; --compress --tar-gz bundles the files)
 
+Feeds:
+      --feed-list
+          List saved feeds (name, rules, unread). Does not create a database
+
+      --feed-create <NAME>
+          Create a feed, or update its description and filters when the name already exists. Rules stay
+
+      --feed-edit <NAME>
+          Set the description and the filters of an existing feed. Rules stay
+
+      --feed-description <TEXT>
+          Description for --feed-create or --feed-edit
+
+      --feed-add <NAME>
+          Add a rule to NAME. The feed is created when it is missing. Pass --feed-nick, --feed-tag, or --feed-search
+
+      --feed-nick <NICK>
+          With --feed-add or --feed-remove-rule: a nick. Repeat for more than one
+
+      --feed-tag <TAG>
+          With --feed-add or --feed-remove-rule: a tag, without `#`. Repeat for more than one
+
+      --feed-search <TEXT>
+          With --feed-add or --feed-remove-rule: the search text
+
+      --feed-exclude
+          With --feed-add: the rule excludes instead of includes
+
+      --feed-remove-rule <NAME>
+          Remove rules of the nick, tag, or search named with --feed-nick, --feed-tag, or --feed-search
+
+      --feed-show <NAME>
+          Print the posts this feed matches in the local database, and mark them seen
+
+      --feed-match <any|all>
+          How includes combine: any or all
+          
+          [possible values: any, all]
+
+      --feed-sort <ORDER>
+          Sort: newest, oldest, or score
+          
+          [possible values: newest, oldest, score]
+
+      --feed-since <WHEN>
+          Keep posts at or after this time. An ISO date, or a number of days like 30d
+
+      --feed-until <WHEN>
+          Keep posts at or before this time. An ISO date, or a number of days like 30d
+
+      --feed-kinds <LIST>
+          posts, replies, or both, comma-separated
+
+      --feed-min-score <N>
+          Drop posts below this score. A post with no score is dropped too
+
+      --feed-has-media
+          Keep posts that have a stored attachment
+
+      --feed-refresh <NAME>
+          Read the nicks, tags, and searches this feed includes. Excludes are not fetched. Asks first. --dry-run prints the plan and does not connect
+
+      --feed-export <NAME>
+          Export the posts this feed matches. --format json,html and --output. This is the posts, not the rules
+
+      --feed-share <NAME>
+          Write the rules as TOML. --output is the file. --share-string prints acpfeed1:…. The file has no bookmarks, notes, or seen rows
+
+      --share-string
+          With --feed-share: print acpfeed1: and the deflated rules
+
+      --feed-import <FILE>
+          Import rules from a .acpfeed file, - for stdin, or an acpfeed1: string. The posts come from this database
+
+      --feed-name <NAME>
+          With --feed-import: store the feed under this name
+
+      --feed-replace
+          With --feed-import: replace a feed that already has this name
+
+      --feed-delete <NAME>
+          Delete a feed, its rules, and its seen rows. Asks first. The posts stay
+
 Rules:
       --rules-list
           Offline: list rules (system and user), lower priority first. `--rules-format json` prints JSON
@@ -589,7 +674,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.33.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.38.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |

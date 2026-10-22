@@ -177,6 +177,7 @@ fn common_key(app: &mut App, k: KeyEvent) -> bool {
         KeyCode::Char('x') => app.act(Action::ToggleBasket),
         KeyCode::Char('n') => app.open_new_post(),
         KeyCode::Char('r') => app.act(Action::AddToResearch),
+        KeyCode::Char('f') => app.act(Action::AddToFeed),
         KeyCode::Char('v') => app.act(Action::CycleView),
         KeyCode::Char('o') => { if app.focus == Focus::Nicks { app.toggle_nick_order(); } else { app.toggle_list_order(); } }
         KeyCode::Char(',') => app.act(Action::StackPrev),
@@ -476,7 +477,7 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
     }
     if wheel != 0 {
         match hit {
-            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::Eb | Hit::Explore | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
+            Some(Hit::Nick(_) | Hit::NickPane | Hit::Bookmarks | Hit::Eb | Hit::Explore | Hit::Feeds | Hit::Feed(_) | Hit::NickFilter | Hit::NickFilterClear) => { app.nick_offset = (app.nick_offset as i64 + wheel as i64 * 3).clamp(0, app.nicks.len().saturating_sub(1) as i64) as usize; app.move_nick_cursor(wheel * 3); }
             Some(Hit::Action(_) | Hit::ActionPane | Hit::ActionBranches) => app.scroll_actions(wheel * 3),
             Some(Hit::DetailPane | Hit::Link(_) | Hit::StarTop | Hit::BasketTop | Hit::ResearchTop) => app.scroll_detail(wheel * 3),
             Some(Hit::Post(_) | Hit::Star(_) | Hit::Basket(_) | Hit::Research(_) | Hit::ListPane) => { if app.view().stack.is_empty() { app.scroll_posts(wheel) } else { app.move_post_cursor(wheel) } }
@@ -495,6 +496,10 @@ pub fn on_mouse(app: &mut App, m: MouseEvent) {
         Some(Hit::Bookmarks) => app.open_bookmarks(),
         Some(Hit::Eb) => app.open_eb(),
         Some(Hit::Explore) => app.open_explore(),
+        Some(Hit::Feeds) => app.act(Action::OpenFeedEditor),
+        Some(Hit::Feed(i)) => {
+            if let Some(name) = app.feed_bar.get(i).map(|f| f.name.clone()) { app.open_feed(&name); }
+        }
         Some(Hit::NickFilter) => app.focus_nick_filter(),
         Some(Hit::NickFilterClear) => app.clear_nick_filter(),
         Some(Hit::ViewMode) => app.act(Action::CycleView),

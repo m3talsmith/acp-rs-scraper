@@ -557,6 +557,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             }
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], None);
         }
+        Modal::Feed(m) => draw_feed(f, app, area, m, &t),
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");
@@ -573,4 +574,71 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         }
     }
     app.modal = Some(m);
+}
+
+fn draw_feed(f: &mut Frame, app: &mut App, area: Rect, m: &crate::tui::modals::FeedModal, t: &Theme) {
+    use crate::tui::modals::FeedFocus;
+    let list_rows = (m.feeds.len() as u16).clamp(1, 6);
+    let h = list_rows + 12;
+    let r = modal_rect(area, 78, h.min(area.height));
+    let title = match m.mode {
+        crate::tui::modals::FeedMode::Edit => "Feed · Tab moves · Cancel leaves it",
+        crate::tui::modals::FeedMode::Add => "Add to feed · Tab moves · Cancel is the default",
+    };
+    let inner = frame(f, t, r, title);
+    let mut y = inner.y;
+    let row = |y: u16| Rect { y, height: 1, ..inner };
+    let lab = |s: &str, on: bool| Span::styled(format!("{s:>14} "), if on { t.accent_bold() } else { t.plain() });
+    if let Some(src) = &m.source {
+        f.render_widget(Paragraph::new(Span::styled(format!(" add {}", src.label), t.plain())), row(y));
+        y += 1;
+    }
+    f.render_widget(Paragraph::new(Span::styled(format!("Feeds ({})", m.feeds.len()), if m.focus == FeedFocus::List { t.accent_bold() } else { t.bold() })), row(y));
+    app.hits.push((row(y), Hit::Modal(ModalHit::Field(0))));
+    y += 1;
+    if m.feeds.is_empty() {
+        f.render_widget(Paragraph::new(Span::styled("  none yet", t.muted())), row(y));
+        y += 1;
+    }
+    for (i, feed) in m.feeds.iter().take(list_rows as usize).enumerate() {
+        let rr = row(y);
+        let sel = i == m.sel;
+        let st = if sel && m.focus == FeedFocus::List { t.selected() } else if sel { t.accent_bold() } else { t.plain() };
+        f.render_widget(Paragraph::new(Span::styled(format!(" {} {} ({})", if sel { ">" } else { " " }, feed.name, feed.matches), st)), rr);
+        app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+        y += 1;
+    }
+    let line = |label: &str, focus: FeedFocus, text: &TextField| field_line(label, text, m.focus == focus, t);
+    f.render_widget(Paragraph::new(line("Name", FeedFocus::Name, &m.name)), row(y));
+    app.hits.push((row(y), Hit::Modal(ModalHit::Field(1))));
+    y += 1;
+    if m.mode == crate::tui::modals::FeedMode::Edit {
+        f.render_widget(Paragraph::new(line("Description", FeedFocus::Description, &m.description)), row(y));
+        app.hits.push((row(y), Hit::Modal(ModalHit::Field(2))));
+        y += 1;
+        f.render_widget(Paragraph::new(Line::from(vec![lab("Match", m.focus == FeedFocus::Match), Span::raw(format!("< {} >", m.match_mode()))])), row(y));
+        y += 1;
+        f.render_widget(Paragraph::new(Line::from(vec![lab("Sort", m.focus == FeedFocus::Sort), Span::raw(format!("< {} >", m.sort_mode()))])), row(y));
+        y += 1;
+        f.render_widget(Paragraph::new(line("Since", FeedFocus::Since, &m.since)), row(y));
+        y += 1;
+    }
+    f.render_widget(Paragraph::new(Line::from(vec![lab("Rule", m.focus == FeedFocus::Kind), Span::raw(format!("< {} >", m.kind_mode()))])), row(y));
+    y += 1;
+    f.render_widget(Paragraph::new(line("Value", FeedFocus::Value, &m.value)), row(y));
+    y += 1;
+    if m.mode == crate::tui::modals::FeedMode::Edit {
+        let mark = if m.exclude { "[x]" } else { "[ ]" };
+        f.render_widget(Paragraph::new(Line::from(vec![lab("Exclude", m.focus == FeedFocus::Exclude), Span::raw(mark)])), row(y));
+        y += 1;
+    }
+    if let Some(e) = &m.error {
+        f.render_widget(Paragraph::new(Span::styled(e.clone(), t.accent())), row(y));
+    }
+    let labels: Vec<String> = m.buttons().into_iter().map(str::to_string).collect();
+    let focus = match m.focus { FeedFocus::Button(b) => Some(b), _ => None };
+    buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &labels, focus);
+    if let Some(e) = &m.error {
+        let _ = e;
+    }
 }

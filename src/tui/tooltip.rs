@@ -44,6 +44,8 @@ pub fn tip_for(app: &App, hit: Hit) -> Option<Tip> {
         Hit::Bookmarks => Some(tip("Show bookmarks (B)", "bookmark")),
         Hit::Eb => Some(tip("Executive Board", "view")),
         Hit::Explore => Some(tip("Explore", "view")),
+        Hit::Feeds => Some(tip("Feeds", "feeds")),
+        Hit::Feed(_) => Some(tip("Open this feed", "feeds")),
         Hit::NickFilter => Some(tip("Filter nicks (/)", "browse")),
         Hit::NickFilterClear => Some(tip("Clear the nick filter (Esc)", "browse")),
         Hit::Star(_) | Hit::StarTop => Some(tip("Bookmark (b)", "bookmark")),

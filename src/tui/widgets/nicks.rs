@@ -55,6 +55,27 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
         app.hits.push((br, Hit::Explore));
         inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
     }
+    // Feeds under Explore. The heading opens the editor. Each name opens that feed.
+    if inner.height > 1 {
+        let br = Rect { height: 1, ..inner };
+        let on = app.search.as_ref().is_some_and(|v| v.feed.is_some());
+        let st = if on { t.selected() } else { t.accent_bold() };
+        f.render_widget(Paragraph::new(Line::from(vec![Span::styled(format!(" Feeds ({})", app.feed_bar.len()), st)])), br);
+        app.hits.push((br, Hit::Feeds));
+        inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
+    }
+    let shown = app.feed_bar.len().min(6);
+    for i in 0..shown {
+        if inner.height <= 1 { break; }
+        let br = Rect { height: 1, ..inner };
+        let row = &app.feed_bar[i];
+        let on = app.search.as_ref().and_then(|v| v.feed.as_deref()).is_some_and(|n| n.eq_ignore_ascii_case(&row.name));
+        let st = if on { t.selected() } else { t.plain() };
+        let label = format!("  {} ({})", row.name, row.unread);
+        f.render_widget(Paragraph::new(Span::styled(label, st)), br);
+        app.hits.push((br, Hit::Feed(i)));
+        inner = Rect { y: inner.y + 1, height: inner.height - 1, ..inner };
+    }
     // Filter field: "/ text▏  3/390 x".
     if inner.height > 1 && !app.all_nicks.is_empty() {
         let fr = Rect { height: 1, ..inner };

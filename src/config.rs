@@ -376,6 +376,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("Compose · Attach", "Type a path. Tab completes a real segment. Enter adds the file. Backspace on an empty line removes the last file. Images, videos, and PDFs upload on Publish"),
     ("Compose · site files", "More than 4 images, videos, or PDFs: check which go to Red Star. Audio and other files stay local. Space toggles. Enter confirms. ? site-attachments"),
     ("r", "On an open post: reply (a comment pre-fills the reference). Otherwise add to a research project"),
+    ("f", "Add the open post's nick, the selected nick, or the current search to a feed. Cancel is the default"),
     ("Q", "On an open post: reply with that post quoted"),
     ("x", "Add the open or highlighted post to the export basket, or take it out (or click its + / ✓); Export › Export basket writes it"),
     (", .  /  Alt-← Alt-→", "Previous / next post of the detail stack (◂ prev / next ▸ on the nav bar)"),

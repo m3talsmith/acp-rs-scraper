@@ -1,3 +1,9 @@
+acp-red-star (3.38.0) unstable; urgency=medium
+
+  * Package 3.38.0. Feeds are 3.35.0 through 3.38.0: local views, the editor, export of matching posts, and share/import of the rules. 3.34.0 is the outbox on its own branch.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Wed, 21 Oct 2026 23:50:00 +0000
+
 acp-red-star (3.33.0) unstable; urgency=medium
 
   * Package 3.33.0. A reply edit sends validate, then save, once. Top-level post edits, votes, subscribes, deletes, and reposts stay gated. The site does not support changing attachments on an edit.

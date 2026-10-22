@@ -65,6 +65,8 @@ Update 2026-10-21 (interaction audit): **3.37.0** follows 3.36.0. Vote, subscrib
 
 Update 2026-10-21 (reply edit): crate **3.33.0** sends a reply-body edit. Validate, then save, once. The open is the captured redirect join to `/rs/post/{id}/edit`. The only field is `form[body_input]`. A top-level post edit, vote, subscribe, delete, and repost stay prepared, gated. The site does not support changing attachments on an edit; that is not prepared, gated. This follows crate 3.32.0 and does not renumber earlier releases.
 
+Update 2026-10-21 (feeds): crate **3.35.0** is feeds core and the local view, **3.36.0** is the editor and add-to-feed, **3.37.0** exports the matching posts, and **3.38.0** shares and imports the rules (`*.acpfeed`, `acpfeed1:`). These follow crate 3.33.0 on this branch. Crate 3.34.0 is the outbox on its own branch and is not in this tree. The plan stages 3.17.0–3.20.0 are not these crate versions. Refresh uses the existing nick, tag, and search reads and asks first. `--dry-run` does not connect. Nothing in this stage is gated. This does not renumber earlier releases.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -307,7 +309,7 @@ Crate versions after 3.5.0 are the sequence in [CHANGELOG.md](../CHANGELOG.md), 
 | P4: Live | plan 3.10.0–3.11.0, not shipped | Live updates; Notifications pane. Those digits are plan stages. Crate 3.10.0 is the site-copy cap. |
 | P5: Account | plan 3.12.0–3.15.0, not shipped | Edit profile, Site settings, Report post, Report user. Those digits are plan stages. |
 | P6: Outbox | plan 3.16.0, not shipped | Offline drafts and queue, plus **local-first posts, drafts and `post_versions`** (§7.14.8). Crate 3.16.0 is the restyled `red-star` theme. |
-| P7: Feeds | plan 3.17.0–3.20.0, not shipped | Feeds core + view; editor + add-to-feed modal; export; share/import (§6). Those digits are plan stages. |
+| P7: Feeds | **3.35.0–3.38.0** | Feeds core + view (3.35.0); editor + add-to-feed (3.36.0); export (3.37.0); share/import (3.38.0) (§6). The plan stages were 3.17.0–3.20.0. |
 | P8: Spaces (optional) | plan 3.21.0, not shipped | List of spaces / live badge / recordings link. Crate 3.21.0 is hover tooltips. |
 | Password change / re-key | **not shipped** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. The plan stage was called 3.22.0. Crate 3.22.0 is Help. |
 | P9: Decentralization | plan 3.23.0–3.27.0, not shipped | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. The re-key stays before this phase and has not shipped. It stays inside 3.x (§7.14.10). Crate 3.23.0 is About. |
@@ -515,11 +517,11 @@ These are end-of-3.0 work. They wait until the launch docs exist. They are not a
 
 ---
 
-## 6. Feeds (client-side; phase P7, 3.17.0 → 3.20.0)
+## 6. Feeds (client-side; phase P7, crate 3.35.0 → 3.38.0)
 
 Feeds are named, saved, local views built from rules over the local DB. They can refresh from the
 site through targeted syncs, export with the existing formats, and be shared as a portable definition. No
-personal data goes into a shared definition.
+personal data goes into a shared definition. The plan stages were 3.17.0–3.20.0. Those digits are not these crate versions. Crate 3.34.0 is the outbox on its own branch.
 
 ### 6.1 Rules model
 - **Sources:**
@@ -626,18 +628,22 @@ values = ["memes"]
 - **Tombstoned posts (interactions, previously numbered 3.5.0–3.9.0 and not shifted, and feeds 3.17.0–3.20.0).** A post with a tombstone stays in the feed and in the post list. The row shows a tombstone icon, the glyph 🪦, or the ASCII fallback `[RIP]` when the terminal cannot render that glyph. The body stays viewable. Opening it shows the retained content with the same icon and a "deleted" mark. Nothing in these stages drops the body (§7.5).
 
 ### 6.7 CLI
+
+Shipped flags use `--feed-nick`, `--feed-tag`, and `--feed-search` so they do not take `--nick`, `--tag`, and `--search` away from scrape and reading.
+
 | Flag | What it does |
 |---|---|
-| `--feed-list` | List feeds |
-| `--feed-create NAME [--feed-description D]` | Create a feed |
-| `--feed-add NAME --nick N \| --tag T \| --search Q [--exclude]` | Add a rule (repeatable) |
-| `--feed-remove-rule NAME --nick/--tag/--search` | Remove a rule |
-| `--feed-show NAME` | Print the matching posts |
-| `--feed-refresh NAME` | Targeted site sync |
-| `--feed-export NAME --format json,html [--tar-gz] [-o]` | Export the feed's **contents** (existing exporters) |
-| `--feed-share NAME [-o x.acpfeed] [--share-string]` | Export the **definition** |
-| `--feed-import FILE\|STRING [--name N] [--replace]` | Import a definition |
-| `--feed-delete NAME [--yes]` | Delete a feed |
+| `--feed-list` | List feeds. Does not create a database |
+| `--feed-create NAME [--feed-description D]` | Create a feed, or update description and filters when the name exists |
+| `--feed-edit NAME` | Set description and filters. Rules stay |
+| `--feed-add NAME --feed-nick N \| --feed-tag T \| --feed-search Q [--feed-exclude]` | Add a rule. The feed is created when it is missing |
+| `--feed-remove-rule NAME --feed-nick/--feed-tag/--feed-search` | Remove a rule |
+| `--feed-show NAME` | Print the matching posts and mark them seen |
+| `--feed-refresh NAME [--yes] [--dry-run]` | Targeted site sync. Asks first. A dry run does not connect |
+| `--feed-export NAME --format json,html [--output]` | Export the feed's **contents** (existing exporters) |
+| `--feed-share NAME [--output x.acpfeed] [--share-string]` | Export the **definition** |
+| `--feed-import FILE\|STRING [--feed-name N] [--feed-replace]` | Import a definition |
+| `--feed-delete NAME [--yes]` | Delete a feed. Asks first. The posts stay |
 
 ### 6.8 Tests
 - Unit tests:
@@ -648,7 +654,7 @@ values = ["memes"]
   - Create a feed → view it → export JSON/HTML.
   - Share → import into a second throwaway HOME → same results from that DB.
   - Refresh triggers mocked tag, profile and search fetches (fake LV server).
-- Version phase: P7, from **3.17.0** (core + view) to 3.18.0 (editor + add-to-feed), 3.19.0 (export) and 3.20.0 (share/import).
+- Version phase: P7, crate **3.35.0** (core + view), **3.36.0** (editor + add-to-feed), **3.37.0** (export) and **3.38.0** (share/import). The plan stages were 3.17.0–3.20.0.
 
 ---
 

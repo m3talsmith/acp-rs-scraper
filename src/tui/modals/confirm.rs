@@ -28,6 +28,13 @@ pub enum ConfirmAction {
     },
     /// Repost. The form is not built. The send stays gated.
     Repost(String),
+    /// A feed command. `online` checks the session first. Refresh does. Delete does not.
+    Feed {
+        /// Log in before the child runs.
+        online: bool,
+        /// argv including `argv[0]`.
+        argv: Vec<String>,
+    },
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.
