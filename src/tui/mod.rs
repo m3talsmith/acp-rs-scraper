@@ -246,7 +246,7 @@ async fn event_loop(app: &mut App, log_tx: std::sync::mpsc::Sender<String>, log_
     let mut term = Terminal(ratatui::Terminal::new(ratatui::backend::CrosstermBackend::new(std::io::stdout()))?);
 
     // Input thread → channel.
-    let (mut ev_tx, mut ev_rx) = tokio::sync::mpsc::unbounded_channel();
+    let (ev_tx, mut ev_rx) = tokio::sync::mpsc::unbounded_channel();
     let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let pause_input = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let stop2 = stop.clone();
