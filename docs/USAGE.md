@@ -230,6 +230,23 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
   (`OSC 11`), else dark. `--theme NAME` overrides for one run; `--list-themes`
   lists them.
+- **Brands.** The logo, the title, and the motto are a brand. The theme is a different choice:
+  any brand works with any theme. The built-in `default` brand is ACP Red Star (the red-star logo,
+  the word ACP, the title, and "The future belongs to the working class"). The built-in `plain`
+  brand is the title Red Star, a star, and no motto. `acp-red-star --brand plain` uses it for this
+  run and does not write the preference. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps
+  it. `--list-brands` lists built-ins and files. A user brand is `~/.acp/brands/<name>.toml`
+  (names: lowercase letters, digits, `-` and `_`, at most 32 characters). A file overrides a
+  built-in of the same name. `version = 1` is required. `title` is the header, the window title,
+  About, `--help`, `--version`, and the HTML export header. `motto` is the status bar and the
+  About border; an empty motto is hidden. `word` is the big letters beside the logo; empty draws
+  none. `logo` is `builtin` (the red star), `text` (`logo_text`, one line per row), or `file`
+  (`logo_file`, a path inside `~/.acp/brands`). An absolute path, `..`, or a symlink that leaves
+  that folder is refused. A broken file is reported and never overwritten. The header switch
+  `«name» ▾` opens the picker (moving the highlight previews it; Esc puts the old brand back).
+  Edit brands… and the command palette's Brand: edit… open the editor. Ctrl-S saves, Ctrl-R
+  reverts, Ctrl-N saves as new, Ctrl-D duplicates, Ctrl-X deletes, Ctrl-C closes. Credits and the
+  other surprises keep their own text.
 - **Colour.** `--color auto|always|never`. `auto` (the default) follows `NO_COLOR`: a non-empty value
   turns colours off and leaves bold, dim, and underline. `always` forces colours on, which is what a
   recording needs when the shell exported `NO_COLOR=1`. `never` turns colours off. `[ui] color` in
@@ -412,6 +429,8 @@ These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`
 | `--theme-init [NAME\|all]` | Download a theme (default `default`) or all the repo's themes into `~/.acp/themes` and exit; existing files are kept. |
 | `--theme-starter NAME` | Write the minimal starter theme as `~/.acp/themes/NAME.toml` (no download) and exit; fails if the file exists. |
 | `--list-themes` | List the theme files (`●` marks the one in use, broken ones say why) and exit. |
+| `--brand NAME` | Use this brand for this run (a built-in, or `~/.acp/brands/NAME.toml`). Not saved. `plain` is a neutral title and a star with no motto. Fails if the name is unknown or the file is broken. |
+| `--list-brands` | List built-in brands and the files in `~/.acp/brands` (`●` marks the one in use, broken ones say why) and exit. |
 
 ### Mode
 
@@ -834,7 +853,7 @@ CREATE TABLE research_items (
   UNIQUE (project_id, kind, ref)
 );
 
-CREATE TABLE feeds (               -- 3.45.0; named local views. definition is canonical JSON
+CREATE TABLE feeds (               -- 3.46.0; named local views. definition is canonical JSON
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
   description TEXT NOT NULL DEFAULT '',
@@ -976,7 +995,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post, Reply, and local attachments), `feeds` (local views, 3.45.0–3.48.0), `outbox` (drafts and the send queue, 3.34.0), `service` (Red Star capability ids), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post, Reply, and local attachments), `feeds` (local views, 3.46.0–3.49.0), `outbox` (drafts and the send queue, 3.34.0), `service` (Red Star capability ids), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;

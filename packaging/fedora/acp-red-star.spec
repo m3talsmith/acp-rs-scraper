@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.48.0
+Version:        3.49.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,8 +56,11 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
-* Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.48.0-1
-- Package 3.48.0. Feeds are 3.45.0 through 3.48.0: local views, the editor, export, and share/import. Outbox 3.34.0 stays on main.
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.49.0-1
+- Package 3.49.0. Feeds are 3.46.0 through 3.49.0: local views, the editor, export, and share/import. Outbox 3.34.0 stays on main.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.0-1
+- Package 3.35.0. The logo, title, and motto are a brand. --brand plain is a neutral title and a star, with no motto.
 
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.34.0-1
 - Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish.

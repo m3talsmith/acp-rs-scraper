@@ -67,7 +67,7 @@ Update 2026-10-21 (outbox): crate **3.34.0** is P6. Drafts, keep-local posts, `p
 
 Update 2026-10-21 (reply edit): crate **3.33.0** sends a reply-body edit. Validate, then save, once. The open is the captured redirect join to `/rs/post/{id}/edit`. The only field is `form[body_input]`. A top-level post edit, vote, subscribe, delete, and repost stay prepared, gated. The site does not support changing attachments on an edit; that is not prepared, gated. This follows crate 3.32.0 and does not renumber earlier releases.
 
-Update 2026-10-21 (feeds): crate **3.45.0** is feeds core and the local view, **3.46.0** is the editor and add-to-feed, **3.47.0** exports the matching posts, and **3.48.0** shares and imports the rules (`*.acpfeed`, `acpfeed1:`). These follow outbox crate 3.34.0. Open pull requests that have not merged use 3.34.1 (recovery), 3.34.2 through 3.40.0 (interactions), 3.41.0 (spaces), 3.42.0–3.43.0 (live), and 3.44.0 (account). The plan stages 3.17.0–3.20.0 are not these crate versions. Refresh uses the existing nick, tag, and search reads and asks first. `--dry-run` does not connect. Nothing in this stage is gated. This does not renumber earlier releases.
+Update 2026-10-21 (feeds): crate **3.46.0** is feeds core and the local view, **3.47.0** is the editor and add-to-feed, **3.48.0** exports the matching posts, and **3.49.0** shares and imports the rules (`*.acpfeed`, `acpfeed1:`). Brands crate 3.35.0 is on main. Open pull requests that have not merged use 3.35.1 (recovery), 3.35.2–3.35.4 (demo fixes), 3.35.5 through 3.41.0 (interactions), 3.42.0 (spaces), 3.43.0–3.44.0 (live), and 3.45.0 (account). The plan stages 3.17.0–3.20.0 are not these crate versions. Refresh uses the existing nick, tag, and search reads and asks first. `--dry-run` does not connect. Nothing in this stage is gated. This does not renumber earlier releases.
 
 Update 2026-10-21 (modal input): focus, modes, and a remappable keymap ship before the 3.0 launch, early enough that people are not trained on the fixed keys first. The design is [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md). The version number is not assigned here. The write-up in this file is §4.6. Plugin reload is the Ctrl global `plugins.reload`.
 
@@ -313,7 +313,7 @@ Crate versions after 3.5.0 are the sequence in [CHANGELOG.md](../CHANGELOG.md), 
 | P4: Live | plan 3.10.0–3.11.0, not shipped | Live updates; Notifications pane. Those digits are plan stages. Crate 3.10.0 is the site-copy cap. |
 | P5: Account | plan 3.12.0–3.15.0, not shipped | Edit profile, Site settings, Report post, Report user. Those digits are plan stages. |
 | P6: Outbox | **3.34.0** | Offline drafts and the send queue, plus local-first posts and `post_versions` (§7.14.8). A queued text post or reply sends with the same confirm rules. The plan stage was called 3.16.0. Crate 3.16.0 is the restyled `red-star` theme. Per-draft keys and review links stay with the review stage. |
-| P7: Feeds | **3.45.0–3.48.0** | Feeds core + view (3.45.0); editor + add-to-feed (3.46.0); export (3.47.0); share/import (3.48.0) (§6). The plan stages were 3.17.0–3.20.0. |
+| P7: Feeds | **3.46.0–3.49.0** | Feeds core + view (3.46.0); editor + add-to-feed (3.47.0); export (3.48.0); share/import (3.49.0) (§6). The plan stages were 3.17.0–3.20.0. |
 | P8: Spaces (optional) | plan 3.21.0, not shipped | List of spaces / live badge / recordings link. Crate 3.21.0 is hover tooltips. |
 | Password change / re-key | **not shipped** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. The plan stage was called 3.22.0. Crate 3.22.0 is Help. |
 | P9: Decentralization | plan 3.23.0–3.27.0, not shipped | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. The re-key stays before this phase and has not shipped. It stays inside 3.x (§7.14.10). Crate 3.23.0 is About. |
@@ -528,7 +528,7 @@ Focus is one pane, widget, or object. Tab, Shift-Tab, and a click move it. The f
 
 ---
 
-## 6. Feeds (client-side; phase P7, crate 3.45.0 → 3.48.0)
+## 6. Feeds (client-side; phase P7, crate 3.46.0 → 3.49.0)
 
 Feeds are named, saved, local views built from rules over the local DB. They can refresh from the
 site through targeted syncs, export with the existing formats, and be shared as a portable definition. No
@@ -665,7 +665,7 @@ Shipped flags use `--feed-nick`, `--feed-tag`, and `--feed-search` so they do no
   - Create a feed → view it → export JSON/HTML.
   - Share → import into a second throwaway HOME → same results from that DB.
   - Refresh triggers mocked tag, profile and search fetches (fake LV server).
-- Version phase: P7, crate **3.45.0** (core + view), **3.46.0** (editor + add-to-feed), **3.47.0** (export) and **3.48.0** (share/import). The plan stages were 3.17.0–3.20.0.
+- Version phase: P7, crate **3.46.0** (core + view), **3.47.0** (editor + add-to-feed), **3.48.0** (export) and **3.49.0** (share/import). The plan stages were 3.17.0–3.20.0.
 
 ---
 

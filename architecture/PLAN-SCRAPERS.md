@@ -1,6 +1,8 @@
 # Plan: modular services for ACP Red Star
 
 Status: **design, revised with Michael's 2026-10-21 answers.** A second pass the same day settled captions, comments, live chat, combined views, global actions, notifications, plugins, and the one confirm for a mixed write. Plugin packages carry a `sha256` on each binary and library, checked before `dlopen`, and a failed package is quarantined. Authors read the rustc and core-version pin from `--doctor`. An in-app reload runs that same gate (§2.1). Nothing in this plan is still open (§15). Nothing in this file is implemented.
+
+**2026-10-22 override.** Where the ACP Red Star service lives, and the approved history scrub, are in [PLAN-SERVICE-SPLIT.md](./PLAN-SERVICE-SPLIT.md). For Red Star only, that doc supersedes the built-in link in §2.1, "missing `redstar.toml` means on" in §2.5, and a Red Star crate inside this repo. The trait shapes in §2.2–§2.4 still apply. The trait crate is `crates/acp_rs_plugin`, not `acp_red_star_node_core`. X and YouTube are unchanged. The 2026-10-21 body below is kept as written.
 Target path in the repo: `architecture/PLAN-SCRAPERS.md`.
 Base: `main` at `b1a8222c` (crate `3.5.0`, pull request #45 merged). Version numbers in this plan are relative labels until the versioning cleanup settles the crate version.
 Companion docs: [PLAN-3.0-CLIENT.md](./PLAN-3.0-CLIENT.md) (§6 Feeds, §7.5 records, §7.14.13 rules and alerts, §7.14.14 post source) and [PLAN-4.0.md](./PLAN-4.0.md) (the research corpus).
