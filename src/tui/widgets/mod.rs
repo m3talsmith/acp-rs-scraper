@@ -147,7 +147,7 @@ pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let t = app.theme;
     let bar = t.bar();
     f.render_widget(Paragraph::new("").style(&bar), r);
-    // The big "ACP" is 3 rows: in the 4-row header it gets the spare row above it,
+    // The brand word is 3 rows: in the 4-row header it gets the spare row above it,
     // and the title / session line sits on its middle row.
     let big_top = r.y + r.height.saturating_sub(3).div_ceil(2);
     let mid = Rect { x: r.x, y: (big_top + 1).min(r.y + r.height.saturating_sub(1)), width: r.width, height: 1.min(r.height) };
@@ -160,17 +160,31 @@ pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let mut x = logo.x + logo.width + 1;
     let word = app.brand.word.clone();
     if !word.is_empty() {
-        let big_w = (word.chars().count() as u16).saturating_mul(8).max(1);
-        if r.height >= 3 && x + big_w + 2 < r.width {
-            let big = tui_big_text::BigText::builder()
-                .pixel_size(tui_big_text::PixelSize::ThirdHeight)
+        // Leave about 36 columns for the title, the theme switch, and the session.
+        // Third-height letters are 8 columns; sextant letters are 4. A short word
+        // such as ACP still uses third-height. RED STAR uses sextants when the row
+        // is too narrow for third-height.
+        let n = word.chars().count() as u16;
+        let room = r.width.saturating_sub(x).saturating_sub(36);
+        let third = n.saturating_mul(8);
+        let sext = n.saturating_mul(4);
+        let big = if r.height >= 3 && third.saturating_add(2) <= room {
+            Some((tui_big_text::PixelSize::ThirdHeight, third))
+        } else if r.height >= 3 && sext.saturating_add(2) <= room {
+            Some((tui_big_text::PixelSize::Sextant, sext))
+        } else {
+            None
+        };
+        if let Some((pixel, big_w)) = big {
+            let widget = tui_big_text::BigText::builder()
+                .pixel_size(pixel)
                 .style(t.bar().bold(true))
                 .lines(vec![Line::from(word)])
                 .build();
-            f.render_widget(big, Rect { x, y: big_top, width: big_w, height: 3 });
+            f.render_widget(widget, Rect { x, y: big_top, width: big_w, height: 3 });
             x += big_w + 2;
         } else {
-            let small = word.chars().count() as u16 + 1;
+            let small = n + 1;
             f.render_widget(Paragraph::new(Span::styled(word, t.bar().bold(true))), Rect { x, ..mid });
             x += small;
         }
@@ -199,16 +213,23 @@ pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     };
     let right = format!("  {session} ");
     let rest = Rect { x, width: r.width.saturating_sub(x - r.x), ..mid };
-    let used = left.chars().count() + job.chars().count() + switch.chars().count() + right.chars().count();
+    let left_n = left.chars().count();
+    let job_n = job.chars().count();
+    let sw_n = switch.chars().count();
+    let used = left_n + job_n + sw_n + right.chars().count();
     let pad = (rest.width as usize).saturating_sub(used);
-    let sw_x = rest.x + (left.chars().count() + pad + job.chars().count()) as u16;
-    if (used as u16) < rest.width {
-        if !job_body.is_empty() {
-            let job_x = rest.x + (left.chars().count() + pad) as u16;
-            let w = job_body.chars().count() as u16;
-            if w > 0 { app.hits.push((Rect { x: job_x, y: rest.y, width: w, height: 1 }, Hit::Job)); }
-        }
-        app.hits.push((Rect { x: sw_x, y: rest.y, width: switch.chars().count() as u16, height: 1 }, Hit::ThemeSwitch));
+    let job_x = rest.x + (left_n + pad) as u16;
+    let sw_x = rest.x + (left_n + pad + job_n) as u16;
+    // A mark that is fully on the row stays clickable when the session is clipped.
+    let on_row = |at: u16, w: usize| {
+        let w = w as u16;
+        w > 0 && at >= rest.x && at.saturating_add(w) <= rest.x.saturating_add(rest.width)
+    };
+    if !job_body.is_empty() && on_row(job_x, job_body.chars().count()) {
+        app.hits.push((Rect { x: job_x, y: rest.y, width: job_body.chars().count() as u16, height: 1 }, Hit::Job));
+    }
+    if on_row(sw_x, sw_n) {
+        app.hits.push((Rect { x: sw_x, y: rest.y, width: sw_n as u16, height: 1 }, Hit::ThemeSwitch));
     }
     f.render_widget(Paragraph::new(Line::from(vec![
         Span::styled(left, t.bar().bold(true)), Span::styled(" ".repeat(pad), &bar), Span::styled(job, &bar),
@@ -255,6 +276,9 @@ fn draw_brand_logo(f: &mut Frame, app: &mut App, logo: Rect) {
     use crate::brands::LogoKind;
     let t = app.theme;
     match app.brand.logo {
+        LogoKind::Halberd => {
+            crate::tui::images::draw_halberd(f.buffer_mut(), logo, ratatui::style::Style::from(t.bar()));
+        }
         LogoKind::Builtin => {
             let drawn = app.images.as_mut().is_some_and(|im| im.draw_logo(f.buffer_mut(), logo));
             if !drawn { crate::tui::images::draw_logo_text(f.buffer_mut(), logo, t.on_accent, t.accent); }

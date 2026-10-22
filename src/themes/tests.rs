@@ -211,6 +211,8 @@ fn a_brand_table_round_trips_and_builtins_carry_branding() {
     assert_eq!(red.dark.color("accent"), Color::Rgb(0xc8, 0x10, 0x2e));
     assert_eq!(red.dark.color("bg"), Color::Rgb(0x0e, 0x04, 0x04));
     assert_eq!(red.brand.as_ref().unwrap().title, "ACP Red Star");
+    assert_eq!(red.brand.as_ref().unwrap().word, "RED STAR");
+    assert_eq!(red.brand.as_ref().unwrap().logo, "halberd");
     let plain = builtin_plain();
     assert_ne!(plain.dark.color("accent"), red.dark.color("accent"));
     assert_eq!(plain.brand.as_ref().unwrap().title, "Red Star");

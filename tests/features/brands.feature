@@ -90,6 +90,16 @@ Feature: Brands
     And stderr contains "broken.toml"
     And the file "$HOME/.acp/brands/broken.toml" contains "version = [oops"
 
+  Scenario: The Red Star logo is the star-blade halberd
+    When I open the theme editor preview on the brand "default"
+    Then the theme preview contains "halberd"
+    And the theme preview contains "RED STAR"
+    And the theme preview contains "Research starts here."
+    When I open the theme editor preview on the brand "plain"
+    Then the theme preview contains "★"
+    And the theme preview does not contain "RED STAR"
+    And the theme preview does not contain "halberd"
+
   Scenario: The persisted brand is used when --brand is omitted
     Given a local file "$HOME/.acp/preferences.toml" containing "[ui]\nbrand = 'plain'\n"
     When I run "--version"

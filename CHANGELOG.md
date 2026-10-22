@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.38.0] - 2026-10-22
+
+### Changed
+
+- **Red Star mark.** The built-in Red Star header mark is the star-blade halberd: a halberd with a five-point star cut into the axe blade, drawn as sextant blocks in the theme's accent colours. The word beside it is RED STAR. Enter on Logo cycles halberd, text, file, and builtin. The plain brand stays a star with no word.
+
 ## [3.37.0] - 2026-10-22
 
 ### Changed

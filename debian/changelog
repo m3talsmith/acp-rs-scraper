@@ -1,3 +1,9 @@
+acp-red-star (3.38.0) unstable; urgency=medium
+
+  * Package 3.38.0. The Red Star header mark is the star-blade halberd, with the word RED STAR.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 15:30:00 +0000
+
 acp-red-star (3.37.0) unstable; urgency=medium
 
   * Package 3.37.0. The built-in Red Star motto is "Research starts here."

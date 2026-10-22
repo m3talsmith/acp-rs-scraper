@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.37.0
+Version:        3.38.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.38.0-1
+- Package 3.38.0. The Red Star header mark is the star-blade halberd, with the word RED STAR.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.37.0-1
 - Package 3.37.0. The built-in Red Star motto is "Research starts here."
 

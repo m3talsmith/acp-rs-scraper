@@ -226,7 +226,7 @@ pub struct ThemeBrand {
     pub motto: String,
     /// Big letters beside the logo. Empty draws none.
     pub word: String,
-    /// `builtin`, `text`, or `file`.
+    /// `halberd`, `builtin`, `text`, or `file`.
     pub logo: String,
     /// Lines drawn when [`ThemeBrand::logo`] is `text`.
     pub logo_text: String,
@@ -235,13 +235,13 @@ pub struct ThemeBrand {
 }
 
 impl ThemeBrand {
-    /// ACP Red Star: the title, the slogan, the word ACP, and the built-in logo.
+    /// ACP Red Star: the title, the slogan, the word RED STAR, and the star-blade halberd.
     pub fn red_star() -> Self {
         Self {
             title: crate::config::TUI_TITLE.into(),
             motto: crate::branding::SLOGAN.into(),
-            word: "ACP".into(),
-            logo: "builtin".into(),
+            word: "RED STAR".into(),
+            logo: "halberd".into(),
             logo_text: String::new(),
             logo_file: String::new(),
         }
@@ -459,8 +459,8 @@ fn parse_brand(table: &toml::Table, w: &mut Vec<String>) -> Option<ThemeBrand> {
     };
     let mut logo = brand_text(t, "logo", w);
     if logo.is_empty() { logo = "builtin".into(); }
-    if !["builtin", "text", "file"].contains(&logo.as_str()) {
-        w.push(format!("[brand] logo: expected builtin, text, or file, found {logo:?} (using builtin)"));
+    if !["halberd", "builtin", "text", "file"].contains(&logo.as_str()) {
+        w.push(format!("[brand] logo: expected halberd, builtin, text, or file, found {logo:?} (using builtin)"));
         logo = "builtin".into();
     }
     for k in t.keys() {

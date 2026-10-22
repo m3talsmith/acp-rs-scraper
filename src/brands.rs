@@ -19,6 +19,8 @@ use std::sync::Mutex;
 /// How the header logo is drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LogoKind {
+    /// The star-blade halberd, sextant blocks in the header bar's colours.
+    Halberd,
     /// The built-in red-star picture (sextants when the terminal has no graphics).
     Builtin,
     /// [`Brand::logo_text`], one line per row, in the logo's rectangle.
@@ -28,9 +30,10 @@ pub enum LogoKind {
 }
 
 impl LogoKind {
-    /// `builtin`, `text`, or `file`.
+    /// `halberd`, `builtin`, `text`, or `file`.
     pub fn parse(s: &str) -> Option<Self> {
         match s.trim() {
+            "halberd" => Some(Self::Halberd),
             "builtin" => Some(Self::Builtin),
             "text" => Some(Self::Text),
             "file" => Some(Self::File),
@@ -40,9 +43,19 @@ impl LogoKind {
     /// The TOML value.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Halberd => "halberd",
             Self::Builtin => "builtin",
             Self::Text => "text",
             Self::File => "file",
+        }
+    }
+    /// The next logo in the editor: halberd, text, file, builtin.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Halberd => Self::Text,
+            Self::Text => Self::File,
+            Self::File => Self::Builtin,
+            Self::Builtin => Self::Halberd,
         }
     }
 }
@@ -58,7 +71,7 @@ pub struct Brand {
     pub title: String,
     /// Status bar and About. Empty hides it.
     pub motto: String,
-    /// Big letters beside the logo. Empty draws none. The default is `ACP`.
+    /// Big letters beside the logo. Empty draws none. The Red Star default is `RED STAR`.
     pub word: String,
     /// Which logo to draw.
     pub logo: LogoKind,
@@ -139,15 +152,15 @@ pub fn brand_path(dir: &Path, name: &str) -> std::result::Result<PathBuf, String
     Ok(dir.join(format!("{name}.toml")))
 }
 
-/// The built-in ACP Red Star brand. Unchanged from the header this program shipped with.
+/// The built-in ACP Red Star brand: the star-blade halberd and the word `RED STAR`.
 pub fn builtin_default() -> Brand {
     Brand {
         name: DEFAULT_BRAND.into(),
-        description: "ACP Red Star: the red star, the title, and the slogan.".into(),
+        description: "ACP Red Star: the star-blade halberd, the title, and the slogan.".into(),
         title: TUI_TITLE.into(),
         motto: SLOGAN.into(),
-        word: "ACP".into(),
-        logo: LogoKind::Builtin,
+        word: "RED STAR".into(),
+        logo: LogoKind::Halberd,
         logo_text: String::new(),
         logo_file: String::new(),
         logo_path: None,
@@ -362,7 +375,7 @@ pub fn finalize(draft: &Brand, dir: &Path) -> std::result::Result<Brand, String>
         b.description = b.title.clone();
     }
     match b.logo {
-        LogoKind::Builtin => {
+        LogoKind::Halberd | LogoKind::Builtin => {
             b.logo_text.clear();
             b.logo_file.clear();
             b.logo_path = None;
@@ -470,8 +483,8 @@ fn parse(src: &str, stem: &str, dir: &Path) -> std::result::Result<Brand, String
             "motto" => base.motto = v.as_str().ok_or("motto must be a string")?.to_string(),
             "word" => base.word = v.as_str().ok_or("word must be a string")?.to_string(),
             "logo" => {
-                let s = v.as_str().ok_or("logo must be builtin, text, or file")?;
-                base.logo = LogoKind::parse(s).ok_or_else(|| format!("logo {s:?} must be builtin, text, or file"))?;
+                let s = v.as_str().ok_or("logo must be halberd, text, file, or builtin")?;
+                base.logo = LogoKind::parse(s).ok_or_else(|| format!("logo {s:?} must be halberd, text, file, or builtin"))?;
             }
             "logo_text" => base.logo_text = v.as_str().ok_or("logo_text must be a string")?.to_string(),
             "logo_file" => base.logo_file = v.as_str().ok_or("logo_file must be a string")?.to_string(),
@@ -590,8 +603,13 @@ mod tests {
         let b = builtin_default();
         assert_eq!(b.title, "ACP Red Star");
         assert_eq!(b.motto, SLOGAN);
-        assert_eq!(b.word, "ACP");
-        assert_eq!(b.logo, LogoKind::Builtin);
+        assert_eq!(b.word, "RED STAR");
+        assert_eq!(b.logo, LogoKind::Halberd);
+        assert_eq!(b.logo.next(), LogoKind::Text);
+        assert_eq!(LogoKind::Text.next(), LogoKind::File);
+        assert_eq!(LogoKind::File.next(), LogoKind::Builtin);
+        assert_eq!(LogoKind::Builtin.next(), LogoKind::Halberd);
+        assert_eq!(LogoKind::parse("halberd"), Some(LogoKind::Halberd));
     }
 
     #[test]

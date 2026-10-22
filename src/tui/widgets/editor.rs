@@ -123,7 +123,7 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
     let (err, text) = ed.message.clone().unwrap_or_else(|| (false, if ed.editing.is_some() {
         "typing · the preview updates with each key · Enter or Esc stops".into()
     } else { match ed.current() {
-        Row::Brand("logo") => "Enter cycles builtin / text / file · the preview updates at once".into(),
+        Row::Brand("logo") => "Enter cycles halberd / text / file / builtin · the preview updates at once".into(),
         Row::Brand(_) => "Enter edits · the preview updates as you type · Esc stops".into(),
         Row::Palette(n) => PALETTE_KEYS.iter().find(|(k, _)| *k == n).map(|(_, a)| a.to_string()).unwrap_or_else(|| format!("@{n}: your own colour for references")) + " · Enter picks · Del resets · a adds a colour",
         Row::Element(e) => format!("{} · Enter shows its keys · Del clears its overrides · r reverts", e.about()),

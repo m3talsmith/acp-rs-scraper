@@ -11,7 +11,7 @@ pub const CARD_ROWS: u16 = 4;
 /// The base layout's areas.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Areas {
-    /// Top bar ([`TUI_HEADER_ROWS`] tall: logo, big "ACP", title, session).
+    /// Top bar ([`TUI_HEADER_ROWS`] tall: logo, brand word, title, session).
     pub top: Rect,
     /// Menu bar.
     pub menu: Rect,

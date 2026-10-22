@@ -1,4 +1,4 @@
-//! Pictures: the 4-row header (logo + big "ACP"), inline post images, decoding.
+//! Pictures: the 4-row header (halberd + RED STAR), inline post images, decoding.
 
 use super::*;
 use crate::tui::images::*;
@@ -30,7 +30,8 @@ fn header_is_four_rows_with_big_acp_centred_and_room_above() {
     let mut a = app();
     let b = draw(&mut a, 110, 30);
     assert_eq!(TUI_HEADER_ROWS, 4);
-    // The big "ACP" spans rows 1-3 (row 0 is breathing room); title and session sit on row 2.
+    // RED STAR is sextant letters here (third-height needs more than this row).
+    // It spans rows 1-3 (row 0 is breathing room); title and session sit on row 2.
     assert!(row(&b, 0, 10, 34).chars().all(|c| c == ' '), "room above: {:?}", row(&b, 0, 10, 34));
     for y in 1..4 { assert!(row(&b, y, 10, 34).chars().any(|c| c != ' '), "row {y}: {:?}", row(&b, y, 10, 34)); }
     let mid = row(&b, 2, 0, 110);
@@ -46,13 +47,44 @@ fn logo_rows(b: &Buffer) -> Vec<String> { (0..4).map(|y| row(b, y, 1, 9)).collec
 fn logo_is_the_png_silhouette_in_sextants_on_the_red_bar() {
     let t = Theme::acp();
     for mut a in [with_images(fixture()), app()] {
+        a.brand.logo = crate::brands::LogoKind::Builtin;
+        a.brand.word = "ACP".into();
         let b = draw(&mut a, 110, 30);
         let logo = logo_rows(&b);
         println!("{}", logo.join("\n"));
         assert!(logo.iter().all(|l| l.chars().count() == 8), "8x4 cells: {logo:?}");
         assert_eq!((b[(1, 0)].fg, b[(1, 0)].bg), (t.on_accent, t.accent), "white on the bar, no badge");
-        assert_eq!(logo, logo_rows(&draw(&mut with_images(fixture()), 110, 30)), "same with and without picture support");
+        let mut again = with_images(fixture());
+        again.brand.logo = crate::brands::LogoKind::Builtin;
+        again.brand.word = "ACP".into();
+        assert_eq!(logo, logo_rows(&draw(&mut again, 110, 30)), "same with and without picture support");
     }
+}
+
+#[test]
+fn default_header_is_the_halberd_in_the_bar_colours() {
+    let t = Theme::acp();
+    let mut a = app();
+    assert_eq!(a.brand.logo, crate::brands::LogoKind::Halberd);
+    assert_eq!(a.brand.word, "RED STAR");
+    let b = draw(&mut a, 110, 30);
+    let logo = logo_rows(&b);
+    let star = {
+        let mut s = app();
+        s.brand.logo = crate::brands::LogoKind::Builtin;
+        s.brand.word = "ACP".into();
+        logo_rows(&draw(&mut s, 110, 30))
+    };
+    assert_ne!(logo, star, "the halberd is not the old star");
+    let style = ratatui::style::Style::from(t.bar());
+    assert_eq!((b[(1, 0)].fg, b[(1, 0)].bg), (style.fg.unwrap(), style.bg.unwrap()));
+    assert_eq!((b[(4, 1)].fg, b[(4, 1)].bg), (t.on_accent, t.accent));
+    let at = crate::tui::images::halberd_dot;
+    assert!(at(6, 0) && at(7, 0), "tip");
+    assert!(at(1, 5), "fluke");
+    assert!(at(14, 3), "blade edge");
+    assert!(!at(11, 3) && at(10, 3) && at(12, 3), "star top gap");
+    assert!(!at(11, 5) && at(9, 5) && at(13, 5), "star centre");
 }
 
 #[test]
@@ -155,6 +187,8 @@ fn base64_and_sixel_encoders() {
 #[test]
 fn graphics_protocols_place_after_the_frame_and_only_on_change() {
     let mut a = App::new(Box::new(fixture()), &no_args(), Theme::acp(), false);
+    a.brand.logo = crate::brands::LogoKind::Builtin;
+    a.brand.word = "ACP".into();
     a.images = Some(Images::new(Protocol::Kitty, DEFAULT_CELL, false, [255, 255, 255], [0xdc, 0x26, 0x26]));
     let b = draw(&mut a, 110, 30);
     assert_eq!(row(&b, 1, 1, 9), "        ", "cells left blank for the picture");
@@ -170,6 +204,8 @@ fn graphics_protocols_place_after_the_frame_and_only_on_change() {
     assert!(again.is_empty(), "unchanged frame writes nothing");
     // Sixel asks for a repaint when the pictures change.
     let mut s = App::new(Box::new(fixture()), &no_args(), Theme::acp(), false);
+    s.brand.logo = crate::brands::LogoKind::Builtin;
+    s.brand.word = "ACP".into();
     s.images = Some(Images::new(Protocol::Sixel, DEFAULT_CELL, false, [255, 255, 255], [0xdc, 0x26, 0x26]));
     draw(&mut s, 110, 30);
     let mut o = Vec::new();

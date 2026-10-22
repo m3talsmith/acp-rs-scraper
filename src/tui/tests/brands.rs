@@ -134,6 +134,8 @@ fn a_neutral_brand_hides_the_party_wording() {
     assert!(acp.contains("ACP Red Star is a local client"), "{acp}");
     assert!(acp.contains("ACP platform"), "{acp}");
     assert!(acp.contains("Sync with acp.us"), "{acp}");
+    assert!(acp.contains("RED STAR") && acp.contains("halberd"), "{acp}");
+    assert!(!help.contains("RED STAR"), "{help}");
 
     let mut a = app();
     a.menu.menu.apply_brand(&plain);

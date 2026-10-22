@@ -40,9 +40,9 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
 `acp-red-star` (no flags) or `acp-red-star --tui` opens it. It needs a terminal on stdin/stdout
 (at least 60×19); piped or scripted runs get an error naming the headless flags instead.
 
-- **Layout:** a 4-row header on the red bar (the red star logo in white over all four rows, a big
-  "ACP" drawn with tui-big-text on rows 2–4 so it has a row of room above, then name, version,
-  session and running job on the middle row of the "ACP") · menu bar (View, Search, Compose,
+- **Layout:** a 4-row header on the accent bar (the star-blade halberd in the bar colours over
+  all four rows, the word RED STAR drawn with tui-big-text on rows 2–4 so it has a row of room
+  above, then name, version, session and running job on the middle row of that word) · menu bar (View, Search, Compose,
   Library, Bookmarks, Research, Sync, Discover, Account, Debug, Help, About, Quit; Scrape and
   Start Scanning pinned on the right) · nick bar on the left (`@nick` and post count) · Body · status
   line (`l` expands it to a log panel). Click that line, or the header's `⟳ kind running (pid)` mark, or press Tab until Status is focused and then Enter, to open job details: the name, what started it, the state, the start time and elapsed time, the stage and a spinner, and a scrollable log. Elapsed counts only while the job is running. After it finishes, fails, or is cancelled, that line stays at the total run time. If the end was not recorded, it says `unknown`. Several jobs are a list; the elapsed line is the selected job. Esc closes the window. `c` or Cancel stops a job that is still running. The password and the database key are not shown. The header mark and the status bar do not show a duration, and a later start of the terminal UI does not reload jobs from log files.
@@ -236,10 +236,10 @@ Every colour of the terminal UI comes from a theme file. `red-star` and `plain` 
   colours and the branding; Esc puts the previous theme back. `e` jumps to Edit themes… and Enter
   opens the editor. `Shift-F5` opens the editor directly: Branding, then the palette, then the
   elements, on the left, and Preview (sample posts) on the right. The preview updates as you type
-  a title, motto, word, or logo text, when Enter cycles the logo (`builtin`, `text`, `file`), and
+  a title, motto, word, or logo text, when Enter cycles the logo (`halberd`, `text`, `file`, `builtin`), and
   when a colour changes. Tab flips dark and light. Ctrl-S saves the theme, including `[brand]`.
   Esc closes. The built-in `red-star` theme is red, black, and gold with the ACP Red Star branding
-  (the red-star logo, the word ACP, the title, and "Research starts here.").
+  (the star-blade halberd, the word RED STAR, the title, and "Research starts here.").
   The built-in `plain` theme is neutral colours, the title Red Star, a star, and no motto.
   `acp-red-star --brand plain` still uses that branding for this run and does not write the
   preference. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps it until you pick a theme
@@ -250,8 +250,9 @@ Every colour of the terminal UI comes from a theme file. `red-star` and `plain` 
   and does not change the brand file. `version = 1` is required on a brand file. `title` is the
   header, the window title, About, `--help`, `--version`, and the HTML export header. `motto` is
   the status bar and the About border; an empty motto is hidden. `word` is the big letters beside
-  the logo; empty draws none. `logo` is `builtin` (the red star), `text` (`logo_text`, one line
-  per row), or `file` (`logo_file`, a path inside `~/.acp/brands`). An absolute path, `..`, or a
+  the logo; empty draws none. `logo` is `halberd` (the star-blade halberd, the Red Star default),
+  `text` (`logo_text`, one line per row), `file` (`logo_file`, a path inside `~/.acp/brands`), or
+  `builtin` (the red-star picture). An absolute path, `..`, or a
   symlink that leaves that folder is refused. A broken file is reported and never overwritten.
   Brand: use…, Brand: list, Brand: edit…, and Brand: reload in the command palette open the theme
   picker, the theme list, the theme editor, and a theme reload. Credits and the other surprises

@@ -814,11 +814,7 @@ fn set_brand_field(b: &mut ThemeBrand, k: &str, v: String) {
 }
 
 fn cycle_logo(cur: &str) -> &'static str {
-    match cur {
-        "text" => "file",
-        "file" => "builtin",
-        _ => "text",
-    }
+    crate::brands::LogoKind::parse(cur).unwrap_or(crate::brands::LogoKind::Builtin).next().as_str()
 }
 
 /// Whether `$COLORTERM` says the terminal shows 24-bit colour.

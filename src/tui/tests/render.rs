@@ -58,8 +58,8 @@ fn rs_theme_paints_the_welcome_screen() {
     let s = (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n");
     assert!(s.contains("‹rs› ▾"), "{s}");
     assert!(s.contains("@alice"), "{s}");
-    assert_eq!(buf[(40, 0)].bg, ratatui::style::Color::Rgb(0x0b, 0x0b, 0x0b), "header is the card black, not the logo red");
-    assert_eq!(buf[(2, 1)].bg, ratatui::style::Color::Rgb(0xc0, 0x1d, 0x1c), "the logo stays ACP red");
+    assert_eq!(buf[(40, 0)].bg, ratatui::style::Color::Rgb(0x0b, 0x0b, 0x0b), "header is the card black");
+    assert_eq!(buf[(2, 1)].bg, ratatui::style::Color::Rgb(0x0b, 0x0b, 0x0b), "the halberd uses the bar colour");
     assert_eq!(buf[(80, 20)].bg, ratatui::style::Color::Rgb(0x11, 0x11, 0x13), "page background");
 }
 
@@ -67,9 +67,9 @@ fn rs_theme_paints_the_welcome_screen() {
 fn acp_theme_paints_light_and_dark() {
     let (f, w) = crate::themes::parse(include_str!("../../../themes/acp.toml"), "acp").unwrap();
     assert!(w.is_empty(), "{w:?}");
-    for (variant, page, logo) in [
-        (crate::themes::Variant::Light, ratatui::style::Color::Rgb(0xff, 0xf1, 0xf1), ratatui::style::Color::Rgb(0xc0, 0x1c, 0x1c)),
-        (crate::themes::Variant::Dark, ratatui::style::Color::Rgb(0x00, 0x00, 0x00), ratatui::style::Color::Rgb(0xc0, 0x1c, 0x1c)),
+    for (variant, page) in [
+        (crate::themes::Variant::Light, ratatui::style::Color::Rgb(0xff, 0xf1, 0xf1)),
+        (crate::themes::Variant::Dark, ratatui::style::Color::Rgb(0x00, 0x00, 0x00)),
     ] {
         let theme = Theme::from_file(&f, variant);
         let mut a = app();
@@ -83,7 +83,7 @@ fn acp_theme_paints_light_and_dark() {
         let s = (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n");
         assert!(s.contains("‹acp› ▾"), "{variant:?}\n{s}");
         assert_eq!(buf[(40, 0)].bg, page, "{variant:?} header matches the page, not a red bar");
-        assert_eq!(buf[(2, 1)].bg, logo, "{variant:?} logo");
+        assert_eq!(buf[(2, 1)].bg, page, "{variant:?} halberd uses the bar");
         assert_eq!(buf[(80, 20)].bg, page, "{variant:?} page");
     }
 }
