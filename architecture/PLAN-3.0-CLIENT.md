@@ -65,6 +65,8 @@ Update 2026-10-21 (interaction audit): **3.37.0** follows 3.36.0. Vote, subscrib
 
 Update 2026-10-21 (reply edit): crate **3.33.0** sends a reply-body edit. Validate, then save, once. The open is the captured redirect join to `/rs/post/{id}/edit`. The only field is `form[body_input]`. A top-level post edit, vote, subscribe, delete, and repost stay prepared, gated. The site does not support changing attachments on an edit; that is not prepared, gated. This follows crate 3.32.0 and does not renumber earlier releases.
 
+Update 2026-10-21 (modal input): focus, modes, and a remappable keymap ship before the 3.0 launch, early enough that people are not trained on the fixed keys first. The design is [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md). The version number is not assigned here. The write-up in this file is §4.6. Plugin reload is the Ctrl global `plugins.reload`.
+
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
 and **decentralization** (nodes that replicate their databases peer-to-peer over libp2p).
@@ -324,6 +326,7 @@ Crate versions after 3.5.0 are the sequence in [CHANGELOG.md](../CHANGELOG.md), 
 | TUI menu categories | **3.20.0** | Reorganize the menu bar (§4.2). Shipped. |
 | Hover tooltips | **3.21.0** | Every button, menu item, and card icon explains itself on hover, including its key when it has one, and a deep link to the Help topic for that action (§4.3). One shared helper, in the client. Shipped. |
 | Help topics | **3.22.0** | Help is topics you can move between, with search, and a `?` on the header that opens Help (§4.4). `?` and F1 stay the entry. Shipped. This crate version is not the re-key. |
+| Modal input, focus, and keymap | required before the 3.0 launch | Focus sets the mode. Global keys are Ctrl chords, including `plugins.reload`. Other keys are mode hotkeys from the focused service's capabilities. Bindings live in `~/.acp/keymap.toml`, reload in the app, and edit in Preferences. Help, tooltips, the action bar, and About show the active binding. Design: [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md) (§4.6). The version number is not assigned here. Ships early enough that people are not trained on the fixed keys first. |
 | About | **3.23.0** | A menu item with three segments opens one modal focused on that section: Credits, Why this is necessary, and ACP platform (§4.2). Shipped. |
 | Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, the two workspace crates, source install plus the Releases page, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
 | Alpha packaging | parked until both gates | Pack alphas only after writes and replies with attachments are done and the decentralized network (P9, 3.23.0–3.27.0) is completed. Notes separate functional from stubbed. The server (`acp-rs`) and the relay (`acp-rs-relay`) are separate installs and stay embedded in the app, on this same gate. No alpha tag, and no server or relay release, until then (§4.5). |
@@ -500,6 +503,12 @@ These are end-of-3.0 work. They wait until the launch docs exist. They are not a
 6. A cutscene built from snippets of infrared-style footage and historical communist action. It ships in two forms: a normal video, and an ASCII-art form. Sources are public-domain or otherwise appropriately licensed archival material only, such as the Internet Archive, the Prelinger collection, or Soviet-era newsreels where the license clearly allows it. This note does not collect footage or make the cutscene.
 7. A separate ACP community-work video: chapter fieldwork in the manner of a Habitat-style build, distinct from the infrared cutscene and from the demo movie. It is promo, not code. This note does not produce it.
 8. A Red Star forum launch write-up for comrades, covering v3. It is promo, not code. The showcase features the cutscene in both forms, the normal video and the ASCII / terminal form, alongside the elevator pitch and the demo movie. The community-work video stays its own piece and is not folded into the cutscene or the demo. The pre-launch / coming-soon draft is kept at [docs/history/v3/redstar-v3-prelaunch-post.md](../docs/history/v3/redstar-v3-prelaunch-post.md) and linked from the README. That file is not the live forum post. At the 3.0 release, switch the README link from the pre-launch post to `docs/history/v3/redstar-v3-launch-post.md` (the launch post, written as if 3.x has fully shipped, and published only when it is done).
+
+### 4.6 Modal input, focus, and keymap (required before the 3.0 launch)
+
+The terminal's keys become modal before launch, so people learn one map. The design is [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md). This section does not assign a minor and does not move a numbered stage.
+
+Focus is one pane, widget, or object. Tab, Shift-Tab, and a click move it. The focused widget shows an indicator drawn with `ratatui-lipgloss`. The focused object sets the mode: a post is post mode, and in post mode `r` replies. Global keys are Ctrl-<key>. Every other key is a mode hotkey. A mode's keys are the capabilities of that object's service. Help, tooltips, the action bar, and About show the binding loaded from `~/.acp/keymap.toml`. Preferences edits that file and uses the same reload as the reload action. A bad file shows the error and keeps the previous map. Plugin reload is the Ctrl global `plugins.reload` (default `ctrl-p`, remappable). The keymap file sets that chord.
 
 ---
 
