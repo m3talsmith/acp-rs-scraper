@@ -217,6 +217,22 @@ async fn help_topic(w: &mut E2e, topic: String) {
     w.screen = help.lines.iter().skip(help.scroll).take(16).cloned().collect::<Vec<_>>().join("\n");
 }
 
+#[when("I render an HTML export of a Markdown post")]
+async fn html_markdown(w: &mut E2e) {
+    let doc = serde_json::json!({
+        "nick": "@sample",
+        "posts": [{
+            "post_id": "M1",
+            "parent_post_id": "",
+            "nick": "sample",
+            "content": "# Hello\n\n```\ncode\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n",
+            "children": []
+        }]
+    });
+    let page = acp_red_star::export::html::build_html(&doc);
+    w.screen = page.split_once("<body>").map(|(_, b)| b.to_string()).unwrap_or(page);
+}
+
 #[when(expr = "I search Help for {string}")]
 async fn search_help(w: &mut E2e, query: String) {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};

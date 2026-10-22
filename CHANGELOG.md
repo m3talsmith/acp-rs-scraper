@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.11] - 2026-10-22
+
+### Fixed
+
+- **HTML export Markdown.** Post bodies and research notes render as HTML. A heading, a fenced block, and a table are elements. Raw HTML in the text is escaped.
+
 ## [3.35.10] - 2026-10-22
 
 ### Fixed

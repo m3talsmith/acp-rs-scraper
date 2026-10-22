@@ -18,6 +18,14 @@ Feature: Demo fixes
     Then the Help text contains "not the master key"
     And the Help text contains "Any 3 of those 5"
 
+  Scenario: HTML export renders Markdown
+    When I render an HTML export of a Markdown post
+    Then the screen contains "<h1>Hello</h1>"
+    And the screen contains "<pre><code>"
+    And the screen contains "<table>"
+    And the screen does not contain "# Hello"
+    And the screen does not contain "|---|"
+
   Scenario: Help search finds the layout topic
     When I search Help for "layout"
     Then the Help text contains "[[layout]]"
