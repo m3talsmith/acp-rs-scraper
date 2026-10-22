@@ -238,8 +238,8 @@ Every colour of the terminal UI comes from a theme file. `red-star` and `plain` 
   elements, on the left, and Preview (sample posts) on the right. The preview updates as you type
   a title, motto, word, or logo text, when Enter cycles the logo (`halberd`, `text`, `file`, `builtin`), and
   when a colour changes. Tab flips dark and light. Ctrl-S saves the theme, including `[brand]`.
-  Esc closes. The built-in `red-star` theme is red, black, and gold with the ACP Red Star branding
-  (the star-blade halberd, the word RED STAR, the title, and "Research starts here.").
+  Esc closes. The built-in `red-star` theme is red, black, and gold with the Red Star branding
+  (the star-blade halberd, the word RED STAR, the title Red Star, and "Research starts here.").
   The built-in `plain` theme is neutral colours, the title Red Star, a star, and no motto.
   `acp-red-star --brand plain` still uses that branding for this run and does not write the
   preference. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps it until you pick a theme

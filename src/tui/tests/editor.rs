@@ -35,7 +35,7 @@ fn full_screen_list_and_live_preview_by_the_real_ui() {
     assert!(s.lines().next().unwrap().contains("Theme editor · default") && s.contains("‹dark› light"), "{s}");
     for t in ["Palette", "accent", "#dc2626", "Elements", "link", "card_focused", "Preview (sample posts)"] { assert!(s.contains(t), "no {t}:\n{s}"); }
     // The preview is the real UI (header, menu, nick bar) over the sample posts, not the database.
-    for t in ["ACP Red Star", "Scrape", "@sample", "May Day", "Workers of the world", "Strike fund", "Solidarity"] {
+    for t in ["Red Star", "Scrape", "@sample", "May Day", "Workers of the world", "Strike fund", "Solidarity"] {
         assert!(s.contains(t), "preview lacks {t}:\n{s}");
     }
     assert!(!s.contains("comrade") && !s.contains("Field notes"), "{s}");

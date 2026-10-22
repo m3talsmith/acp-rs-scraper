@@ -1,4 +1,4 @@
-//! Brand picker, editor, and header. The default brand stays ACP Red Star.
+//! Brand picker, editor, and header. The Red Star title is Red Star.
 
 use super::*;
 use crate::brands::{self, LogoKind};
@@ -29,10 +29,11 @@ fn home(name: &str) -> PathBuf {
 }
 
 #[test]
-fn the_default_header_is_still_acp_red_star() {
+fn the_default_header_title_is_red_star() {
     let mut a = app();
     let s = render(&mut a, 140, 40);
-    assert!(s.contains("ACP Red Star"), "{s}");
+    assert!(s.contains("Red Star"), "{s}");
+    assert!(!s.contains("ACP Red Star"), "{s}");
     assert!(s.contains(crate::branding::SLOGAN), "{s}");
     assert!(s.contains("‹default› ▾"), "{s}");
     assert!(!s.contains("«default» ▾"), "{s}");
@@ -65,14 +66,14 @@ fn the_picker_previews_branding_and_esc_restores_the_theme() {
     a.open_theme_picker();
     let Some(Modal::ThemePicker(p)) = &a.modal else { panic!("picker") };
     assert!(p.entries.iter().any(|e| e.name == "plain" && e.title == "Red Star"));
-    assert!(p.entries.iter().any(|e| e.name == "red-star" && e.title == "ACP Red Star"));
+    assert!(p.entries.iter().any(|e| e.name == "red-star" && e.title == "Red Star"));
     key(&mut a, KeyCode::Char('j'), KeyModifiers::NONE);
     key(&mut a, KeyCode::Char('k'), KeyModifiers::NONE);
     assert_eq!(a.brand.title, "Red Star");
     assert_eq!(a.theme_name, "soviet", "preview does not select");
     key(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert!(a.modal.is_none());
-    assert_eq!(a.brand.title, "ACP Red Star");
+    assert_eq!(a.brand.title, "Red Star");
     assert_eq!(a.theme_name, "soviet");
     assert!(a.effects.is_empty(), "Esc does not save");
 }
@@ -168,7 +169,7 @@ fn the_picker_row_uses_that_themes_title() {
     a.themes_dir = Some(themes);
     a.open_theme_picker();
     let s = render(&mut a, 100, 30);
-    assert!(s.contains("red-star") && s.contains("ACP Red Star"), "{s}");
+    assert!(s.contains("red-star") && s.contains("Red Star"), "{s}");
     assert!(s.contains("plain") && s.contains("Red Star"), "{s}");
     let Some(Modal::ThemePicker(p)) = &a.modal else { panic!("picker") };
     let plain = p.entries.iter().find(|e| e.name == "plain").unwrap();
@@ -184,7 +185,7 @@ fn a_logo_path_that_escapes_is_refused() {
     let mut a = app();
     a.brands_dir = Some(brands);
     assert!(!a.use_brand("bad", false));
-    assert_eq!(a.brand.title, "ACP Red Star");
+    assert_eq!(a.brand.title, "Red Star");
     assert_eq!(a.brand_fault, Some("broken"));
     let kept = std::fs::read_to_string(a.brands_dir.unwrap().join("bad.toml")).unwrap();
     assert!(kept.contains("../x.png"), "the broken file is not overwritten");

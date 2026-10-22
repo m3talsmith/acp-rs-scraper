@@ -310,7 +310,7 @@ pub fn theme_download_url(name: &str) -> String {
 pub const DEFAULT_THEME: &str = "default";
 /// Brand files (`<name>.toml`), under `$HOME`. Built-in brands work with or without this folder.
 pub const BRANDS_REL_DIR: &str = ".acp/brands";
-/// The brand used when `[ui] brand` is not set. It is the ACP Red Star logo, title, and motto.
+/// The brand used when `[ui] brand` is not set. Its displayed title is Red Star.
 pub const DEFAULT_BRAND: &str = "default";
 /// The neutral built-in brand: title "Red Star", a star, no motto.
 pub const PLAIN_BRAND: &str = "plain";
@@ -329,10 +329,10 @@ pub const MIGRATED_THEME: &str = "custom";
 /// Lowest text contrast the theme editor accepts without a warning.
 pub const THEME_MIN_CONTRAST: f64 = 3.0;
 
-/// Title shown in the TUI top bar.
-pub const TUI_TITLE: &str = "ACP Red Star";
+/// Title shown for the Red Star brand: the header, About, and the terminal title.
+pub const TUI_TITLE: &str = "Red Star";
 /// The header title beside the brand word.
-pub const TUI_SUBTITLE: &str = "ACP Red Star";
+pub const TUI_SUBTITLE: &str = "Red Star";
 /// Deepest stack of nested post details (linked posts opened from a detail).
 pub const MAX_DETAIL_DEPTH: usize = 8;
 /// Width of the nick bar (cells).

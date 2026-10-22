@@ -235,7 +235,7 @@ pub struct ThemeBrand {
 }
 
 impl ThemeBrand {
-    /// ACP Red Star: the title, the slogan, the word RED STAR, and the star-blade halberd.
+    /// Red Star: the displayed title, the slogan, the word RED STAR, and the star-blade halberd.
     pub fn red_star() -> Self {
         Self {
             title: crate::config::TUI_TITLE.into(),

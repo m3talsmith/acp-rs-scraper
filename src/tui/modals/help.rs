@@ -188,8 +188,8 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
     if brand.shows_acp() {
         push_topic(&mut v, "brands", "Brands", &[
             "  Branding is the logo, the title, and the motto. It lives on the theme.",
-            "  The built-in red-star theme is red, black, and gold, with the ACP Red Star",
-            "  title, the word RED STAR, and \"Research starts here.\" The header mark is",
+            "  The built-in red-star theme is red, black, and gold, with the title Red Star,",
+            "  the word RED STAR, and \"Research starts here.\" The header mark is",
             "  the star-blade halberd. The built-in plain theme is neutral:",
             "  the title Red Star, a star, and no motto. acp-red-star --brand plain still",
             "  selects that branding for one run.",

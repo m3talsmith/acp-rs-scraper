@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.38.1] - 2026-10-22
+
+### Fixed
+
+- **Red Star title.** The built-in Red Star brand's displayed title is "Red Star". The header, the theme editor's title, the live preview, About, and the terminal title use it. The plain brand is unchanged. The binary name, the crate name, and `--help`'s product text stay ACP Red Star.
+
 ## [3.38.0] - 2026-10-22
 
 ### Changed

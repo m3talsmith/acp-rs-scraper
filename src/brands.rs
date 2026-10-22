@@ -557,11 +557,12 @@ pub fn delete(dir: &Path, name: &str) -> Result<()> {
 
 /// Set clap's about text and the long version line from `brand`.
 ///
-/// The default title keeps the existing about text. `--version` adds the title
-/// on the next line. The short `-V` line stays `acp-red-star` and the version.
+/// A brand that keeps the ACP wording keeps the shipped about text. `--version`
+/// adds the displayed title on the next line. The short `-V` line stays
+/// `acp-red-star` and the version.
 pub fn style_command(mut cmd: clap::Command, brand: &Brand) -> clap::Command {
     cmd = cmd.long_version(format!("{}\n{}", env!("CARGO_PKG_VERSION"), brand.title));
-    if brand.title != TUI_TITLE {
+    if !brand.shows_acp() {
         let about = format!("{}: a local client for the Red Star forum (acp.us/rs)", brand.title);
         let long = cmd.get_long_about()
             .map(|s| s.to_string().replacen("ACP Red Star.", &format!("{}.", brand.title), 1))
@@ -601,7 +602,7 @@ mod tests {
     #[test]
     fn default_brand_is_the_shipped_header() {
         let b = builtin_default();
-        assert_eq!(b.title, "ACP Red Star");
+        assert_eq!(b.title, "Red Star");
         assert_eq!(b.motto, SLOGAN);
         assert_eq!(b.word, "RED STAR");
         assert_eq!(b.logo, LogoKind::Halberd);

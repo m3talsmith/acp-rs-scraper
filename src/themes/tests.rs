@@ -136,7 +136,7 @@ fn save_is_atomic_private_and_lists_back() {
     assert_eq!(l.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["broken", "mine", "plain", "red-star"]);
     assert!(l[0].error.is_some() && l[1].description == "Mine");
     assert!(l.iter().any(|e| e.name == "plain" && e.builtin && e.title == "Red Star"));
-    assert!(l.iter().any(|e| e.name == "red-star" && e.builtin && e.title == "ACP Red Star"));
+    assert!(l.iter().any(|e| e.name == "red-star" && e.builtin && e.title == "Red Star"));
     assert!(std::fs::read_dir(&d).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().ends_with(".tmp")), "no temp files left");
     delete(&d, "mine").unwrap();
     assert!(!p.exists());
@@ -210,7 +210,7 @@ fn a_brand_table_round_trips_and_builtins_carry_branding() {
     let red = builtin_red_star();
     assert_eq!(red.dark.color("accent"), Color::Rgb(0xc8, 0x10, 0x2e));
     assert_eq!(red.dark.color("bg"), Color::Rgb(0x0e, 0x04, 0x04));
-    assert_eq!(red.brand.as_ref().unwrap().title, "ACP Red Star");
+    assert_eq!(red.brand.as_ref().unwrap().title, "Red Star");
     assert_eq!(red.brand.as_ref().unwrap().word, "RED STAR");
     assert_eq!(red.brand.as_ref().unwrap().logo, "halberd");
     let plain = builtin_plain();
