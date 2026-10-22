@@ -34,11 +34,39 @@ fn full_screen_list_and_live_preview_by_the_real_ui() {
     assert!(s.lines().next().unwrap().contains("Theme editor · default") && s.contains("‹dark› light"), "{s}");
     for t in ["Palette", "accent", "#dc2626", "Elements", "link", "card_focused", "Preview (sample posts)"] { assert!(s.contains(t), "no {t}:\n{s}"); }
     // The preview is the real UI (header, menu, nick bar) over the sample posts, not the database.
-    for t in ["ACP Red Star", "Scrape", "@comrade", "May Day"] { assert!(s.contains(t), "preview lacks {t}:\n{s}"); }
+    for t in ["ACP Red Star", "Scrape", "@sample", "May Day", "Workers of the world", "Strike fund", "Solidarity"] {
+        assert!(s.contains(t), "preview lacks {t}:\n{s}");
+    }
+    assert!(!s.contains("comrade") && !s.contains("Field notes"), "{s}");
     assert!(!s.contains("alice"), "never the real store");
     // A swatch in the accent colour on the accent row.
     let y = s.lines().position(|l| l.contains(" accent ")).unwrap() as u16;
     assert_eq!(b[(2, y)].fg, Color::Rgb(0xdc, 0x26, 0x26));
+}
+
+#[test]
+fn the_preview_follows_the_active_brand_and_the_sample_nicks() {
+    let mut a = themed_app("plain-preview");
+    a.brand = crate::brands::builtin_plain();
+    a.brand_name = "plain".into();
+    on_key(&mut a, KeyEvent::new(KeyCode::F(5), KeyModifiers::SHIFT));
+    let p = &ed(&a).preview;
+    assert_eq!(p.brand.title, "Red Star");
+    assert!(p.brand.motto.is_empty() && p.brand.word.is_empty());
+    assert!(p.brand.logo_text.contains('★'));
+    let mut nicks: Vec<_> = p.nicks.iter().map(|n| n.nick.clone()).collect();
+    nicks.sort();
+    assert_eq!(nicks, ["reader", "sample"]);
+    let s = text(&draw(&mut a, 140, 40));
+    assert!(s.contains("Red Star") && s.contains("«plain»"), "{s}");
+    assert!(s.contains('★'), "{s}");
+    assert!(s.contains("@sample") && s.contains("@reader"), "{s}");
+    assert!(s.contains("Field notes"), "{s}");
+    assert!(!s.contains("ACP Red Star"), "{s}");
+    assert!(!s.contains("The future belongs to the working class"), "{s}");
+    assert!(!s.contains("May Day") && !s.contains("Workers of the world"), "{s}");
+    assert!(!s.contains("Strike fund") && !s.contains("Solidarity"), "{s}");
+    assert!(!s.contains("alice") && !s.contains("comrade"), "{s}");
 }
 
 #[test]
@@ -353,7 +381,7 @@ fn left_still_collapses_an_element_now_that_h_highlights() {
 fn the_preview_has_sample_frames_for_the_parts_the_post_view_lacks() {
     let mut a = editor("samples");
     let s = text(&draw(&mut a, 140, 40));
-    for t in ["Sample dialog", "[comrade", " Post ", " Reply ", "(post deleted)", "`--nick`", "text behind a modal", "< OK >"] {
+    for t in ["Sample dialog", "[sample", " Post ", " Reply ", "(post deleted)", "`--nick`", "text behind a modal", "< OK >"] {
         assert!(s.contains(t), "no {t}:\n{s}");
     }
 }

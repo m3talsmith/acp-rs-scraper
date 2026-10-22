@@ -166,7 +166,7 @@ async fn configured_via_form(
     let final_url = resp.url().to_string();
     let html = resp.text().await?;
     let lvpage = parse_lv(&final_url, &html)?;
-    let mut lv = Lv::connect(&lvpage, jar).await?;
+    let mut lv = Lv::connect_bounded(&lvpage, jar, explore_reply_timeout(page)).await?;
     let r = lv.form_fields(event, fields, None).await?;
     if r["status"] != "ok" {
         bail!("{event} failed: {r}");
@@ -289,14 +289,30 @@ pub fn explore_title(latest: bool) -> String {
 }
 
 /// `--explore` / `--explore-latest`.
+///
+/// Prints that the request started, then how long it has been waiting, every
+/// five seconds. One LiveView reply waits at most 12 seconds
+/// ([`crate::liveview::EXPLORE_REPLY_TIMEOUT`]). A timeout stores nothing.
 pub async fn read_explore(http: &reqwest::Client, jar: &Jar, latest: bool) -> Result<usize> {
     let url = feed_explore_url(latest);
-    read_view(http, jar, &ViewRequest {
+    info!("Explore: requesting {url}");
+    let progress = tokio::spawn(async {
+        let started = tokio::time::Instant::now();
+        loop {
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+            info!("Explore: still waiting ({}s)", started.elapsed().as_secs());
+        }
+    });
+    let result = read_view(http, jar, &ViewRequest {
         direct: &url, page: &url, event: PROFILE_FILTER_EVENT, fields: &[],
         key: &explore_key(latest), title: &explore_title(latest),
-    })
-        .await
-        .context("reading Explore")
+    }).await;
+    progress.abort();
+    match result {
+        Ok(n) => Ok(n),
+        Err(e) if format!("{e:#}").contains("timed out") => Err(e.context("Nothing was stored.")),
+        Err(e) => Err(e).context("reading Explore"),
+    }
 }
 
 /// `/rs/explore?q=` — the site's search form (`phx-submit=search`, field `q`).

@@ -565,32 +565,30 @@ fn explain_recovery(home: &std::path::Path) -> Result<()> {
     Ok(())
 }
 
-/// Before the terminal UI covers the screen, offer to create the phrase.
-/// `Ok(true)` opens Help, which starts with the same steps.
-pub fn tui_recovery_offer(home: &std::path::Path) -> Result<bool> {
+/// What the terminal UI should do about a pending recovery phrase.
+///
+/// This does not read stdin. The question is a confirm dialog after the UI
+/// is up. [`explain_recovery`] still asks on a headless run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecoveryOffer {
+    /// Nothing is pending.
+    Quiet,
+    /// A phrase is already pinned. Open the recovery topic.
+    Guide,
+    /// Ask in the terminal UI. Not now is the default.
+    Ask,
+}
+
+/// Decide the recovery step for the terminal UI without reading a key.
+pub fn tui_recovery_offer(home: &std::path::Path) -> Result<RecoveryOffer> {
     if !super::recovery::next_pending(home) {
-        return Ok(false);
+        return Ok(RecoveryOffer::Quiet);
     }
     if Pin::load(home)?.is_some() {
         super::recovery::clear_next(home)?;
-        return Ok(true);
+        return Ok(RecoveryOffer::Guide);
     }
-    println!();
-    println!("The database is encrypted. The password is not the master key.");
-    println!(
-        "The next screen explains the 24-word recovery phrase, the 5 shares (any 3 rebuild it), and how to restore a backup."
-    );
-    let answer = prompt("Create the recovery phrase now, so you can write it down? [y/N] ")?;
-    if is_yes(&answer) {
-        identity_init()?;
-        prompt(
-            "Press Enter to open the terminal UI. Anything above this line will leave the screen. ",
-        )?;
-        Ok(false)
-    } else {
-        super::recovery::clear_next(home)?;
-        Ok(true)
-    }
+    Ok(RecoveryOffer::Ask)
 }
 
 /// Show the 24 words again. Always asks for the password, even when `ACP_PASSWORD` is set.
@@ -708,4 +706,21 @@ fn now_secs() -> u64 {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_pending_recovery_asks_without_reading_stdin() {
+        let home = std::env::temp_dir().join(format!("acp-recovery-ask-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        std::fs::create_dir_all(home.join(".acp")).unwrap();
+        std::fs::write(home.join(".acp/recovery-next"), b"pending\n").unwrap();
+        assert_eq!(tui_recovery_offer(&home).unwrap(), RecoveryOffer::Ask);
+        assert!(home.join(".acp/recovery-next").is_file(), "Not now is what clears it");
+        assert_eq!(tui_recovery_offer(&home.join("missing")).unwrap(), RecoveryOffer::Quiet);
+        let _ = std::fs::remove_dir_all(&home);
+    }
 }
