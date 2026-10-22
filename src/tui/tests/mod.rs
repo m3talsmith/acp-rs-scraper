@@ -35,6 +35,7 @@ mod rules;
 mod help_about;
 mod spaces;
 mod live;
+mod account;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

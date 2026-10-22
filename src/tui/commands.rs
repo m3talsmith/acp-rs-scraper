@@ -177,6 +177,16 @@ pub enum Action {
     OpenLiveFeed,
     /// Site notification pane (View › Site notifications). Not View › Notifications.
     OpenSiteNotifications,
+    /// Account › Profile.
+    ShowProfile,
+    /// Account › Site settings.
+    ShowSiteSettings,
+    /// Account › Edit profile. Cancel is the default.
+    EditProfile,
+    /// Account › Save site settings. Cancel is the default.
+    SaveSiteSettings,
+    /// Account › Report user. Cancel is the default.
+    ReportUser,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
     /// The brand picker (the header's `«brand» ▾`).
@@ -505,6 +515,18 @@ fn account_item() -> MenuCommand {
     shown(CommandId::Session, "Account", 'n', vec![
         opt("login", "Log in", "", false, button(Action::Login)),
         opt("logout", "Log out", "--logout", false, button(Action::Logout)),
+        opt_topic("profile", "Profile", "--show-profile", "profile", false, button(Action::ShowProfile)),
+        opt_topic("site_settings", "Site settings", "--site-settings", "site-settings", false, button(Action::ShowSiteSettings)),
+        opt_topic("display_name", "Display name", "--display-name", "edit-profile", false, text("")),
+        opt_topic("username", "Username", "--username", "edit-profile", false, text("")),
+        opt_topic("bio", "Bio", "--bio", "edit-profile", false, text("")),
+        opt_topic("edit_profile", "Edit profile", "--edit-profile", "edit-profile", false, button(Action::EditProfile)),
+        opt_topic("time_zone", "Time zone", "--time-zone", "site-settings", false, text("")),
+        opt_topic("theme", "Theme", "--site-theme", "site-settings", false, choice(&["system", "light", "dark"])),
+        opt_topic("show_sustainer", "Show sustainer", "--show-sustainer", "site-settings", false, check(false)),
+        opt_topic("save_settings", "Save site settings", "--save-settings", "site-settings", false, button(Action::SaveSiteSettings)),
+        opt_topic("reason", "Report reason", "--reason", "report-user", false, choice(&["constitution", "illegal_obscene", "spam", "uncomradely"])),
+        opt_topic("report_user", "Report user", "--report-user", "report-user", false, button(Action::ReportUser)),
     ])
 }
 
@@ -923,6 +945,71 @@ impl Menu {
     /// argv for View › Site notifications (`--site-notifications`).
     pub fn site_notifications_argv(&self) -> std::result::Result<Vec<String>, String> {
         let mut v = vec![ARGV0.to_string(), "--site-notifications".into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Account › Profile (`--show-profile NICK`).
+    pub fn profile_argv(&self, nick: &str) -> std::result::Result<Vec<String>, String> {
+        let nick = nick.trim().trim_start_matches('@');
+        if nick.is_empty() {
+            return Err("pick a nick first".into());
+        }
+        let mut v = vec![ARGV0.to_string(), "--show-profile".into(), nick.into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Account › Site settings (`--site-settings`).
+    pub fn site_settings_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--site-settings".into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for a confirmed profile edit. Includes `--yes` because the modal already asked.
+    pub fn edit_profile_argv(&self, display_name: &str, username: &str, bio: &str) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--edit-profile".into()];
+        if !display_name.trim().is_empty() {
+            v.extend(["--display-name".into(), display_name.trim().into()]);
+        }
+        if !username.trim().is_empty() {
+            v.extend(["--username".into(), username.trim().trim_start_matches('@').into()]);
+        }
+        if !bio.trim().is_empty() {
+            v.extend(["--bio".into(), bio.trim().into()]);
+        }
+        v.push("--yes".into());
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for a confirmed settings save. Includes `--yes`.
+    pub fn save_settings_argv(&self, time_zone: &str, theme: &str, show_sustainer: bool) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--save-settings".into()];
+        if !time_zone.trim().is_empty() {
+            v.extend(["--time-zone".into(), time_zone.trim().into()]);
+        }
+        if matches!(theme, "light" | "dark" | "system") {
+            v.extend(["--site-theme".into(), theme.into()]);
+        }
+        v.extend(["--show-sustainer".into(), if show_sustainer { "true" } else { "false" }.into()]);
+        v.push("--yes".into());
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for a confirmed report. Includes `--yes`.
+    pub fn report_argv(&self, post: Option<&str>, nick: Option<&str>, reason: &str) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string()];
+        if let Some(post) = post {
+            v.extend(["--report-post".into(), post.into()]);
+        } else if let Some(nick) = nick {
+            v.extend(["--report-user".into(), nick.trim().trim_start_matches('@').into()]);
+        } else {
+            return Err("a report needs a post or a user".into());
+        }
+        v.extend(["--reason".into(), reason.into(), "--yes".into()]);
         v.extend(self.debug_args());
         validate(v)
     }

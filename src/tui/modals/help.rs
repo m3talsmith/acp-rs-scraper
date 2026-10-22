@@ -338,6 +338,29 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
         "  Log in uses the email code. Log out deletes ~/.acp/session.json.",
         "  Browsing the local database does not need a session. Start Scanning does.",
     ]);
+    push_topic(&mut v, "profile", "Profile", &[
+        "  Account › Profile reads the card for the selected nick.",
+        "  The loaded reader resolves the nick. The row is the profiles table.",
+        "  --dry-run prints the request and does not call the service.",
+    ]);
+    push_topic(&mut v, "edit-profile", "Edit profile", &[
+        "  Account › Edit profile asks Edit profile? [y/N], then Type yes. Cancel is the default.",
+        "  A confirm calls the loaded service. The @ is not sent.",
+        "  Profile photo and banner uploads are not built.",
+        "  --dry-run prints the form and does not call the service.",
+    ]);
+    push_topic(&mut v, "site-settings", "Site settings", &[
+        "  Account › Site settings shows time zone, theme, and show-sustainer from site_state.",
+        "  Save site settings asks Save site settings? [y/N]. Cancel is the default.",
+        "  A confirm stores those values. Web push is not built. This is not the terminal theme.",
+        "  --dry-run prints the form and does not write.",
+    ]);
+    push_topic(&mut v, "report-user", "Report", &[
+        "  Account › Report user and Post menu › Report ask first, then Type yes.",
+        "  Cancel is the default. A confirm calls the loaded service.",
+        "  The reason is constitution, illegal_obscene, spam, or uncomradely.",
+        "  --dry-run prints the report and does not call the service.",
+    ]);
     if brand.shows_acp() {
         push_topic(&mut v, "about-credits", "About · Credits", &[
             "  About is one modal with three sections. Credits names who built the client.",

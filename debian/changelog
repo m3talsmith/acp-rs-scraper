@@ -1,3 +1,9 @@
+acp-red-star (3.45.0) unstable; urgency=medium
+
+  * Package 3.45.0. Profile, reports, and site settings stay in the core. A confirm calls a loaded service or stores site_state.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 11:10:00 +0000
+
 acp-red-star (3.44.0) unstable; urgency=medium
 
   * Package 3.44.0. Site notifications store the pane from a loaded service. The raw column stays empty.

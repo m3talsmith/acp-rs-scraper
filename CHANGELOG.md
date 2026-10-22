@@ -20,6 +20,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.45.0] - 2026-10-22
+
+### Added
+
+- **Account.** `--show-profile` asks the loaded reader and prints the `profiles` row. `--edit-profile` asks `Edit profile? [y/N]`, then `Type yes`, and calls `update_profile`. `--report-post` and `--report-user` ask the same way and call the loaded service. `--save-settings` asks `Save site settings? [y/N]` and stores `site_state`. Cancel is the default. `--dry-run` prints the action and does not call a service. Web push, a profile photo, and a banner are not built.
+
 ## [3.44.0] - 2026-10-22
 
 ### Added

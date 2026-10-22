@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.44.0
+Version:        3.45.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.45.0-1
+- Package 3.45.0. Profile, reports, and site settings stay in the core. A confirm calls a loaded service or stores site_state.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.44.0-1
 - Package 3.44.0. Site notifications store the pane from a loaded service. The raw column stays empty.
 

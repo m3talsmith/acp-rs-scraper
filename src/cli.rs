@@ -112,12 +112,13 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview", "rules_watch", "rules_saved", "rules_replies"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "spaces", "live", "live_feed", "site_notifications", "outbox_send"]).multiple(true)))]
+#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user", "spaces", "live", "live_feed", "site_notifications", "outbox_send"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("outbox").args(["draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
+#[command(group(clap::ArgGroup::new("reporting").args(["report_post", "report_user"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
     "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
 ])))]
-#[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
+#[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
     "nick", "nicks", "scrape", "scrape_all", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
     "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
@@ -163,6 +164,12 @@ pub struct Args {
     /// Site notification pane. Stored in `site_notifications`. `raw` stays empty. Rules run when the related post is already stored. The loaded service keeps the socket. `--dry-run` prints the request and does not call the service. View › Site notifications opens the same list. This is not View › Notifications.
     #[arg(long, help_heading = "Reading")]
     pub site_notifications: bool,
+    /// Profile card: display name, username, and bio. Account › Profile. The loaded reader resolves the nick. `--dry-run` prints the request and does not call the service. Profile photo and banner are not built. No new key.
+    #[arg(long, value_name = "NICK", help_heading = "Reading")]
+    pub show_profile: Option<String>,
+    /// Forum settings stored in `site_state`: time zone, theme, and show-sustainer. Account › Site settings. Web push is not read. `--dry-run` prints the request and does not call a service. No new key.
+    #[arg(long, help_heading = "Reading")]
+    pub site_settings: bool,
     /// Search the site (`/rs/explore?q=`). The Search modal's Where: Site does this too.
     #[arg(long, value_name = "TEXT", help_heading = "Reading")]
     pub site_search: Option<String>,
@@ -224,6 +231,39 @@ pub struct Args {
     /// Bookmark a post on the site. This is not the local `--bookmark`. The terminal asks `Bookmark? [y/N]`. Cancel is the default. `--dry-run` prints the bookmark and does not call the service. Clearing a site bookmark is not sent.
     #[arg(long, value_name = "POST", help_heading = "Writing")]
     pub site_bookmark: Option<String>,
+    /// Edit the signed-in profile. Needs `--display-name`, `--username`, or `--bio`. The terminal asks `Edit profile? [y/N]`, then `Type yes`. Cancel is the default. `--dry-run` prints the form and does not call the service. A confirmed edit calls the loaded service. The `@` is not sent. Profile photo and banner uploads are not built. Account › Edit profile. No new key.
+    #[arg(long, help_heading = "Writing")]
+    pub edit_profile: bool,
+    /// With `--edit-profile`.
+    #[arg(long, value_name = "NAME", requires = "edit_profile", help_heading = "Writing")]
+    pub display_name: Option<String>,
+    /// With `--edit-profile`. The `@` is stripped.
+    #[arg(long, value_name = "NICK", requires = "edit_profile", help_heading = "Writing")]
+    pub username: Option<String>,
+    /// With `--edit-profile`.
+    #[arg(long, value_name = "TEXT", requires = "edit_profile", help_heading = "Writing")]
+    pub bio: Option<String>,
+    /// Save forum settings. Needs `--time-zone`, `--site-theme`, or `--show-sustainer`. The terminal asks `Save site settings? [y/N]`. Cancel is the default. `--dry-run` prints the form and does not write. A confirmed save stores `site_state`. Web push is not built. Account › Save site settings. No new key. This is not `--theme`, which picks the terminal theme.
+    #[arg(long, help_heading = "Writing")]
+    pub save_settings: bool,
+    /// With `--save-settings`. A zone id such as `America/Chicago`.
+    #[arg(long, value_name = "ZONE", requires = "save_settings", help_heading = "Writing")]
+    pub time_zone: Option<String>,
+    /// With `--save-settings`. `light`, `dark`, or `system`. The forum's theme, not `--theme`.
+    #[arg(long = "site-theme", value_name = "THEME", requires = "save_settings", value_parser = ["light", "dark", "system"], help_heading = "Writing")]
+    pub site_theme: Option<String>,
+    /// With `--save-settings`. `true` or `false`.
+    #[arg(long, value_name = "true|false", requires = "save_settings", value_parser = ["true", "false"], help_heading = "Writing")]
+    pub show_sustainer: Option<String>,
+    /// Report a post. Needs `--reason`. The terminal asks `Report post? [y/N]`, then `Type yes`. Cancel is the default. `--dry-run` prints the report and does not call the service. A confirmed report calls the loaded service. Post menu › Report. No new key.
+    #[arg(long, value_name = "POST", help_heading = "Writing")]
+    pub report_post: Option<String>,
+    /// Report a user. Needs `--reason`. The terminal asks `Report user? [y/N]`, then `Type yes`. Cancel is the default. `--dry-run` prints the report and does not call the service. A confirmed report calls the loaded service. Account › Report user. No new key.
+    #[arg(long, value_name = "NICK", help_heading = "Writing")]
+    pub report_user: Option<String>,
+    /// With `--report-post` or `--report-user`. `constitution`, `illegal_obscene`, `spam`, or `uncomradely`.
+    #[arg(long, value_name = "REASON", requires = "reporting", value_parser = ["constitution", "illegal_obscene", "spam", "uncomradely"], help_heading = "Writing")]
+    pub reason: Option<String>,
     /// Markdown body for `--new-post`, `--reply`, or `--edit`.
     #[arg(long, value_name = "MARKDOWN", help_heading = "Writing")]
     pub body: Option<String>,
@@ -547,22 +587,22 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "acp_id", "shares_print", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub identity_init: bool,
     /// Print the pinned acp-id.
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "shares_print", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub acp_id: bool,
     /// Print five SLIP-39 recovery sheets (3 of 5) for the pinned account. Needs a terminal.
@@ -570,22 +610,22 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub shares_print: bool,
     /// Check three to five recovery shares against the pinned acp-id. Writes nothing secret.
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub shares_verify: bool,
     /// Sheet or paste to read instead of typing shares. Used with --shares-print or --shares-verify.
@@ -596,33 +636,33 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "restore", "backup_schedule", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub backup: bool,
     /// Restore an *.acpbackup into this home. A new machine also asks for the phrase or 3 shares.
     #[arg(long, value_name = "FILE", help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "backup_schedule", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub restore: Option<PathBuf>,
     /// Remember a daily or weekly backup. The headless service that runs it is a later release.
     #[arg(long, value_name = "WHEN", value_parser = ["daily", "weekly"], requires_all = ["backup_keep", "backup_dest"], help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub backup_schedule: Option<String>,
     /// How many *.acpbackup files to keep. Used with --backup-schedule.
@@ -635,11 +675,11 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "change_password", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub encrypt_db: bool,
     /// Change the password on an encrypted database. Rewraps the local key and the
@@ -647,11 +687,11 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "show_phrase",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub change_password: bool,
     /// Show the 24-word recovery phrase again. Asks for the password on a terminal.
@@ -659,11 +699,11 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub show_phrase: bool,
 
@@ -672,11 +712,11 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "show_phrase", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "show_phrase", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub node_init: bool,
     /// Name for --node-init. The default is this computer's hostname.
@@ -686,11 +726,11 @@ pub struct Args {
     #[arg(long, help_heading = "Identity", conflicts_with_all = [
         "latest", "trending", "nick", "nicks", "scrape", "search", "export", "import", "list_nicks",
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
-        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "explore_latest", "site_search", "tag",
+        "sync_bookmarks", "tui", "top", "eb", "explore", "spaces", "live", "live_feed", "site_notifications", "show_profile", "site_settings", "explore_latest", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
         "theme_init", "theme_starter", "list_themes", "list_brands", "doctor", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
-        "show_phrase", "node_init", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark",
+        "show_phrase", "node_init", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user",
     ])]
     pub node_id: bool,
 }

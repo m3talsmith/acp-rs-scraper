@@ -1066,6 +1066,152 @@ impl App {
             Err(e) => self.error("Site notifications", &e),
         }
     }
+    fn selected_nick(&self) -> Option<String> {
+        self.selected.first().cloned().or_else(|| self.nicks.get(self.nick_cursor).map(|n| n.nick.clone()))
+    }
+    /// Account › Profile. No new key.
+    pub fn show_profile(&mut self) {
+        let Some(nick) = self.selected_nick() else {
+            self.push_status("pick a nick first");
+            return;
+        };
+        match self.menu.menu.profile_argv(&nick) {
+            Ok(argv) => self.start_job(JobKind::Read, argv),
+            Err(e) => self.error("Profile", &e),
+        }
+    }
+    /// Account › Site settings. No new key.
+    pub fn show_site_settings(&mut self) {
+        match self.menu.menu.site_settings_argv() {
+            Ok(argv) => self.start_job(JobKind::Read, argv),
+            Err(e) => self.error("Site settings", &e),
+        }
+    }
+    fn report_reason(&self) -> String {
+        self.menu.menu.choice(crate::tui::commands::CommandId::Session, "reason").to_string()
+    }
+    /// Account › Edit profile. Cancel is the default. A confirm calls the loaded service.
+    pub fn edit_profile(&mut self) {
+        if !self.writes_are_on() {
+            self.show_writes_off();
+            return;
+        }
+        let display_name = self.menu.menu.text(crate::tui::commands::CommandId::Session, "display_name");
+        let username = self.menu.menu.text(crate::tui::commands::CommandId::Session, "username");
+        let bio = self.menu.menu.text(crate::tui::commands::CommandId::Session, "bio");
+        if display_name.trim().is_empty() && username.trim().is_empty() && bio.trim().is_empty() {
+            self.error("Edit profile", "type a display name, a username, or a bio first");
+            return;
+        }
+        let argv = match self.menu.menu.edit_profile_argv(&display_name, &username, &bio) {
+            Ok(argv) => argv,
+            Err(e) => {
+                self.error("Edit profile", &e);
+                return;
+            }
+        };
+        self.close_menu();
+        let mut confirm = ConfirmModal::new(
+            "Edit profile",
+            vec![
+                "Edit profile?".into(),
+                "Type yes. Cancel is the default. A confirm calls the loaded service.".into(),
+                "Profile photo and banner uploads are not built.".into(),
+            ],
+            "Save",
+            ConfirmAction::Job(JobKind::Write, argv),
+        );
+        confirm.strict = true;
+        self.modal = Some(Modal::Confirm(confirm));
+    }
+    /// Account › Save site settings. Cancel is the default.
+    pub fn save_site_settings(&mut self) {
+        if !self.writes_are_on() {
+            self.show_writes_off();
+            return;
+        }
+        let time_zone = self.menu.menu.text(crate::tui::commands::CommandId::Session, "time_zone");
+        let theme = self.menu.menu.choice(crate::tui::commands::CommandId::Session, "theme").to_string();
+        let show = self.menu.menu.check(crate::tui::commands::CommandId::Session, "show_sustainer");
+        let argv = match self.menu.menu.save_settings_argv(&time_zone, &theme, show) {
+            Ok(argv) => argv,
+            Err(e) => {
+                self.error("Site settings", &e);
+                return;
+            }
+        };
+        self.close_menu();
+        self.modal = Some(Modal::Confirm(ConfirmModal::new(
+            "Site settings",
+            vec![
+                "Save site settings?".into(),
+                "Cancel is the default. A confirm stores time zone, theme, and show-sustainer.".into(),
+                "Web push is not built.".into(),
+            ],
+            "Save",
+            ConfirmAction::Job(JobKind::Write, argv),
+        )));
+    }
+    /// Account › Report user. Cancel is the default.
+    pub fn report_user(&mut self) {
+        if !self.writes_are_on() {
+            self.show_writes_off();
+            return;
+        }
+        let Some(nick) = self.selected_nick().or_else(|| {
+            let typed = self.menu.menu.text(crate::tui::commands::CommandId::Session, "username");
+            if typed.trim().is_empty() { None } else { Some(typed) }
+        }) else {
+            self.push_status("pick a nick first");
+            return;
+        };
+        let reason = self.report_reason();
+        let argv = match self.menu.menu.report_argv(None, Some(&nick), &reason) {
+            Ok(argv) => argv,
+            Err(e) => {
+                self.error("Report user", &e);
+                return;
+            }
+        };
+        self.close_menu();
+        let mut confirm = ConfirmModal::new(
+            "Report user",
+            vec![
+                format!("Report user {nick}?"),
+                "Type yes. Cancel is the default. A confirm calls the loaded service.".into(),
+            ],
+            "Report",
+            ConfirmAction::Job(JobKind::Write, argv),
+        );
+        confirm.strict = true;
+        self.modal = Some(Modal::Confirm(confirm));
+    }
+    /// Post menu › Report. Cancel is the default.
+    pub fn report_post(&mut self, post_id: &str) {
+        if !self.writes_are_on() {
+            self.show_writes_off();
+            return;
+        }
+        let reason = self.report_reason();
+        let argv = match self.menu.menu.report_argv(Some(post_id), None, &reason) {
+            Ok(argv) => argv,
+            Err(e) => {
+                self.error("Report post", &e);
+                return;
+            }
+        };
+        let mut confirm = ConfirmModal::new(
+            "Report post",
+            vec![
+                format!("Report post {post_id}?"),
+                "Type yes. Cancel is the default. A confirm calls the loaded service.".into(),
+            ],
+            "Report",
+            ConfirmAction::Job(JobKind::Write, argv),
+        );
+        confirm.strict = true;
+        self.modal = Some(Modal::Confirm(confirm));
+    }
     fn space_post(&self, row: &crate::spaces::SpaceRow) -> Post {
         let id = if row.post_id.is_empty() { row.slug.clone() } else { row.post_id.clone() };
         if let Ok(Some(post)) = self.store.post(&id) {
@@ -2301,6 +2447,11 @@ impl App {
             Action::OpenLive => self.open_live(),
             Action::OpenLiveFeed => self.open_live_feed(),
             Action::OpenSiteNotifications => self.open_site_notifications(),
+            Action::ShowProfile => self.show_profile(),
+            Action::ShowSiteSettings => self.show_site_settings(),
+            Action::EditProfile => self.edit_profile(),
+            Action::SaveSiteSettings => self.save_site_settings(),
+            Action::ReportUser => self.report_user(),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }
@@ -2722,6 +2873,7 @@ impl App {
                     }
                 }
                 PostAction::Edit => self.edit_post(&m.post_id),
+                PostAction::Report => self.report_post(&m.post_id),
                 PostAction::Repost => {
                     if !self.writes_are_on() {
                         self.show_writes_off();
