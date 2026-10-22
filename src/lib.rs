@@ -14,8 +14,9 @@
 //! - [`auth`]: email + one-time-code login, saved preferences.
 //! - [`liveview`]: LiveView websocket client and diff renderer.
 //! - [`scrape`]: profile/site feeds, threads, "Posts and replies" filter, mentions.
-//! - [`service`]: Red Star capabilities. Profile and settings reads are ready. Profile edits, settings saves, and reports are gated.
-//! - [`site`]: New post and Reply (3.4.0), with local attachments (3.5.0). Text publish sends validate and save (3.31.0). The site copy of images, videos, and PDFs uploads first (3.32.0). A reply edit sends validate and save (3.33.0). Votes, subscribes, deletes, reposts, and top-level post edits stay gated. The site does not support changing attachments on an edit. A profile and forum settings can be read (3.36.0). Editing them, and reporting a post or a user, stay gated.
+//! - [`service`]: Red Star capabilities. The outbox is ready. Profile and settings reads are ready. Profile edits, settings saves, and reports are gated.
+//! - [`site`]: New post and Reply (3.4.0), with local attachments (3.5.0). Text publish sends validate and save (3.31.0). The site copy of images, videos, and PDFs uploads first (3.32.0). A reply edit sends validate and save (3.33.0). Votes, subscribes, deletes, reposts, and top-level post edits stay gated. The site does not support changing attachments on an edit. A profile and forum settings can be read (3.44.0). Editing them, and reporting a post or a user, stay gated.
+//! - [`outbox`]: Drafts and the send queue (3.34.0). A draft is stored before it is sent. A queued text post or reply uses the same confirm rules as a direct publish.
 //! - [`media`]: attachment discovery and download.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
@@ -49,6 +50,7 @@ pub mod import;
 pub mod liveview;
 pub mod maintenance;
 pub mod media;
+pub mod outbox;
 pub mod research;
 pub mod rules;
 pub mod scrape;

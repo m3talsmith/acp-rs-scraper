@@ -152,11 +152,21 @@ fn area_topics() -> Vec<String> {
     ]);
     push_topic(&mut v, "compose", "Compose", &[
         "  n is a new post. On an open post, r replies and Q quotes.",
-        "  Cancel is the default. A text post or reply sends validate, then save, once.",
+        "  Cancel is the default. Save draft stores the text on this machine and sends nothing.",
+        "  A text post or reply sends validate, then save, once.",
         "  --dry-run prints the frames and does not connect. The reply names the new post.",
         "  Attach lists local files. Images, videos, and PDFs upload, then the text is sent.",
         "  + and - ask before a vote. Post menu subscribe, delete, edit, and repost ask too.",
         "  Cancel is the default. Delete and edit also ask you to type yes. None of them send.",
+    ]);
+    push_topic(&mut v, "outbox", "Drafts and outbox", &[
+        "  Save draft, in the compose box or Compose › Save draft, writes the post on this machine.",
+        "  The same Draft id writes another version. Keep local leaves it off the queue.",
+        "  Queue draft puts that local id in the outbox. The outbox id is Q- plus the local id.",
+        "  Send from outbox asks first. Cancel is the default. It sends only a text post or a reply,",
+        "  with the same frames as Publish. --dry-run prints those frames and does not connect.",
+        "  An item older than 24 hours asks again. A row left in sending is read back before another try.",
+        "  Cancel outbox item marks a queued row cancelled. A sending row waits for the read-back.",
     ]);
     push_topic(&mut v, "post-actions", "Post actions", &[
         "  Vote, subscribe, delete, edit, and repost stay gated. No live frame is in the repo.",

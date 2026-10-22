@@ -9,6 +9,10 @@ use crate::prelude::*;
 /// One thing Red Star can do.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CapabilityId {
+    /// Local drafts and the send queue.
+    Outbox,
+    /// A post stored on this machine before it is sent.
+    LocalPost,
     /// Read a profile card.
     ProfileRead,
     /// Read `/rs/settings`.
@@ -27,6 +31,8 @@ impl CapabilityId {
     /// Stable id. The keymap and the service split use this string.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Outbox => "outbox",
+            Self::LocalPost => "local_post",
             Self::ProfileRead => "profile_read",
             Self::SettingsRead => "settings_read",
             Self::UpdateProfile => "update_profile",
@@ -40,7 +46,7 @@ impl CapabilityId {
 /// Whether a capability can run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Availability {
-    /// The read is shipped.
+    /// The read or the local queue is shipped.
     Ready,
     /// The write is prepared and does not send.
     Gated,
@@ -56,6 +62,8 @@ impl RedStar {
     /// Capabilities this binary implements.
     pub fn implemented() -> &'static [CapabilityId] {
         &[
+            CapabilityId::Outbox,
+            CapabilityId::LocalPost,
             CapabilityId::ProfileRead,
             CapabilityId::SettingsRead,
             CapabilityId::UpdateProfile,
@@ -71,10 +79,13 @@ impl RedStar {
             return None;
         }
         match id {
-            CapabilityId::ProfileRead | CapabilityId::SettingsRead => Some(Availability::Ready),
-            CapabilityId::UpdateProfile | CapabilityId::UpdateSettings | CapabilityId::ReportPost | CapabilityId::ReportUser => {
-                Some(Availability::Gated)
+            CapabilityId::Outbox | CapabilityId::LocalPost | CapabilityId::ProfileRead | CapabilityId::SettingsRead => {
+                Some(Availability::Ready)
             }
+            CapabilityId::UpdateProfile
+            | CapabilityId::UpdateSettings
+            | CapabilityId::ReportPost
+            | CapabilityId::ReportUser => Some(Availability::Gated),
         }
     }
 
@@ -101,7 +112,14 @@ mod tests {
         assert_eq!(RedStar::ID, "redstar");
         assert!(RedStar::require(CapabilityId::ProfileRead).is_ok());
         assert!(RedStar::require(CapabilityId::SettingsRead).is_ok());
-        for id in [CapabilityId::UpdateProfile, CapabilityId::UpdateSettings, CapabilityId::ReportPost, CapabilityId::ReportUser] {
+        assert!(RedStar::require(CapabilityId::Outbox).is_ok());
+        assert!(RedStar::require(CapabilityId::LocalPost).is_ok());
+        for id in [
+            CapabilityId::UpdateProfile,
+            CapabilityId::UpdateSettings,
+            CapabilityId::ReportPost,
+            CapabilityId::ReportUser,
+        ] {
             assert_eq!(RedStar::availability(id), Some(Availability::Gated));
             let err = RedStar::require(id).unwrap_err().to_string();
             assert!(err.contains("gated until a capture"), "{err}");

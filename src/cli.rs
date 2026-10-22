@@ -122,9 +122,10 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview", "rules_watch", "rules_saved", "rules_replies"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "edit_profile", "save_settings", "report_post", "report_user"]).multiple(true)))]
+#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "edit_profile", "save_settings", "report_post", "report_user", "outbox_send"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("reporting").args(["report_post", "report_user"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "edit_profile", "save_settings", "report_post", "report_user"]).multiple(false).conflicts_with_all([
+#[command(group(clap::ArgGroup::new("outbox").args(["draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "edit_profile", "save_settings", "report_post", "report_user", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
     "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
 ])))]
 #[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "show_profile", "site_settings", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
@@ -276,6 +277,36 @@ pub struct Args {
     /// Guided capture of one reply. Documented in architecture/PLAN-3.0-CLIENT.md. Does not publish.
     #[arg(long, value_name = "THREAD", hide = true)]
     pub capture_reply: Option<String>,
+    /// Save a draft in the encrypted database. Needs `--body` or `--body-file`. The same `--draft-id` writes another version. Nothing is sent.
+    #[arg(long, help_heading = "Writing")]
+    pub draft_save: bool,
+    /// With `--draft-save`: keep the post on this machine (`local`) instead of a draft that can be queued.
+    #[arg(long, requires = "draft_save", help_heading = "Writing")]
+    pub keep_local: bool,
+    /// With `--draft-save`. A blank id is generated. The same id writes another version.
+    #[arg(long, value_name = "ID", requires = "draft_save", help_heading = "Writing")]
+    pub draft_id: Option<String>,
+    /// With `--draft-save`. The title of a new post. A reply leaves this blank.
+    #[arg(long, value_name = "TITLE", requires = "draft_save", help_heading = "Writing")]
+    pub draft_title: Option<String>,
+    /// With `--draft-save`. A thread id makes the draft a reply. Blank is a new post.
+    #[arg(long, value_name = "THREAD", requires = "draft_save", help_heading = "Writing")]
+    pub draft_thread: Option<String>,
+    /// List drafts and keep-local posts. Nothing is sent.
+    #[arg(long, help_heading = "Writing")]
+    pub draft_list: bool,
+    /// List the outbox. Nothing is sent.
+    #[arg(long, help_heading = "Writing")]
+    pub outbox_list: bool,
+    /// Queue a draft or a keep-local post. ID is the local id from `--draft-save`, not the `Q-` outbox id. Nothing is sent.
+    #[arg(long, value_name = "ID", help_heading = "Writing")]
+    pub outbox_queue: Option<String>,
+    /// Send one queued text post or reply. The terminal asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same frames as a direct publish and does not connect. An item older than 24 hours asks again. A row left in `sending` is read back before another try. Votes and the other gated writes are not sent from the queue.
+    #[arg(long, value_name = "ID", help_heading = "Writing")]
+    pub outbox_send: Option<String>,
+    /// Mark a queued, failed, or draft outbox row cancelled. A row that is `sending` stays until a read-back. A sent row stays sent.
+    #[arg(long, value_name = "ID", help_heading = "Writing")]
+    pub outbox_cancel: Option<String>,
     /// Hidden.
     #[arg(long, hide = true)]
     pub roar: bool,

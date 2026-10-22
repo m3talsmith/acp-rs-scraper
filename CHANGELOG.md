@@ -6,12 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.36.0] - 2026-10-21
+## [3.44.0] - 2026-10-21
 
 ### Added
 
 - **Profile and site settings.** `--show-profile NICK` and Account › Profile read the card on `/rs/@nick`: display name, username, and bio. `--site-settings` and Account › Site settings read `/rs/settings`: time zone, theme, and show-sustainer. Both are stored in the encrypted database. Web push is not read. No new key.
 - prepared, gated: edit profile (`--edit-profile` with `--display-name`, `--username`, or `--bio`), save site settings (`--save-settings` with `--time-zone`, `--site-theme`, or `--show-sustainer`), report post (`--report-post` and Post menu › Report), and report user (`--report-user`). Each prints the documented form, asks with Cancel as the default (a profile edit and a report also ask for `yes`), and `--dry-run` opens no connection. A confirm still sends nothing. Profile photo and banner uploads are not built. Web push is not built. The capture steps are in `tests/fixtures/site/account.json`.
+
+## [3.34.0] - 2026-10-21
+
+### Added
+
+- **Drafts and the outbox.** A post is stored on this machine before it is sent. `--draft-save` writes a draft. The same `--draft-id` writes another `post_versions` row. `--keep-local` leaves the post off the queue. `--draft-list` prints them. `--outbox-queue ID` queues that local id. `--outbox-list` prints the queue. `--outbox-cancel ID` marks a queued, failed, or draft row cancelled. `--outbox-send ID` asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same validate and save frames as a direct text publish and opens no connection. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Votes and the other gated writes are not sent from it. In the terminal UI, Save draft is on the compose box and under Compose. Send from outbox starts on Cancel.
 
 ## [3.33.0] - 2026-10-21
 
