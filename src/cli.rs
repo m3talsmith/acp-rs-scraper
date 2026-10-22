@@ -276,6 +276,9 @@ pub struct Args {
     /// Print the rustc pin and the acp_rs_plugin version, then exit. Plugin authors read the pin only here.
     #[arg(long, exclusive = true, help_heading = "Interface")]
     pub doctor: bool,
+    /// Unload installed packages, then load every archive in ~/.acp/plugins that passes the sha256 gate. An ABI or plugin-crate mismatch is refused and the archive stays. A bad archive is quarantined and is not opened.
+    #[arg(long, exclusive = true, help_heading = "Interface")]
+    pub plugins_reload: bool,
     /// List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit.
     #[arg(long, help_heading = "Interface")]
     pub list_themes: bool,

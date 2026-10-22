@@ -3,8 +3,7 @@
 //! This binary is the headless CLI. The terminal UI starts the same flags in a
 //! child process, and its in-process login and compose use this module too.
 //! A service that implements the capability runs the job. The built-in site
-//! modules run when none does, which is this binary's in-tree adapter today.
-//! The service does not ship its own command line.
+//! modules run when none is loaded. The service does not ship its own command line.
 
 use acp_rs_plugin::{
     Budget, CapabilityId, Cursor, Draft, DynService, FilledFields, Host, RouteKind, ServiceError,
@@ -12,19 +11,14 @@ use acp_rs_plugin::{
 };
 
 use crate::prelude::*;
-use crate::service::runtime;
 
 /// The loaded service implements `cap`.
 pub fn handles(cap: CapabilityId) -> bool {
     service(cap).is_some()
 }
 
-fn service(cap: CapabilityId) -> Option<&'static dyn DynService> {
-    runtime()
-        .services()
-        .iter()
-        .find(|service| service.has(cap))
-        .map(|service| service.as_ref() as &dyn DynService)
+fn service(cap: CapabilityId) -> Option<crate::plugins::Live> {
+    crate::plugins::live(cap)
 }
 
 fn fail(err: ServiceError) -> anyhow::Error {
@@ -33,10 +27,11 @@ fn fail(err: ServiceError) -> anyhow::Error {
 
 /// Log in through the loaded authenticator and seal what it returns.
 pub async fn login(host: &dyn Host) -> Result<()> {
-    let service = service(CapabilityId::Authenticator).context("no authenticator is loaded")?;
+    let live = service(CapabilityId::Authenticator).context("no authenticator is loaded")?;
     let mut fields = FilledFields::new();
     fields.insert("email", host.email().unwrap_or_default());
-    let sealed = service
+    let sealed = live
+        .get()
         .authenticate(RouteKind::Session, &fields)
         .await
         .map_err(fail)?;
@@ -50,7 +45,7 @@ pub async fn login(host: &dyn Host) -> Result<()> {
 
 /// Read flags (`--nick`, `--sync`, `--sync-bookmarks`, `--scrape-all`, and the site feeds).
 pub async fn read_flags(args: &Args) -> Result<()> {
-    let service = service(CapabilityId::Reader).context("no reader is loaded")?;
+    let live = service(CapabilityId::Reader).context("no reader is loaded")?;
     let host = crate::host_api::CoreHost::shared();
     let mut targets = Vec::new();
     if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
@@ -88,8 +83,8 @@ pub async fn read_flags(args: &Args) -> Result<()> {
         info!("sync: no nicks given, nothing to scrape");
         return Ok(());
     }
-    let pages = read_with(service, Some(host.as_ref()), &targets).await?;
-    info!("service {}: {pages} pages", service.id());
+    let pages = read_with(live.get(), Some(host.as_ref()), &targets).await?;
+    info!("service {}: {pages} pages", live.get().id());
     Ok(())
 }
 
@@ -135,7 +130,7 @@ pub async fn compose(args: &Args) -> Result<Option<String>> {
     }
     let reply = args.reply.is_some();
     let cap = if reply { CapabilityId::Reply } else { CapabilityId::Post };
-    let Some(service) = service(cap) else { return Ok(None) };
+    let Some(live) = service(cap) else { return Ok(None) };
     if !publish_confirmed(args) {
         println!("nothing sent");
         return Ok(Some(String::new()));
@@ -149,15 +144,15 @@ pub async fn compose(args: &Args) -> Result<Option<String>> {
     let mut draft = Draft::text(body);
     draft.title = args.new_post.clone().unwrap_or_default();
     if let Some(thread) = &args.reply {
-        draft.in_reply_to = Some(SourceId::new(ServiceId::new(service.id()), thread.clone()));
+        draft.in_reply_to = Some(SourceId::new(ServiceId::new(live.get().id()), thread.clone()));
     }
     if let Some(parent) = &args.in_reply_to {
-        draft.in_reply_to = Some(SourceId::new(ServiceId::new(service.id()), parent.clone()));
+        draft.in_reply_to = Some(SourceId::new(ServiceId::new(live.get().id()), parent.clone()));
     }
     let outcome = if reply {
-        service.reply(&draft).await.map_err(fail)?
+        live.get().reply(&draft).await.map_err(fail)?
     } else {
-        service.publish(&draft).await.map_err(fail)?
+        live.get().publish(&draft).await.map_err(fail)?
     };
     Ok(Some(outcome_text(outcome)))
 }
@@ -176,11 +171,11 @@ pub fn draft_from_plan(plan: &crate::site::WritePlan) -> Draft {
 pub async fn publish_draft(draft: &Draft) -> Result<String> {
     let reply = draft.in_reply_to.is_some();
     let cap = if reply { CapabilityId::Reply } else { CapabilityId::Post };
-    let service = service(cap).context("no writer is loaded")?;
+    let live = service(cap).context("no writer is loaded")?;
     let outcome = if reply {
-        service.reply(draft).await.map_err(fail)?
+        live.get().reply(draft).await.map_err(fail)?
     } else {
-        service.publish(draft).await.map_err(fail)?
+        live.get().publish(draft).await.map_err(fail)?
     };
     Ok(outcome_text(outcome))
 }

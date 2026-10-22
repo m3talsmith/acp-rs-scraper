@@ -368,6 +368,7 @@ macro_rules! declare_plugin {
         }
 
         #[doc = "Plugin entry the host reads after the package gate and the version check."]
+        #[used]
         #[unsafe(no_mangle)]
         pub static plugin_declaration: $crate::PluginDeclaration = $crate::PluginDeclaration {
             rustc_version: $crate::RUSTC_VERSION,
@@ -543,16 +544,16 @@ fn draft_filled(draft: &Draft) -> bool {
     !draft.body.trim().is_empty() || !draft.attachments.is_empty() || draft.in_reply_to.is_some()
 }
 
-/// The rustc and core versions match this binary.
+/// The rustc ABI and the plugin-crate version match this binary.
 pub fn versions_match(rustc_version: &str, core_version: &str) -> Result<(), String> {
     if rustc_version != RUSTC_VERSION {
         return Err(format!(
-            "rustc mismatch: plugin has {rustc_version}, this binary has {RUSTC_VERSION}"
+            "rustc mismatch (ABI): plugin has {rustc_version}, this binary has {RUSTC_VERSION}"
         ));
     }
     if core_version != CORE_VERSION {
         return Err(format!(
-            "core mismatch: plugin has {core_version}, this binary has acp_rs_plugin {CORE_VERSION}"
+            "core mismatch (plugin crate): plugin has {core_version}, this binary has acp_rs_plugin {CORE_VERSION}"
         ));
     }
     Ok(())
@@ -592,9 +593,11 @@ mod tests {
     fn a_version_mismatch_names_both_sides() {
         let err = versions_match("rustc 0.0.0", CORE_VERSION).unwrap_err();
         assert!(err.contains("rustc mismatch"), "{err}");
+        assert!(err.contains("(ABI)"), "{err}");
         assert!(err.contains(RUSTC_VERSION), "{err}");
         let err = versions_match(RUSTC_VERSION, "0.0.0").unwrap_err();
         assert!(err.contains("core mismatch"), "{err}");
+        assert!(err.contains("plugin crate"), "{err}");
         assert!(err.contains("0.0.0"), "{err}");
         assert!(versions_match(RUSTC_VERSION, CORE_VERSION).is_ok());
     }

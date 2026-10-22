@@ -7,6 +7,9 @@ name = "acp-red-star"
 version = "3.35.14"
 dependencies = [
  "acp_red_star_node_core",
+ "acp_rs_fixture",
+ "acp_rs_fixture_mismatch",
+ "acp_rs_fixture_next",
  "acp_rs_plugin",
  "anyhow",
  "argon2",
@@ -30,6 +33,7 @@ dependencies = [
  "hpke",
  "image",
  "libc",
+ "libloading",
  "pbkdf2",
  "pulldown-cmark",
  "rand 0.8.8",
@@ -77,6 +81,27 @@ dependencies = [
  "x25519-dalek",
  "zeroize",
  "zxcvbn",
+]
+
+[[package]]
+name = "acp_rs_fixture"
+version = "0.1.0"
+dependencies = [
+ "acp_rs_plugin",
+]
+
+[[package]]
+name = "acp_rs_fixture_mismatch"
+version = "0.1.0"
+dependencies = [
+ "acp_rs_plugin",
+]
+
+[[package]]
+name = "acp_rs_fixture_next"
+version = "0.1.0"
+dependencies = [
+ "acp_rs_plugin",
 ]
 
 [[package]]
@@ -2328,6 +2353,16 @@ name = "libc"
 version = "0.2.190"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ce5d3ddc6d3fa000eb1536d85e147bfe31aacaba692ed6a876f95cb7c855be78"
+
+[[package]]
+name = "libloading"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
+dependencies = [
+ "cfg-if",
+ "windows-link",
+]
 
 [[package]]
 name = "libm"

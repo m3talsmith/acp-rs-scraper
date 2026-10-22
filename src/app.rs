@@ -231,6 +231,9 @@ pub async fn run() -> Result<()> {
         }
         return Ok(());
     }
+    if args.plugins_reload {
+        return crate::plugins::run_reload();
+    }
     let (brand, brand_warn) = crate::brands::selected(args.brand.as_deref());
     crate::brands::install(&brand);
     if let Some(w) = brand_warn {
@@ -398,13 +401,16 @@ pub async fn run() -> Result<()> {
     let jar = Arc::new(Jar::default());
     if let Err(e) = load_session(&jar) { cli_warning(&args, &format!("ignoring saved session: {e:#}")); }
     let http = client(jar.clone())?;
+    if crate::drive::handles(acp_rs_plugin::CapabilityId::Reader) {
+        if crate::drive::handles(acp_rs_plugin::CapabilityId::Authenticator) {
+            crate::drive::login(crate::host_api::CoreHost::shared().as_ref()).await?;
+        }
+        return crate::drive::read_flags(&args).await;
+    }
     if crate::drive::handles(acp_rs_plugin::CapabilityId::Authenticator) {
         crate::drive::login(crate::host_api::CoreHost::shared().as_ref()).await?;
     } else {
         login(&http, &jar).await?;
-    }
-    if crate::drive::handles(acp_rs_plugin::CapabilityId::Reader) {
-        return crate::drive::read_flags(&args).await;
     }
     if let Some(period) = args.top {
         let n = read_top(&http, &jar, period, args.top_replies).await?;

@@ -2,9 +2,9 @@
 //!
 //! The site modules still live in this crate. This adapter is how the host
 //! sees them: the outbox and a local post are ready, and a capability this
-//! binary does not implement is not offered. An external package is a later
-//! step. Until then, a missing `~/.acp/services/redstar.toml` does not turn
-//! this adapter off.
+//! binary does not implement is not offered. An installed package is loaded
+//! by [`crate::plugins`] after the gate. A missing
+//! `~/.acp/services/redstar.toml` does not turn this adapter off.
 
 pub use acp_rs_plugin::{Availability, CapabilityId};
 use acp_rs_plugin::{DynService, Field, RuntimeCtx};
@@ -180,6 +180,11 @@ impl Registry {
     pub fn services(&self) -> &[Box<dyn DynService>] {
         &self.services
     }
+
+    /// Services this registrar accepted. The caller stores them with the library.
+    pub fn into_services(self) -> Vec<Box<dyn DynService>> {
+        self.services
+    }
 }
 
 /// Refuse a plugin whose rustc or `acp_rs_plugin` version does not match.
@@ -189,7 +194,7 @@ pub fn admit(rustc_version: &str, core_version: &str) -> Result<(), String> {
     acp_rs_plugin::versions_match(rustc_version, core_version)
 }
 
-/// The process-wide built-in registry. A package is not opened here.
+/// The process-wide built-in registry. Installed packages live in [`crate::plugins`].
 pub fn runtime() -> &'static Registry {
     static REG: std::sync::OnceLock<Registry> = std::sync::OnceLock::new();
     REG.get_or_init(Registry::builtins)
