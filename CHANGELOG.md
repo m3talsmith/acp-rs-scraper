@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.6] - 2026-10-22
+
+### Fixed
+
+- **Help search.** Letters typed in Help go into the search, including j and k. ↑ and ↓ scroll. Searching for basket shows basket.
+
 ## [3.35.5] - 2026-10-22
 
 ### Fixed

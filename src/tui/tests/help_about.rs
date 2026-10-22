@@ -56,6 +56,19 @@ fn star_basket_and_research_do_not_share_a_topic() {
 }
 
 #[test]
+fn help_search_keeps_j_and_k_in_the_query() {
+    let mut h = HelpModal::new();
+    for c in "basket".chars() { h.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)); }
+    assert_eq!(h.query, "basket");
+    assert!(h.view_lines()[0].contains("basket"), "{:?}", h.view_lines());
+    let before = h.scroll;
+    h.on_key(KeyEvent::new(KeyCode::Up, KeyModifiers::NONE));
+    h.on_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+    assert_eq!(h.query, "basket");
+    assert_eq!(h.scroll, before);
+}
+
+#[test]
 fn help_search_filters_and_arrows_jump_topics() {
     let mut h = HelpModal::new();
     for c in ['g', 'e', 't', 't', 'i', 'n', 'g'] { h.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)); }

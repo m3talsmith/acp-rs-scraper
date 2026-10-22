@@ -38,6 +38,8 @@ struct E2e {
     theme_url: Option<String>,
     /// Text of the last theme-editor frame.
     preview: String,
+    /// Text captured from an in-process terminal UI check.
+    screen: String,
 }
 
 impl E2e {
@@ -46,7 +48,7 @@ impl E2e {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         std::fs::create_dir_all(home.join(".acp")).unwrap();
         std::fs::write(home.join(".acp/preferences.toml"), "email = \"alice@example.test\"\n").unwrap();
-        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None, preview: String::new() }
+        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None, preview: String::new(), screen: String::new() }
     }
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
@@ -201,6 +203,21 @@ async fn preview_has(w: &mut E2e, s: String) {
 #[then(expr = "the theme preview does not contain {string}")]
 async fn preview_lacks(w: &mut E2e, s: String) {
     assert!(!w.preview.contains(&s), "theme preview has {s:?}:\n{}", w.preview);
+}
+
+#[when(expr = "I search Help for {string}")]
+async fn search_help(w: &mut E2e, query: String) {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut help = acp_red_star::tui::modals::HelpModal::new();
+    for c in query.chars() {
+        help.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+    }
+    w.screen = help.view_lines().join("\n");
+}
+
+#[then(expr = "the Help text contains {string}")]
+async fn help_has(w: &mut E2e, s: String) {
+    assert!(w.screen.contains(&s), "Help lacks {s:?}:\n{}", w.screen);
 }
 
 #[then(expr = "stdout does not contain {string}")]

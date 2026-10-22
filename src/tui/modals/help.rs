@@ -21,6 +21,7 @@ pub fn help_text() -> Vec<String> {
     let guide = crate::crypto::recovery::GUIDE.trim();
     let mut v: Vec<String> = guide.lines().map(str::to_string).collect();
     v.extend(["[[keys]]".into(), "Terminal UI keys".into(), String::new()]);
+    v.push("  Letters typed here search, including j and k. ↑ ↓ PgUp PgDn Home End scroll.".into());
     for (k, d) in crate::config::TUI_KEYBINDINGS { v.push(format!("  {k:<22} {d}")); }
     v.extend(["".into(), "Menu commands map to these flags; Start Scanning runs the same scrape the CLI does.".into()]);
     v.extend(help_topics());
@@ -402,8 +403,8 @@ impl ModalState for HelpModal {
             KeyCode::Esc | KeyCode::Char('?') | KeyCode::F(1) => return Some(ModalResult::ClosedCancelled),
             KeyCode::Char('q') if self.query.is_empty() => return Some(ModalResult::ClosedCancelled),
             KeyCode::Enter => return Some(ModalResult::ClosedSubmitted),
-            KeyCode::Down | KeyCode::Char('j') => self.scroll_by(1),
-            KeyCode::Up | KeyCode::Char('k') => self.scroll_by(-1),
+            KeyCode::Down => self.scroll_by(1),
+            KeyCode::Up => self.scroll_by(-1),
             KeyCode::PageDown => self.scroll_by(15),
             KeyCode::PageUp => self.scroll_by(-15),
             KeyCode::Home => self.scroll = 0,
