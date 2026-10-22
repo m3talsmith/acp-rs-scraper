@@ -9,6 +9,7 @@ use crate::prelude::*;
 
 pub mod access;
 pub mod cli;
+pub mod template;
 
 /// Who may read a row that is being rendered, served, or exported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -218,6 +219,13 @@ const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS organizations (
             archived_at TEXT,
             created_at TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS org_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            org_id INTEGER NOT NULL UNIQUE,
+            name TEXT NOT NULL DEFAULT 'default',
+            html TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS org_write_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             org_id INTEGER NOT NULL,
@@ -413,6 +421,7 @@ pub fn delete_org(c: &Connection, slug: &str) -> Result<Org> {
     c.execute("DELETE FROM org_assets WHERE org_id = ?1", params![org.id])?;
     c.execute("DELETE FROM org_members WHERE org_id = ?1", params![org.id])?;
     c.execute("DELETE FROM org_roles WHERE org_id = ?1", params![org.id])?;
+    c.execute("DELETE FROM org_templates WHERE org_id = ?1", params![org.id])?;
     c.execute("DELETE FROM org_write_log WHERE org_id = ?1", params![org.id])?;
     c.execute("DELETE FROM organizations WHERE id = ?1", params![org.id])?;
     Ok(org)

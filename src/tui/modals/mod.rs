@@ -16,6 +16,7 @@ pub mod rules;
 pub mod search;
 pub mod brand_picker;
 pub mod theme_picker;
+pub mod template;
 
 use crossterm::event::KeyEvent;
 
@@ -34,6 +35,7 @@ pub use rules::*;
 pub use search::*;
 pub use brand_picker::*;
 pub use theme_picker::*;
+pub use template::*;
 
 /// How a modal closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -102,6 +104,8 @@ pub enum Modal {
     History(HistoryModal),
     /// Action-history paths. Choosing one restores that path.
     Branches(BranchesModal),
+    /// Organizations › Template. Source and a live preview.
+    Template(TemplateModal),
 }
 
 impl Modal {
@@ -118,6 +122,7 @@ impl Modal {
             Modal::Rules(m) => m,
             Modal::History(m) => m,
             Modal::Branches(m) => m,
+            Modal::Template(m) => m,
         }
     }
 }

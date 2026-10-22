@@ -262,3 +262,31 @@ fn organization_commands_stay_headless_and_delete_asks() {
     assert_eq!(c.focus, 1);
     assert!(c.buttons.last().is_some_and(|b| b == "Cancel"));
 }
+
+#[test]
+fn a_template_edit_is_visible_in_the_live_preview() {
+    use crate::orgs::template::{AssetSlot, Page, PostSlot};
+    use crate::tui::modals::{Modal, ModalState, TemplateModal};
+    use crate::tui::widgets::screen_text;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let page = Page {
+        org_name: "Hold".into(),
+        org_description: String::new(),
+        brand_title: "Red Star".into(),
+        brand_motto: String::new(),
+        theme_css: "--bg: #111111;".into(),
+        posts: vec![PostSlot { title: "Notes".into(), body: "local".into(), permalink: "posts/orgp-1.html".into() }],
+        assets: vec![AssetSlot { name: "banner".into(), download: "downloads/orga-1".into() }],
+    };
+    let mut modal = TemplateModal::from_page("hold", "<p>marker-line</p>".into(), page);
+    modal.cursor = modal.source.chars().count();
+    let mut a = app();
+    a.modal = Some(Modal::Template(modal));
+    let first = screen_text(&mut a, 120, 36);
+    assert!(first.contains("marker-line"), "{first}");
+    assert!(!first.contains("Research starts here."), "{first}");
+    let Some(Modal::Template(ed)) = a.modal.as_mut() else { panic!("template modal") };
+    ed.on_key(KeyEvent::new(KeyCode::Char('Z'), KeyModifiers::NONE));
+    let second = screen_text(&mut a, 120, 36);
+    assert!(second.contains("</p>Z"), "{second}");
+}

@@ -1,6 +1,6 @@
 # Plan: Organizations
 
-Status: **3.41.0 ships the public snapshot.** 3.40.1 confirms guest writes, 2026-10-22. Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. Templates, the website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
+Status: **3.42.0 ships templates.** 3.41.0 ships the public snapshot. 3.40.1 confirms guest writes, 2026-10-22. Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. The website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
 
 Base: `main` at `274a9e01` (crate `3.39.0`). This plan does not bump the version. `AGENTS.md` bumps a version for a feature or a fix, not for a plan.
 
@@ -339,9 +339,9 @@ Privacy (3.41.0) adds `--org-snapshot SLUG`. It prints the public JSON copy. A p
 
 Templates (3.42.0):
 
-- `--org-template-show SLUG`
-- `--org-template-set SLUG --file PATH`
-- `--org-template-reset SLUG` restores the default
+- `--org-template-show SLUG` prints the template. The default asks for Cinzel and Lora. The title comes from the brand.
+- `--org-template-set SLUG --org-template-file PATH` replaces it. Asks first. Cancel is the default.
+- `--org-template-reset SLUG` restores the default. Asks first.
 
 Assets (3.43.0):
 

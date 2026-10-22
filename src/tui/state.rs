@@ -2095,6 +2095,7 @@ impl App {
             Some(Modal::Rules(r)) => r.text_focused(),
             Some(Modal::Confirm(c)) if c.strict => true,
             Some(Modal::Help(_)) => true,
+            Some(Modal::Template(t)) => t.focus == 0,
             _ => false,
         }
     }
@@ -2384,6 +2385,7 @@ impl App {
             Action::OrgSave => self.org_save(),
             Action::OrgDelete => self.org_delete(),
             Action::OrgPost => self.org_post(),
+            Action::OrgTemplate => self.open_org_template(),
             Action::Quit => {
                 self.close_menu();
                 if let Some(j) = &self.job {
@@ -2454,6 +2456,52 @@ impl App {
                 argv,
             ),
             Err(e) => self.error("Organizations", &e),
+        }
+    }
+    fn open_org_template(&mut self) {
+        let slug = match self.menu.menu.org_slug() {
+            Ok(s) => s,
+            Err(e) => { self.error("Organizations", &e); return; }
+        };
+        self.close_menu();
+        match crate::tui::modals::TemplateModal::open(&slug, &self.brand, &self.theme) {
+            Ok(m) => self.modal = Some(Modal::Template(m)),
+            Err(e) => self.error("Template", &format!("{e:#}")),
+        }
+    }
+    fn template_chosen(&mut self, m: crate::tui::modals::TemplateModal) {
+        use crate::tui::modals::TemplateIntent;
+        match m.intent {
+            TemplateIntent::Save => self.modal = Some(Modal::Confirm(ConfirmModal::new(
+                "Save this template?",
+                vec!["The preview uses the theme on screen. Cancel is the default.".into()],
+                "Save",
+                ConfirmAction::SaveTemplate { slug: m.slug, html: m.source },
+            ))),
+            TemplateIntent::Reset => self.modal = Some(Modal::Confirm(ConfirmModal::new(
+                "Restore the default template?",
+                vec!["The custom template is forgotten. Cancel is the default.".into()],
+                "Restore",
+                ConfirmAction::ResetTemplate(m.slug),
+            ))),
+        }
+    }
+    fn write_org_template(&mut self, slug: &str, html: &str) {
+        match crate::config::home().and_then(|h| crate::orgs::org_conn(&h.join(crate::config::DB_REL_PATH))).and_then(|c| {
+            let org = crate::orgs::get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug}"))?;
+            crate::orgs::template::set_source(&c, org.id, html)
+        }) {
+            Ok(()) => self.push_status(format!("template for {slug} saved")),
+            Err(e) => self.error("Template", &format!("{e:#}")),
+        }
+    }
+    fn reset_org_template(&mut self, slug: &str) {
+        match crate::config::home().and_then(|h| crate::orgs::org_conn(&h.join(crate::config::DB_REL_PATH))).and_then(|c| {
+            let org = crate::orgs::get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug}"))?;
+            crate::orgs::template::reset_source(&c, org.id)
+        }) {
+            Ok(()) => self.push_status(format!("template for {slug} restored")),
+            Err(e) => self.error("Template", &format!("{e:#}")),
         }
     }
     fn org_post(&mut self) {
@@ -2645,6 +2693,8 @@ impl App {
                 },
                 ConfirmAction::SendOutbox(id) => self.send_outbox(&id),
                 ConfirmAction::CreatePhrase => self.effects.push(Effect::CreatePhrase),
+                ConfirmAction::SaveTemplate { slug, html } => self.write_org_template(&slug, &html),
+                ConfirmAction::ResetTemplate(slug) => self.reset_org_template(&slug),
             },
             (Modal::Confirm(c), ModalResult::ClosedCancelled) => {
                 if matches!(c.action, ConfirmAction::CreatePhrase) {
@@ -2739,6 +2789,7 @@ impl App {
                 else if let Ok(f) = s.filter() { self.run_search(f); }
             }
             (Modal::Branches(m), ModalResult::ClosedSubmitted) => self.switch_branch(m.cursor),
+            (Modal::Template(m), ModalResult::ClosedSubmitted) => self.template_chosen(m),
             (Modal::History(h), ModalResult::ClosedSubmitted) => {
                 if let Some(q) = h.chosen().cloned() {
                     let f = crate::tui::data::filter_of(&q);

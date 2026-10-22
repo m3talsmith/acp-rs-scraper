@@ -32,6 +32,15 @@ pub enum ConfirmAction {
     SendOutbox(String),
     /// Create the recovery phrase. The event loop leaves the screen first.
     CreatePhrase,
+    /// Write an organization template.
+    SaveTemplate {
+        /// Organization slug.
+        slug: String,
+        /// Template source.
+        html: String,
+    },
+    /// Restore the default organization template.
+    ResetTemplate(String),
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.

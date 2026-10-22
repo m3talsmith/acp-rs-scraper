@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.42.0] - 2026-10-22
+
+### Added
+
+- **Organization templates.** `--org-template-show`, `--org-template-set`, and `--org-template-reset` keep a page template on this machine. The default asks for Cinzel and Lora, then a generic serif, and does not ship those font files. The title and the motto come from the brand. A plain brand does not gain a motto. Organizations › Template shows the source and a live preview side by side. The preview follows the theme on screen. Replacing or restoring a template asks first. Cancel is the default. `--dry-run` writes nothing.
+
 ## [3.41.0] - 2026-10-22
 
 ### Added

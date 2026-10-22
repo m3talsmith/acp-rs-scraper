@@ -13,6 +13,10 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.org_roles.is_some()
         || args.org_members.is_some()
         || args.org_snapshot.is_some()
+        || args.org_template_show.is_some()
+        || args.org_template_set.is_some()
+        || args.org_template_reset.is_some()
+        || args.org_template_file.is_some()
         || args.org_post.is_some()
         || args.org_name.is_some()
         || args.org_description.is_some()
@@ -69,6 +73,15 @@ pub fn run_cli(args: &Args) -> Result<()> {
         let doc = crate::orgs::public_snapshot(&c, slug)?;
         println!("{}", serde_json::to_string_pretty(&doc)?);
         return Ok(());
+    }
+    if let Some(slug) = &args.org_template_show {
+        return show_template(&org_conn(&db)?, slug);
+    }
+    if let Some(slug) = &args.org_template_set {
+        return set_template(args, &db, slug);
+    }
+    if let Some(slug) = &args.org_template_reset {
+        return reset_template(args, &db, slug);
     }
     if let Some(slug) = &args.org_post {
         return post(args, &db, slug);
@@ -192,6 +205,52 @@ fn post(args: &Args, db: &Path, slug: &str) -> Result<()> {
     let (_, post) = add_post(&c, &org.slug, &title, &body, visibility)?;
     info!("organization {:?} post {} stored", org.slug, post.id);
     println!("{}  {}  post visibility: {}", org.slug, post.id, post.visibility.as_str());
+    Ok(())
+}
+
+fn show_template(c: &Connection, slug: &str) -> Result<()> {
+    let org = get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    println!("{}", crate::orgs::template::source(c, org.id)?);
+    Ok(())
+}
+
+fn set_template(args: &Args, db: &Path, slug: &str) -> Result<()> {
+    let path = args.org_template_file.as_ref().ok_or_else(|| anyhow!("--org-template-set needs --org-template-file"))?;
+    let html = std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+    let preview = format!("would replace the template for {slug} from {}", path.display());
+    if args.dry_run {
+        println!("{preview}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Replace this template? [y/N] ")? {
+        println!("{preview}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    crate::orgs::template::set_source(&c, org.id, &html)?;
+    println!("template for {slug} replaced");
+    Ok(())
+}
+
+fn reset_template(args: &Args, db: &Path, slug: &str) -> Result<()> {
+    let preview = format!("would restore the default template for {slug}");
+    if args.dry_run {
+        println!("{preview}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Restore the default template? [y/N] ")? {
+        println!("{preview}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    crate::orgs::template::reset_source(&c, org.id)?;
+    println!("template for {slug} restored");
     Ok(())
 }
 

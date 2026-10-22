@@ -114,6 +114,13 @@ async fn explore_hangs(w: &mut E2e) { w.mock().inner.lock().unwrap().explore_han
 #[given(expr = "I will enter the code {string}")]
 async fn will_enter(w: &mut E2e, code: String) { w.code = code; }
 
+#[when(expr = "I write {string} to {string}")]
+async fn write_under_home(w: &mut E2e, body: String, path: String) {
+    let p = w.home.join(path.trim_start_matches("$HOME/"));
+    if let Some(parent) = p.parent() { std::fs::create_dir_all(parent).unwrap(); }
+    std::fs::write(&p, body).unwrap();
+}
+
 #[given(expr = "I have run {string}")]
 #[when(expr = "I run {string}")]
 async fn run(w: &mut E2e, args: String) {

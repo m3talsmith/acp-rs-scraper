@@ -329,6 +329,27 @@ fn choice_line(label: &str, value: &str, focused: bool, t: &Theme) -> Line<'stat
     ])
 }
 
+fn draw_template(f: &mut Frame, app: &mut App, area: Rect, m: &crate::tui::modals::TemplateModal, t: &Theme) {
+    let r = modal_rect(area, 110, 28);
+    let inner = frame(f, t, r, "Template · source | preview · Tab · Esc cancels");
+    if inner.width < 8 || inner.height < 3 { return; }
+    let gap = 1u16;
+    let half = inner.width.saturating_sub(gap) / 2;
+    let left = Rect { x: inner.x, y: inner.y, width: half, height: inner.height.saturating_sub(1) };
+    let right = Rect { x: inner.x + half + gap, y: inner.y, width: inner.width.saturating_sub(half + gap), height: inner.height.saturating_sub(1) };
+    let mut source = m.source.clone();
+    let at = source.char_indices().nth(m.cursor).map(|(i, _)| i).unwrap_or(source.len());
+    if m.focus == 0 { source.insert(at, '▏'); }
+    let source_style = if m.focus == 0 { t.field() } else { t.plain() };
+    f.render_widget(Paragraph::new(Span::styled(source, source_style)), left);
+    app.hits.push((left, Hit::Modal(ModalHit::Field(0))));
+    let preview = m.preview();
+    f.render_widget(Paragraph::new(Span::styled(preview, t.plain())), right);
+    let labels = ["Save".to_string(), "Restore".into(), "Cancel".into()];
+    let focus = m.focus.checked_sub(1);
+    buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &labels, focus);
+}
+
 /// Draw the open modal over `area`, or nothing when none is open.
 pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
     let theme = app.theme;
@@ -556,6 +577,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             }
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], None);
         }
+        Modal::Template(m) => draw_template(f, app, area, m, &t),
         Modal::Palette(p) => {
             let r = modal_rect(area, 70, area.height.saturating_sub(4));
             let inner = frame(f, &t, r, "Commands · type to filter · Enter runs");

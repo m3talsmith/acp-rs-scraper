@@ -128,3 +128,33 @@ Feature: Organizations
     Then it succeeds
     And stdout does not contain "Later"
     And stdout does not contain "Secret"
+
+  Scenario: The default template names Cinzel and Lora and a replacement shows up
+    When I run "--org-create hold"
+    Then it succeeds
+    When I run "--org-template-show hold"
+    Then it succeeds
+    And stdout contains "Cinzel"
+    And stdout contains "Lora"
+    And stdout contains "serif"
+    And stdout does not contain "Research starts here."
+    When I write "<p>marker-line</p>" to "tmpl.html"
+    When I run "--org-template-set hold --org-template-file $HOME/tmpl.html --dry-run"
+    Then it succeeds
+    And stdout contains "would replace the template"
+    And stdout contains "dry-run: nothing was written"
+    When I run "--org-template-show hold"
+    Then it succeeds
+    And stdout contains "Cinzel"
+    When I run "--org-template-set hold --org-template-file $HOME/tmpl.html --yes"
+    Then it succeeds
+    And stdout contains "template for hold replaced"
+    When I run "--org-template-show hold"
+    Then it succeeds
+    And stdout contains "marker-line"
+    And stdout does not contain "Cinzel"
+    When I run "--org-template-reset hold --yes"
+    Then it succeeds
+    When I run "--org-template-show hold"
+    Then it succeeds
+    And stdout contains "Cinzel"

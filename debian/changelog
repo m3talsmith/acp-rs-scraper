@@ -1,3 +1,9 @@
+acp-red-star (3.42.0) unstable; urgency=medium
+
+  * Package 3.42.0. An organization template asks for Cinzel and Lora. The title comes from the brand. A live preview sits beside the source.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 21:10:00 +0000
+
 acp-red-star (3.41.0) unstable; urgency=medium
 
   * Package 3.41.0. `--org-snapshot` prints the public JSON copy. Private, gated, and archived rows are left out.
