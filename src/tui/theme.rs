@@ -45,6 +45,12 @@ pub struct Theme {
     pub fg: Color,
     /// Base background of the whole screen.
     pub bg: Color,
+    /// Start of the header mark gradient (`mark`). `Color::Reset` when the theme sets none.
+    pub mark: Color,
+    /// End of the header mark gradient (`mark_end`). `Color::Reset` when the theme sets none.
+    pub mark_end: Color,
+    /// Error and destructive text (`danger`). `Color::Reset` means use the accent.
+    pub danger: Color,
     /// Per-element overrides, by [`Element::index`].
     pub over: [Over; ELEMENTS],
 }
@@ -76,14 +82,16 @@ impl Theme {
     /// The fallback when no theme file can be used: `Color::Reset` everywhere.
     pub fn reset() -> Self {
         let r = Color::Reset;
-        Theme { accent: r, muted: r, border: r, on_accent: r, fg: r, bg: r, over: [Over::default(); ELEMENTS] }
+        Theme { accent: r, muted: r, border: r, on_accent: r, fg: r, bg: r, mark: r, mark_end: r, danger: r, over: [Over::default(); ELEMENTS] }
     }
 
     /// The `v` variant of a theme file (missing entries: the terminal's colour).
     pub fn from_file(f: &ThemeFile, v: Variant) -> Self {
         let s = f.section(v);
         let mut t = Theme { accent: s.color("accent"), muted: s.color("muted"), border: s.color("border"),
-            on_accent: s.color("on_accent"), fg: s.color("fg"), bg: s.color("bg"), over: [Over::default(); ELEMENTS] };
+            on_accent: s.color("on_accent"), fg: s.color("fg"), bg: s.color("bg"),
+            mark: s.color("mark"), mark_end: s.color("mark_end"), danger: s.color("danger"),
+            over: [Over::default(); ELEMENTS] };
         for e in Element::ALL { t.over[e.index()] = over_from(&s, &s.style(*e)); }
         t
     }
@@ -150,6 +158,11 @@ impl Theme {
     pub fn accent_bold(&self) -> Gloss { self.el(Element::AccentBold, Gloss::new().foreground(self.accent).bold(true)) }
     /// A link: underlined accent.
     pub fn link(&self) -> Gloss { self.el(Element::Link, Gloss::new().foreground(self.accent).underline(true)) }
+    /// Error and destructive text. A theme's `danger` colour when it sets one, otherwise the accent.
+    pub fn problem(&self) -> Gloss {
+        let c = if self.danger != Color::Reset { self.danger } else { self.accent };
+        Gloss::new().foreground(c)
+    }
     /// Muted text.
     pub fn muted(&self) -> Gloss { self.el(Element::Muted, Gloss::new().foreground(self.muted)) }
     /// Something that is gone (a missing file): muted, struck through.

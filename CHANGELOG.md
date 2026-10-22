@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.39.0] - 2026-10-22
+
+### Changed
+
+- **Red Star watercolor.** The built-in `red-star` theme leaves red, black, and gold. Dark is night `#04121a` with a deeper header `#03090f`, text `#bfe9e1`, and a teal-to-blue mark (`#2fb49a` to `#2a86b8`). Light is paper `#f7f5ef` and ink `#0d3b4a`, with the mark running `#1f9a7e` to `#1b6f9a`. The halberd and the word RED STAR use that gradient. The motto stays "Research starts here." The plain theme and the other themes are unchanged. Body text is at least 4.5:1. Borders and the light mark's teal end are at least 3:1. Error text is a softened coral.
+
 ## [3.38.1] - 2026-10-22
 
 ### Fixed

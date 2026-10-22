@@ -106,7 +106,7 @@ pub struct Entry {
     pub builtin: bool,
 }
 
-/// The red, black, and gold Red Star theme, with ACP Red Star branding.
+/// The teal-and-blue Red Star theme, with Red Star branding.
 pub fn builtin_red_star() -> ThemeFile {
     let (mut file, _) = parse(include_str!("../../themes/red-star.toml"), "red-star").expect("shipped red-star theme");
     file.name = "red-star".into();
@@ -114,7 +114,7 @@ pub fn builtin_red_star() -> ThemeFile {
     file
 }
 
-/// Neutral colours and the plain brand, for a demo that is not red, black, and gold.
+/// Neutral colours and the plain brand, for a demo that is not the Red Star watercolor.
 pub fn builtin_plain() -> ThemeFile {
     let mut file = ThemeFile::empty("plain");
     file.description = "Neutral colours, the title Red Star, and a star. No motto.".into();

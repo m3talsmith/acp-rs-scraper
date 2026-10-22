@@ -54,6 +54,23 @@ Feature: Theme files
     And stderr contains "404"
     And stderr contains "--theme-starter"
 
+  Scenario: The built-in red-star theme loads the teal palette
+    When I run "--theme-init red-star"
+    Then it succeeds
+    And stdout contains "downloaded the red-star theme"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "red-star"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#04121a"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#03090f"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#2fb49a"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#2a86b8"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#bfe9e1"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#f7f5ef"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#0d3b4a"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#1f9a7e"
+    And the file "$HOME/.acp/themes/red-star.toml" contains "#1b6f9a"
+    And the file "$HOME/.acp/themes/red-star.toml" does not contain "#c8102e"
+    And the file "$HOME/.acp/themes/red-star.toml" does not contain "#e8b648"
+
   Scenario: --theme-init never replaces an existing file
     Given a local file "$HOME/.acp/themes/default.toml" containing "version = 1\nname = 'default'\ndescription = 'Mine'\n"
     When I run "--theme-init"

@@ -152,7 +152,7 @@ pub fn draw(f: &mut Frame, app: &mut App, ed: &mut ThemeEditor, now: Instant) {
         f.render_widget(b, r);
         let mut lines: Vec<Line> = q.lines().map(|l| Line::raw(l.to_string())).collect();
         if named { lines.push(Line::styled(format!("› {}▏", p.field.value), ui.field())); }
-        if let Some(e) = &p.error { lines.push(Line::styled(e.clone(), ui.accent_bold())); }
+        if let Some(e) = &p.error { lines.push(Line::styled(e.clone(), ui.problem().bold(true))); }
         f.render_widget(Paragraph::new(lines), i);
     }
 }
@@ -198,7 +198,7 @@ fn draw_picker(f: &mut Frame, ui: &Theme, ed: &ThemeEditor, area: Rect) {
         info.push(swatch(Some(v)));
         if let Some(x) = ed.picker_warning(&c) { info.push(Span::styled(format!("  ⚠ contrast {x:.1}:1 (below {THEME_MIN_CONTRAST}:1)"), ui.accent_bold())); }
     }
-    if let Some(e) = &p.error { info = vec![Span::styled(e.clone(), ui.accent_bold())]; }
+    if let Some(e) = &p.error { info = vec![Span::styled(e.clone(), ui.problem().bold(true))]; }
     f.render_widget(Paragraph::new(Line::from(info)), Rect { y: i.y + i.height.saturating_sub(1), height: 1, ..i });
 }
 

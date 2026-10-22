@@ -1,45 +1,45 @@
-  🬵🬍🬂🬂🬌🬱                                                                                                                                                        
- 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                                                                                                                               
- 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star  v3.5.0                                                                             ‹red-star› ▾  ○ logged out 
-  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                                                                                                                  
- Scrape │ Search │ Export │ Import │ List │ Maintain │ Research │ Session │ Bookmarks │ Sync │ View │ Debug │ Help │ About │ Quit │            ▶ Start Scanning 
-┌ Nicks (0) ───────────────┐┌──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│ ★ Bookmarks (0)          ││Select a nick on the left  0 posts                                                            [Order: newest ▸]  [View: Nested ▸] │
-│ EB                       ││                                                                                                                                  │
-│ Explore                  ││ACP Red Star                                                                                                                      │
-│No nicks yet —            ││Research starts here.                                                                                                             │
-│use Scrape or Import.     ││                                                                                                                                  │
-│                          ││The database is empty. Open Scrape (or Import) in the menu bar to fill it.                                                        │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-│                          ││                                                                                                                                  │
-└──────────────────────────┘└──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit             Research starts here.                  
+   🬦█🬓                                                                                                                                                        ? 
+ 🬞🬹🬹█🬴🬄🬥▌ 🬂██🬂🬂█🬹 🬂██🬂🬰🬂🬎 🬂██🬂🬎🬹🬭         🬹█🬰🬂🬎🬋  🬎🬂██🬂🬎  🬭🬹🬎🬎🬹🬭  🬂██🬂🬂█🬹                                                                                       
+  🬁🬂█🬌🬊🬈🬄  ██🬂🬎█🬭  ██🬂🬎 🬭  ██ 🬭█🬎         🬭🬰🬂🬎🬹🬹    ██    ██🬋🬋██   ██🬂🬎█🬭   Red Star  v3.39.0                                        ‹red-star› ▾  ○ logged out 
+   🬞█🬏    🬂🬂🬂  🬂🬂 🬂🬂🬂🬂🬂🬂🬂 🬂🬂🬂🬂🬂            🬂🬂🬂🬂    🬂🬂🬂🬂   🬂🬂  🬂🬂  🬂🬂🬂  🬂🬂                                                                                       
+ View │ Search │ Compose │ Library │ Bookmarks │ Research │ Sync │ Discover │ Account │ Debug │ Help │ About │ Quit                    Scrape  ▶ Start Scanning 
+┌ Nicks (0) ───────────────┐┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐‹
+│ ★ Bookmarks (0)          ││Select a nick on the left  0 posts                                                           [Order: newest ▸]  [View: Nested ▸] │ 
+│ EB                       ││                                                                                                                                 │ 
+│ Explore                  ││Red Star                                                                                                                         │ 
+│No nicks yet —            ││Research starts here.                                                                                                            │ 
+│use Scrape or Import.     ││                                                                                                                                 │ 
+│                          ││The database is empty. Open Scrape (or Import) in the menu bar to fill it.                                                       │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+│                          ││                                                                                                                                 │ 
+└──────────────────────────┘└─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘ 
+? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit                               Research starts here.

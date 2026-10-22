@@ -152,8 +152,8 @@ pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
     let big_top = r.y + r.height.saturating_sub(3).div_ceil(2);
     let mid = Rect { x: r.x, y: (big_top + 1).min(r.y + r.height.saturating_sub(1)), width: r.width, height: 1.min(r.height) };
     // Logo: square on screen (cells are about twice as tall as wide), the full
-    // header height, in on-accent over the red bar. Without terminal graphics it
-    // is a sextant silhouette of the same PNG.
+    // header height. A theme with `mark` and `mark_end` paints the halberd as a
+    // left-to-right gradient; otherwise it uses the bar colours.
     let logo = Rect { x: r.x + 1, y: r.y, width: (r.height * 2).min(r.width.saturating_sub(1)), height: r.height };
     draw_brand_logo(f, app, logo);
     app.hits.push((logo, Hit::Logo));
@@ -181,11 +181,15 @@ pub(crate) fn topbar(f: &mut Frame, app: &mut App, r: Rect) {
                 .style(t.bar().bold(true))
                 .lines(vec![Line::from(word)])
                 .build();
-            f.render_widget(widget, Rect { x, y: big_top, width: big_w, height: 3 });
+            let word_rect = Rect { x, y: big_top, width: big_w, height: 3 };
+            f.render_widget(widget, word_rect);
+            if let Some((from, to)) = mark_gradient(&t) { paint_mark_gradient(f.buffer_mut(), word_rect, from, to); }
             x += big_w + 2;
         } else {
             let small = n + 1;
-            f.render_widget(Paragraph::new(Span::styled(word, t.bar().bold(true))), Rect { x, ..mid });
+            let word_rect = Rect { x, y: mid.y, width: n.max(1), height: 1 };
+            f.render_widget(Paragraph::new(Span::styled(word, t.bar().bold(true))), word_rect);
+            if let Some((from, to)) = mark_gradient(&t) { paint_mark_gradient(f.buffer_mut(), word_rect, from, to); }
             x += small;
         }
     }
@@ -251,7 +255,7 @@ fn status(f: &mut Frame, app: &mut App, r: Rect) {
         vec![Line::styled("? help · Tab focus · Space multi-select · Shift-S search · Ctrl-Space commands · F6 scan · F5 theme · q quit", quiet)]
     } else {
         app.status.iter().rev().take(n).rev().map(|l| {
-            let st = if status_line_is_problem(l) { t.accent() } else { quiet.clone() };
+            let st = if status_line_is_problem(l) { t.problem() } else { quiet.clone() };
             Line::styled(l.clone(), st)
         }).collect()
     };
@@ -277,7 +281,13 @@ fn draw_brand_logo(f: &mut Frame, app: &mut App, logo: Rect) {
     let t = app.theme;
     match app.brand.logo {
         LogoKind::Halberd => {
-            crate::tui::images::draw_halberd(f.buffer_mut(), logo, ratatui::style::Style::from(t.bar()));
+            let bar = ratatui::style::Style::from(t.bar());
+            if let Some((from, to)) = mark_gradient(&t) {
+                let bg = bar.bg.unwrap_or(t.bg);
+                crate::tui::images::draw_halberd_gradient(f.buffer_mut(), logo, from, to, bg);
+            } else {
+                crate::tui::images::draw_halberd(f.buffer_mut(), logo, bar);
+            }
         }
         LogoKind::Builtin => {
             let drawn = app.images.as_mut().is_some_and(|im| im.draw_logo(f.buffer_mut(), logo));
@@ -318,6 +328,26 @@ fn paint_logo_text(f: &mut Frame, area: Rect, text: &str, fg: ratatui::style::Co
             Paragraph::new(Span::styled(shown, style)),
             Rect { x, y: y0 + i as u16, width: w.max(1), height: 1 },
         );
+    }
+}
+
+/// `mark` and `mark_end` when the theme sets both. Other themes keep the bar colours.
+fn mark_gradient(t: &crate::tui::theme::Theme) -> Option<(ratatui::style::Color, ratatui::style::Color)> {
+    use ratatui::style::Color;
+    (t.mark != Color::Reset && t.mark_end != Color::Reset).then_some((t.mark, t.mark_end))
+}
+
+/// Recolour ink in `area` from `from` at the left to `to` at the right. Spaces stay the bar colour.
+fn paint_mark_gradient(buf: &mut ratatui::buffer::Buffer, area: Rect, from: ratatui::style::Color, to: ratatui::style::Color) {
+    if area.width == 0 || area.height == 0 { return; }
+    let denom = area.width.saturating_sub(1).max(1) as f64;
+    for y in area.y..area.y.saturating_add(area.height) {
+        for x in area.x..area.x.saturating_add(area.width) {
+            let Some(cell) = buf.cell_mut((x, y)) else { continue };
+            if cell.symbol() == " " { continue; }
+            let t = f64::from(x - area.x) / denom;
+            cell.set_fg(crate::tui::images::lerp_color(from, to, t));
+        }
     }
 }
 

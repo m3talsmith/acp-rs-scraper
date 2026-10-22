@@ -221,8 +221,8 @@ Every colour of the terminal UI comes from a theme file. `red-star` and `plain` 
   a theme that can't be used reads `‹default: missing› ▾` (no file) or `‹mine: broken› ▾` (the
   file can't be read as a theme).
 - **Themes in the repo.** `default` (ACP red on the terminal's colours), `soviet` (red and gold),
-  `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (ACP Red
-  Star brand: ink black, vermilion and gold, cream text, from the banner), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
+  `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (Rebel Hold
+  watercolor: teal and blue on night, paper and ink in the light), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
   accent), `rs` (Red Star site: near-black zinc with ACP red and vote gold), `acp` (American Communist Party: ACP red, black and white on blush pink); each has
   dark and light variants with text contrast of at least 3:1. Only `default`
   is downloaded automatically; get the rest with `--theme-init NAME` or `--theme-init all`.
@@ -238,8 +238,8 @@ Every colour of the terminal UI comes from a theme file. `red-star` and `plain` 
   elements, on the left, and Preview (sample posts) on the right. The preview updates as you type
   a title, motto, word, or logo text, when Enter cycles the logo (`halberd`, `text`, `file`, `builtin`), and
   when a colour changes. Tab flips dark and light. Ctrl-S saves the theme, including `[brand]`.
-  Esc closes. The built-in `red-star` theme is red, black, and gold with the Red Star branding
-  (the star-blade halberd, the word RED STAR, the title Red Star, and "Research starts here.").
+  Esc closes. The built-in `red-star` theme is the Rebel Hold teal-to-blue watercolor with the Red Star branding
+  (the star-blade halberd and the word RED STAR run from teal to blue, the title is Red Star, and the motto is "Research starts here.").
   The built-in `plain` theme is neutral colours, the title Red Star, a star, and no motto.
   `acp-red-star --brand plain` still uses that branding for this run and does not write the
   preference. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps it until you pick a theme

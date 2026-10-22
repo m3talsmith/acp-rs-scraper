@@ -1,3 +1,9 @@
+acp-red-star (3.39.0) unstable; urgency=medium
+
+  * Package 3.39.0. The built-in red-star theme is the Rebel Hold teal-to-blue watercolor.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 17:10:00 +0000
+
 acp-red-star (3.38.1) unstable; urgency=medium
 
   * Package 3.38.1. The Red Star brand's displayed title is "Red Star".

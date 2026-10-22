@@ -16,6 +16,18 @@ fn render(a: &mut App, w: u16, h: u16) -> String {
     (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n")
 }
 
+/// Foreground colours of the non-space cells in the header logo slot.
+fn header_ink(buf: &ratatui::buffer::Buffer, x0: u16, x1: u16) -> Vec<ratatui::style::Color> {
+    let mut out = Vec::new();
+    for y in 0..4 {
+        for x in x0..x1 {
+            let cell = &buf[(x, y)];
+            if cell.symbol() != " " { out.push(cell.fg); }
+        }
+    }
+    out
+}
+
 fn click(a: &mut App, hit: Hit, mods: KeyModifiers) {
     let (r, _) = *a.hits.iter().rev().find(|(_, h)| *h == hit).unwrap_or_else(|| panic!("no {hit:?} drawn"));
     on_mouse(a, MouseEvent { kind: MouseEventKind::Down(MouseButton::Left), column: r.x, row: r.y, modifiers: mods });
@@ -39,7 +51,32 @@ fn red_star_theme_paints_the_welcome_screen() {
     assert!(s.contains(crate::config::TUI_SUBTITLE), "{s}");
     assert!(s.contains(crate::branding::SLOGAN), "{s}");
     let body = &buf[(20, 16)];
-    assert_eq!(body.style().bg, Some(ratatui::style::Color::Rgb(0x0e, 0x04, 0x04)), "ink background");
+    assert_eq!(body.style().bg, Some(ratatui::style::Color::Rgb(0x04, 0x12, 0x1a)), "night background");
+    let bar = &buf[(40, 2)];
+    assert_eq!(bar.bg, ratatui::style::Color::Rgb(0x03, 0x09, 0x0f), "header is the deep ground");
+    let mark = header_ink(&buf, 0, 12);
+    assert!(mark.len() >= 2, "halberd ink {mark:?}");
+    assert!(mark.iter().any(|c| *c != ratatui::style::Color::Rgb(0xe6, 0xfb, 0xf7)), "the blade is not the bar text");
+    assert_ne!(mark[0], mark[mark.len() - 1], "the blade runs teal to blue: {mark:?}");
+}
+
+#[test]
+fn red_star_light_paints_paper_and_the_same_mark() {
+    let (f, w) = crate::themes::parse(include_str!("../../../themes/red-star.toml"), "red-star").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    let theme = Theme::from_file(&f, crate::themes::Variant::Light);
+    let mut a = App::new(Box::new(crate::tui::data::MemStore::default()), &no_args(), theme, false);
+    a.theme_name = "red-star".into();
+    let (w, h) = (160u16, 45u16);
+    let mut t = Terminal::new(TestBackend::new(w, h)).unwrap();
+    t.draw(|frame| crate::tui::widgets::draw(frame, &mut a, Instant::now())).unwrap();
+    let buf = t.backend().buffer().clone();
+    assert_eq!(buf[(80, 20)].bg, ratatui::style::Color::Rgb(0xf7, 0xf5, 0xef), "paper");
+    assert_eq!(buf[(40, 2)].bg, ratatui::style::Color::Rgb(0xe7, 0xf4, 0xf1), "pale header wash");
+    let mark = header_ink(&buf, 1, 9);
+    assert!(mark.len() >= 2 && mark[0] != mark[mark.len() - 1], "light blade runs teal to blue: {mark:?}");
+    let s = (0..h).map(|y| (0..w).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>()).collect::<Vec<_>>().join("\n");
+    assert!(s.contains(crate::branding::SLOGAN) && s.contains("Red Star"), "{s}");
 }
 
 #[test]
