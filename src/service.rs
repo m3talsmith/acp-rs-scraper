@@ -39,6 +39,61 @@ impl DynService for RedStar {
             Availability::Ready
         }
     }
+
+    fn save_local<'a>(
+        &'a self,
+        id: &'a str,
+        draft: &'a acp_rs_plugin::Draft,
+        keep: bool,
+    ) -> acp_rs_plugin::CapFut<'a, String> {
+        let thread = draft
+            .in_reply_to
+            .as_ref()
+            .map(|source| source.native.clone())
+            .unwrap_or_default();
+        let title = draft.title.clone();
+        let body = draft.body.clone();
+        let id = id.to_string();
+        let result = crate::outbox::save_fields(&id, &title, &body, &thread, keep)
+            .map_err(|err| acp_rs_plugin::ServiceError::Message(err.to_string()));
+        Box::pin(async move { result })
+    }
+
+    fn list_local<'a>(&'a self) -> acp_rs_plugin::CapFut<'a, Vec<String>> {
+        let result = crate::outbox::show_drafts()
+            .map(lines)
+            .map_err(|err| acp_rs_plugin::ServiceError::Message(err.to_string()));
+        Box::pin(async move { result })
+    }
+
+    fn enqueue<'a>(&'a self, local_id: &'a str) -> acp_rs_plugin::CapFut<'a, String> {
+        let id = local_id.to_string();
+        let result = crate::outbox::queue_local(&id)
+            .map_err(|err| acp_rs_plugin::ServiceError::Message(err.to_string()));
+        Box::pin(async move { result })
+    }
+
+    fn queued<'a>(&'a self) -> acp_rs_plugin::CapFut<'a, Vec<String>> {
+        let result = crate::outbox::show_outbox()
+            .map(lines)
+            .map_err(|err| acp_rs_plugin::ServiceError::Message(err.to_string()));
+        Box::pin(async move { result })
+    }
+
+    fn cancel_queued<'a>(&'a self, id: &'a str) -> acp_rs_plugin::CapFut<'a, String> {
+        let id = id.to_string();
+        let result = crate::outbox::cancel_item(&id)
+            .map_err(|err| acp_rs_plugin::ServiceError::Message(err.to_string()));
+        Box::pin(async move { result })
+    }
+}
+
+fn lines(text: String) -> Vec<String> {
+    if text.is_empty() {
+        Vec::new()
+    } else {
+        text.lines().map(str::to_string).collect()
+    }
 }
 
 impl RedStar {

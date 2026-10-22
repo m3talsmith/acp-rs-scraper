@@ -514,12 +514,16 @@ pub struct ItemRec {
     pub metrics_json: String,
     /// How this row was fetched (`liveview`, `x-web`, `yt-dlp`, and so on).
     pub fetched_via: String,
-    /// The body is a shortened preview.
+    /// The body is a shortened preview. [`ItemRec::body_state`] is what the host stores.
     pub truncated: bool,
+    /// `full`, `truncated`, or `unknown`. This is the `posts.body_state` column.
+    pub body_state: BodyState,
     /// A score the service sent.
     pub score: Option<i64>,
     /// Media the item points at. The bytes are not in this record.
     pub media: Vec<MediaRef>,
+    /// Attachment rows. The host stores the URL, path, MIME type, and on-site flag.
+    pub attachments: Vec<AttachmentRec>,
 }
 
 impl ItemRec {
@@ -544,8 +548,70 @@ impl ItemRec {
             metrics_json: String::new(),
             fetched_via: String::new(),
             truncated: false,
+            body_state: BodyState::Full,
             score: None,
             media: Vec::new(),
+            attachments: Vec::new(),
+        }
+    }
+}
+
+/// How complete a stored body is. Matches the `posts.body_state` column.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum BodyState {
+    /// The body is the full text.
+    #[default]
+    Full,
+    /// The body is a shortened preview.
+    Truncated,
+    /// The body was stored before the column existed, or the service has not classified it.
+    Unknown,
+}
+
+impl BodyState {
+    /// `full`, `truncated`, or `unknown`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Full => "full",
+            Self::Truncated => "truncated",
+            Self::Unknown => "unknown",
+        }
+    }
+
+    /// Parse a stored `body_state`. Anything else is [`BodyState::Full`].
+    pub fn parse(text: &str) -> Self {
+        match text {
+            "truncated" => Self::Truncated,
+            "unknown" => Self::Unknown,
+            _ => Self::Full,
+        }
+    }
+}
+
+/// One attachment row. The file bytes stay on disk at `local_path`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AttachmentRec {
+    /// Page or media URL.
+    pub url: String,
+    /// `image`, `video`, `file`, or another kind the service names.
+    pub kind: String,
+    /// MIME type. Empty when the service has none.
+    pub mime: String,
+    /// Path the core stored. Empty when the bytes are not on disk yet.
+    pub local_path: String,
+    /// The file is part of the site copy of the post.
+    pub on_site: bool,
+}
+
+impl AttachmentRec {
+    /// A row for `url` with no local file yet.
+    pub fn new(url: impl Into<String>) -> Self {
+        Self {
+            url: url.into(),
+            kind: String::new(),
+            mime: String::new(),
+            local_path: String::new(),
+            on_site: true,
         }
     }
 }
@@ -676,6 +742,8 @@ impl SealedMaterial {
 /// A local draft the core already has. The service does not read the user's files for this.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct Draft {
+    /// Title. Empty for a reply.
+    pub title: String,
     /// Body text.
     pub body: String,
     /// Attachments the core has already loaded.
@@ -688,6 +756,7 @@ impl Draft {
     /// A text draft with no attachments.
     pub fn text(body: impl Into<String>) -> Self {
         Self {
+            title: String::new(),
             body: body.into(),
             attachments: Vec::new(),
             in_reply_to: None,

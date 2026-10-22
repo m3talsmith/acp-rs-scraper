@@ -46,6 +46,76 @@ pub struct HttpResponse {
     pub content_type: String,
 }
 
+/// One extra request header. Cookies go through [`Host::set_cookie`], not this.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HttpHeader {
+    /// Header name.
+    pub name: String,
+    /// Header value.
+    pub value: String,
+}
+
+impl HttpHeader {
+    /// A header named `name`.
+    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            value: value.into(),
+        }
+    }
+}
+
+/// One cookie in a service's jar.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CookieRec {
+    /// Cookie name.
+    pub name: String,
+    /// Cookie value.
+    pub value: String,
+    /// URL the cookie was stored against.
+    pub url: String,
+}
+
+/// Post ids the core already has, plus stored reply counts per thread root.
+///
+/// A trait read uses `reply_counts` the way the headless path does: a thread
+/// whose stored reply count still matches the feed can be skipped.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct KnownIds {
+    /// Post ids with a body that is not `truncated`.
+    pub ids: Vec<String>,
+    /// Stored replies for each thread root.
+    pub reply_counts: Vec<ThreadReplies>,
+}
+
+/// How many replies the core has stored under one thread root.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ThreadReplies {
+    /// Thread root id.
+    pub thread_id: String,
+    /// Rows whose `parent_post_id` is `thread_id`.
+    pub replies: u64,
+}
+
+/// JSON or HTML. The host renders both. A service does not ship its own exporter.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ExportFormat {
+    /// Pretty JSON.
+    Json,
+    /// A self-contained HTML page.
+    Html,
+}
+
+impl ExportFormat {
+    /// `json` or `html`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Json => "json",
+            Self::Html => "html",
+        }
+    }
+}
+
 /// The core, as a service is allowed to see it.
 ///
 /// The service does not receive a SQLCipher connection, the database key, or
@@ -60,12 +130,16 @@ pub trait Host: Send + Sync {
     /// Saved login email. Empty when the preferences file has none.
     fn email(&self) -> Result<String, HostError>;
 
-    /// Store `page` in the core database. Returns how many item and segment rows were written.
+    /// Store `page` in the core database.
+    ///
+    /// Each item's [`crate::BodyState`] is written to `posts.body_state`.
+    /// Attachment rows are written to `attachments`. Returns how many item and
+    /// segment rows were written.
     fn save_page(&self, page: &Page) -> Result<usize, HostError>;
     /// One stored item, when `id`'s native value is a post id in the core database.
     fn load_item(&self, id: &SourceId) -> Result<Option<crate::records::ItemRec>, HostError>;
-    /// Post ids the core already has a full body for.
-    fn known_ids(&self) -> Result<Vec<String>, HostError>;
+    /// Known post ids and the stored reply count of each thread root.
+    fn known_ids(&self) -> Result<KnownIds, HostError>;
 
     /// Seal `material` under `field` in the encrypted database. The service does not see the key.
     fn store_secret(&self, field: &str, material: &[u8]) -> Result<(), HostError>;
@@ -82,8 +156,8 @@ pub trait Host: Send + Sync {
     /// Outbox lines, newest first. An empty queue is one line, `outbox none`.
     fn list_outbox(&self) -> Result<Vec<String>, HostError>;
 
-    /// Write a JSON export of stored posts to `path`.
-    fn export_json(&self, path: &str) -> Result<(), HostError>;
+    /// Write stored posts to `path` as JSON or HTML.
+    fn export(&self, path: &str, format: ExportFormat) -> Result<(), HostError>;
     /// Read a JSON export at `path` and store its posts. Returns how many posts were written.
     fn import_json(&self, path: &str) -> Result<usize, HostError>;
 
@@ -108,9 +182,30 @@ pub trait Host: Send + Sync {
     fn argv0(&self) -> String;
 
     /// GET `url` with the core's HTTP client.
-    fn http_get(&self, url: &str) -> Result<HttpResponse, HostError>;
-    /// POST `body` to `url` with the core's HTTP client.
-    fn http_post(&self, url: &str, body: &[u8], content_type: &str) -> Result<HttpResponse, HostError>;
+    ///
+    /// `service` selects that service's cookie jar. `headers` are extra request
+    /// headers. A `Cookie` header is refused: cookies go through [`Host::set_cookie`].
+    fn http_get(
+        &self,
+        service: &str,
+        url: &str,
+        headers: &[HttpHeader],
+    ) -> Result<HttpResponse, HostError>;
+    /// POST `body` to `url` with the core's HTTP client. Same jar and header rules as [`Host::http_get`].
+    fn http_post(
+        &self,
+        service: &str,
+        url: &str,
+        headers: &[HttpHeader],
+        body: &[u8],
+        content_type: &str,
+    ) -> Result<HttpResponse, HostError>;
+    /// Store `name`=`value` in `service`'s jar for `url`. A later call with the same name replaces the value.
+    fn set_cookie(&self, service: &str, url: &str, name: &str, value: &str) -> Result<(), HostError>;
+    /// Cookies stored for `service`, across every URL.
+    fn cookies(&self, service: &str) -> Result<Vec<CookieRec>, HostError>;
+    /// Drop every cookie stored for `service`.
+    fn clear_cookies(&self, service: &str) -> Result<(), HostError>;
 }
 
 /// Where a service keeps the host from [`crate::Service::attach`].

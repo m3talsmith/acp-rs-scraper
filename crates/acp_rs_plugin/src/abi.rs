@@ -291,6 +291,31 @@ pub trait DynService: Send + Sync {
     fn estimate<'a>(&'a self, _budget: &'a Budget) -> CapFut<'a, Spend> {
         not_implemented(self.id(), CapabilityId::CostMeter.as_str())
     }
+
+    /// Save `draft` under `id`. `keep` true leaves it off the send queue.
+    fn save_local<'a>(&'a self, _id: &'a str, _draft: &'a Draft, _keep: bool) -> CapFut<'a, String> {
+        not_implemented(self.id(), CapabilityId::LocalPost.as_str())
+    }
+
+    /// Drafts and keep-local posts, newest update first.
+    fn list_local<'a>(&'a self) -> CapFut<'a, Vec<String>> {
+        not_implemented(self.id(), CapabilityId::LocalPost.as_str())
+    }
+
+    /// Queue a saved local post.
+    fn enqueue<'a>(&'a self, _local_id: &'a str) -> CapFut<'a, String> {
+        not_implemented(self.id(), CapabilityId::Outbox.as_str())
+    }
+
+    /// Queue rows, newest first.
+    fn queued<'a>(&'a self) -> CapFut<'a, Vec<String>> {
+        not_implemented(self.id(), CapabilityId::Outbox.as_str())
+    }
+
+    /// Cancel a queued item.
+    fn cancel_queued<'a>(&'a self, _id: &'a str) -> CapFut<'a, String> {
+        not_implemented(self.id(), CapabilityId::Outbox.as_str())
+    }
 }
 
 /// What a plugin exports. The host casts the `plugin_declaration` symbol to this.
