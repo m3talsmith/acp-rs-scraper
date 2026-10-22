@@ -26,7 +26,8 @@ pub fn expand_menu_path(raw: &str) -> String {
 pub fn is_path_field(id: CommandId, key: &str) -> bool {
     matches!((id, key),
         (CommandId::Scrape, "output") | (CommandId::Export, "path") | (CommandId::Import, "path")
-        | (CommandId::Research, "file") | (CommandId::Research, "export_path"))
+        | (CommandId::Research, "file") | (CommandId::Research, "export_path")
+        | (CommandId::Feeds, "path"))
 }
 
 /// Menu bar items, left to right.
@@ -52,6 +53,8 @@ pub enum CommandId {
     List,
     /// Remove nicks / clear everything.
     Maintain,
+    /// Local feeds. Refresh calls the loaded service.
+    Feeds,
     /// Login / logout. The bar label is Account.
     Session,
     /// Bookmarks: show, toggle, sync.
@@ -187,6 +190,22 @@ pub enum Action {
     SaveSiteSettings,
     /// Account › Report user. Cancel is the default.
     ReportUser,
+    /// Feeds › Show.
+    ShowFeed,
+    /// Feeds › Add rule.
+    AddFeedRule,
+    /// Feeds › Export. The posts, not the rules.
+    ExportFeed,
+    /// Feeds › Share. The rules.
+    ShareFeed,
+    /// Feeds › Import.
+    ImportFeed,
+    /// Feeds › Delete. Cancel is the default.
+    DeleteFeed,
+    /// Feeds › Refresh. Cancel is the default. A dry-run does not call the service.
+    RefreshFeed,
+    /// Feeds › Save the name, description, and filters.
+    SaveFeed,
     /// Write the minimal starter theme (the palette's `Theme: starter [name]`).
     ThemeStarter,
     /// The brand picker (the header's `«brand» ▾`).
@@ -460,6 +479,33 @@ fn library_item() -> MenuCommand {
         opt("basket", "Basket", "", false, button(Action::OpenMenu(Basket))),
         opt("list", "List", "", false, button(Action::OpenMenu(List))),
         opt("maintain", "Maintain", "", false, button(Action::OpenMenu(Maintain))),
+        opt_topic("feeds", "Feeds", "--feed-list", "feeds", false, button(Action::OpenMenu(Feeds))),
+    ])
+}
+
+const FEED_MATCH: &[&str] = &["any", "all"];
+const FEED_SORT: &[&str] = &["newest", "oldest", "score"];
+
+fn feeds_item() -> MenuCommand {
+    tucked(CommandId::Feeds, "Feeds", 'f', vec![
+        opt_topic("name", "Name", "--feed-create / --feed-show", "feeds", false, text("")),
+        opt_topic("description", "Description", "--feed-description", "feeds", false, text("")),
+        opt_topic("nick", "Nick", "--feed-nick", "feeds", false, text("")),
+        opt_topic("tag", "Tag", "--feed-tag", "feeds", false, text("")),
+        opt_topic("query", "Search", "--feed-search", "feeds", false, text("")),
+        opt_topic("exclude", "Exclude", "--feed-exclude", "feeds", false, check(false)),
+        opt_topic("match_mode", "Match", "--feed-match", "feeds", false, choice(FEED_MATCH)),
+        opt_topic("sort", "Sort", "--feed-sort", "feeds", false, choice(FEED_SORT)),
+        opt_topic("since", "Since", "--feed-since", "feeds", false, text("")),
+        opt_topic("path", "File", "--output", "feeds", false, text("")),
+        opt_topic("save", "Save", "--feed-create / --feed-edit", "feeds", false, button(Action::SaveFeed)),
+        opt_topic("show", "Show", "--feed-show", "feeds", false, button(Action::ShowFeed)),
+        opt_topic("add", "Add rule", "--feed-add", "feeds", false, button(Action::AddFeedRule)),
+        opt_topic("export", "Export", "--feed-export", "feeds", false, button(Action::ExportFeed)),
+        opt_topic("share", "Share", "--feed-share --share-string", "feeds", false, button(Action::ShareFeed)),
+        opt_topic("import", "Import", "--feed-import", "feeds", false, button(Action::ImportFeed)),
+        opt_topic("refresh", "Refresh from site", "--feed-refresh", "feeds", false, button(Action::RefreshFeed)),
+        opt_topic("delete", "Delete", "--feed-delete", "feeds", false, button(Action::DeleteFeed)),
     ])
 }
 
@@ -626,6 +672,7 @@ pub fn command_topic(id: CommandId) -> &'static str {
         CommandId::Import => "import",
         CommandId::List => "list",
         CommandId::Maintain => "maintain",
+        CommandId::Feeds => "feeds",
         CommandId::Session => "account",
         CommandId::Bookmarks => "bookmark",
         CommandId::Research => "research",
@@ -689,6 +736,7 @@ impl Menu {
             basket_item(),
             list_item(),
             maintain_item(),
+            feeds_item(),
         ];
         let mut menu = Menu { items };
         menu.fill_help_topics();
@@ -1010,6 +1058,130 @@ impl Menu {
             return Err("a report needs a post or a user".into());
         }
         v.extend(["--reason".into(), reason.into(), "--yes".into()]);
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    fn feed_name(&self) -> std::result::Result<String, String> {
+        let name = self.text(CommandId::Feeds, "name").trim().to_string();
+        if name.is_empty() {
+            return Err("type a feed name in Feeds › Name".into());
+        }
+        Ok(name)
+    }
+
+    fn feed_filters(&self, v: &mut Vec<String>) {
+        use CommandId::Feeds as F;
+        let m = self.choice(F, "match_mode");
+        if m != "any" {
+            v.extend(["--feed-match".into(), m.into()]);
+        }
+        let s = self.choice(F, "sort");
+        if s != "newest" {
+            v.extend(["--feed-sort".into(), s.into()]);
+        }
+        let since = self.text(F, "since");
+        if !since.trim().is_empty() {
+            v.extend(["--feed-since".into(), since]);
+        }
+    }
+
+    /// argv for `--feed-create`. The same name updates the description and the filters.
+    pub fn feed_save_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--feed-create".into(), self.feed_name()?];
+        let desc = self.text(CommandId::Feeds, "description");
+        if !desc.trim().is_empty() {
+            v.extend(["--feed-description".into(), desc]);
+        }
+        self.feed_filters(&mut v);
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--feed-show`.
+    pub fn feed_show_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--feed-show".into(), self.feed_name()?];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--feed-add` from the menu fields.
+    pub fn feed_rule_argv(&self) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Feeds as F;
+        let name = self.feed_name()?;
+        let (flag, value) = if !self.text(F, "nick").trim().is_empty() {
+            ("--feed-nick", self.text(F, "nick"))
+        } else if !self.text(F, "tag").trim().is_empty() {
+            ("--feed-tag", self.text(F, "tag"))
+        } else if !self.text(F, "query").trim().is_empty() {
+            ("--feed-search", self.text(F, "query"))
+        } else {
+            return Err("type a nick, a tag, or a search".into());
+        };
+        let mut v = vec![ARGV0.to_string(), "--feed-add".into(), name, flag.into(), value.trim().into()];
+        if self.check(F, "exclude") {
+            v.push("--feed-exclude".into());
+        }
+        self.feed_filters(&mut v);
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--feed-export`.
+    pub fn feed_export_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let path = expand_menu_path(&self.text(CommandId::Feeds, "path"));
+        if path.is_empty() {
+            return Err("Feeds › File needs a path".into());
+        }
+        let mut v = vec![
+            ARGV0.to_string(),
+            "--feed-export".into(),
+            self.feed_name()?,
+            "--format".into(),
+            "json".into(),
+            "--output".into(),
+            path,
+        ];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--feed-share`.
+    pub fn feed_share_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--feed-share".into(), self.feed_name()?, "--share-string".into()];
+        let path = expand_menu_path(&self.text(CommandId::Feeds, "path"));
+        if !path.is_empty() {
+            v.extend(["--output".into(), path]);
+        }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--feed-import`.
+    pub fn feed_import_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let path = expand_menu_path(&self.text(CommandId::Feeds, "path"));
+        if path.is_empty() {
+            return Err("Feeds › File needs a .acpfeed path or an acpfeed1: string".into());
+        }
+        let mut v = vec![ARGV0.to_string(), "--feed-import".into(), path];
+        let name = self.text(CommandId::Feeds, "name");
+        if !name.trim().is_empty() {
+            v.extend(["--feed-name".into(), name]);
+        }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--feed-delete`. The modal already asked, so this includes `--yes`.
+    pub fn feed_delete_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--feed-delete".into(), self.feed_name()?, "--yes".into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for `--feed-refresh`. The modal already asked, so this includes `--yes`.
+    pub fn feed_refresh_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--feed-refresh".into(), self.feed_name()?, "--yes".into()];
         v.extend(self.debug_args());
         validate(v)
     }

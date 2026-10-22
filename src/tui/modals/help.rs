@@ -331,6 +331,13 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
         "  The clone starts enabled. Edit, disable, and delete apply to that copy.",
         "  --rules-clone takes the system key, for example synced-post.",
     ]);
+    push_topic(&mut v, "feeds", "Feeds", &[
+        "  Library › Feeds keeps rules over the local database. The posts stay in the database.",
+        "  Show prints the matches and marks them seen. Share writes the rules only.",
+        "  Refresh asks Refresh this feed from the site? [y/N]. Cancel is the default.",
+        "  A confirm calls the loaded service. --dry-run prints the plan and does not call it.",
+        "  A tag rule's site half is the service. Delete asks first. The posts stay.",
+    ]);
     push_topic(&mut v, "discover", "Discover", &[
         "  People, nodes, and rooms arrive with the network node. Discover does not pretend they are here.",
     ]);

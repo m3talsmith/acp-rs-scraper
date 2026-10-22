@@ -144,6 +144,7 @@ pub fn job_source(kind: JobKind, cmd: &str) -> String {
     if has("--site-settings") || has("--save-settings") { return "Account › Site settings".into(); }
     if has("--edit-profile") { return "Account › Edit profile".into(); }
     if has("--report-post") || has("--report-user") { return "Report".into(); }
+    if has("--feed-list") || has("--feed-show") || has("--feed-create") || has("--feed-refresh") { return "Library › Feeds".into(); }
     if has("--spaces") { return "View › Spaces".into(); }
     if has("--sync") || has("--sync-bookmarks") { return "Sync".into(); }
     if has("--research") || has("--research-add") || has("--research-create") { return "Research".into(); }

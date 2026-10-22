@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.45.0
+Version:        3.49.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,18 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.49.0-1
+- Package 3.49.0. Feed share and import move the rules only.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.48.0-1
+- Package 3.48.0. Feed export writes the posts a feed matches.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.47.0-1
+- Package 3.47.0. Library › Feeds edits a local feed and its rules.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.46.0-1
+- Package 3.46.0. Feeds are local rules. Refresh calls a loaded service. Dry-run does not.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.45.0-1
 - Package 3.45.0. Profile, reports, and site settings stay in the core. A confirm calls a loaded service or stores site_state.
 

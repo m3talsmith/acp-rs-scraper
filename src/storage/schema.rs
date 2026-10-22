@@ -233,6 +233,33 @@ pub const TOMBSTONES_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS post_tombstones 
             deleted_at TEXT NOT NULL
         );";
 
+/// Named local views. The rules are stored here. A refresh calls the loaded service.
+pub const FEEDS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS feeds (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+            description TEXT NOT NULL DEFAULT '',
+            definition TEXT NOT NULL,
+            source TEXT NOT NULL DEFAULT 'local' CHECK (source IN ('local','imported','peer')),
+            origin_hash TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            last_refreshed_at TEXT
+        );
+        CREATE TABLE IF NOT EXISTS feed_rules (
+            feed_id INTEGER NOT NULL,
+            kind TEXT NOT NULL CHECK (kind IN ('nick','search','tag')),
+            value TEXT NOT NULL,
+            mode TEXT NOT NULL CHECK (mode IN ('include','exclude')),
+            grp INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS feed_rules_feed_idx ON feed_rules(feed_id);
+        CREATE TABLE IF NOT EXISTS feed_seen (
+            feed_id INTEGER NOT NULL,
+            post_id TEXT NOT NULL,
+            seen_at TEXT NOT NULL,
+            PRIMARY KEY (feed_id, post_id)
+        );";
+
 /// Site notification pane. `raw` stays empty. The service keeps the socket.
 pub const SITE_NOTIFICATIONS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS site_notifications (
             id TEXT PRIMARY KEY,

@@ -112,9 +112,10 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview", "rules_watch", "rules_saved", "rules_replies"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user", "spaces", "live", "live_feed", "site_notifications", "outbox_send"]).multiple(true)))]
+#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user", "feed_refresh", "feed_delete", "spaces", "live", "live_feed", "site_notifications", "outbox_send"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("outbox").args(["draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("reporting").args(["report_post", "report_user"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("feeds").args(["feed_list", "feed_create", "feed_edit", "feed_add", "feed_remove_rule", "feed_show", "feed_refresh", "feed_export", "feed_share", "feed_import", "feed_delete"]).multiple(false).conflicts_with("writing").conflicts_with("reading")))]
 #[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "site_bookmark", "edit_profile", "save_settings", "report_post", "report_user", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
     "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
 ])))]
@@ -507,6 +508,84 @@ pub struct Args {
     /// Offline: export research project NAME (its posts, files, pages and notes) to --export FILE (--format json,html; --compress --tar-gz bundles the files).
     #[arg(long, value_name = "NAME", help_heading = "Research", requires = "export", conflicts_with_all = ["nick", "nicks", "search", "import", "post_ids"])]
     pub research_export: Option<String>,
+    /// List saved feeds (name, rules, unread). Does not create a database.
+    #[arg(long, help_heading = "Feeds")]
+    pub feed_list: bool,
+    /// Create a feed, or update its description and filters when the name already exists. Rules stay.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_create: Option<String>,
+    /// Set the description and the filters of an existing feed. Rules stay.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_edit: Option<String>,
+    /// Description for --feed-create or --feed-edit.
+    #[arg(long, value_name = "TEXT", requires = "feeds", help_heading = "Feeds")]
+    pub feed_description: Option<String>,
+    /// Add a rule to NAME. The feed is created when it is missing. Pass --feed-nick, --feed-tag, or --feed-search.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_add: Option<String>,
+    /// With --feed-add or --feed-remove-rule: a nick. Repeat for more than one.
+    #[arg(long, value_name = "NICK", action = clap::ArgAction::Append, requires = "feeds", help_heading = "Feeds")]
+    pub feed_nick: Vec<String>,
+    /// With --feed-add or --feed-remove-rule: a tag, without `#`. Repeat for more than one. The site half of a tag rule is the service.
+    #[arg(long, value_name = "TAG", action = clap::ArgAction::Append, requires = "feeds", help_heading = "Feeds")]
+    pub feed_tag: Vec<String>,
+    /// With --feed-add or --feed-remove-rule: the search text.
+    #[arg(long, value_name = "TEXT", requires = "feeds", help_heading = "Feeds")]
+    pub feed_search: Option<String>,
+    /// With --feed-add: the rule excludes instead of includes.
+    #[arg(long, requires = "feed_add", help_heading = "Feeds")]
+    pub feed_exclude: bool,
+    /// Remove rules of the nick, tag, or search named with --feed-nick, --feed-tag, or --feed-search.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_remove_rule: Option<String>,
+    /// Print the posts this feed matches in the local database, and mark them seen.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_show: Option<String>,
+    /// How includes combine: any or all.
+    #[arg(long, value_name = "any|all", value_parser = ["any", "all"], requires = "feeds", help_heading = "Feeds")]
+    pub feed_match: Option<String>,
+    /// Sort: newest, oldest, or score.
+    #[arg(long, value_name = "ORDER", value_parser = ["newest", "oldest", "score"], requires = "feeds", help_heading = "Feeds")]
+    pub feed_sort: Option<String>,
+    /// Keep posts at or after this time. An ISO date, or a number of days like 30d.
+    #[arg(long, value_name = "WHEN", requires = "feeds", help_heading = "Feeds")]
+    pub feed_since: Option<String>,
+    /// Keep posts at or before this time. An ISO date, or a number of days like 30d.
+    #[arg(long, value_name = "WHEN", requires = "feeds", help_heading = "Feeds")]
+    pub feed_until: Option<String>,
+    /// posts, replies, or both, comma-separated.
+    #[arg(long, value_name = "LIST", requires = "feeds", help_heading = "Feeds")]
+    pub feed_kinds: Option<String>,
+    /// Drop posts below this score. A post with no score is dropped too.
+    #[arg(long, value_name = "N", requires = "feeds", help_heading = "Feeds")]
+    pub feed_min_score: Option<i64>,
+    /// Keep posts that have a stored attachment.
+    #[arg(long, requires = "feeds", help_heading = "Feeds")]
+    pub feed_has_media: bool,
+    /// Ask the loaded service for the included nicks, tags, and searches. Excludes are not fetched. Asks `Refresh this feed from the site? [y/N]`. Cancel is the default. `--dry-run` prints the plan and does not call the service.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_refresh: Option<String>,
+    /// Export the posts this feed matches. --format json,html and --output. This is the posts, not the rules.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_export: Option<String>,
+    /// Write the rules as TOML. --output is the file. --share-string prints acpfeed1:…. The file has no bookmarks, notes, or seen rows.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_share: Option<String>,
+    /// With --feed-share: print acpfeed1: and the deflated rules.
+    #[arg(long = "share-string", requires = "feed_share", help_heading = "Feeds")]
+    pub feed_share_string: bool,
+    /// Import rules from a .acpfeed file, - for stdin, or an acpfeed1: string. The posts come from this database.
+    #[arg(long, value_name = "FILE", help_heading = "Feeds")]
+    pub feed_import: Option<String>,
+    /// With --feed-import: store the feed under this name.
+    #[arg(long, value_name = "NAME", requires = "feed_import", help_heading = "Feeds")]
+    pub feed_name: Option<String>,
+    /// With --feed-import: replace a feed that already has this name.
+    #[arg(long, requires = "feed_import", help_heading = "Feeds")]
+    pub feed_replace: bool,
+    /// Delete a feed, its rules, and its seen rows. Asks `Delete this feed? [y/N]`. Cancel is the default. The posts stay.
+    #[arg(long, value_name = "NAME", help_heading = "Feeds")]
+    pub feed_delete: Option<String>,
     /// Offline: list rules (system and user), lower priority first. `--rules-format json` prints JSON.
     #[arg(long, help_heading = "Rules", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
     pub rules_list: bool,

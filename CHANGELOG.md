@@ -20,6 +20,30 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.49.0] - 2026-10-22
+
+### Added
+
+- **Feed share and import.** `--feed-share` writes the rules as TOML. `--share-string` prints `acpfeed1:` and the deflated rules. `--feed-import` reads a file, stdin, or that string. The file is the rules only.
+
+## [3.48.0] - 2026-10-22
+
+### Added
+
+- **Feed export.** `--feed-export` writes the posts the feed matches. This is the posts, not the rules.
+
+## [3.47.0] - 2026-10-22
+
+### Added
+
+- **Feed editor.** Library › Feeds sets the name, the description, any or all, the sort, and one rule. Save uses `--feed-create`, which updates a feed that already has that name. Add rule uses `--feed-add`. `--feed-exclude` makes the new rule an exclude. `--feed-remove-rule` drops a nick, tag, or search.
+
+## [3.46.0] - 2026-10-22
+
+### Added
+
+- **Feeds.** A feed is rules over the local database. `--feed-list` does not create a database. `--feed-show` prints the matching posts and marks them seen. `--feed-refresh` asks `Refresh this feed from the site? [y/N]`. Cancel is the default. A confirm calls the loaded Feeds capability. `--dry-run` prints the plan and does not call the service. Excludes are not fetched. A tag rule's site half is the service.
+
 ## [3.45.0] - 2026-10-22
 
 ### Added

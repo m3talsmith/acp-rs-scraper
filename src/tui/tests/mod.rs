@@ -36,6 +36,7 @@ mod help_about;
 mod spaces;
 mod live;
 mod account;
+mod feeds;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

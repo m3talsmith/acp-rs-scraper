@@ -393,6 +393,9 @@ pub async fn run() -> Result<()> {
     if crate::account::cli_requested(&args) {
         return crate::account::run(&args).await;
     }
+    if crate::feeds::cli_requested(&args) {
+        return crate::feeds::run_cli(&args).await;
+    }
     if crate::actions::cli_requested(&args) {
         return crate::actions::run(&args).await;
     }

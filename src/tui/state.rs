@@ -1186,6 +1186,43 @@ impl App {
         confirm.strict = true;
         self.modal = Some(Modal::Confirm(confirm));
     }
+    fn feed_job(&mut self, title: &str) {
+        let argv = match title {
+            "Save feed" => self.menu.menu.feed_save_argv(),
+            "Show feed" => self.menu.menu.feed_show_argv(),
+            "Add rule" => self.menu.menu.feed_rule_argv(),
+            "Export feed" => self.menu.menu.feed_export_argv(),
+            "Share feed" => self.menu.menu.feed_share_argv(),
+            _ => self.menu.menu.feed_import_argv(),
+        };
+        match argv {
+            Ok(argv) => self.start_job(JobKind::Read, argv),
+            Err(e) => self.error(title, &e),
+        }
+    }
+    /// Refresh or delete. Cancel is the default. Refresh's job calls the loaded service.
+    fn confirm_feed(&mut self, delete: bool) {
+        let argv = if delete { self.menu.menu.feed_delete_argv() } else { self.menu.menu.feed_refresh_argv() };
+        let argv = match argv {
+            Ok(argv) => argv,
+            Err(e) => {
+                self.error(if delete { "Delete feed" } else { "Refresh feed" }, &e);
+                return;
+            }
+        };
+        self.close_menu();
+        let (title, line, button) = if delete {
+            ("Delete feed", "Delete this feed? [y/N]".to_string(), "Delete")
+        } else {
+            ("Refresh feed", "Refresh this feed from the site? [y/N]".to_string(), "Refresh")
+        };
+        self.modal = Some(Modal::Confirm(ConfirmModal::new(
+            title,
+            vec![line, "Cancel is the default.".into()],
+            button,
+            ConfirmAction::Job(JobKind::Read, argv),
+        )));
+    }
     /// Post menu › Report. Cancel is the default.
     pub fn report_post(&mut self, post_id: &str) {
         if !self.writes_are_on() {
@@ -2452,6 +2489,14 @@ impl App {
             Action::EditProfile => self.edit_profile(),
             Action::SaveSiteSettings => self.save_site_settings(),
             Action::ReportUser => self.report_user(),
+            Action::SaveFeed => self.feed_job("Save feed"),
+            Action::ShowFeed => self.feed_job("Show feed"),
+            Action::AddFeedRule => self.feed_job("Add rule"),
+            Action::ExportFeed => self.feed_job("Export feed"),
+            Action::ShareFeed => self.feed_job("Share feed"),
+            Action::ImportFeed => self.feed_job("Import feed"),
+            Action::DeleteFeed => self.confirm_feed(true),
+            Action::RefreshFeed => self.confirm_feed(false),
             Action::ToggleBasket => {
                 self.close_menu();
                 match self.current_post_id() { Some(id) => self.toggle_basket(&id), None => self.push_status("no post to add: open or highlight one first") }

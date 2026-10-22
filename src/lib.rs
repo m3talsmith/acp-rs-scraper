@@ -20,6 +20,7 @@
 //! - [`spaces`]: the Spaces list. The core stores the rows. Joining a room is not built.
 //! - [`livefeed`]: live thread, live feed, and the site notification pane. The service keeps the socket.
 //! - [`account`]: profile, site settings, and reports. A dry-run does not call a service.
+//! - [`feeds`]: local views. Refresh calls the loaded service. A dry-run prints the plan.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`branding`]: the slogan shared by the welcome screen, About, and the status bar.
@@ -56,6 +57,7 @@ pub mod actions;
 pub mod spaces;
 pub mod livefeed;
 pub mod account;
+pub mod feeds;
 pub mod eggs;
 pub mod export;
 pub mod host_api;
