@@ -14,6 +14,7 @@ All rule changes and additions go in this file.
 
 ## Commits, pushes and PRs
 - Commit when work is done **and tested**.
+- When `main` moves, merge `origin/main` into each open feature branch (no rebase, no force-push) and renumber that branch so its versions follow main and any PR already merged. Keep both sides of a changelog, rules, or docs conflict. Each open PR stays independently mergeable against current main.
 - **Push only when Michael explicitly asks for that push.** When he does, push to all remotes: `origin` (GitHub, `git@github.com:m3talsmith/acp-rs-scraper.git`, the primary) and `mirror` (Forgejo, `https://forgejo.acp.us/m3talsmith/acp-rs-scraper.git`).
 - Commit messages describe what the change opens up for people, not just a list of edits.
 
