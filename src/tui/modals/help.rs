@@ -145,6 +145,21 @@ fn area_topics() -> Vec<String> {
     v.push("Getting started".into());
     v.extend(started.lines().map(str::to_string));
     v.push(String::new());
+    push_topic(&mut v, "brands", "Brands", &[
+        "  A brand is the logo, the title, and the motto. It is separate from the theme.",
+        "  The built-in default brand is ACP Red Star. The built-in plain brand is the title",
+        "  Red Star, a star, and no motto: acp-red-star --brand plain.",
+        "  --brand NAME is this run. [ui] brand in ~/.acp/preferences.toml keeps the choice.",
+        "  The header switch «name» ▾ opens the picker. Moving the highlight previews it.",
+        "  Esc puts the previous brand back. Edit brands… opens the editor.",
+        "  The command palette has Brand: use…, Brand: list, Brand: edit…, and Brand: reload.",
+        "  In the editor, Ctrl-S saves, Ctrl-R reverts, Ctrl-N saves as new, Ctrl-D duplicates,",
+        "  Ctrl-X deletes, and Ctrl-C closes. Those are the theme editor's chords.",
+        "  A user brand is ~/.acp/brands/<name>.toml. The logo is builtin, inline text, or a",
+        "  file inside that folder. A path that leaves the folder is refused.",
+        "  --help, --version, the terminal title, and HTML export headers use the title.",
+        "  Credits and the other surprises keep their own text.",
+    ]);
     push_topic(&mut v, "browse", "Browse", &[
         "  The nick bar lists who is in the database. Enter opens that nick's posts.",
         "  Enter on a post opens it. Esc closes the top detail. / filters nicks.",

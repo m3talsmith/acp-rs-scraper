@@ -1,8 +1,8 @@
 //! Body: navigation bar (with `<` back from search), the post cards, and the
 //! detail stack that slides the list up and nests linked posts.
 
-use crate::branding::{slogan_style, SLOGAN};
-use crate::config::{DETAIL_HEADER_ROWS, TUI_SUBTITLE};
+use crate::branding::slogan_style;
+use crate::config::DETAIL_HEADER_ROWS;
 use crate::tui::layout::{CARD_ROWS, card_height, carousel, detail_split, ellipsize, grid_cells, grid_rows, modal_rect, stack_layout, wrap};
 use crate::tui::state::{AnimKind, App, Focus, Hit, ViewMode};
 use crate::tui::widgets::detail::{badge, detail_layout, header_lines, meta_line, snippet};
@@ -83,12 +83,15 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
         let (text, anim_pad) = if in_search {
             (vec![Line::styled(msg, t.muted())], 3)
         } else {
-            (vec![
-                Line::styled(TUI_SUBTITLE, t.bold()),
-                Line::styled(SLOGAN, slogan_style(app.color_mode, app.no_color, false)),
-                Line::raw(""),
-                Line::styled(msg, t.muted()),
-            ], 6)
+            ({
+                let mut lines = vec![Line::styled(app.brand.title.clone(), t.bold())];
+                if !app.brand.motto.is_empty() {
+                    lines.push(Line::styled(app.brand.motto.clone(), slogan_style(app.color_mode, app.no_color, false)));
+                }
+                lines.push(Line::raw(""));
+                lines.push(Line::styled(msg, t.muted()));
+                lines
+            }, if app.brand.motto.is_empty() { 5 } else { 6 })
         };
         f.render_widget(Paragraph::new(text), Rect { y: content.y + 1, height: content.height.saturating_sub(1), ..content });
         // Below the hint, the empty-Body animation (paused when there's no room).

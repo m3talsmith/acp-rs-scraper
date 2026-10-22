@@ -246,6 +246,8 @@ pub enum Effect {
     Logout,
     /// Store `[ui] theme` in preferences.toml.
     SaveUiTheme(String),
+    /// Store `[ui] brand` in preferences.toml.
+    SaveUiBrand(String),
     /// Write a copy of this theme into the exports folder.
     ExportTheme(crate::themes::ThemeFile),
     /// Download a theme from the repo into the themes folder (`true`: asked for by hand).
@@ -324,6 +326,8 @@ pub enum Hit {
     ResearchTop,
     /// The header's `‹theme› ▾` switch.
     ThemeSwitch,
+    /// The header's `«brand» ▾` switch.
+    BrandSwitch,
     /// n-th row of the theme editor's list.
     EditorRow(usize),
     /// The header's `⟳ … running` mark.
@@ -521,6 +525,18 @@ pub struct App {
     pub theme_editor: Option<Box<crate::tui::editor::ThemeEditor>>,
     /// The theme being downloaded in the background, if any.
     pub theme_downloading: Option<String>,
+    /// `~/.acp/brands`. Built-ins still work when the folder is missing.
+    pub brands_dir: Option<PathBuf>,
+    /// The selected brand's name.
+    pub brand_name: String,
+    /// Logo, title, and motto. Independent of [`App::theme`].
+    pub brand: crate::brands::Brand,
+    /// Why the selected brand couldn't be used.
+    pub brand_error: Option<String>,
+    /// What is wrong with the selected brand, for the header: `missing` or `broken`.
+    pub brand_fault: Option<&'static str>,
+    /// The brand editor (opened from the picker or Brand: edit…).
+    pub brand_editor: Option<Box<crate::tui::brand_editor::BrandEditor>>,
     /// Site-feed key to open when the running read job ends.
     pub pending_feed: Option<String>,
     /// Thread whose reply order a running sort job should restore.
@@ -618,6 +634,7 @@ impl App {
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, paused_login: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
+            brands_dir: None, brand_name: DEFAULT_BRAND.into(), brand: crate::brands::builtin_default(), brand_error: None, brand_fault: None, brand_editor: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None, pending_outbox: None,
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
@@ -2226,7 +2243,7 @@ impl App {
     }
     /// A text field is taking keys, so the star burst must not start.
     pub fn text_input_focused(&self) -> bool {
-        if self.filter_editing || self.menu.editing || self.theme_editor.is_some() { return true; }
+        if self.filter_editing || self.menu.editing || self.theme_editor.is_some() || self.brand_editor.is_some() { return true; }
         if self.notice_page.as_ref().is_some_and(|p| p.editing) { return true; }
         match &self.modal {
             Some(Modal::Login(_)) | Some(Modal::Palette(_)) => true,
@@ -2399,6 +2416,10 @@ impl App {
             Action::ThemeExport => self.export_theme(),
             Action::ThemeInit => self.init_theme(),
             Action::ThemeStarter => self.theme_starter(None),
+            Action::BrandPicker => self.open_brand_picker(),
+            Action::BrandEditor => self.open_brand_editor(),
+            Action::BrandList => self.list_brands_modal(),
+            Action::BrandReload => self.reload_brand(),
             Action::NewPost => { self.close_menu(); self.open_new_post(); }
             Action::Reply => { self.close_menu(); self.open_reply(); }
             Action::Quote => { self.close_menu(); self.open_quote(); }
@@ -2951,6 +2972,7 @@ impl App {
             (_, ModalResult::Help(topic)) => self.open_help(Some(topic)),
             (Modal::Research(m), ModalResult::ClosedSubmitted) => self.research_chosen(m),
             (Modal::ThemePicker(p), r) => self.theme_picked(*p, r),
+            (Modal::BrandPicker(p), r) => self.brand_picked(*p, r),
             (Modal::Palette(p), ModalResult::ClosedSubmitted) => match p.chosen() {
                 Some(PaletteCmd::Action(Action::ThemeStarter)) => self.theme_starter(p.argument()),
                 Some(PaletteCmd::Action(a)) => self.act(a),
@@ -2972,6 +2994,10 @@ impl App {
             ("Theme: export".into(), PaletteCmd::Action(Action::ThemeExport)),
             ("Theme: init (download the default)".into(), PaletteCmd::Action(Action::ThemeInit)),
             ("Theme: starter [name]".into(), PaletteCmd::Action(Action::ThemeStarter)),
+            ("Brand: use…".into(), PaletteCmd::Action(Action::BrandPicker)),
+            ("Brand: list".into(), PaletteCmd::Action(Action::BrandList)),
+            ("Brand: edit…".into(), PaletteCmd::Action(Action::BrandEditor)),
+            ("Brand: reload".into(), PaletteCmd::Action(Action::BrandReload)),
             ("Search… (Shift-S)".into(), PaletteCmd::Action(Action::OpenSearchModal)),
             ("Clear search (Ctrl-S)".into(), PaletteCmd::Action(Action::ClearSearch)),
             ("Toggle log panel (l)".into(), PaletteCmd::Action(Action::ToggleLog)),

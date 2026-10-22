@@ -6,12 +6,18 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.44.0] - 2026-10-21
+## [3.45.0] - 2026-10-21
 
 ### Added
 
 - **Profile and site settings.** `--show-profile NICK` and Account › Profile read the card on `/rs/@nick`: display name, username, and bio. `--site-settings` and Account › Site settings read `/rs/settings`: time zone, theme, and show-sustainer. Both are stored in the encrypted database. Web push is not read. No new key.
 - prepared, gated: edit profile (`--edit-profile` with `--display-name`, `--username`, or `--bio`), save site settings (`--save-settings` with `--time-zone`, `--site-theme`, or `--show-sustainer`), report post (`--report-post` and Post menu › Report), and report user (`--report-user`). Each prints the documented form, asks with Cancel as the default (a profile edit and a report also ask for `yes`), and `--dry-run` opens no connection. A confirm still sends nothing. Profile photo and banner uploads are not built. Web push is not built. The capture steps are in `tests/fixtures/site/account.json`.
+
+## [3.35.0] - 2026-10-22
+
+### Added
+
+- **Brands.** The logo, the title, and the motto follow a brand, the same way colours follow a theme. The built-in `default` brand is still ACP Red Star: the red-star logo, the word ACP, the title, and "The future belongs to the working class". The built-in `plain` brand is the title Red Star, a star, and no motto (`acp-red-star --brand plain`). `--brand NAME` selects one for this run. `[ui] brand` in `~/.acp/preferences.toml` keeps it. The header switch `«name» ▾` opens the picker; moving the highlight previews it and Esc puts the old brand back. The brand editor edits the title, motto, word, and logo (Ctrl-S save, Ctrl-R revert, Ctrl-N save as new, Ctrl-D duplicate, Ctrl-X delete, Ctrl-C close). User brands are `~/.acp/brands/<name>.toml`. A logo is built-in, inline text, or a file inside that folder; a path that leaves the folder is refused. A brand is independent of the theme. `--help`, `--version`, the terminal title, and HTML export headers use the title. Credits and the other surprises keep their own text.
 
 ## [3.34.0] - 2026-10-21
 
