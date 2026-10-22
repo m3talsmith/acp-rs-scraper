@@ -217,6 +217,35 @@ async fn help_topic(w: &mut E2e, topic: String) {
     w.screen = help.lines.iter().skip(help.scroll).take(16).cloned().collect::<Vec<_>>().join("\n");
 }
 
+#[when("I export a basket HTML file twice")]
+async fn basket_twice(w: &mut E2e) {
+    use clap::Parser;
+    let dir = w.home.join("exports");
+    std::fs::create_dir_all(&dir).unwrap();
+    let out = dir.join("basket.html");
+    let post = acp_red_star::scrape::Post {
+        post_id: "p1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(),
+        nick: "sample".into(), title: "Notes".into(), content: "hello basket".into(),
+        posted_at: "2026-10-15T00:00:00Z".into(), media: Vec::new(), truncated: false,
+        body_json: String::new(), score: None,
+    };
+    let args = acp_red_star::cli::Args::parse_from([
+        "acp-red-star", "--post-ids", "p1", "--format", "html", "--output", out.to_str().unwrap(),
+    ]);
+    static LOCK: std::sync::LazyLock<std::sync::Mutex<()>> = std::sync::LazyLock::new(|| std::sync::Mutex::new(()));
+    let _guard = LOCK.lock().unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    acp_red_star::logging::set_log_sink(Some(tx));
+    acp_red_star::export::export(&args, "basket", "chosen", &[post.clone()], &[], &[], &[], &dir).unwrap();
+    let first = std::fs::read(&out).unwrap();
+    acp_red_star::export::export(&args, "basket", "chosen", &[post], &[], &[], &[], &dir).unwrap();
+    acp_red_star::logging::set_log_sink(None);
+    let mut log = String::new();
+    while let Ok(line) = rx.try_recv() { log.push_str(&line); log.push('\n'); }
+    assert_eq!(std::fs::read(&out).unwrap(), first, "the first basket file stays");
+    w.screen = log;
+}
+
 #[when("I add a research file under the home directory")]
 async fn research_file_label(w: &mut E2e) {
     use clap::Parser;

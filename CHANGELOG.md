@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.13] - 2026-10-22
+
+### Fixed
+
+- **Basket export name.** Exporting the basket again leaves an existing `exports/*.html` in place and writes `{stem}-{date-time}.html`. A later collision uses `-2`, then `-3`. Other exports still replace the file they were given.
+
 ## [3.35.12] - 2026-10-22
 
 ### Fixed

@@ -18,6 +18,11 @@ Feature: Demo fixes
     Then the Help text contains "not the master key"
     And the Help text contains "Any 3 of those 5"
 
+  Scenario: Exporting the basket twice leaves the first file
+    When I export a basket HTML file twice
+    Then the screen contains "left"
+    And the screen contains "in place"
+
   Scenario: Research add file shows a short path
     When I add a research file under the home directory
     Then the screen contains "Local file ~/docs/notes.txt"
