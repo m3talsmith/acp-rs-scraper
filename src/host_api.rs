@@ -36,8 +36,7 @@ const BOOKMARK_SITE_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS bookmark_sites (
 pub const ARGV0: &str = "acp-red-star";
 
 struct ServiceHttp {
-    jar: Arc<reqwest::cookie::Jar>,
-    cookies: Vec<CookieRec>,
+    jar: Arc<ServiceJar>,
 }
 
 /// Core implementation of [`Host`].
@@ -584,23 +583,16 @@ impl Host for CoreHost {
         }
         let mut http = self.http.lock().unwrap_or_else(|err| err.into_inner());
         let slot = http.entry(service.to_string()).or_insert_with(ServiceHttp::empty);
-        if let Some(existing) = slot.cookies.iter_mut().find(|cookie| cookie.name == name && cookie.url == url) {
-            existing.value = value.to_string();
-        } else {
-            slot.cookies.push(CookieRec {
-                name: name.to_string(),
-                value: value.to_string(),
-                url: url.to_string(),
-            });
-        }
-        slot.rebuild().map_err(host_err)?;
+        // Merge into the existing jar. A cookie the server already stored stays.
+        // The value is not written to a log.
+        slot.jar.store(url, name, value).map_err(host_err)?;
         Ok(())
     }
 
     fn cookies(&self, service: &str) -> Result<Vec<CookieRec>, HostError> {
         check_service(service)?;
         let http = self.http.lock().unwrap_or_else(|err| err.into_inner());
-        Ok(http.get(service).map(|slot| slot.cookies.clone()).unwrap_or_default())
+        Ok(http.get(service).map(|slot| slot.jar.records()).unwrap_or_default())
     }
 
     fn clear_cookies(&self, service: &str) -> Result<(), HostError> {
@@ -651,13 +643,29 @@ impl CoreHost {
         } else {
             content_type.to_string()
         };
+        let locations = Arc::new(Mutex::new(Vec::<String>::new()));
+        let locations_for_worker = Arc::clone(&locations);
         let worker = std::thread::spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .map_err(host_err)?;
             runtime.block_on(async move {
-                let client = crate::http::client(jar).map_err(host_err)?;
+                let followed = Arc::clone(&locations_for_worker);
+                let policy = reqwest::redirect::Policy::custom(move |attempt| {
+                    followed
+                        .lock()
+                        .unwrap_or_else(|err| err.into_inner())
+                        .push(attempt.url().to_string());
+                    if attempt.previous().len() > 10 {
+                        attempt.error("too many redirects")
+                    } else {
+                        attempt.follow()
+                    }
+                });
+                let observed = Arc::new(ObservedJar::new(Arc::clone(&jar)));
+                let names = Arc::clone(&observed);
+                let client = crate::http::client_with(observed, policy).map_err(host_err)?;
                 let mut request = match method.as_str() {
                     "POST" => client
                         .post(&url)
@@ -671,6 +679,8 @@ impl CoreHost {
                 }
                 let response = request.send().await.map_err(host_err)?;
                 let status = response.status().as_u16();
+                let final_url = response.url().to_string();
+                let response_headers = header_list(response.headers());
                 let content_type = response
                     .headers()
                     .get(reqwest::header::CONTENT_TYPE)
@@ -678,37 +688,191 @@ impl CoreHost {
                     .unwrap_or("")
                     .to_string();
                 let body = response.bytes().await.map_err(host_err)?.to_vec();
+                let set_cookie_names = names.take_names();
                 Ok(HttpResponse {
                     status,
                     body,
                     content_type,
+                    url: final_url,
+                    headers: response_headers,
+                    set_cookie_names,
                 })
             })
         });
-        match worker.join() {
-            Ok(result) => result,
-            Err(_) => Err(HostError::new("the HTTP worker stopped")),
+        let mut response = match worker.join() {
+            Ok(result) => result?,
+            Err(_) => return Err(HostError::new("the HTTP worker stopped")),
+        };
+        let followed = locations.lock().unwrap_or_else(|err| err.into_inner()).clone();
+        for location in followed {
+            let already = response.headers.iter().any(|header| {
+                header.name.eq_ignore_ascii_case("location") && header.value == location
+            });
+            if !already {
+                response.headers.push(HttpHeader::new("location", location));
+            }
         }
+        Ok(response)
+    }
+}
+
+/// One cookie jar per service. Records and the reqwest jar stay in step.
+///
+/// `cookies` reads the records. `set_cookie` merges into this jar. A response
+/// `Set-Cookie` updates the same records. Nothing here replaces the jar, so a
+/// later `set_cookie` cannot drop a session cookie the server stored.
+struct ServiceJar {
+    inner: reqwest::cookie::Jar,
+    records: Mutex<Vec<CookieRec>>,
+}
+
+/// Cookie store for one call. Names set during the call stay on this value.
+/// The shared [`ServiceJar`] keeps the cookies.
+struct ObservedJar {
+    inner: Arc<ServiceJar>,
+    names: Mutex<Vec<String>>,
+}
+
+impl ServiceJar {
+    fn new() -> Arc<Self> {
+        Arc::new(Self {
+            inner: reqwest::cookie::Jar::default(),
+            records: Mutex::new(Vec::new()),
+        })
+    }
+
+    fn records(&self) -> Vec<CookieRec> {
+        self.records.lock().unwrap_or_else(|err| err.into_inner()).clone()
+    }
+
+    fn merge(&self, cookie: CookieRec) {
+        let mut records = self.records.lock().unwrap_or_else(|err| err.into_inner());
+        if let Some(existing) = records
+            .iter_mut()
+            .find(|row| row.name == cookie.name && row.url == cookie.url)
+        {
+            existing.value = cookie.value;
+        } else {
+            records.push(cookie);
+        }
+    }
+
+    /// Store `name`=`value` for `url` on the existing jar. The value is not logged.
+    fn store(&self, url: &str, name: &str, value: &str) -> Result<(), String> {
+        let parsed = reqwest::Url::parse(url).map_err(|err| err.to_string())?;
+        self.inner
+            .add_cookie_str(&format!("{name}={value}; Path=/"), &parsed);
+        self.merge(CookieRec {
+            name: name.to_string(),
+            value: value.to_string(),
+            url: url.to_string(),
+        });
+        Ok(())
+    }
+}
+
+impl reqwest::cookie::CookieStore for ServiceJar {
+    fn set_cookies(
+        &self,
+        cookie_headers: &mut dyn Iterator<Item = &reqwest::header::HeaderValue>,
+        url: &reqwest::Url,
+    ) {
+        let headers: Vec<reqwest::header::HeaderValue> = cookie_headers.cloned().collect();
+        for header in &headers {
+            if let Some((name, value)) = split_cookie_pair(header) {
+                self.merge(CookieRec {
+                    name,
+                    value,
+                    url: url.as_str().to_string(),
+                });
+            }
+        }
+        self.inner.set_cookies(&mut headers.iter(), url);
+    }
+
+    fn cookies(&self, url: &reqwest::Url) -> Option<reqwest::header::HeaderValue> {
+        reqwest::cookie::CookieStore::cookies(&self.inner, url)
+    }
+}
+
+impl ObservedJar {
+    fn new(inner: Arc<ServiceJar>) -> Self {
+        Self {
+            inner,
+            names: Mutex::new(Vec::new()),
+        }
+    }
+
+    fn take_names(&self) -> Vec<String> {
+        let names = self.names.lock().unwrap_or_else(|err| err.into_inner());
+        let mut out = Vec::new();
+        for name in names.iter() {
+            if !out.iter().any(|have: &String| have == name) {
+                out.push(name.clone());
+            }
+        }
+        out
+    }
+}
+
+impl reqwest::cookie::CookieStore for ObservedJar {
+    fn set_cookies(
+        &self,
+        cookie_headers: &mut dyn Iterator<Item = &reqwest::header::HeaderValue>,
+        url: &reqwest::Url,
+    ) {
+        let headers: Vec<reqwest::header::HeaderValue> = cookie_headers.cloned().collect();
+        {
+            let mut names = self.names.lock().unwrap_or_else(|err| err.into_inner());
+            for header in &headers {
+                if let Some((name, _)) = split_cookie_pair(header) {
+                    names.push(name);
+                }
+            }
+        }
+        self.inner.set_cookies(&mut headers.iter(), url);
+    }
+
+    fn cookies(&self, url: &reqwest::Url) -> Option<reqwest::header::HeaderValue> {
+        self.inner.cookies(url)
     }
 }
 
 impl ServiceHttp {
     fn empty() -> Self {
         Self {
-            jar: Arc::new(reqwest::cookie::Jar::default()),
-            cookies: Vec::new(),
+            jar: ServiceJar::new(),
         }
     }
+}
 
-    fn rebuild(&mut self) -> Result<(), String> {
-        let jar = reqwest::cookie::Jar::default();
-        for cookie in &self.cookies {
-            let url = reqwest::Url::parse(&cookie.url).map_err(|err| err.to_string())?;
-            jar.add_cookie_str(&format!("{}={}", cookie.name, cookie.value), &url);
-        }
-        self.jar = Arc::new(jar);
-        Ok(())
+fn header_list(headers: &reqwest::header::HeaderMap) -> Vec<HttpHeader> {
+    headers
+        .iter()
+        .map(|(name, value)| {
+            let text = value
+                .to_str()
+                .map(str::to_string)
+                .unwrap_or_else(|_| String::from_utf8_lossy(value.as_bytes()).into_owned());
+            HttpHeader::new(name.as_str(), text)
+        })
+        .collect()
+}
+
+/// Name and value from a `Set-Cookie` header. The attributes after `;` are dropped.
+fn split_cookie_pair(header: &reqwest::header::HeaderValue) -> Option<(String, String)> {
+    let text = header.to_str().ok()?;
+    cookie_pair(text)
+}
+
+fn cookie_pair(text: &str) -> Option<(String, String)> {
+    let pair = text.split(';').next()?.trim();
+    let (name, value) = pair.split_once('=')?;
+    let name = name.trim();
+    if name.is_empty() {
+        return None;
     }
+    Some((name.to_string(), value.trim().to_string()))
 }
 
 fn check_service(service: &str) -> Result<(), HostError> {
@@ -1117,6 +1281,115 @@ mod tests {
         assert!(echoed.to_ascii_lowercase().contains("x-test: yes"), "{echoed}");
         host.clear_cookies("redstar").unwrap();
         assert!(host.cookies("redstar").unwrap().is_empty());
+    }
+
+    #[test]
+    fn login_cookie_survives_set_cookie_and_the_next_request() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        std::thread::spawn(move || {
+            for _ in 0..4 {
+                let Ok((mut sock, _)) = listener.accept() else { break };
+                let text = read_local_request(&mut sock);
+                let (status, extra, body) = if text.starts_with("POST /login") {
+                    (
+                        "HTTP/1.1 302 Found",
+                        format!(
+                            "Location: http://127.0.0.1:{port}/home\r\nSet-Cookie: session=s3cret; Path=/; HttpOnly\r\n"
+                        ),
+                        String::new(),
+                    )
+                } else if text.starts_with("GET /home") {
+                    ("HTTP/1.1 200 OK", "Content-Type: text/plain\r\n".into(), "home".into())
+                } else if text.starts_with("GET /again") {
+                    ("HTTP/1.1 200 OK", "Content-Type: text/plain\r\n".into(), text)
+                } else {
+                    ("HTTP/1.1 404 Not Found", "Content-Type: text/plain\r\n".into(), "no".into())
+                };
+                let head = format!(
+                    "{status}\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n",
+                    body.len()
+                );
+                let _ = std::io::Write::write_all(&mut sock, head.as_bytes());
+                let _ = std::io::Write::write_all(&mut sock, body.as_bytes());
+            }
+        });
+        let host = CoreHost::for_home(temp_home("login-jar"));
+        let login = format!("http://127.0.0.1:{port}/login");
+        let response = host
+            .http_post(
+                "redstar",
+                &login,
+                &[],
+                b"email=ada",
+                "application/x-www-form-urlencoded",
+            )
+            .unwrap();
+        assert_eq!(response.status, 200);
+        assert!(response.url.ends_with("/home"), "{}", response.url);
+        assert!(
+            response.headers.iter().any(|header| {
+                header.name.eq_ignore_ascii_case("location") && header.value.contains("/home")
+            }),
+            "{:?}",
+            response.headers
+        );
+        assert!(
+            response.set_cookie_names.iter().any(|name| name == "session"),
+            "{:?}",
+            response.set_cookie_names
+        );
+        assert!(!format!("{response:?}").contains("s3cret"), "{response:?}");
+        let stored = host.cookies("redstar").unwrap();
+        assert!(
+            stored.iter().any(|cookie| cookie.name == "session" && cookie.value == "s3cret"),
+            "{stored:?}"
+        );
+        assert!(!format!("{stored:?}").contains("s3cret"), "{stored:?}");
+        host.set_cookie("redstar", &format!("http://127.0.0.1:{port}/"), "theme", "dark")
+            .unwrap();
+        let stored = host.cookies("redstar").unwrap();
+        assert!(stored.iter().any(|cookie| cookie.name == "session" && cookie.value == "s3cret"));
+        assert!(stored.iter().any(|cookie| cookie.name == "theme" && cookie.value == "dark"));
+        let again = host
+            .http_get("redstar", &format!("http://127.0.0.1:{port}/again"), &[])
+            .unwrap();
+        let echoed = String::from_utf8_lossy(&again.body);
+        assert!(echoed.contains("session=s3cret"), "{echoed}");
+        assert!(echoed.contains("theme=dark"), "{echoed}");
+    }
+
+    fn read_local_request(sock: &mut std::net::TcpStream) -> String {
+        sock.set_read_timeout(Some(std::time::Duration::from_secs(2))).ok();
+        let mut buf = Vec::new();
+        let mut tmp = [0u8; 2048];
+        loop {
+            match std::io::Read::read(sock, &mut tmp) {
+                Ok(0) => break,
+                Ok(n) => {
+                    buf.extend_from_slice(&tmp[..n]);
+                    if let Some(header_end) = buf.windows(4).position(|window| window == b"\r\n\r\n") {
+                        let header_text = String::from_utf8_lossy(&buf[..header_end]);
+                        let length = header_text
+                            .lines()
+                            .find_map(|line| {
+                                let (name, value) = line.split_once(':')?;
+                                if name.eq_ignore_ascii_case("content-length") {
+                                    value.trim().parse::<usize>().ok()
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or(0);
+                        if buf.len() - (header_end + 4) >= length {
+                            break;
+                        }
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        String::from_utf8_lossy(&buf).into_owned()
     }
 
     #[test]

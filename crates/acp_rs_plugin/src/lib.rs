@@ -43,7 +43,14 @@
 //! [`LocalPost`] are traits. `impl_default_caps!(Ty, except Reader, Post)` takes
 //! a comma-separated list. The `test-host` feature exposes `MemHost`, an
 //! in-memory host for a service's tests. Store the host in [`Service::attach`].
-//! This crate does not link SQLCipher or the node crate. This crate is `0.3.0`.
+//! This crate does not link SQLCipher or the node crate. This crate is `0.4.0`.
+//!
+//! [`Host`] calls are synchronous. A plugin may make them from a thread or
+//! runtime it owns. A websocket upgrade is out of scope. The service keeps its
+//! own LiveView socket. [`HttpResponse`] carries the final URL, the response
+//! headers (including `Location`), and the names of cookies a `Set-Cookie`
+//! stored. Cookie values are not logged. One jar is the source of truth:
+//! [`Host::cookies`] reads it, and [`Host::set_cookie`] merges into it.
 //!
 //! [`SESSION_SCHEMA`] is the email and base URL fields. [`CapabilityId::Spaces`]
 //! is the Red Star Spaces id. An official package claims the reserved
