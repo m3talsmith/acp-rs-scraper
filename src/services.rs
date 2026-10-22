@@ -187,18 +187,15 @@ fn write_table(path: &Path, table: &toml::Table) -> Result<()> {
 pub fn print_services() -> Result<()> {
     let home = crate::config::home()?;
     let services = crate::service::runtime().services();
-    if services.is_empty() && !service_path(&home, "redstar").is_file() {
-        println!("redstar  reserved  enabled");
+    if !services.iter().any(|s| s.id() == "redstar") {
+        let enabled = is_enabled(&home, "redstar")?;
+        let state = if enabled { "enabled" } else { "disabled" };
+        println!("redstar  reserved  {state}");
     }
     for service in services {
         let enabled = is_enabled(&home, service.id())?;
         let state = if enabled { "enabled" } else { "disabled" };
         println!("{}  {}  {state}", service.id(), service.display_name());
-    }
-    if services.is_empty() && service_path(&home, "redstar").is_file() {
-        let enabled = is_enabled(&home, "redstar")?;
-        let state = if enabled { "enabled" } else { "disabled" };
-        println!("redstar  reserved  {state}");
     }
     Ok(())
 }
@@ -375,7 +372,7 @@ pub fn strip_secrets(conn: &Connection) -> Result<()> {
 pub fn services_rows(home: &Path) -> Vec<ServiceRow> {
     let mut rows = Vec::new();
     let services = crate::service::runtime().services();
-    if services.is_empty() {
+    if !services.iter().any(|s| s.id() == "redstar") {
         let enabled = is_enabled(home, "redstar").unwrap_or(true);
         rows.push(ServiceRow::Service { id: "redstar".into(), label: "reserved".into(), enabled });
     }

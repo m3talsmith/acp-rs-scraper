@@ -1,3 +1,9 @@
+acp-red-star (3.54.0) unstable; urgency=medium
+
+  * Package 3.54.0. The X service is prepared and gated. Nothing is fetched.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 13:00:00 +0000
+
 acp-red-star (3.53.0) unstable; urgency=medium
 
   * Package 3.53.0. View › Combine and View › Source remember how a list is labeled.

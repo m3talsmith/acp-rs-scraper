@@ -267,6 +267,7 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
         "  redstar is reserved. It is on when ~/.acp/services/redstar.toml is missing.",
         "  Other services start off. A secret field is refused and the value is not stored.",
         "  Reload plugins runs the package check. It is not bound to a key.",
+        "  --x-read names a prepared read and does not connect.",
         "  u restores a quarantined archive. d deletes that copy.",
     ]);
     push_topic(&mut v, "combine", "Combine", &[

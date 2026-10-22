@@ -10,16 +10,34 @@ use acp_rs_plugin::DynService;
 /// What this binary says when a command needs the separate service package.
 pub const SERVICE_ABSENT: &str = "fetching, login, and publishing are not in this binary";
 
-/// Register nothing. External packages are not loaded at startup.
+/// Register the linked services. External packages are not loaded at startup.
 pub fn install(reg: &mut dyn acp_rs_plugin::PluginRegistrar) {
-    let _ = reg;
+    // SAFETY: this calls the built-in entry linked into this binary. It registers X and returns.
+    unsafe { (acp_red_star_service_x::plugin_declaration.register)(reg) }
 }
 
-/// The host's list of built-in services. This binary has none.
+/// The host's list of built-in services. X is linked. Red Star is not.
 pub struct Registry {
     services: Vec<Box<dyn DynService>>,
     /// Built-in registration may claim `redstar`. A package registrar copies this from [`acp_rs_plugin::Verified::official`].
     official: bool,
+}
+
+/// Accept `x` and `youtube` from this binary only. A package still goes through [`Registry`]'s registrar, which refuses those ids.
+struct Linked<'a>(&'a mut Registry);
+
+impl acp_rs_plugin::PluginRegistrar for Linked<'_> {
+    fn register_service(&mut self, mut service: Box<dyn DynService>) {
+        let id = service.id();
+        if self.0.services.iter().any(|s| s.id() == id) {
+            return;
+        }
+        if id != "x" && id != "youtube" && acp_rs_plugin::service_id_allowed(id, self.0.official).is_err() {
+            return;
+        }
+        service.attach(crate::host_api::CoreHost::shared());
+        self.0.services.push(service);
+    }
 }
 
 impl Default for Registry {
@@ -45,10 +63,10 @@ impl acp_rs_plugin::PluginRegistrar for Registry {
 }
 
 impl Registry {
-    /// Built-ins for this binary. There are none.
+    /// Built-ins for this binary. X is linked.
     pub fn builtins() -> Self {
         let mut reg = Self::default();
-        install(&mut reg);
+        install(&mut Linked(&mut reg));
         reg
     }
 
@@ -118,8 +136,10 @@ mod tests {
     }
 
     #[test]
-    fn this_binary_registers_no_built_in_service() {
-        assert!(Registry::builtins().services().is_empty());
+    fn this_binary_links_x_and_a_package_cannot_claim_redstar() {
+        let builtins = Registry::builtins();
+        assert_eq!(builtins.services().len(), 1);
+        assert_eq!(builtins.services()[0].id(), "x");
         let mut external = Registry::external(false);
         external.register_service(Box::new(Claim));
         assert!(external.services().is_empty());

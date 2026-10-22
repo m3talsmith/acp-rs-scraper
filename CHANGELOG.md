@@ -20,6 +20,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.54.0] - 2026-10-22
+
+### Added
+
+- **X service, prepared, gated.** `crates/acp_red_star_service_x` registers through `declare_builtin!`. It is off when `~/.acp/services/x.toml` is missing. `--x-read HANDLE` stops before any connection and says the read is prepared and gated. Nothing is fetched. Writes are the same and nothing is sent. The session route names operations with unpinned query ids. The API route names paths and a price table dated 2026-10-21. No guest token. Enabling the service does not fetch.
+
 ## [3.53.0] - 2026-10-22
 
 ### Added

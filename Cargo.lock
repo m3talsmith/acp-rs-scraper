@@ -4,9 +4,10 @@ version = 4
 
 [[package]]
 name = "acp-red-star"
-version = "3.53.0"
+version = "3.54.0"
 dependencies = [
  "acp_red_star_node_core",
+ "acp_red_star_service_x",
  "acp_rs_fixture",
  "acp_rs_fixture_mismatch",
  "acp_rs_fixture_next",
@@ -81,6 +82,13 @@ dependencies = [
  "x25519-dalek",
  "zeroize",
  "zxcvbn",
+]
+
+[[package]]
+name = "acp_red_star_service_x"
+version = "3.54.0"
+dependencies = [
+ "acp_rs_plugin",
 ]
 
 [[package]]

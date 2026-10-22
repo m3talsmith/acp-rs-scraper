@@ -237,6 +237,9 @@ pub async fn run() -> Result<()> {
     if crate::services::cli_requested(&args) {
         return crate::services::run_cli(&args);
     }
+    if let Some(handle) = args.x_read.as_deref() {
+        return acp_red_star_service_x::prepare_read(handle).map_err(|e| anyhow!(e));
+    }
     let (brand, brand_warn) = crate::brands::selected(args.brand.as_deref());
     crate::brands::install(&brand);
     if let Some(w) = brand_warn {
