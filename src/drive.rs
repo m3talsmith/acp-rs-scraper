@@ -12,13 +12,18 @@ use acp_rs_plugin::{
 
 use crate::prelude::*;
 
-/// The loaded service implements `cap`.
+/// The loaded service can run `cap` now.
+///
+/// A linked service may advertise a capability and still leave it gated.
+/// Those commands stay out of this binary until a service reports ready.
 pub fn handles(cap: CapabilityId) -> bool {
     service(cap).is_some()
 }
 
 fn service(cap: CapabilityId) -> Option<crate::plugins::Live> {
-    crate::plugins::live(cap)
+    let live = crate::plugins::live(cap)?;
+    let availability = live.get().availability(cap, &acp_rs_plugin::RuntimeCtx::ready());
+    (availability == acp_rs_plugin::Availability::Ready).then_some(live)
 }
 
 fn fail(err: ServiceError) -> anyhow::Error {
@@ -275,12 +280,21 @@ mod tests {
     }
 
     #[test]
-    fn this_binary_registers_no_reader_authenticator_or_writer() {
+    fn linked_x_keeps_reads_gated() {
         let reg = crate::service::Registry::builtins();
-        assert!(reg.services().is_empty());
-        assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Reader)));
-        assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Authenticator)));
-        assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Post)));
+        let ids: Vec<_> = reg.services().iter().map(|service| service.id()).collect();
+        assert_eq!(ids, ["x"]);
+        let on = acp_rs_plugin::RuntimeCtx::ready();
+        for service in reg.services() {
+            assert_ne!(service.id(), "redstar");
+            assert_eq!(
+                service.availability(CapabilityId::Reader, &on),
+                acp_rs_plugin::Availability::Gated
+            );
+        }
+        assert!(!handles(CapabilityId::Reader));
+        assert!(!handles(CapabilityId::Authenticator));
+        assert!(!handles(CapabilityId::Post));
     }
 
     #[test]
