@@ -275,12 +275,18 @@ mod tests {
     }
 
     #[test]
-    fn this_binary_registers_no_reader_authenticator_or_writer() {
+    fn linked_x_and_youtube_keep_reads_gated() {
         let reg = crate::service::Registry::builtins();
-        assert!(reg.services().is_empty());
-        assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Reader)));
-        assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Authenticator)));
-        assert!(!reg.services().iter().any(|service| service.has(CapabilityId::Post)));
+        let ids: Vec<_> = reg.services().iter().map(|service| service.id()).collect();
+        assert_eq!(ids, ["x", "youtube"]);
+        let on = acp_rs_plugin::RuntimeCtx::ready();
+        for service in reg.services() {
+            assert_ne!(service.id(), "redstar");
+            assert_eq!(
+                service.availability(CapabilityId::Reader, &on),
+                acp_rs_plugin::Availability::Gated
+            );
+        }
     }
 
     #[test]

@@ -608,7 +608,8 @@ libraries = [
             report.refused
         );
         assert!(plugins.join(&filename).is_file(), "a version mismatch stays in place");
-        assert!(live(CapabilityId::Reader).is_none());
+        let found = live(CapabilityId::Reader).expect("linked reader");
+        assert_eq!(found.get().id(), "x");
 
         let _ = fs::remove_dir_all(&tmp);
         let _ = reload(&tmp.join("absent"), &quarantine);
