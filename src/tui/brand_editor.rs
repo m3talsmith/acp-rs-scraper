@@ -353,6 +353,7 @@ impl App {
                 self.brand_error = None;
                 self.brand_fault = None;
                 self.brand = b.clone();
+                self.menu.menu.apply_brand(&b);
                 brands::install(&b);
                 if persist { self.effects.push(crate::tui::state::Effect::SaveUiBrand(name.to_string())); }
                 true
@@ -362,6 +363,7 @@ impl App {
                 self.brand_fault = Some(if matches!(e, brands::LoadError::Missing(_)) { "missing" } else { "broken" });
                 self.brand_error = Some(n.clone());
                 let fallback = brands::builtin_default();
+                self.menu.menu.apply_brand(&fallback);
                 brands::install(&fallback);
                 self.brand = fallback;
                 self.push_status(format!("warning: {n}"));

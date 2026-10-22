@@ -114,6 +114,33 @@ fn staging_stem(archive: &Path, fallback: &str) -> String {
     if stem.is_empty() { export_file_stem(fallback) } else { stem.to_string() }
 }
 
+/// A free path beside `path` when `path` already exists.
+///
+/// The first try is `{stem}-{YYYYMMDD-HHMMSS}.{ext}`. The next tries are
+/// `{stem}-{stamp}-2`, then `-3`. A `.tar.gz` name keeps that suffix.
+/// A path that does not exist is returned as given.
+pub fn unique_if_exists(path: &Path) -> PathBuf {
+    if !path.exists() { return path.to_path_buf(); }
+    let parent = path.parent().unwrap_or(Path::new(""));
+    let name = path.file_name().and_then(|s| s.to_str()).unwrap_or("export");
+    let (stem, ext) = if let Some(stem) = name.strip_suffix(".tar.gz") {
+        (stem.to_string(), "tar.gz".to_string())
+    } else {
+        match name.rsplit_once('.') {
+            Some((stem, ext)) if !stem.is_empty() && !ext.is_empty() => (stem.to_string(), ext.to_string()),
+            _ => (name.to_string(), String::new()),
+        }
+    };
+    let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    for n in 0..1000 {
+        let suffix = if n == 0 { format!("{stem}-{stamp}") } else { format!("{stem}-{stamp}-{}", n + 1) };
+        let file = if ext.is_empty() { suffix } else { format!("{suffix}.{ext}") };
+        let candidate = parent.join(file);
+        if !candidate.exists() { return candidate; }
+    }
+    path.to_path_buf()
+}
+
 /// Where each format goes for a plain (uncompressed) `--output` path.
 /// One format: the path as given (a directory gets `<name>.<ext>`).
 /// Several: a directory gets `<dir>/<name>.<ext>` each; a file path keeps its
@@ -223,20 +250,30 @@ pub fn export_with(args: &Args, name: &str, nick: &str, posts: &[Post], atts: &[
     }
     for (f, file) in &files {
         if let Some(p) = file.parent().filter(|p| !p.as_os_str().is_empty()) { std::fs::create_dir_all(p)?; }
-        std::fs::write(file, render(*f, &doc)?)?;
-        log_info(format_args!("wrote {}", file.display()));
+        let dest = if args.post_ids.is_some() { unique_if_exists(file) } else { file.clone() };
+        std::fs::write(&dest, render(*f, &doc)?)?;
+        if dest != *file {
+            log_info(format_args!("left {} in place; wrote {}", file.display(), dest.display()));
+        } else {
+            log_info(format_args!("wrote {}", dest.display()));
+        }
     }
 
     if let Some((tp, stem)) = tar_path {
-        if let Some(parent) = tp.parent().filter(|p| !p.as_os_str().is_empty()) { std::fs::create_dir_all(parent)?; }
+        let dest = if args.post_ids.is_some() { unique_if_exists(&tp) } else { tp.clone() };
+        if let Some(parent) = dest.parent().filter(|p| !p.as_os_str().is_empty()) { std::fs::create_dir_all(parent)?; }
         // Only tar-gz today; match on args.compression() here when adding formats.
-        let f = std::fs::File::create(&tp)?;
+        let f = std::fs::File::create(&dest)?;
         let gz = flate2::write::GzEncoder::new(f, flate2::Compression::default());
         let mut t = tar::Builder::new(gz);
         t.append_dir_all(&stem, &dir)?;
         t.into_inner()?.finish()?;
         // Success log (and stderr): the path actually written, after a directory or a bare name is resolved.
-        log_info(format_args!("wrote {}", tp.display()));
+        if dest != tp {
+            log_info(format_args!("left {} in place; wrote {}", tp.display(), dest.display()));
+        } else {
+            log_info(format_args!("wrote {}", dest.display()));
+        }
         // The archive is complete: remove the uncompressed export folder.
         // (Any error above returns early and leaves the folder in place.)
         remove_export_dir(&dir, &tp)?;
@@ -323,6 +360,33 @@ mod tests {
             vec![(Format::Json, d.join("x.json")), (Format::Html, d.join("x.html"))]);
         assert_eq!(output_files(&d, "n", &both),
             vec![(Format::Json, d.join("n.json")), (Format::Html, d.join("n.html"))]);
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn a_second_basket_export_leaves_the_first_file() {
+        let d = tmp("basket-unique");
+        let out = d.join("basket.html");
+        std::fs::write(&out, "earlier").unwrap();
+        let args = Args::try_parse_from(["x", "--post-ids", "p1", "--format", "html", "--output", out.to_str().unwrap()]).unwrap();
+        export(&args, "basket", "chosen", &[post()], &[], &[], &[], &d).unwrap();
+        assert_eq!(std::fs::read_to_string(&out).unwrap(), "earlier", "the first file stays");
+        let written: Vec<_> = std::fs::read_dir(&d).unwrap().map(|e| e.unwrap().path())
+            .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("html") && p != &out).collect();
+        assert_eq!(written.len(), 1, "{written:?}");
+        let name = written[0].file_name().unwrap().to_str().unwrap();
+        assert!(name.starts_with("basket-") && name.ends_with(".html"), "{name}");
+        assert!(std::fs::read_to_string(&written[0]).unwrap().contains("hello multi"));
+        let nick = d.join("nick.html");
+        std::fs::write(&nick, "keep").unwrap();
+        let args = Args::try_parse_from(["x", "--nick", "hazaldin", "--format", "html", "--output", nick.to_str().unwrap()]).unwrap();
+        export(&args, "nick", "@hazaldin", &[post()], &[], &[], &[], &d).unwrap();
+        assert!(std::fs::read_to_string(&nick).unwrap().contains("hello multi"), "a nick export still replaces its file");
+        let tar = d.join("basket.tar.gz");
+        std::fs::write(&tar, b"tar").unwrap();
+        let next = unique_if_exists(&tar);
+        let tar_name = next.file_name().unwrap().to_str().unwrap();
+        assert!(tar_name.starts_with("basket-") && tar_name.ends_with(".tar.gz"), "{tar_name}");
         std::fs::remove_dir_all(&d).unwrap();
     }
 

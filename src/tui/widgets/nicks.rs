@@ -106,6 +106,12 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect) {
     if r.width > 2 && r.height > 0 {
         let tab = Rect { x: r.x + r.width - 1, y: r.y, width: 1, height: 1 };
         f.render_widget(Paragraph::new(Span::styled("‹", t.bar())), tab);
-        app.hits.push((tab, Hit::ToggleNicks));
+        // The ‹ is one cell. A click on the top border beside it, or down the
+        // right border, is the same control. Inner rows stay nick hits.
+        let top_w = 3.min(r.width);
+        app.hits.push((Rect { x: r.x + r.width - top_w, y: r.y, width: top_w, height: 1 }, Hit::ToggleNicks));
+        if r.height > 1 {
+            app.hits.push((Rect { x: r.x + r.width - 1, y: r.y + 1, width: 1, height: r.height - 1 }, Hit::ToggleNicks));
+        }
     }
 }

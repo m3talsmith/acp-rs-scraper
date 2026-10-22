@@ -183,7 +183,7 @@ fn clicking_a_hashtag_opens_its_tag_feed() {
 }
 
 #[test]
-fn s_cycles_reply_order_and_asks_the_site_for_oldest_and_top() {
+fn s_cycles_stored_reply_order_and_does_not_connect() {
     use crate::tui::input::on_key;
     use crate::tui::state::LinkKind;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -200,19 +200,15 @@ fn s_cycles_reply_order_and_asks_the_site_for_oldest_and_top() {
     assert_eq!(ids(&a), vec!["ALICE0004".to_string(), "BOB000002".to_string(), "ALICE0005".to_string()]);
     on_key(&mut a, KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
     assert_eq!(ids(&a), vec!["ALICE0005".to_string(), "BOB000002".to_string(), "ALICE0004".to_string()]);
-    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
-    assert_eq!(argv[1..], ["--sort-thread", "ALICE0001", "--thread-sort", "oldest"]);
-    a.effects.clear();
-    a.job = None;
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.status.back().unwrap().contains("stored"));
+    assert!(a.modal.is_none());
     on_key(&mut a, KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
     assert_eq!(ids(&a), vec!["ALICE0005".to_string(), "ALICE0004".to_string(), "BOB000002".to_string()]);
-    let Some(Effect::CheckSessionThen(JobKind::Read, argv)) = a.effects.last() else { panic!("{:?}", a.effects) };
-    assert_eq!(argv[1..], ["--sort-thread", "ALICE0001", "--thread-sort", "top"]);
-    let n = a.effects.len();
-    a.job = None;
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
     on_key(&mut a, KeyEvent::new(KeyCode::Char('s'), KeyModifiers::NONE));
     assert_eq!(ids(&a), vec!["ALICE0004".to_string(), "BOB000002".to_string(), "ALICE0005".to_string()]);
-    assert_eq!(a.effects.len(), n, "newest is the site default and sends no hook");
+    assert!(a.effects.is_empty(), "newest stays on the stored replies");
 }
 
 #[test]
