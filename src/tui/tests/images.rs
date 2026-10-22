@@ -1,4 +1,4 @@
-//! Pictures: the 4-row header (halberd + RED STAR), inline post images, decoding.
+//! Pictures: the 4-row header (halberd, then the title), inline post images, decoding.
 
 use super::*;
 use crate::tui::images::*;
@@ -26,19 +26,52 @@ fn png(name: &str) -> PathBuf {
 }
 
 #[test]
-fn header_is_four_rows_with_big_acp_centred_and_room_above() {
+fn header_is_four_rows_logo_then_title() {
     let mut a = app();
     let b = draw(&mut a, 110, 30);
     assert_eq!(TUI_HEADER_ROWS, 4);
-    // RED STAR is sextant letters here (third-height needs more than this row).
-    // It spans rows 1-3 (row 0 is breathing room); title and session sit on row 2.
-    assert!(row(&b, 0, 10, 34).chars().all(|c| c == ' '), "room above: {:?}", row(&b, 0, 10, 34));
-    for y in 1..4 { assert!(row(&b, y, 10, 34).chars().any(|c| c != ' '), "row {y}: {:?}", row(&b, y, 10, 34)); }
+    // The logo occupies the left of the bar. Nothing is drawn in the columns the word used.
+    for y in [0, 1, 3] {
+        assert!(row(&b, y, 10, 34).chars().all(|c| c == ' '), "no word on row {y}: {:?}", row(&b, y, 10, 34));
+    }
     let mid = row(&b, 2, 0, 110);
     assert!(mid.contains(TUI_SUBTITLE) && mid.contains(env!("CARGO_PKG_VERSION")) && mid.contains("logged out"), "{mid}");
-    for y in [0, 1, 3] { assert!(!row(&b, y, 36, 110).contains(TUI_SUBTITLE)); }
+    assert!(row(&b, 2, 10, 18).starts_with(TUI_SUBTITLE), "title sits against the logo: {}", row(&b, 2, 10, 40));
+    assert_space_before_theme(&mid);
+    for y in [0, 1, 3] { assert!(!row(&b, y, 10, 110).contains(TUI_SUBTITLE)); }
     assert!(row(&b, 4, 0, 110).contains("Scrape"), "menu under the header");
     assert_eq!(b[(40, 0)].bg, Theme::acp().accent, "red bar");
+
+    // A full row still keeps a space before the theme marker.
+    a.theme_name = "theme-name-that-fills-this-header".into();
+    let tight = row(&draw(&mut a, 70, 24), 2, 0, 70);
+    assert_space_before_theme(&tight);
+}
+
+fn assert_space_before_theme(mid: &str) {
+    let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+    let Some(i) = mid.find(&version) else { panic!("version missing: {mid}"); };
+    let after = &mid[i + version.len()..];
+    let Some(rel) = after.find('‹') else { panic!("theme marker missing: {mid}"); };
+    assert!(rel >= 1 && after.as_bytes()[rel - 1] == b' ', "version sits against the theme marker: {mid}");
+}
+
+#[test]
+fn no_logo_mode_draws_a_word_beside_the_logo() {
+    use crate::brands::LogoKind;
+    for logo in [LogoKind::Halberd, LogoKind::Builtin, LogoKind::Text, LogoKind::File] {
+        let mut a = app();
+        a.brand.logo = logo;
+        a.brand.word = "RED STAR".into();
+        a.brand.logo_text = "RS".into();
+        let b = draw(&mut a, 110, 30);
+        for y in [0, 1, 3] {
+            assert!(row(&b, y, 10, 40).chars().all(|c| c == ' '), "{logo:?} row {y}: {:?}", row(&b, y, 10, 40));
+        }
+        let mid = row(&b, 2, 10, 40);
+        assert!(mid.starts_with(TUI_SUBTITLE), "{logo:?} title: {mid}");
+        assert!(!mid.contains("RED"), "{logo:?} drew the word: {mid}");
+    }
 }
 
 fn logo_rows(b: &Buffer) -> Vec<String> { (0..4).map(|y| row(b, y, 1, 9)).collect() }

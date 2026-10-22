@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.39.2] - 2026-10-22
+
+### Fixed
+
+- **Header word.** The header is the logo, then the title. No logo mode draws a word beside the mark, and the old word's columns are not left empty. The theme marker keeps a space before `‹name›`.
+
 ## [3.39.1] - 2026-10-22
 
 ### Fixed

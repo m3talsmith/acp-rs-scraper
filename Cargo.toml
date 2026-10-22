@@ -4,7 +4,7 @@ resolver = "2"
 
 [package]
 name = "acp-red-star"
-version = "3.39.1"
+version = "3.39.2"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
@@ -60,7 +60,6 @@ crossterm = "0.29"
 unicode-width = "0.2"
 pulldown-cmark = { version = "0.13", default-features = false }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "webp"] }
-tui-big-text = "0.8.10"
 ratatui-lipgloss = "1.1.0"
 argon2 = "0.5"
 blake3 = "1"
