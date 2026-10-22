@@ -44,6 +44,8 @@ pub enum ConfirmAction {
         /// Comment body.
         body: String,
     },
+    /// Send one outbox row. The id is the `Q-` id.
+    SendOutbox(String),
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.

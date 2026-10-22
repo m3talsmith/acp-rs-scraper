@@ -6,47 +6,53 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.39.0] - 2026-10-21
+## [3.40.0] - 2026-10-21
 
 ### Added
 
 - **Quote repost.** `--repost POST --repost-title TITLE --body TEXT` sends validate, then save, once. The fields are `form[quoted_post_id]`, `form[title]`, and `form[body_input]`. The terminal asks `Repost? [y/N]`. `--dry-run` prints the frames and does not connect. A plain repost with an empty comment is not sent. The missing frame is a save on `/rs/post/new?repost=ID` with an empty `form[body_input]`.
 
-## [3.38.0] - 2026-10-21
+## [3.39.0] - 2026-10-21
 
 ### Added
 
 - **Top-level post edit.** `--edit POST` with `--edit-title` and/or `--body` sends validate, then save, once. Both fields are sent. A field you omit is read from the editor after confirm and is not printed by `--dry-run`. The terminal asks `Edit? [y/N]`, then `Type yes`. The one-hour window still applies.
 
-## [3.37.0] - 2026-10-21
+## [3.38.0] - 2026-10-21
 
 ### Added
 
 - **Delete.** `--delete POST` sends `delete-post` once. The terminal asks `Delete? [y/N]`, then `Type yes`. The site redirects to `/rs`. The local copy stays and is shown with a tombstone (🪦, or `[RIP]` when the locale is not UTF-8). Cancel sends nothing.
 
-## [3.36.0] - 2026-10-21
+## [3.37.0] - 2026-10-21
 
 ### Added
 
 - **Subscribe.** `--subscribe THREAD` sends the hook with state `1`. The terminal asks `Subscribe? [y/N]`. `--dry-run` prints the hook and does not connect. Unsubscribe (state `0`) is refused, including on a dry-run. The missing frame is a subscribe hook with state `0`.
 
-## [3.35.0] - 2026-10-21
+## [3.36.0] - 2026-10-21
 
 ### Added
 
 - **Site bookmark.** `--site-bookmark POST` sends the bookmark hook with state `1`. The terminal asks `Bookmark? [y/N]`. This is not the local `--bookmark`. Clearing a site bookmark (state `0`) is not sent. `--sync-bookmarks` still pushes a removal with state `0`, which this capture did not contain.
 
-## [3.34.0] - 2026-10-21
+## [3.35.0] - 2026-10-21
 
 ### Added
 
 - **Vote.** `--vote POST` with `--vote-state` `1`, `0`, or `-1` sends the hook once. The default is `1`. The terminal asks `Vote? [y/N]`. `--dry-run` prints the hook and does not connect. The reply shows score, vote, and upvote percentage.
 
-## [3.33.1] - 2026-10-21
+## [3.34.2] - 2026-10-21
 
 ### Changed
 
 - **A reply edit keeps a leading quote.** When the mounted editor starts with a `postRef`, that node is sent with the new body. `--dry-run` does not open the editor. It says the quote is kept and is not shown. 3.33.0 did not copy that node.
+
+## [3.34.0] - 2026-10-21
+
+### Added
+
+- **Drafts and the outbox.** A post is stored on this machine before it is sent. `--draft-save` writes a draft. The same `--draft-id` writes another `post_versions` row. `--keep-local` leaves the post off the queue. `--draft-list` prints them. `--outbox-queue ID` queues that local id. `--outbox-list` prints the queue. `--outbox-cancel ID` marks a queued, failed, or draft row cancelled. `--outbox-send ID` asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same validate and save frames as a direct text publish and opens no connection. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Votes and the other gated writes are not sent from it. In the terminal UI, Save draft is on the compose box and under Compose. Send from outbox starts on Cancel.
 
 ## [3.33.0] - 2026-10-21
 
