@@ -6,17 +6,23 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.43.0] - 2026-10-21
+## [3.44.0] - 2026-10-21
 
 ### Added
 
 - **Site notifications.** `--site-notifications` and View › Site notifications read `/rs/notifications`. Items are stored. Opening the page may mark them read when the socket sends `clear-app-badge`. Each new item is a Sync notice. A stored post is handed to the rule engine. Nothing is sent as a write.
 
-## [3.42.0] - 2026-10-21
+## [3.43.0] - 2026-10-21
 
 ### Added
 
 - **Live updates.** `--live THREAD` follows that thread on the LiveView socket. `--live-feed` follows the home feed. A new reply is stored. An update patches the row. A delete removes it. A refresh raises a new-posts chip. `refresh-posts` runs at most once every 30 seconds. Each insert is a Sync notice and is handed to the rule engine. View › Live and View › Live feed open the same watches. There is no new key.
+
+## [3.35.0] - 2026-10-22
+
+### Added
+
+- **Brands.** The logo, the title, and the motto follow a brand, the same way colours follow a theme. The built-in `default` brand is still ACP Red Star: the red-star logo, the word ACP, the title, and "The future belongs to the working class". The built-in `plain` brand is the title Red Star, a star, and no motto (`acp-red-star --brand plain`). `--brand NAME` selects one for this run. `[ui] brand` in `~/.acp/preferences.toml` keeps it. The header switch `«name» ▾` opens the picker; moving the highlight previews it and Esc puts the old brand back. The brand editor edits the title, motto, word, and logo (Ctrl-S save, Ctrl-R revert, Ctrl-N save as new, Ctrl-D duplicate, Ctrl-X delete, Ctrl-C close). User brands are `~/.acp/brands/<name>.toml`. A logo is built-in, inline text, or a file inside that folder; a path that leaves the folder is refused. A brand is independent of the theme. `--help`, `--version`, the terminal title, and HTML export headers use the title. Credits and the other surprises keep their own text.
 
 ## [3.34.0] - 2026-10-21
 

@@ -3,7 +3,6 @@
 //! The public page's border title is the slogan.
 
 use super::*;
-use crate::branding::SLOGAN;
 use crate::eggs;
 use crossterm::event::KeyCode;
 use std::time::Instant;
@@ -42,8 +41,9 @@ impl AboutModal {
     /// Lines for the open page. The public page is exactly three sections.
     pub fn body_lines(&self) -> Vec<String> {
         if self.credits { return crate::eggs::credits_lines(); }
+        let brand = crate::brands::current();
         let mut lines = vec![
-            crate::config::TUI_SUBTITLE.into(),
+            brand.title.clone(),
             format!("v{}", env!("CARGO_PKG_VERSION")),
             String::new(),
             "1 Credits    2 Why this is necessary    3 ACP platform".into(),
@@ -51,7 +51,7 @@ impl AboutModal {
         ];
         match self.section {
             0 => lines.extend(public_credits()),
-            1 => lines.extend(why_lines()),
+            1 => lines.extend(why_lines(&brand.title)),
             _ => lines.extend(platform_lines()),
         }
         lines.push(String::new());
@@ -79,10 +79,10 @@ fn public_credits() -> Vec<String> {
     ]
 }
 
-fn why_lines() -> Vec<String> {
+fn why_lines(title: &str) -> Vec<String> {
     vec![
         "Why this is necessary".into(),
-        "ACP Red Star keeps a copy of the Red Star forum on this machine.".into(),
+        format!("{title} keeps a copy of the Red Star forum on this machine."),
         "Reading, search, and export work from that copy when the site is slow or gone.".into(),
         "The database is encrypted. The password stays on this computer.".into(),
         "Publishing a post still waits on a confirmed capture. This window does not send one.".into(),
@@ -105,7 +105,12 @@ fn platform_lines() -> Vec<String> {
 
 impl ModalState for AboutModal {
     fn title(&self) -> String {
-        if self.credits { "Credits".into() } else { SLOGAN.to_string() }
+        if self.credits {
+            "Credits".into()
+        } else {
+            let brand = crate::brands::current();
+            if brand.motto.is_empty() { brand.title } else { brand.motto }
+        }
     }
     fn on_key(&mut self, k: KeyEvent) -> Option<ModalResult> {
         match k.code {

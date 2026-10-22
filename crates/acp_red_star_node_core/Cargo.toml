@@ -6,7 +6,8 @@ rust-version = "1.88"
 license = "GPL-3.0-or-later"
 authors = ["m3talsmith <m3talsmith@gmail.com>"]
 description = "Shared identity, canonical CBOR, and sealed secrets for ACP nodes"
-repository = "https://github.com/m3talsmith/acp-rs-scraper"
+# Same <core-repo> placeholder as the root package. The rename patch updates it.
+repository = "https://github.com/m3talsmith/<core-repo>"
 publish = false
 
 [dependencies]

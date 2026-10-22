@@ -40,11 +40,24 @@ const _: () = {
 /// text, the gap, and the slogan do not all fit. The status text is never cut to
 /// make room.
 pub fn slogan_in_status(width: u16, status_cols: u16) -> bool {
-    width >= SLOGAN_STATUS_MIN
-        && status_cols
-            .saturating_add(SLOGAN_STATUS_GAP)
-            .saturating_add(SLOGAN_COLS)
-            <= width
+    motto_in_status(SLOGAN, width, status_cols)
+}
+
+/// Display columns of `motto`.
+pub fn motto_cols(motto: &str) -> u16 {
+    unicode_width::UnicodeWidthStr::width(motto).min(u16::MAX as usize) as u16
+}
+
+/// The footer can show `motto` beside `status_cols` of text without covering it.
+///
+/// An empty motto is hidden. A non-empty motto uses the same gap and reserve as
+/// [`slogan_in_status`].
+pub fn motto_in_status(motto: &str, width: u16, status_cols: u16) -> bool {
+    if motto.is_empty() { return false; }
+    let cols = motto_cols(motto);
+    let min = cols.saturating_add(SLOGAN_STATUS_GAP).saturating_add(SLOGAN_STATUS_RESERVE);
+    width >= min
+        && status_cols.saturating_add(SLOGAN_STATUS_GAP).saturating_add(cols) <= width
 }
 
 /// Muted gold, or faint text when `dim` is set. Plain when colours are off
@@ -92,6 +105,8 @@ mod tests {
             "wide enough, but this line would be covered"
         );
         assert!(slogan_in_status(100, 20));
+        assert!(!motto_in_status("", 160, 0), "an empty motto is hidden");
+        assert!(motto_in_status("Hello", 80, 0));
     }
 
     #[test]

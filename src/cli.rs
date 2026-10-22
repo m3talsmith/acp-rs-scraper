@@ -22,7 +22,9 @@ Examples:
   acp-red-star                      # terminal UI
   acp-red-star --tui --nicks @hazaldin -v
   acp-red-star --theme default      # terminal UI with this theme
+  acp-red-star --brand plain        # this run: neutral title and star, no motto
   acp-red-star --list-themes
+  acp-red-star --list-brands
   acp-red-star --theme-init all     # download every theme in the repo into ~/.acp/themes
   acp-red-star --theme-starter mine # a minimal theme to edit (Shift-F5)
   acp-red-star --scrape             # headless scrape; asks for nicks
@@ -283,6 +285,12 @@ pub struct Args {
     /// Use this theme (a file in ~/.acp/themes, without .toml) in the terminal UI for this run; ui.theme in preferences.toml sets it for good.
     #[arg(long, value_name = "NAME", help_heading = "Interface")]
     pub theme: Option<String>,
+    /// Use this brand (a built-in, or a file in ~/.acp/brands, without .toml) for this run. plain is a neutral title and star with no motto. ui.brand in preferences.toml sets it for good. A brand is independent of the theme.
+    #[arg(long, value_name = "NAME", help_heading = "Interface")]
+    pub brand: Option<String>,
+    /// List built-in brands and the files in ~/.acp/brands (● marks the one in use; broken files say why) and exit.
+    #[arg(long, help_heading = "Interface")]
+    pub list_brands: bool,
     /// List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit.
     #[arg(long, help_heading = "Interface")]
     pub list_themes: bool,
@@ -529,7 +537,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "acp_id", "shares_print", "shares_verify",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "acp_id", "shares_print", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -540,7 +548,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "shares_print", "shares_verify",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "shares_print", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -552,7 +560,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_verify",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_verify",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -563,7 +571,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id",
         "backup", "restore", "backup_schedule", "encrypt_db", "change_password", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -578,7 +586,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_print",
         "shares_verify", "restore", "backup_schedule", "change_password", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -589,7 +597,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "backup_schedule", "change_password", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -600,7 +608,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "change_password", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -617,7 +625,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "change_password", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -629,7 +637,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "show_phrase",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -641,7 +649,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
         "node_init", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -654,7 +662,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
         "show_phrase", "node_id", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -668,7 +676,7 @@ pub struct Args {
         "remove_nick", "clear_all", "logout", "bookmark", "unbookmark", "list_bookmarks", "sync",
         "sync_bookmarks", "tui", "top", "eb", "explore", "explore_latest", "live", "live_feed", "site_notifications", "site_search", "tag",
         "reposts", "edits", "sort_thread", "backfill_tags", "refetch_truncated", "post_ids",
-        "theme_init", "theme_starter", "list_themes", "identity_init", "acp_id", "shares_print",
+        "theme_init", "theme_starter", "list_themes", "list_brands", "identity_init", "acp_id", "shares_print",
         "shares_verify", "backup", "restore", "backup_schedule", "encrypt_db", "change_password",
         "show_phrase", "node_init", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
@@ -996,7 +1004,16 @@ pub fn wants_tui(m: &clap::ArgMatches) -> bool {
 pub fn parse_with_mode<I, T>(argv: I) -> std::result::Result<(Args, bool), clap::Error>
 where I: IntoIterator<Item = T>, T: Into<std::ffi::OsString> + Clone {
     use clap::{CommandFactory, FromArgMatches};
-    let m = Args::command().try_get_matches_from(argv)?;
+    let argv: Vec<std::ffi::OsString> = argv.into_iter().map(Into::into).collect();
+    let explicit = crate::brands::peek_flag(&argv, "brand");
+    if let Some(name) = explicit.as_deref()
+        && let Err(e) = crate::brands::check(name)
+    {
+        return Err(Args::command().error(clap::error::ErrorKind::ValueValidation, format!("{e:#}")));
+    }
+    let (brand, _) = crate::brands::selected(explicit.as_deref());
+    let cmd = crate::brands::style_command(Args::command(), &brand);
+    let m = cmd.try_get_matches_from(argv)?;
     let tui = wants_tui(&m);
     Ok((Args::from_arg_matches(&m)?, tui))
 }
