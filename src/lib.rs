@@ -17,6 +17,7 @@
 //! - [`site`]: New post and Reply (3.4.0), with local attachments (3.5.0). Text publish sends validate and save (3.31.0). The site copy of images, videos, and PDFs uploads first (3.32.0). A reply edit sends validate and save (3.33.0). Votes, subscribes, deletes, reposts, and top-level post edits stay gated. The site does not support changing attachments on an edit.
 //! - [`outbox`]: Drafts and the send queue (3.34.0). A draft is stored before it is sent. A queued text post or reply uses the same confirm rules as a direct publish.
 //! - [`plugins`]: the package gate. A failed archive is quarantined. A version mismatch is refused and is not moved. A discovered package stays off.
+//! - [`host_api`]: the [`acp_rs_plugin::Host`] a service calls instead of opening the database.
 //! - [`media`]: attachment discovery and download.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
@@ -47,6 +48,7 @@ pub mod config;
 pub mod crypto;
 pub mod eggs;
 pub mod export;
+pub mod host_api;
 pub mod http;
 pub mod import;
 pub mod liveview;

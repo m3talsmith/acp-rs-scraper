@@ -32,6 +32,27 @@ pub enum FieldKind {
     Secret,
 }
 
+/// Login email. Stored in the service file, not sealed.
+pub const EMAIL_FIELD: Field = Field {
+    key: "email",
+    label: "Email",
+    help: "Account email",
+    kind: FieldKind::Text,
+    store: Store::Config,
+};
+
+/// Site origin, without a trailing slash.
+pub const BASE_URL_FIELD: Field = Field {
+    key: "base_url",
+    label: "Base URL",
+    help: "Site origin, without a trailing slash",
+    kind: FieldKind::Text,
+    store: Store::Config,
+};
+
+/// Email and base URL. Red Star's [`crate::Service::schema`] returns this.
+pub const SESSION_SCHEMA: &[Field] = &[EMAIL_FIELD, BASE_URL_FIELD];
+
 /// One field in a service schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Field {

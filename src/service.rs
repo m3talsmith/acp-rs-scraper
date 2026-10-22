@@ -29,7 +29,7 @@ impl DynService for RedStar {
     }
 
     fn schema(&self) -> &'static [Field] {
-        &[]
+        acp_rs_plugin::SESSION_SCHEMA
     }
 
     fn availability(&self, cap: CapabilityId, ctx: &RuntimeCtx) -> Availability {
@@ -77,16 +77,30 @@ pub fn install(reg: &mut dyn acp_rs_plugin::PluginRegistrar) {
 }
 
 /// The host's list of built-in services.
-#[derive(Default)]
 pub struct Registry {
     services: Vec<Box<dyn DynService>>,
+    /// Built-in registration may claim `redstar`. A package registrar copies this from [`acp_rs_plugin::Verified::official`].
+    official: bool,
+}
+
+impl Default for Registry {
+    fn default() -> Self {
+        Self {
+            services: Vec::new(),
+            official: true,
+        }
+    }
 }
 
 impl acp_rs_plugin::PluginRegistrar for Registry {
-    fn register_service(&mut self, service: Box<dyn DynService>) {
+    fn register_service(&mut self, mut service: Box<dyn DynService>) {
         if self.services.iter().any(|s| s.id() == service.id()) {
             return;
         }
+        if acp_rs_plugin::service_id_allowed(service.id(), self.official).is_err() {
+            return;
+        }
+        service.attach(crate::host_api::CoreHost::shared());
         self.services.push(service);
     }
 }
@@ -97,6 +111,14 @@ impl Registry {
         let mut reg = Self::default();
         install(&mut reg);
         reg
+    }
+
+    /// A registrar for one package. `official` comes from the manifest, not from the plugin.
+    pub fn external(official: bool) -> Self {
+        Self {
+            services: Vec::new(),
+            official,
+        }
     }
 
     /// Services in registration order.
@@ -123,6 +145,7 @@ pub fn doctor_lines() -> [String; 2] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use acp_rs_plugin::PluginRegistrar;
 
     #[test]
     fn the_in_tree_adapter_keeps_the_outbox_ready() {
@@ -132,7 +155,16 @@ mod tests {
         let reg = Registry::builtins();
         assert_eq!(reg.services().len(), 1);
         assert_eq!(reg.services()[0].id(), "redstar");
+        let fields = reg.services()[0].schema();
+        assert_eq!(fields[0].key, "email");
+        assert_eq!(fields[1].key, "base_url");
         Registry::builtins();
+        let mut external = Registry::external(false);
+        external.register_service(Box::new(RedStar));
+        assert!(external.services().is_empty());
+        let mut official = Registry::external(true);
+        official.register_service(Box::new(RedStar));
+        assert_eq!(official.services().len(), 1);
     }
 
     #[test]

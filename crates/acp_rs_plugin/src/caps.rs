@@ -32,6 +32,12 @@ pub trait Service: Send + Sync {
         self.implemented().contains(&cap)
     }
 
+    /// The host calls this before the service is stored.
+    ///
+    /// The default does nothing. Store `host` in a [`crate::HostSlot`] when
+    /// this service calls the core.
+    fn attach(&mut self, _host: std::sync::Arc<dyn crate::host::Host>) {}
+
     /// [`schema`](Service::schema) plus the service id.
     fn config_schema(&self) -> ConfigSchema {
         ConfigSchema {
@@ -203,6 +209,19 @@ pub trait MediaFetcher: Service {
     }
 }
 
+/// Red Star Spaces. This is not an X Spaces read.
+pub trait Spaces: Service {
+    /// One page of Spaces for `target`.
+    fn spaces<'a>(
+        &'a self,
+        _target: &'a Target,
+        _cursor: &'a Cursor,
+        _budget: &'a mut Budget,
+    ) -> CapFut<'a, Page> {
+        not_implemented(self.service_id().as_str(), CapabilityId::Spaces.as_str())
+    }
+}
+
 /// Estimate and ledger. Required on a paid or quota API route.
 pub trait CostMeter: Service {
     /// The estimate for what `budget` still allows.
@@ -229,6 +248,7 @@ where
         + Research
         + Feeds
         + MediaFetcher
+        + Spaces
         + CostMeter,
 {
     fn id(&self) -> &'static str {
@@ -249,6 +269,10 @@ where
 
     fn availability(&self, cap: CapabilityId, ctx: &RuntimeCtx) -> Availability {
         Service::availability(self, cap, ctx)
+    }
+
+    fn attach(&mut self, host: std::sync::Arc<dyn crate::host::Host>) {
+        Service::attach(self, host);
     }
 
     fn authenticate<'a>(
@@ -345,6 +369,15 @@ where
     fn estimate<'a>(&'a self, budget: &'a Budget) -> CapFut<'a, Spend> {
         CostMeter::estimate(self, budget)
     }
+
+    fn spaces<'a>(
+        &'a self,
+        target: &'a Target,
+        cursor: &'a Cursor,
+        budget: &'a mut Budget,
+    ) -> CapFut<'a, Page> {
+        Spaces::spaces(self, target, cursor, budget)
+    }
 }
 
 /// Implement every capability trait with its default body, except the ones named.
@@ -370,6 +403,7 @@ macro_rules! impl_default_caps {
         $crate::__impl_one_cap!(Research, $ty $(, $($skip),+)?);
         $crate::__impl_one_cap!(Feeds, $ty $(, $($skip),+)?);
         $crate::__impl_one_cap!(MediaFetcher, $ty $(, $($skip),+)?);
+        $crate::__impl_one_cap!(Spaces, $ty $(, $($skip),+)?);
         $crate::__impl_one_cap!(CostMeter, $ty $(, $($skip),+)?);
     };
 }
@@ -468,6 +502,12 @@ macro_rules! __impl_one_cap {
     };
     (MediaFetcher, $ty:ty $(,)?) => { impl $crate::MediaFetcher for $ty {} };
 
+    (Spaces, $ty:ty, Spaces $($rest:ident)*) => {};
+    (Spaces, $ty:ty, $other:ident $($rest:ident)*) => {
+        $crate::__impl_one_cap!(Spaces, $ty, $($rest)*);
+    };
+    (Spaces, $ty:ty $(,)?) => { impl $crate::Spaces for $ty {} };
+
     (CostMeter, $ty:ty, CostMeter $($rest:ident)*) => {};
     (CostMeter, $ty:ty, $other:ident $($rest:ident)*) => {
         $crate::__impl_one_cap!(CostMeter, $ty, $($rest)*);
@@ -534,6 +574,9 @@ mod tests {
 
     #[test]
     fn a_git_rev_service_registers_and_pages() {
+        assert_eq!(crate::SESSION_SCHEMA[0].key, "email");
+        assert_eq!(crate::SESSION_SCHEMA[1].key, "base_url");
+        assert!(crate::SESSION_SCHEMA.iter().all(|field| field.store == Store::Config));
         assert_eq!(plugin_declaration.core_version, CORE_VERSION);
         assert_eq!(plugin_declaration.rustc_version, RUSTC_VERSION);
         let mut reg = Rec::default();
@@ -562,6 +605,14 @@ mod tests {
         assert_eq!(budget.remaining_items, Some(0));
         let err = block(DynService::vote(&demo, &resolved.source_id, VoteChoice::Up)).unwrap_err();
         assert!(err.to_string().contains("does not implement vote"), "{err}");
+        let err = block(DynService::spaces(
+            &demo,
+            &resolved.target,
+            &Cursor::default(),
+            &mut budget,
+        ))
+        .unwrap_err();
+        assert!(err.to_string().contains("does not implement spaces"), "{err}");
     }
 
     #[test]
