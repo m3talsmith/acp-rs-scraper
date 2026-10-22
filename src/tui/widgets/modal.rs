@@ -1,6 +1,5 @@
 //! Modal rendering: dims the layout, then draws the modal with a small margin.
 
-use crate::auth::session::session_login_hint;
 use crate::branding::{slogan_style, SLOGAN_COLS};
 use crate::cli::colors_suppressed;
 use crate::tui::layout::{modal_rect, wrap};
@@ -195,7 +194,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
             y += 1;
         }
     } else if m.site_pick.is_none() {
-        let matches = m.pending.as_ref().map(|q| crate::site::completions(q, &m.nicks, &m.tags)).unwrap_or_default();
+        let matches = m.pending.as_ref().map(|q| crate::files::completions(q, &m.nicks, &m.tags)).unwrap_or_default();
         for (i, row_c) in matches.iter().take(4).enumerate() {
             let st = if m.focus == ComposeFocus::Complete && i == m.complete_at { t.selected() } else { t.plain() };
             f.render_widget(Paragraph::new(Span::styled(clip(&format!("  {}", row_c.label), inner.width as usize), st)), row(y));
@@ -368,45 +367,6 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             if let Some(e) = &c.error { lines.push(Line::styled(e.clone(), t.accent())); }
             f.render_widget(Paragraph::new(lines), Rect { height: inner.height.saturating_sub(2), ..inner });
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &c.buttons, Some(c.focus));
-        }
-        Modal::Login(l) => {
-            let r = modal_rect(area, area.width, area.height);
-            let inner = frame(f, &t, r, &l.title());
-            let mut lines = vec![Line::styled(app.brand.title.clone(), t.bold())];
-            if !app.brand.motto.is_empty() {
-                lines.push(Line::styled(app.brand.motto.clone(), slogan_style(app.color_mode, app.no_color, false)));
-            }
-            lines.push(Line::raw(""));
-            if let Some(why) = &l.reason { lines.push(Line::styled(why.clone(), t.accent_bold())); lines.push(Line::raw("")); }
-            lines.push(Line::raw("acp.us logs you in with a one-time code sent by email."));
-            lines.push(Line::raw(""));
-            match &l.step {
-                LoginStep::Email => {
-                    lines.push(field_line("Email", &l.email, true, &t));
-                    lines.push(Line::raw(""));
-                    lines.push(Line::styled("Enter sends the code.", t.muted()));
-                }
-                LoginStep::Code => {
-                    lines.push(Line::styled(format!("{:>18}: {}", "Email", l.email.value), t.muted()));
-                    lines.push(field_line("Code or login link", &l.code, true, &t));
-                    lines.push(Line::raw(""));
-                    lines.push(Line::styled("Enter verifies. F2 or Resend code sends another code on this login.  ? login", t.muted()));
-                }
-                LoginStep::Busy(s) => lines.push(Line::styled(format!("⟳ {s}"), t.accent())),
-            }
-            if let Some(e) = &l.error { lines.push(Line::raw("")); lines.push(Line::styled(format!("✗ {e}"), t.accent_bold())); }
-            lines.push(Line::raw(""));
-            let hint_w = inner.width.saturating_sub(2).max(20) as usize;
-            for line in wrap(&session_login_hint(), hint_w) {
-                lines.push(Line::styled(line, t.muted()));
-            }
-            f.render_widget(Paragraph::new(lines), Rect { height: inner.height.saturating_sub(2), ..inner });
-            let labels: Vec<String> = if l.on_code_step() {
-                vec!["Verify".into(), "Resend code".into(), "Cancel".into()]
-            } else {
-                vec!["Send code".into(), "Cancel".into()]
-            };
-            buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &labels, None);
         }
         Modal::Search(s) => {
             let r = modal_rect(area, 76, SEARCH_FIELDS.len() as u16 + 9);

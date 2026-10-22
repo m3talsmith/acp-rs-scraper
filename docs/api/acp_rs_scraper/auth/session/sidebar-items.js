@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["jar_cookies","load_session","load_session_from","logout","logout_at","origin","save_session","save_session_to","session_path"],"struct":["SavedCookie","SavedSession"]};

@@ -1,7 +1,6 @@
 Feature: Outbox
-  Drafts and the send queue stay on this machine until a confirmed send.
-  A dry-run prints the publish frames and does not connect.
-  The mock stands in for the site. These scenarios never contact acp.us.
+  Drafts and the send queue stay on this machine.
+  A dry-run says sending is not in this binary.
 
   Background:
     Given a mock Red Star site
@@ -24,9 +23,9 @@ Feature: Outbox
     And stdout contains "outbox Q-D1 status=queued action=new_post"
     When I run "--outbox-send Q-D1 --dry-run"
     Then it succeeds
-    And stdout contains "dry-run: no connection opened"
-    And stdout contains "validate"
-    And stdout contains "save"
+    And stdout contains "sending is not in this binary"
+    And stdout does not contain "validate"
+    And stdout does not contain "save"
     And stdout does not contain "https://acp.us"
     When I run "--outbox-send Q-D1"
     Then it succeeds

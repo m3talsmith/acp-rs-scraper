@@ -2,7 +2,7 @@
 
 use super::*;
 use super::theming::{draw, text, themed_app};
-use crate::auth::prefs::save_ui_color_at;
+use crate::prefs::save_ui_color_at;
 use crate::tui::commands::CommandId;
 use crate::tui::input::on_key;
 use crate::tui::modals::{HelpModal, Modal};

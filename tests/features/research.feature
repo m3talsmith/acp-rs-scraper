@@ -4,7 +4,7 @@ Feature: Research projects
 
   Background:
     Given a mock Red Star site
-    And I have run "--nick alice --no-mentions"
+    And I have imported the offline fixture
 
   Scenario: Create and list projects
     When I run "--research-create strike --research-description railroads"

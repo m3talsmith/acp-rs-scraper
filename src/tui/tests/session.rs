@@ -5,9 +5,8 @@ use super::*;
 use crate::crypto::atrest;
 use crate::tui::commands::{Action, CommandId};
 use crate::tui::data::{SearchFilter, SqliteStore, Store};
-use crate::tui::jobs::JobKind;
 use crate::tui::modals::Modal;
-use crate::tui::state::{Effect, SessionState};
+use crate::tui::state::SessionState;
 
 const PASSWORD: &str = "correct horse battery staple";
 
@@ -81,9 +80,8 @@ fn every_screen_uses_the_unlocked_database_without_acp_password() {
     a.session = SessionState::Valid;
     a.act(Action::StartScan);
     quiet(&a, "scrape");
-    let Effect::RunJob(JobKind::Scan, argv) = a.effects.last().unwrap() else { panic!("{:?}", a.effects) };
-    assert!(argv.iter().any(|s| s == "ada"), "{argv:?}");
-    assert!(argv.iter().all(|s| s != PASSWORD && !s.contains("ACP_PASSWORD")));
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
     a.effects.clear();
 
     a.run_search(SearchFilter { keyword: "strike".into(), ..Default::default() });
@@ -107,9 +105,8 @@ fn every_screen_uses_the_unlocked_database_without_acp_password() {
         a.effects.clear();
         a.act(action);
         quiet(&a, &format!("{action:?}"));
-        let Effect::RunJob(kind, argv) = a.effects.last().unwrap() else { panic!("{action:?} {:?}", a.effects) };
-        assert!(matches!(kind, JobKind::Read | JobKind::Sync), "{action:?} {kind:?}");
-        assert!(argv.iter().all(|s| s != PASSWORD && !s.contains("ACP_PASSWORD")), "{argv:?}");
+        assert!(a.effects.is_empty(), "{action:?} {:?}", a.effects);
+        assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{action:?} {:?}", a.status);
     }
 
     atrest::forget(&home.join(DB_REL_PATH));

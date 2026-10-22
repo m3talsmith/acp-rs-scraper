@@ -367,7 +367,7 @@ pub fn save_attachments(db: &Path, atts: &[Attachment]) -> Result<()> {
         for a in atts {
             let stale: Vec<i64> = old.query_map(params![a.post_id, a.url], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
                 .filter_map(|r| r.ok())
-                .filter(|(_, u)| crate::media::canonical_url(u) == crate::media::canonical_url(&a.url))
+                .filter(|(_, u)| crate::stored::canonical_url(u) == crate::stored::canonical_url(&a.url))
                 .map(|(id, _)| id).collect();
             for id in stale { del.execute(params![id])?; }
             st.execute(params![a.post_id, a.url, a.local_path.to_string_lossy(), a.mime_type, i64::from(a.on_site)])?;
@@ -428,7 +428,7 @@ fn attachments_for(c: &Connection, out: &[Post]) -> Result<Vec<Attachment>> {
         for p in out {
             for a in st.query_map(params![p.post_id], attachment_from_row)? {
                 let a = a?;
-                if !seen_att.insert((a.post_id.clone(), crate::media::canonical_url(&a.url).to_string())) { continue; }
+                if !seen_att.insert((a.post_id.clone(), crate::stored::canonical_url(&a.url).to_string())) { continue; }
                 if a.local_path.exists() { atts.push(a); } else { log_error(format_args!("warning: missing attachment file {}", a.local_path.display())); }
             }
         }
@@ -453,6 +453,106 @@ pub fn posts_by_ids(db: &Path, ids: &[String]) -> Result<(Vec<Post>, Vec<Attachm
     }
     let atts = attachments_for(&c, &out)?;
     Ok((out, atts, missing))
+}
+
+/// FNV-1a 64 of `body_json` and `edited_at`, as 16 hex chars.
+/// A `0xff` byte sits between the two so `("ab","c")` and `("a","bc")` differ.
+pub fn version_hash(body_json: &str, edited_at: &str) -> String {
+    const OFFSET: u64 = 0xcbf29ce484222325;
+    const PRIME: u64 = 0x100000001b3;
+    let mut h = OFFSET;
+    for b in body_json.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(PRIME);
+    }
+    h ^= 0xff;
+    h = h.wrapping_mul(PRIME);
+    for b in edited_at.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(PRIME);
+    }
+    format!("{h:016x}")
+}
+
+fn diff_lines(s: &str) -> Vec<&str> {
+    if s.is_empty() {
+        return Vec::new();
+    }
+    let s = s.strip_suffix('\n').unwrap_or(s);
+    s.split('\n').collect()
+}
+
+fn line_diff(before: &str, after: &str) -> String {
+    let a = diff_lines(before);
+    let b = diff_lines(after);
+    let (n, m) = (a.len(), b.len());
+    let mut dp = vec![vec![0u32; m + 1]; n + 1];
+    for i in (0..n).rev() {
+        for j in (0..m).rev() {
+            dp[i][j] = if a[i] == b[j] { dp[i + 1][j + 1] + 1 } else { dp[i + 1][j].max(dp[i][j + 1]) };
+        }
+    }
+    let mut out = String::new();
+    let (mut i, mut j) = (0, 0);
+    let push = |out: &mut String, mark: &str, line: &str| {
+        out.push_str(mark);
+        out.push_str(line);
+        out.push('\n');
+    };
+    while i < n && j < m {
+        if a[i] == b[j] {
+            push(&mut out, "  ", a[i]);
+            i += 1;
+            j += 1;
+        } else if dp[i + 1][j] >= dp[i][j + 1] {
+            push(&mut out, "- ", a[i]);
+            i += 1;
+        } else {
+            push(&mut out, "+ ", b[j]);
+            j += 1;
+        }
+    }
+    while i < n {
+        push(&mut out, "- ", a[i]);
+        i += 1;
+    }
+    while j < m {
+        push(&mut out, "+ ", b[j]);
+        j += 1;
+    }
+    out
+}
+
+/// One card per stored version, oldest first. The body is a fenced diff against
+/// the previous stored text. Nothing is fetched.
+pub fn edits_as_posts(versions: &[PostVersion], thread_id: &str) -> Vec<Post> {
+    let mut vs = versions.to_vec();
+    vs.sort_by(|a, b| a.edited_at.cmp(&b.edited_at).then(a.version_hash.cmp(&b.version_hash)));
+    let n = vs.len();
+    let mut prev = String::new();
+    let mut out = Vec::new();
+    for (i, v) in vs.iter().enumerate() {
+        let text = v.body_json.trim().to_string();
+        let diff = line_diff(&prev, &text);
+        prev = text;
+        let parent = if thread_id.is_empty() || thread_id == v.post_id { String::new() } else { thread_id.to_string() };
+        let when = if v.edited_at.starts_with('~') { "undated".to_string() } else { v.edited_at.clone() };
+        let body = if diff.trim().is_empty() { "(no text)\n".into() } else { format!("```diff\n{diff}```\n") };
+        out.push(Post {
+            post_id: v.post_id.clone(),
+            parent_post_id: parent,
+            in_reply_to_id: String::new(),
+            nick: v.source.clone(),
+            title: format!("version {} of {n} · {when}", i + 1),
+            content: body,
+            posted_at: if v.edited_at.starts_with('~') { String::new() } else { v.edited_at.clone() },
+            media: Vec::new(),
+            truncated: false,
+            body_json: v.body_json.clone(),
+            score: None,
+        });
+    }
+    out
 }
 
 /// One stored edit of a post. `source` is `site`, `peer`, `local` or `draft`.

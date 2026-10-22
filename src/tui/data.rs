@@ -290,7 +290,7 @@ impl Store for SqliteStore {
         let mut out = Vec::new();
         for a in st.query_map(params![id], crate::storage::db::attachment_from_row)? {
             let a = a?;
-            if seen.insert(crate::media::canonical_url(&a.url).to_string()) { out.push(a); }
+            if seen.insert(crate::stored::canonical_url(&a.url).to_string()) { out.push(a); }
         }
         out.reverse();
         Ok(out)

@@ -1,14 +1,10 @@
-//! Offline drafts, local-first posts, and the send queue.
+//! Offline drafts and the local send queue.
 //!
 //! A draft is stored in the encrypted database first. Each save writes a
-//! `post_versions` row. Queued items send only with the writes that already
-//! send (a text post or a reply), and they use the same confirm rules.
-//! A queued item older than 24 hours asks again. `sending` is read back
-//! before another try, so a crash does not post it twice.
+//! `post_versions` row. Queuing and cancelling stay on this machine.
+//! Sending a row is not in this binary.
 
 use crate::prelude::*;
-use crate::service::{CapabilityId, RedStar};
-use crate::site::{decide, load_last_write, publish_text, store_last_write, writes_enabled, Draft, Gate};
 
 /// Ask again when a queued item is older than this.
 pub const STALE_SECS: i64 = 24 * 60 * 60;
@@ -88,7 +84,6 @@ fn one_line(s: &str) -> String {
 
 /// Save a draft or a keep-local post. The same id writes another version.
 pub fn save_local(c: &mut Connection, id: &str, title: &str, body: &str, thread: &str, keep_local: bool) -> Result<String> {
-    RedStar::require(CapabilityId::LocalPost)?;
     ensure_posts_schema(c)?;
     let id = id.trim();
     if id.is_empty() || id.contains(char::is_whitespace) {
@@ -177,7 +172,6 @@ fn version_count(c: &Connection, id: &str) -> Result<i64> {
 
 /// Drafts and keep-local posts, newest update first.
 pub fn list_local(c: &Connection) -> Result<Vec<String>> {
-    RedStar::require(CapabilityId::LocalPost)?;
     ensure_posts_schema(c)?;
     let mut st = c.prepare(
         "SELECT id, state, title, (SELECT count(*) FROM post_versions WHERE post_id = local_posts.id)
@@ -217,7 +211,6 @@ fn load_local(c: &Connection, id: &str) -> Result<LocalPost> {
 
 /// Queue a local post. The outbox id is `Q-` plus the local id.
 pub fn enqueue(c: &mut Connection, local_id: &str) -> Result<String> {
-    RedStar::require(CapabilityId::Outbox)?;
     ensure_posts_schema(c)?;
     let post = load_local(c, local_id.trim())?;
     if post.state == "published" {
@@ -245,7 +238,6 @@ pub fn enqueue(c: &mut Connection, local_id: &str) -> Result<String> {
 
 /// Queue rows, newest first.
 pub fn list_outbox(c: &Connection) -> Result<Vec<String>> {
-    RedStar::require(CapabilityId::Outbox)?;
     ensure_posts_schema(c)?;
     let mut st = c.prepare("SELECT id, status, action FROM outbox ORDER BY created_at DESC, id")?;
     let rows = st.query_map([], |r| Ok(format!("outbox {} status={} action={}", r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)))?;
@@ -261,7 +253,6 @@ pub fn list_outbox(c: &Connection) -> Result<Vec<String>> {
 
 /// Mark a queued or failed item cancelled. A sent item stays sent.
 pub fn cancel(c: &mut Connection, id: &str) -> Result<String> {
-    RedStar::require(CapabilityId::Outbox)?;
     ensure_posts_schema(c)?;
     let item = load_item(c, id.trim())?;
     if item.status == "sent" {
@@ -330,38 +321,28 @@ fn find_sent(c: &Connection, body: &str, thread: &str) -> Result<Option<String>>
     }
 }
 
-/// What `--outbox-send` should do. `Go` has already marked the row `sending`.
+/// What `--outbox-send` should do. Sending does not leave this machine.
 #[derive(Debug)]
 pub enum SendStep {
     /// Print this and do not connect.
     Print(String),
-    /// Log in and publish this plan.
-    Go {
-        /// Outbox id.
-        id: String,
-        /// Site draft.
-        draft: Box<Draft>,
-    },
 }
 
 /// Decide a send. A dry-run and a cancel print. A confirm of an enabled write marks `sending`.
 pub fn prepare_send(c: &mut Connection, id: &str, confirmed: bool, dry_run: bool, now: chrono::DateTime<chrono::Utc>) -> Result<SendStep> {
-    RedStar::require(CapabilityId::Outbox)?;
     ensure_posts_schema(c)?;
     let item = load_item(c, id.trim())?;
     if !SENDABLE.contains(&item.action.as_str()) {
         bail!("outbox {} action {} is not sent. Only a text post or a reply leaves the queue.", item.id, item.action);
     }
-    let (title, body, thread) = payload_fields(&item.payload)?;
+    let (_title, body, thread) = payload_fields(&item.payload)?;
     let stale = stale(&item.created_at, now);
     let age = if stale { "older than 24 hours" } else { "within 24 hours" };
     if dry_run {
-        let draft = send_draft(&title, &body, &thread, now, None);
-        return match decide(&draft, false, true) {
-            Ok(Gate::Done(text)) => Ok(SendStep::Print(format!("{text}\noutbox {} status={} action={}\n{age}", item.id, item.status, item.action))),
-            Ok(Gate::Send(_)) => bail!("a dry-run built a send"),
-            Err(e) => Err(e.into()),
-        };
+        return Ok(SendStep::Print(format!(
+            "sending is not in this binary\noutbox {} status={} action={}\n{age}",
+            item.id, item.status, item.action
+        )));
     }
     if item.status == "sent" {
         return Ok(SendStep::Print(format!("outbox {} status=sent result={}", item.id, item.result_post_id)));
@@ -388,34 +369,10 @@ pub fn prepare_send(c: &mut Connection, id: &str, confirmed: bool, dry_run: bool
         }
         return Ok(SendStep::Print(text));
     }
-    if !writes_enabled() {
+    if !crate::prefs::writes_enabled() {
         bail!("writes are off. Set ui.writes = true in preferences.toml, or unset ACP_WRITES. ACP_WRITES=off wins. Nothing was sent.");
     }
-    let stamp = now_stamp();
-    c.execute(
-        "UPDATE outbox SET status = 'sending', confirmed_at = ?2, attempts = attempts + 1, last_error = '' WHERE id = ?1",
-        rusqlite::params![item.id, stamp],
-    )?;
-    Ok(SendStep::Go { id: item.id, draft: Box::new(send_draft(&title, &body, &thread, now, None)) })
-}
-
-fn send_draft(title: &str, body: &str, thread: &str, now: chrono::DateTime<chrono::Utc>, last_write_unix: Option<i64>) -> Draft {
-    Draft {
-        title: title.to_string(),
-        body: body.to_string(),
-        thread: if thread.is_empty() { None } else { Some(thread.to_string()) },
-        in_reply_to: None,
-        quote: None,
-        quote_post: None,
-        attachments: Vec::new(),
-        site_attachments: None,
-        html: None,
-        accept_bundle: false,
-        stored_bundle: None,
-        now_unix: now.timestamp(),
-        last_write_unix,
-        writes_on: true,
-    }
+    Ok(SendStep::Print(crate::service::SERVICE_ABSENT.to_string()))
 }
 
 /// Finish a send after the site answers.
@@ -556,41 +513,6 @@ pub async fn run_cli(args: &Args) -> Result<()> {
                 println!("{text}");
                 Ok(())
             }
-            SendStep::Go { id, draft } => {
-                let mut draft = *draft;
-                draft.last_write_unix = load_last_write();
-                match decide(&draft, true, false) {
-                    Ok(Gate::Done(text)) => {
-                        finish_send(&c, &id, &Err(text.clone()))?;
-                        bail!("{text}");
-                    }
-                    Ok(Gate::Send(plan)) => {
-                        store_last_write(draft.now_unix);
-                        let jar = Arc::new(Jar::default());
-                        if let Err(e) = load_session(&jar) {
-                            eprintln!("ignoring saved session: {e:#}");
-                        }
-                        let http = client(jar.clone())?;
-                        login(&http, &jar).await?;
-                        match publish_text(&http, &jar, &plan, draft.accept_bundle, |line| eprintln!("{line}")).await {
-                            Ok(published) => {
-                                finish_send(&c, &id, &Ok(published.id.clone()))?;
-                                println!("{}", crate::site::published_text(&published, &plan));
-                                println!("outbox {id} status=sent result={}", published.id);
-                                Ok(())
-                            }
-                            Err(e) => {
-                                finish_send(&c, &id, &Err(e.to_string()))?;
-                                bail!("{e}");
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        finish_send(&c, &id, &Err(e.to_string()))?;
-                        bail!("{e}");
-                    }
-                }
-            }
         }
     } else {
         Ok(())
@@ -643,33 +565,26 @@ mod tests {
         let now = chrono::Utc::now();
         match prepare_send(&mut c, "Q-D1", false, true, now).unwrap() {
             SendStep::Print(text) => {
-                assert!(text.contains("dry-run: no connection opened"), "{text}");
-                assert!(text.contains("\"event\": \"validate\""), "{text}");
-                assert!(text.contains("\"event\": \"save\""), "{text}");
+                assert!(text.contains("sending is not in this binary"), "{text}");
                 assert!(text.contains("action=reply"), "{text}");
                 assert!(text.contains("older than 24 hours"), "{text}");
                 assert!(!text.contains("https://acp.us"), "{text}");
             }
-            SendStep::Go { .. } => panic!("dry-run connected"),
         }
         match prepare_send(&mut c, "Q-D1", false, false, now).unwrap() {
             SendStep::Print(text) => {
                 assert!(text.contains("nothing sent"), "{text}");
                 assert!(text.contains("older than 24 hours"), "{text}");
             }
-            SendStep::Go { .. } => panic!("unconfirmed send"),
         }
         let status: String = c.query_row("SELECT status FROM outbox WHERE id = 'Q-D1'", [], |r| r.get(0)).unwrap();
         assert_eq!(status, "queued");
         match prepare_send(&mut c, "Q-D1", true, false, now).unwrap() {
-            SendStep::Go { id, draft } => {
-                assert_eq!(id, "Q-D1");
-                assert_eq!(draft.thread.as_deref(), Some("THREAD"));
-            }
-            SendStep::Print(text) => panic!("confirmed send did not go: {text}"),
+            SendStep::Print(text) => assert!(text.contains("not in this binary"), "{text}"),
         }
         let status: String = c.query_row("SELECT status FROM outbox WHERE id = 'Q-D1'", [], |r| r.get(0)).unwrap();
-        assert_eq!(status, "sending");
+        assert_eq!(status, "queued");
+        c.execute("UPDATE outbox SET status = 'sending' WHERE id = 'Q-D1'", []).unwrap();
         c.execute(
             "INSERT INTO posts (post_id, parent_post_id, in_reply_to_id, nick, title, content, posted_at, body_state, body_json)
              VALUES ('POST', 'THREAD', '', 'ada', '', 'shop notes', '2026-10-21T00:00:00Z', 'full', '')",
@@ -678,7 +593,6 @@ mod tests {
         .unwrap();
         match prepare_send(&mut c, "Q-D1", true, false, now).unwrap() {
             SendStep::Print(text) => assert!(text.contains("read-back") && text.contains("result=POST"), "{text}"),
-            SendStep::Go { .. } => panic!("read-back sent again"),
         }
     }
 

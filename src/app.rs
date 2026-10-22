@@ -1,5 +1,5 @@
-//! The command-line program: dispatches to offline modes (list, search,
-//! export, import, maintenance) or logs in and scrapes.
+//! The command-line program: list, search, export, import, and maintenance.
+//! Fetching, login, and publishing are not in this binary.
 
 use crate::prelude::*;
 
@@ -224,6 +224,16 @@ pub async fn run() -> Result<()> {
         Ok(v) => v,
         Err(e) => e.exit(),
     };
+    // Before brand files, the home directory, and every other command.
+    if args.doctor {
+        for line in crate::service::doctor_lines() {
+            println!("{line}");
+        }
+        return Ok(());
+    }
+    if args.plugins_reload {
+        return crate::plugins::run_reload();
+    }
     let (brand, brand_warn) = crate::brands::selected(args.brand.as_deref());
     crate::brands::install(&brand);
     if let Some(w) = brand_warn {
@@ -269,7 +279,6 @@ pub async fn run() -> Result<()> {
     if args.encrypt_db { return crate::crypto::cmd::encrypt_db(); }
     if args.change_password { return crate::crypto::cmd::change_password(); }
     if crate::outbox::cli_requested(&args) { return crate::outbox::run_cli(&args).await; }
-    if crate::site::cli_requested(&args) { return crate::site::run_cli(&args).await; }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_brands { return run_list_brands(&args); }
@@ -288,12 +297,7 @@ pub async fn run() -> Result<()> {
         return run_clear_all(&args);
     }
     if args.logout {
-        let jar = Jar::default();
-        load_session(&jar).ok();
-        let removed = logout(&jar)?;
-        if removed { info!("Logged out: removed {}.", session_path()?.display()); }
-        else { info!("Not logged in: no saved session at {}.", session_path()?.display()); }
-        return Ok(());
+        bail!("{}", crate::service::SERVICE_ABSENT);
     }
     crate::crypto::cmd::prepare_db()?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
@@ -380,255 +384,20 @@ pub async fn run() -> Result<()> {
         let (profiles, hits) = load_profiles_mentions(&home()?.join(DB_REL_PATH), &nicks)?;
         return export(&a, &name, &label, &posts, &atts, &profiles, &hits, &home()?.join(EXPORTS_REL_PATH));
     }
-    let jar = Arc::new(Jar::default());
-    if let Err(e) = load_session(&jar) { cli_warning(&args, &format!("ignoring saved session: {e:#}")); }
-    let http = client(jar.clone())?;
-    login(&http, &jar).await?;
-    if let Some(period) = args.top {
-        let n = read_top(&http, &jar, period, args.top_replies).await?;
-        info!("== top {}: {n} posts", period.as_str());
-        return Ok(());
-    }
-    if args.eb {
-        let n = read_eb(&http, &jar, args.eb_replies).await?;
-        info!("== eb: {n} posts");
-        return Ok(());
-    }
-    if args.explore || args.explore_latest {
-        let n = read_explore(&http, &jar, args.explore_latest).await?;
-        info!("== explore: {n} posts");
-        return Ok(());
-    }
-    if let Some(q) = &args.site_search {
-        let n = read_site_search(&http, &jar, q).await?;
-        info!("== site search {q:?}: {n} posts");
-        return Ok(());
-    }
-    if let Some(tag) = &args.tag {
-        let n = read_tag(&http, &jar, tag).await?;
-        info!("== tag {}: {n} posts", tag_title(tag));
-        return Ok(());
-    }
-    if let Some(id) = &args.reposts {
-        let n = read_reposts(&http, &jar, id).await?;
-        info!("== reposts {id}: {n} posts");
-        return Ok(());
-    }
-    if let Some(spec) = &args.edits {
-        let (thread, post) = resolve_edits_spec(spec)?;
-        let n = read_edits(&http, &jar, &thread, &post).await?;
-        info!("== edits {thread}/{post}: {n} versions");
-        return Ok(());
-    }
-    if let Some(id) = &args.sort_thread {
-        let order = args.thread_sort.as_deref().unwrap_or("oldest");
-        let n = read_sorted_thread(&http, &jar, id, order).await?;
-        info!("== sort thread {id} {order}: {n} posts");
-        return Ok(());
-    }
-    if args.backfill_tags {
-        let nicks = args.nick_list()?;
-        let st = backfill_tags(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;
-        info!("== backfill-tags: {} scanned, {} tagged, {} json filled, {} still missing ({} threads)",
-            st.scanned, st.tagged, st.json_filled, st.missing, st.threads);
-        return Ok(());
-    }
-    let mut nicks = args.nick_list()?;
-    if args.sync_bookmarks || (args.sync && !args.no_bookmarks) {
-        let st = sync_bookmarks(&http, &jar, &home()?.join(DB_REL_PATH)).await?;
-        info!("== bookmarks: {} on the site, {} new posts stored, {} pulled, {} added and {} removed on the site, {} dropped{}",
-            st.site, st.posts_saved, st.pulled, st.pushed.0, st.pushed.1, st.dropped,
-            if st.failed > 0 { format!(", {} refused", st.failed) } else { String::new() });
-        if nicks.is_empty() && !args.refetch_truncated && !args.scrape_all { return Ok(()); }
-    }
-    if args.scrape_all {
-        let db = home()?.join(DB_REL_PATH);
-        let report = match crate::scrape::sitewide::scrape_site(&http, &jar, &db, crate::scrape::sitewide::CrawlOpts {
-            origin: base_url().to_string(),
-            incremental: !args.full,
-            limit: args.limit,
-            budget_ms: args.scrape_budget.map(|secs| secs.saturating_mul(1000)),
-            attachments: !args.no_attachments,
-        }).await {
-            Ok(report) => report,
-            Err(e) => {
-                err!("error: whole site: {e:#}");
-                return Err(e);
-            }
-        };
-        let line = match &report.stopped {
-            Some(why) => format!("paused at the {why}. {} pages left. The next run resumes.", report.pending),
-            None => format!("finished. {} new posts across {} pages.", report.new_posts, report.pages),
-        };
-        info!("Job: whole site {line}");
-        if args.sync {
-            if let Err(e) = crate::rules::on_sync(&db, &report.posts) {
-                err!("warning: rules: {e:#}");
-            }
+    if crate::drive::handles(acp_rs_plugin::CapabilityId::Reader) {
+        if crate::drive::handles(acp_rs_plugin::CapabilityId::Authenticator) {
+            crate::drive::login(crate::host_api::CoreHost::shared().as_ref()).await?;
         }
-        if nicks.is_empty() && !args.refetch_truncated { return Ok(()); }
+        return crate::drive::read_flags(&args).await;
     }
-    if args.sync && nicks.is_empty() && !args.refetch_truncated {
-        info!("sync: no nicks given, nothing to scrape");
+    if crate::drive::handles(acp_rs_plugin::CapabilityId::Authenticator) {
+        crate::drive::login(crate::host_api::CoreHost::shared().as_ref()).await?;
+    }
+    if let Some(text) = crate::drive::compose(&args).await? {
+        if !text.is_empty() {
+            println!("{text}");
+        }
         return Ok(());
     }
-    if args.refetch_truncated {
-        let st = refetch_truncated(&http, &jar, &home()?.join(DB_REL_PATH), &nicks).await?;
-        info!("== refetch-truncated: {} rows checked, {} completed, {} already full, {} not found ({} thread pages)",
-            st.candidates, st.fixed, st.already_full, st.missing, st.threads);
-        if nicks.is_empty() { return Ok(()); }
-    }
-    if nicks.is_empty() {
-        nicks = parse_nicks(&prompt("Nick(s) to scrape (comma-separated): ")?).map_err(|e| anyhow!(e))?.0;
-    }
-    let db = home()?.join(DB_REL_PATH);
-    let att_dir = home()?.join(ATTACH_REL_PATH);
-    let known = db_known_ids(&db)?;
-    let reply_counts = db_reply_counts(&db)?;
-    let known_infos = list_nicks_db(&db)?;
-    info!("== mode: {} (mentions crawl); profile feed: {} ({})", args.feed_mode(), args.profile_feed, args.order);
-    if args.said_by { info!("== --said-by: only the nicks' own posts and replies; no thread crawl, no mentions"); }
-    info!("== targets");
-    for nick in &nicks {
-        if let Some(i) = known_infos.iter().find(|i| i.nick.eq_ignore_ascii_case(nick)) {
-            let dn = i.display_name.as_deref().unwrap_or("-");
-            info!("  @{nick}: known ({dn}, {} posts{})",
-                i.post_count,
-                if i.profile_scraped { ", profile scraped" } else { "" });
-        } else {
-            info!("  @{nick}: new");
-        }
-    }
-    let mut posts: Vec<Post> = Vec::new();
-    let mut profiles: Vec<Profile> = Vec::new();
-    let mut mention_hits: Vec<MentionHit> = Vec::new();
-    let mut targets: Vec<MentionTarget> = Vec::new();
-    let mut seen = HashSet::new();
-    let mut summary = Vec::new();
-    let mut ok_nicks = Vec::new();
-    for nick in &nicks {
-        info!("== scraping @{nick}");
-        match scrape(&http, &jar, nick, &ScrapeOptions {
-            known: &known,
-            reply_counts: &reply_counts,
-            full: args.full,
-            said_by: args.said_by,
-            limit: args.limit,
-            profile_feed: args.profile_feed,
-            order: args.order,
-        }).await {
-            Ok((ps, html, st)) => {
-                info!("  @{nick}: feed {} items ({} from posts and replies), ~{} new, {} skipped known, threads fetched {} / skipped {}",
-                    st.feed_items, st.replies_tab_items, st.new_posts, st.skipped_known, st.threads_fetched, st.threads_skipped);
-                if st.truncated_in_feed > 0 {
-                    info!("  @{nick}: {} truncated feed bodies, {} completed from thread pages",
-                        st.truncated_in_feed, st.truncated_completed);
-                }
-                let mut profile = Profile {
-                    nick: nick.clone(),
-                    scraped_at: chrono::Local::now().to_rfc3339(),
-                    ..Default::default()
-                };
-                // The feed's author object carries the real profile photo; read it
-                // before the page's og: tags, which fall back to the site banner.
-                // Reply-only nicks have an empty Posts feed, so also look at
-                // "Posts and replies" when the Posts feed had no author data.
-                for url in [profile_url(nick), profile_replies_url(nick)] {
-                    if profile.avatar_url.is_some() && profile.display_name.is_some() { break; }
-                    match fetch_feed(&http, &jar, &url, Some(10), None, true).await {
-                        Ok(feed) => {
-                            enrich_from_feed(&mut profile, &feed.items, nick);
-                            if profile.avatar_url.is_none() && let Some(it) = feed.items.first() {
-                                dbg_log("profile", &format!("@{nick} no photo in {url}; first item: {it}"));
-                            }
-                        }
-                        Err(e) => dbg_log("profile", &format!("@{nick} {url}: {e:#}")),
-                    }
-                }
-                enrich_from_html(&mut profile, &html);
-                if profile.avatar_url.as_deref().is_some_and(is_site_image) { profile.avatar_url = None; }
-                dbg_log("profile", &format!("@{nick} show-info unused event={PROFILE_SHOW_INFO_EVENT} fields={profile:?}"));
-                if !args.no_attachments {
-                    if let Some(u) = &profile.avatar_url {
-                        match fetch_avatar(&http, u, &att_dir, nick).await {
-                            Ok(path) => {
-                                info!("  @{nick}: profile image {}", path.display());
-                                profile.avatar_path = Some(path.to_string_lossy().into());
-                            }
-                            Err(e) => cli_warning(&args, &format!("@{nick} profile image: {e:#}")),
-                        }
-                    }
-                    if let Some(u) = &profile.banner_url
-                        && let Ok((path, _)) = fetch_one_pub(&http, u, &att_dir).await {
-                            profile.banner_path = Some(path.to_string_lossy().into());
-                        }
-                }
-                profile.raw_json = serde_json::to_string(&profile).unwrap_or_default();
-                save_profile(&db, &profile)?;
-                targets.push(MentionTarget {
-                    nick: nick.clone(),
-                    user_id: profile.user_id.clone(),
-                    display_name: profile.display_name.clone(),
-                });
-                profiles.push(profile);
-
-                let roots = ps.iter().filter(|p| p.parent_post_id.is_empty()).count();
-                let total = ps.len();
-                let new: Vec<Post> = ps.into_iter().filter(|p| seen.insert(p.post_id.clone())).collect();
-                let inserted = save(&new)?;
-                summary.push(format!(
-                    "@{nick}: {total} items ({roots} root posts, {} replies), {inserted} new DB rows",
-                    total - roots
-                ));
-                posts.extend(new);
-                ok_nicks.push(nick.clone());
-            }
-            Err(e) => {
-                cli_warning(&args, &format!("@{nick} failed: {e:#}"));
-                summary.push(format!("@{nick}: FAILED ({e})"));
-            }
-        }
-    }
-    if args.want_mentions() && !ok_nicks.is_empty() {
-        info!("== mentions crawl (Latest, limit {})", args.crawl_limit);
-        match crawl_mentions(&http, &jar, &targets, args.crawl_limit, &mut seen, &known, args.full, args.feed_mode()).await {
-            Ok((extra, hits)) => {
-                let inserted = save(&extra)?;
-                save_mentions(&db, &hits)?;
-                info!("mentions: {} posts, {} hits, {inserted} new DB rows", extra.len(), hits.len());
-                posts.extend(extra);
-                mention_hits.extend(hits);
-            }
-            Err(e) => cli_warning(&args, &format!("mentions crawl failed: {e:#}")),
-        }
-    }
-    info!("== summary");
-    for l in &summary { info!("  {l}"); }
-    if ok_nicks.is_empty() { bail!("all nicks failed"); }
-    let atts = if args.no_attachments { Vec::new() } else {
-        let for_dl: Vec<Post> = if args.full {
-            posts.clone()
-        } else {
-            // Only download media for posts we didn't already have.
-            posts.iter().filter(|p| !known.contains(&p.post_id)).cloned().collect()
-        };
-        info!("attachments: downloading for {} posts ({} skipped as known)",
-            for_dl.len(), posts.len().saturating_sub(for_dl.len()));
-        let a = download_all(&http, &for_dl, &att_dir).await;
-        save_attachments(&db, &a)?;
-        a
-    };
-    let name = clean(args.name.clone().unwrap_or_else(|| nicks_name(&ok_nicks, &stamp)));
-    let label = ok_nicks.iter().map(|n| format!("@{n}")).collect::<Vec<_>>().join(", ");
-    // A sync only updates the database, unless an output was asked for.
-    if args.sync && args.output.is_none() && args.compression().is_none() {
-        if let Err(e) = crate::rules::on_sync(&db, &posts) {
-            err!("warning: rules: {e:#}");
-        }
-        info!("sync: {} nicks up to date", ok_nicks.len());
-        return Ok(());
-    }
-    export(&args, &name, &label, &posts, &atts, &profiles, &mention_hits, &home()?.join(EXPORTS_REL_PATH))?;
-
-    Ok(())
+    bail!("{}", crate::service::SERVICE_ABSENT);
 }

@@ -4,7 +4,7 @@ use super::*;
 use crate::tui::commands::Action;
 use crate::tui::input::{on_key, on_mouse};
 use crate::tui::jobs::JobKind;
-use crate::tui::state::{Effect, Hit, SessionState};
+use crate::tui::state::{Effect, Hit};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{Terminal, backend::TestBackend};
 
@@ -79,12 +79,10 @@ fn side_job_end_reloads_only_when_all_writes_landed() {
 }
 
 #[test]
-fn sync_needs_a_session_check_first() {
+fn sync_refuses_without_a_session_check() {
     let mut a = app();
     a.act(Action::SyncBookmarks);
-    let Some(Effect::CheckSessionThen(JobKind::Sync, argv)) = a.effects.pop() else { panic!("{:?}", a.effects) };
-    assert_eq!(argv[1], "--sync-bookmarks");
-    a.session_checked(Ok(false), JobKind::Sync, argv.clone());
-    assert_eq!(a.pending_job, Some((JobKind::Sync, argv)));
-    a.session = SessionState::Valid;
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.pending_job.is_none());
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
 }

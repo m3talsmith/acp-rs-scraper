@@ -8,7 +8,6 @@ pub mod confirm;
 pub mod help;
 pub mod history;
 pub mod job;
-pub mod login;
 pub mod message;
 pub mod palette;
 pub mod post;
@@ -27,7 +26,6 @@ pub use confirm::*;
 pub use help::*;
 pub use history::*;
 pub use job::JobModal;
-pub use login::*;
 pub use message::*;
 pub use palette::*;
 pub use post::*;
@@ -74,8 +72,6 @@ pub trait ModalState {
 /// The open modal.
 #[derive(Debug)]
 pub enum Modal {
-    /// Email + one-time code.
-    Login(LoginModal),
     /// Usage and keys.
     Help(HelpModal),
     /// Confirm a destructive / consequential action.
@@ -112,7 +108,7 @@ impl Modal {
     /// The shared behaviour.
     pub fn state(&mut self) -> &mut dyn ModalState {
         match self {
-            Modal::Login(m) => m, Modal::Help(m) => m, Modal::Confirm(m) => m,
+            Modal::Help(m) => m, Modal::Confirm(m) => m,
             Modal::Message(m) => m, Modal::Search(m) => m, Modal::Palette(m) => m, Modal::Research(m) => m, Modal::ThemePicker(m) => m.as_mut(),
             Modal::BrandPicker(m) => m.as_mut(),
             Modal::Post(m) => m,

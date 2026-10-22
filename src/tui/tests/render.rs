@@ -216,8 +216,9 @@ fn modals_render_over_dimmed_layout() {
     key(&mut a, KeyCode::Esc);
     a.open_login(Some((crate::tui::jobs::JobKind::Scan, vec!["x".into()])));
     let s = render(&mut a, 100, 30);
-    assert!(s.contains("Log in to start the scan") && s.contains("Send code"));
-    click(&mut a, Hit::Modal(crate::tui::modals::ModalHit::Button(1)), KeyModifiers::NONE);
+    assert!(s.contains("Login") && s.contains("not in this binary"), "{s}");
+    assert!(!s.contains("Send code"), "{s}");
+    click(&mut a, Hit::Modal(crate::tui::modals::ModalHit::Button(0)), KeyModifiers::NONE);
     assert!(a.modal.is_none());
 }
 

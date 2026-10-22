@@ -249,10 +249,10 @@ pub enum Effect {
     ExportTheme(crate::themes::ThemeFile),
     /// Download a theme from the repo into the themes folder (`true`: asked for by hand).
     DownloadTheme(String, bool),
-    /// Send one text post or reply. The event loop joins the compose page.
-    Publish(crate::site::WritePlan),
-    /// Send one reply edit. The event loop opens the edit page, then validates and saves once.
-    EditReply(crate::site::edit::ReplyEdit),
+    /// Publishing is not in this binary.
+    Publish,
+    /// Editing on the service is not in this binary.
+    EditReply,
     /// Leave; `cancel_job` kills a running job first (else it is detached).
     Quit {
         /// Kill the job before leaving.
@@ -503,9 +503,6 @@ pub struct App {
     pub page_rows: usize,
     /// Login email pre-fill.
     pub email: Option<String>,
-    /// Login modal hidden while Help is open (`?` / F1). Restored when Help closes.
-    /// The login attempt keeps running.
-    pub paused_login: Option<LoginModal>,
     /// `~/.acp/themes` (None: theme files are off, e.g. in tests and previews).
     pub themes_dir: Option<PathBuf>,
     /// The selected theme's name.
@@ -633,7 +630,7 @@ impl App {
             modal: None, status: VecDeque::new(), show_log: false, needs_redraw: false,
             session: if session_saved { SessionState::Saved } else { SessionState::LoggedOut },
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
-            page_rows: 5, email: None, paused_login: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
+            page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
             brands_dir: None, brand_name: DEFAULT_BRAND.into(), brand: crate::brands::builtin_default(), brand_error: None, brand_fault: None, brand_editor: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None, pending_outbox: None,
@@ -772,14 +769,14 @@ impl App {
     fn persist_notices(&mut self) {
         if self.themes_dir.is_none() { return; }
         let s = &self.notices.settings;
-        let p = crate::auth::prefs::NotifyPrefs {
+        let p = crate::prefs::NotifyPrefs {
             dnd: s.dnd,
             error: s.on[crate::notify::NoticeKind::Error.index()],
             warning: s.on[crate::notify::NoticeKind::Warning.index()],
             sync: s.on[crate::notify::NoticeKind::Sync.index()],
             job: s.on[crate::notify::NoticeKind::Job.index()],
         };
-        if let Err(e) = crate::auth::prefs::save_notify_prefs(&p) {
+        if let Err(e) = crate::prefs::save_notify_prefs(&p) {
             self.push_status(format!("error: could not save notice settings: {e:#}"));
         }
     }
@@ -835,26 +832,6 @@ impl App {
             Ok(crate::outbox::SendStep::Print(text)) => {
                 self.push_status(text.clone());
                 self.modal = Some(Modal::Message(MessageModal::info("Outbox", &text)));
-            }
-            Ok(crate::outbox::SendStep::Go { id, draft }) => {
-                let mut draft = *draft;
-                draft.last_write_unix = self.last_write_unix.or_else(crate::site::load_last_write);
-                match crate::site::decide(&draft, true, false) {
-                    Ok(crate::site::Gate::Send(plan)) => {
-                        self.last_write_unix = Some(draft.now_unix);
-                        self.pending_outbox = Some(id);
-                        self.push_status("publishing…");
-                        self.effects.push(Effect::Publish(plan));
-                    }
-                    Ok(crate::site::Gate::Done(text)) => {
-                        let _ = crate::outbox::complete_send(&id, &Err(text.clone()));
-                        self.push_status(text);
-                    }
-                    Err(e) => {
-                        let _ = crate::outbox::complete_send(&id, &Err(e.message.clone()));
-                        self.error("Outbox", &e.message);
-                    }
-                }
             }
             Err(e) => self.error("Outbox", &format!("{e:#}")),
         }
@@ -1020,16 +997,9 @@ impl App {
     }
     /// Show the saved view at once (offline), then refresh it from the site.
     pub fn open_site_read(&mut self, key: &str, argv: Vec<String>) {
-        let had = self.show_site_feed(key);
-        if self.job.is_some() {
-            self.push_status(if had { format!("showing saved {key}; a job is already running") }
-                else { "another job is still running; wait for it or cancel it (F6)".into() });
-            return;
-        }
-        self.pending_feed = Some(key.into());
-        self.push_status(if had { format!("showing saved {key}; refreshing from the site…") }
-            else { format!("fetching {key} from the site…") });
-        self.start_online_job(JobKind::Read, argv);
+        let _ = (key, argv);
+        self.pending_feed = None;
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
     /// View › Site Top: the period and replies checkbox in the View menu.
     pub fn open_top(&mut self) {
@@ -1066,17 +1036,17 @@ impl App {
         self.modal = Some(Modal::Post(PostMenu::new(&id, &thread_id)));
     }
     /// Nicks and tags the compose box can complete without asking the site.
-    fn compose_sources(&self) -> (Vec<crate::site::NickHint>, Vec<String>) {
-        let nicks = self.nicks.iter().map(|n| crate::site::NickHint { nick: n.nick.clone(), user_id: String::new() }).collect();
+    fn compose_sources(&self) -> (Vec<crate::files::NickHint>, Vec<String>) {
+        let nicks = self.nicks.iter().map(|n| crate::files::NickHint { nick: n.nick.clone(), user_id: String::new() }).collect();
         let mut tags = Vec::new();
         for post in &self.view().posts {
-            for tag in crate::scrape::extract_tags(&post.body_json, &post.content) {
+            for tag in extract_tags(&post.body_json, &post.content) {
                 if !tags.iter().any(|e: &String| e.eq_ignore_ascii_case(&tag)) { tags.push(tag); }
             }
         }
         (nicks, tags)
     }
-    fn writes_are_on(&self) -> bool { crate::site::writes_enabled() }
+    fn writes_are_on(&self) -> bool { crate::prefs::writes_enabled() }
     fn show_writes_off(&mut self) {
         self.modal = Some(Modal::Message(MessageModal::info(
             "Writes are off",
@@ -1143,30 +1113,8 @@ impl App {
             self.show_writes_off();
             return;
         }
-        let post = self.current_post().filter(|p| p.post_id == id);
-        let inserted = post.as_ref().and_then(|p| crate::site::edit::posted_unix(&p.posted_at));
-        let now = chrono::Utc::now().timestamp();
-        if crate::site::edit::window(inserted, now) == crate::site::edit::Window::Closed {
-            self.error("Edit", "an edit stays open for one hour after the post. Nothing was sent.");
-            return;
-        }
-        let is_reply = post.as_ref().is_some_and(|p| !p.parent_post_id.is_empty());
-        if is_reply {
-            let (nicks, tags) = self.compose_sources();
-            self.modal = Some(Modal::Compose(ComposeModal::edit_reply(id, nicks, tags)));
-            return;
-        }
-        let mut confirm = ConfirmModal::new(
-            "Edit",
-            vec![
-                format!("Edit {id}?"),
-                "Type yes. A top-level post edit has not been captured, so a confirm still sends nothing.".into(),
-            ],
-            "Edit",
-            ConfirmAction::Edit(id.to_string()),
-        );
-        confirm.strict = true;
-        self.modal = Some(Modal::Confirm(confirm));
+        let _ = id;
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
     /// Post menu › View reposts.
     pub fn open_reposts(&mut self, id: &str) {
@@ -1194,21 +1142,8 @@ impl App {
     }
     /// Post menu › View edits: the saved diffs at once, then a refresh from the site.
     pub fn open_edits(&mut self, post_id: &str, thread_id: &str) {
-        let key = edits_key(thread_id, post_id);
-        let had = self.show_edits(post_id, thread_id);
-        let argv = match self.menu.menu.edits_argv(thread_id, post_id) {
-            Ok(v) => v,
-            Err(e) => { self.error("Edits", &e); return; }
-        };
-        if self.job.is_some() {
-            self.push_status(if had { format!("showing saved {key}; a job is already running") }
-                else { "another job is still running; wait for it or cancel it (F6)".into() });
-            return;
-        }
-        self.pending_feed = Some(key.clone());
-        self.push_status(if had { format!("showing saved {key}; refreshing from the site…") }
-            else { format!("fetching {key} from the site…") });
-        self.start_online_job(JobKind::Read, argv);
+        let _ = self.show_edits(post_id, thread_id);
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
     /// `s` in a thread: cycle the stored replies. This does not connect.
     ///
@@ -1448,10 +1383,9 @@ impl App {
     }
     /// Run `argv` (a network job) after making sure we're logged in.
     fn start_online_job(&mut self, kind: JobKind, argv: Vec<String>) {
-        if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F6)"); return; }
+        let _ = (kind, argv);
         self.close_menu();
-        if self.session == SessionState::Valid { self.effects.push(Effect::RunJob(kind, argv)); }
-        else { self.session = SessionState::Checking; self.effects.push(Effect::CheckSessionThen(kind, argv)); }
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
 
     // ------------------------------------------------------------ sync
@@ -1571,7 +1505,7 @@ impl App {
     /// Store the cap in preferences when this TUI has a real preferences file.
     fn persist_history_keep(&mut self, keep: Option<usize>) {
         if self.themes_dir.is_none() { return; }
-        if let Err(e) = crate::auth::prefs::save_search_history_limit(keep.map(|n| n as u64)) {
+        if let Err(e) = crate::prefs::save_search_history_limit(keep.map(|n| n as u64)) {
             self.push_status(format!("error: could not save history setting: {e:#}"));
         }
     }
@@ -1797,7 +1731,7 @@ impl App {
         self.menu.menu.set_text(CommandId::Search, "limit", &f.limit.map(|n| n.to_string()).unwrap_or_default());
     }
     /// Apply `[ui.list_order]` and re-read the nick bar (and the open nick timeline).
-    pub fn apply_list_prefs(&mut self, p: Option<&crate::auth::prefs::ListOrderPrefs>) {
+    pub fn apply_list_prefs(&mut self, p: Option<&crate::prefs::ListOrderPrefs>) {
         let Some(p) = p else { return };
         self.orders.apply_prefs(p);
         self.nick_order = p.nicks.as_deref().and_then(|s| ScrapeOrder::parse(s).ok()).unwrap_or_default();
@@ -1821,7 +1755,7 @@ impl App {
     fn persist_list_order(&mut self) {
         if self.themes_dir.is_none() { return; }
         let prefs = self.orders.to_prefs(self.nick_order, self.nick_limit.map(|n| n as u64));
-        if let Err(e) = crate::auth::prefs::save_list_order(&prefs) {
+        if let Err(e) = crate::prefs::save_list_order(&prefs) {
             self.push_status(format!("error: could not save list order: {e:#}"));
         }
     }
@@ -1993,7 +1927,7 @@ impl App {
     /// Write `[ui] color` when the TUI has a real preferences file (not a unit test).
     fn persist_color_mode(&mut self) {
         if self.themes_dir.is_none() { return; }
-        if let Err(e) = crate::auth::prefs::save_ui_color(self.color_mode.as_str()) {
+        if let Err(e) = crate::prefs::save_ui_color(self.color_mode.as_str()) {
             self.push_status(format!("error: could not save colour: {e:#}"));
         }
     }
@@ -2161,7 +2095,7 @@ impl App {
         if self.filter_editing || self.menu.editing || self.theme_editor.is_some() || self.brand_editor.is_some() { return true; }
         if self.notice_page.as_ref().is_some_and(|p| p.editing) { return true; }
         match &self.modal {
-            Some(Modal::Login(_)) | Some(Modal::Palette(_)) => true,
+            Some(Modal::Palette(_)) => true,
             Some(Modal::Search(s)) => SearchModal::text_index(s.focus).is_some(),
             Some(Modal::Compose(c)) => matches!(c.focus, ComposeFocus::Title | ComposeFocus::Body | ComposeFocus::Attach | ComposeFocus::Complete),
             Some(Modal::Research(r)) => matches!(r.focus, RField::Name | RField::Desc | RField::Note),
@@ -2472,64 +2406,43 @@ impl App {
         if self.job.is_some() { self.error("Busy", "another job is still running; wait for it or cancel it (F6)"); return; }
         self.effects.push(Effect::RunJob(kind, argv));
     }
-    /// Open the Login modal; `then` runs after a successful login.
+    /// Say that login is not in this binary. `then` is dropped.
     pub fn open_login(&mut self, then: Option<(JobKind, Vec<String>)>) {
-        let reason = then.as_ref().map(|(k, _)| format!("Log in to start the {}.", k.name()));
-        self.pending_job = then;
-        self.paused_login = None;
-        self.modal = Some(Modal::Login(LoginModal::new(self.email.clone(), reason)));
-    }
-    /// The open login modal, including one parked under Help.
-    fn with_login<R>(&mut self, f: impl FnOnce(&mut LoginModal) -> R) -> Option<R> {
-        if let Some(Modal::Login(m)) = &mut self.modal { return Some(f(m)); }
-        self.paused_login.as_mut().map(f)
+        let _ = then;
+        self.pending_job = None;
+        self.modal = Some(Modal::Message(MessageModal::info("Login", crate::service::SERVICE_ABSENT)));
     }
     /// The session check before a scan / sync came back.
     pub fn session_checked(&mut self, r: std::result::Result<bool, String>, kind: JobKind, argv: Vec<String>) {
         match r {
             Ok(true) => { self.session = SessionState::Valid; self.effects.push(Effect::RunJob(kind, argv)); }
             Ok(false) => { self.session = SessionState::LoggedOut; self.open_login(Some((kind, argv))); }
-            Err(e) => { self.session = SessionState::Saved; self.pending_feed = None; self.pending_sort = None; self.error("Cannot reach acp.us", &e); }
+            Err(e) => { self.session = SessionState::Saved; self.pending_feed = None; self.pending_sort = None; self.error("Offline", &e); }
         }
     }
-    /// The site sent the login code.
+    /// Login is not in this binary.
     pub fn login_need_code(&mut self) {
-        self.with_login(|m| m.need_code());
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
-    /// Verification failed and the attempt is still open. Stay on the code step.
+    /// Login is not in this binary.
     pub fn login_hold(&mut self, e: &str) {
-        let _ = self.with_login(|m| m.held(e));
+        let _ = e;
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
-    /// The running attempt is gone. Back to the email step.
+    /// Login is not in this binary.
     pub fn login_expired(&mut self) {
-        let _ = self.with_login(|m| m.failed("the login expired; send a new code"));
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
-    /// The login finished. A login parked under Help still counts.
+    /// Login is not in this binary.
     pub fn login_done(&mut self, r: std::result::Result<(), String>) {
-        let present = matches!(self.modal, Some(Modal::Login(_))) || self.paused_login.is_some();
-        if !present { return; }
-        match r {
-            Ok(()) => {
-                let email = self.with_login(|m| m.email.value.trim().to_string());
-                self.session = SessionState::Valid;
-                self.email = email.filter(|e| !e.is_empty()).or(self.email.take());
-                self.paused_login = None;
-                if matches!(self.modal, Some(Modal::Login(_))) {
-                    self.close_modal(ModalResult::ClosedSubmitted);
-                } else {
-                    self.modal = None;
-                    self.push_status("logged in");
-                    if let Some((k, argv)) = self.pending_job.take() { self.effects.push(Effect::RunJob(k, argv)); }
-                }
-            }
-            Err(e) => { let _ = self.with_login(|m| m.failed(&e)); }
-        }
+        let _ = r;
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
-    /// Logged out.
+    /// Logged out. This binary does not keep a site session.
     pub fn logged_out(&mut self, removed: bool) {
         self.session = SessionState::LoggedOut;
-        self.push_status(if removed { "logged out: saved session removed" } else { "logged out (no saved session)" });
-        self.open_login(None);
+        let _ = removed;
+        self.push_status(crate::service::SERVICE_ABSENT.to_string());
     }
     /// A job started.
     pub fn job_started(&mut self, j: JobView, cmd: &str) {
@@ -2648,65 +2561,17 @@ impl App {
     pub fn close_modal(&mut self, r: ModalResult) {
         let Some(m) = self.modal.take() else { return };
         match (m, r) {
-            (Modal::Login(_), ModalResult::ClosedSubmitted) => {
-                self.push_status("logged in");
-                if let Some((k, argv)) = self.pending_job.take() { self.effects.push(Effect::RunJob(k, argv)); }
-            }
-            (Modal::Login(m), ModalResult::ClosedCancelled) => {
-                self.pending_job = None;
-                self.pending_feed = None;
-                self.pending_sort = None;
-                self.paused_login = None;
-                if self.session == SessionState::Checking { self.session = SessionState::LoggedOut; }
-                let _ = m;
-                self.effects.push(Effect::LoginCancel);
-            }
-            (Modal::Login(m), ModalResult::Help(topic)) => {
-                self.paused_login = Some(m);
-                self.open_help(Some(topic));
-            }
-            (Modal::Help(_), _) => {
-                if let Some(login) = self.paused_login.take() { self.modal = Some(Modal::Login(login)); }
-            }
+            (Modal::Help(_), _) => {}
             (Modal::Confirm(c), ModalResult::ClosedSubmitted) => match c.action {
                 ConfirmAction::Job(k, argv) => self.start_job(k, argv),
                 ConfirmAction::Quit => self.effects.push(Effect::Quit { cancel_job: c.chosen == 1 }),
-                ConfirmAction::Delete(id) => match crate::site::delete::present(&id, true, false) {
-                    Ok(text) => self.push_status(text),
-                    Err(e) => self.error("Delete", &e.message),
-                },
-                ConfirmAction::Vote(id, state) => match crate::site::vote::present(&id, &state, true, false) {
-                    Ok(text) => self.push_status(text),
-                    Err(e) => self.error("Vote", &e.message),
-                },
-                ConfirmAction::Subscribe(id) => match crate::site::subscribe::present(&id, "1", true, false) {
-                    Ok(text) => self.push_status(text),
-                    Err(e) => self.error("Subscribe", &e.message),
-                },
-                ConfirmAction::Edit(id) => {
-                    let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
-                    let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
-                    let now = chrono::Utc::now().timestamp();
-                    match crate::site::edit::post_blocked(&id, inserted, now, true, false) {
-                        Ok(text) => self.push_status(text),
-                        Err(e) => self.error("Edit", &e.message),
-                    }
-                }
-                ConfirmAction::EditReply { id, body } => {
-                    let posted = self.current_post().filter(|p| p.post_id == id).map(|p| p.posted_at);
-                    let inserted = posted.as_deref().and_then(crate::site::edit::posted_unix);
-                    let now = chrono::Utc::now().timestamp();
-                    match crate::site::edit::prepare(&id, &body, inserted, now, true) {
-                        Ok(plan) => {
-                            self.push_status("publishing…");
-                            self.effects.push(Effect::EditReply(plan));
-                        }
-                        Err(e) => self.error("Edit", &e.message),
-                    }
-                }
-                ConfirmAction::Repost(id) => match crate::site::repost::present(&id, true, false) {
-                    Ok(text) => self.push_status(text),
-                    Err(e) => self.error("Repost", &e.message),
+                ConfirmAction::Delete(_)
+                | ConfirmAction::Vote(_, _)
+                | ConfirmAction::Subscribe(_)
+                | ConfirmAction::Edit(_)
+                | ConfirmAction::EditReply { .. }
+                | ConfirmAction::Repost(_) => {
+                    self.push_status(crate::service::SERVICE_ABSENT.to_string());
                 },
                 ConfirmAction::SendOutbox(id) => self.send_outbox(&id),
                 ConfirmAction::CreatePhrase => self.effects.push(Effect::CreatePhrase),
@@ -2795,22 +2660,8 @@ impl App {
                     self.modal = Some(Modal::Confirm(confirm));
                     return;
                 }
-                let now = chrono::Utc::now().timestamp();
-                let draft = c.draft(now, self.last_write_unix, true);
-                match crate::site::decide(&draft, true, false) {
-                    Ok(crate::site::Gate::Done(text)) => self.push_status(text),
-                    Ok(crate::site::Gate::Send(plan)) => {
-                        self.last_write_unix = Some(now);
-                        self.push_status("publishing…");
-                        self.effects.push(Effect::Publish(plan));
-                    }
-                    Err(e) => {
-                        if e.message.contains("nothing was sent") {
-                            self.last_write_unix = Some(now);
-                        }
-                        self.error("Write", &e.message);
-                    }
-                }
+                self.push_status(crate::service::SERVICE_ABSENT.to_string());
+                let _ = c;
             }
             (Modal::Search(s), ModalResult::ClosedSubmitted) => {
                 if s.cleared { self.clear_search(); }
