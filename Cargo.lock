@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "acp-red-star"
-version = "3.53.0"
+version = "3.55.0"
 dependencies = [
  "acp_red_star_node_core",
  "acp_red_star_service_redstar",
@@ -90,7 +90,7 @@ dependencies = [
 
 [[package]]
 name = "acp_red_star_service_youtube"
-version = "3.53.0"
+version = "3.55.0"
 dependencies = [
  "acp_red_star_node_core",
 ]

@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.53.0
+Version:        3.55.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.55.0-1
+- Package 3.55.0. The YouTube service is prepared and gated. Nothing is fetched and yt-dlp is not spawned.
 
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.53.0-1
 - Package 3.53.0. Red Star registers as a service (3.51.0). Plugin packages are checked and quarantined (3.52.0). Mixed and grouped views (3.53.0). Existing Red Star commands behave as before.
