@@ -1,6 +1,6 @@
 # Plan: Organizations
 
-Status: **3.43.0 ships files.** 3.42.0 ships templates. 3.41.0 ships the public snapshot. 3.40.1 confirms guest writes, 2026-10-22. Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. The website, the service, invites, and the browser flow are still later minors. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
+Status: **3.43.0 ships files.** 3.42.0 ships templates. 3.41.0 ships the public snapshot. 3.40.1 confirms guest writes, 2026-10-22. Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer, and the creator is the Owner. A public org that is not gated accepts a write from any client. That rule is confirmed below and is no longer an assumption. The website, the service, invites, and the browser flow are still later minors. Decentralized networking is planned at 3.49.0 (section 11), decided 2026-10-22. Wide-area discovery and NAT traversal stay unversioned. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
 
 Base: `main` at `274a9e01` (crate `3.39.0`). This plan does not bump the version. `AGENTS.md` bumps a version for a feature or a fix, not for a plan.
 
@@ -8,7 +8,7 @@ An organization is a local content source. It does not need the ACP Red Star ser
 
 A new org is gated and private. Public versus private still decides which rows members can see. Gating decides whether a non-member gets anything at all. Register and login run in the Red Star app, against the org's service. The browser never holds a private key.
 
-The core stays white-label. The built-in Red Star theme can still supply the default look. A `plain` theme, or any other theme, can replace it. Federation, replication, and the network transport are stubs. They get no version.
+The core stays white-label. The built-in Red Star theme can still supply the default look. A `plain` theme, or any other theme, can replace it. Federation, replication, invite transport, and the org service over the peer network are 3.49.0. Wide-area discovery and NAT traversal stay stubs and get no version.
 
 ## 1. Overview and goals
 
@@ -71,7 +71,7 @@ Adding a user is an authenticated exchange. Each side's X25519 public value is s
 4. Both sides show the same short fingerprint of that transcript. The person compares the two screens out of band and types the code. If the typed code does not match the computed code, the member is not added.
 5. The inviter marks the invite used. A second accept of the same invite is refused. An invite past its expiry is refused.
 
-Local transport, in the mocked tests, is a file the two throwaway `HOME`s share, or a localhost socket bound to `127.0.0.1`. The decentralized transport is a stub with no version.
+Local transport, in the 3.46.0 mocked tests, is a file the two throwaway `HOME`s share, or a localhost socket bound to `127.0.0.1`. The same invite transcript also runs over the 3.49.0 peer transport (section 11). Finding an invite peer without an explicit loopback address is not part of either minor.
 
 Invites do not contain private keys. Logs do not contain seeds, shared secrets, or the HKDF output.
 
@@ -113,7 +113,7 @@ When an Owner removes another user's post or asset, the row stays in the databas
 - It becomes archived and private.
 - Custody moves to the organization Owner. The original author stays on the row.
 - The row records who archived it and when.
-- A replication message for that change is an update, not a delete. The transport is the stub in section 11. It gets no version.
+- A replication message for that change is an update, not a delete. The body does not travel. The wire form is section 11 (3.49.0).
 - After that, the row is absent from every public render, serve response, export, feed, and service response. The owner's local screens can still show it, labeled archived.
 
 Removing a member does not delete their posts. Those posts stay attributed to the original author until an Owner archives them.
@@ -158,7 +158,7 @@ A public org that is not gated, rendered through its template, is a complete sta
 
 A gated public org is not that static site. `serve` is what enforces the gate. Export of a gated org writes only the public landing page (register and login, no posts, no titles, no asset names, no feed entries). A member-only export is a separate confirmed action and is specified in section 10. It is not the default, and it is not a file a stranger can open and read as the public site.
 
-Any later node that can read the public bundle can serve it. That is the "every node can serve" rule. For a gated org the public bundle is the landing page only. The code that would replicate the bundle onto another node is the stub in section 11.
+Any node that holds an authorized copy can serve it in the formats this section lists: HTML pages, a Markdown file per public post, `feed.json`, and the asset bytes. That is the "every node can serve" rule, and moving the copy onto the other node is 3.49.0 (section 11). For a gated org the public bundle is the landing page only. Gated member rows replicate only to a node that proves membership, and that node still gates `serve`. Private rows and archived bodies never leave the owner node.
 
 ## 9. Organization as a service
 
@@ -166,7 +166,7 @@ Publishing is off by default.
 
 A public org can publish a service manifest and a localhost endpoint. The manifest is the core plugin record: a service id, a display name, the endpoint, and the capabilities the org is willing to offer (`reader`, and `post` only when remote posts are allowed). It is stored as `~/.acp/services/org-<slug>.toml`. The endpoint speaks the same records the plugin crate already has (`Page`, `ItemRec`, `Draft`).
 
-Another install adds it with `--org-add URL`. That install then browses the org like any other source. The read goes through `Reader` and the readiness model (`ready`, `off`, `gated`, and the rest). `Post` is `off` until the org allows remote posts. A remote post is checked against the caller's role (section 5). Only rows `readable_by_others` allows are returned.
+Another install adds it with `--org-add URL`. That install then browses the org like any other source. The read goes through `Reader` and the readiness model (`ready`, `off`, `gated`, and the rest). `Post` is `off` until the org allows remote posts. A remote post is checked against the caller's role (section 5). Only rows `readable_by_others` allows are returned. The 3.45.0 listener is HTTP on localhost. 3.49.0 carries the same `Page` and `ItemRec` records over the peer transport in section 11. The HTTP listener stays.
 
 When the org is public and gated, an anonymous caller gets readiness `gated` and an empty page. No titles, no asset names, no bodies. The same caller, after the login in section 10, is a member and then receives the public rows their role allows. Readiness `gated` here is the plugin's existing availability value. It is not the changelog marker `prepared, gated:`, and it is not a version. A private org stays unreadable on this path whether or not the flag is set. The service does not widen the role and does not skip the gate.
 
@@ -231,16 +231,131 @@ A replayed code, an expired code, a code whose browser session does not match, a
 - Asset, download, and feed routes on `serve` return the landing response, or an empty gated response with no names, when the caller is anonymous. They do not redirect to a URL that contains a title.
 - A private org still serves and exports nothing.
 
-## 11. Network
+## 11. Network (3.49.0)
 
-Every node that has the public bundle can serve it in the formats section 8 lists. That serving is local in this stack (`127.0.0.1` unless a later, explicit setting says otherwise).
+Decided 2026-10-22. This minor is the decentralized network. It is no longer an unversioned stub. It ships after gated access (3.48.0), on its own stacked draft pull request.
 
-These are stubs. They are not features. They get no version. The first release that has a place to mention them records them under Added as `prepared, gated: …`:
+What 3.49.0 builds:
 
-- Federation and replication of org content between nodes. An Owner archive is replicated as an update of the archived, private, and custody columns, not as a delete.
-- The decentralized transport for invites and for the service endpoint. Files and localhost are the transports that actually run.
+- Federation and replication of organization content between nodes. An Owner archive replicates as an update of the archived, private, and custody columns. It is never a delete. The archived body does not leave the owner node.
+- The peer transport for the invite and key-exchange transcript from section 4. The file and the plain `127.0.0.1` socket from 3.46.0 still work. 3.49.0 carries the same public keys and signatures over the peer connection.
+- The org service endpoint from section 9, speaking the same `Page` and `ItemRec` records, over that peer connection. The HTTP listener from 3.45.0 stays.
+- Every node that holds an authorized copy can serve it in every format section 8 already accepts: HTML pages, a Markdown file per public post, `feed.json`, and the asset bytes. No new format is added here. `--format md` stays the open question in section 16.
 
-No packet is sent to acp.us. Tests use a throwaway `HOME` and, where two installs are required, two throwaway homes.
+### Transport
+
+The peer transport is QUIC, implemented with `quinn` and `rustls` (TLS 1.3). Every application envelope is signed with the Ed25519 key this tree already uses (`ed25519-dalek`). `sha2` is already a dependency and supplies the content hash.
+
+`quinn` is the maintained Rust QUIC stack. One connection multiplexes the invite transcript and the content sync, so this minor does not open a second port. TLS encrypts the stream. The signature is what authorizes a record: a TLS session proves who the socket is, and it does not by itself make a post public or a peer a member. Early data (0-RTT) is off, so a replayed write cannot ride the next handshake.
+
+`rust-libp2p` is the other usual choice and is the wrong default here. It brings its own peer-id key and a behavior stack (identify, ping, Kademlia, gossipsub). Gossipsub sends a subscribed record to every mesh peer. That fights the rule that gated content goes only to a node that just proved membership, and that private content never leaves. This install already has an Ed25519 node identity and an Ed25519 membership identity. QUIC carries those signatures instead of adopting a second identity system.
+
+Addresses in this minor are `127.0.0.1` only. A bind or a dial that is not loopback is refused before any socket is opened. The certificate is minted locally and pinned to the peer's node public key. There is no web PKI and no fetch of a trust anchor. Nothing in this path contacts acp.us.
+
+### Node identity and discovery
+
+The node identity is the existing node Ed25519 key (the keystore in `acp_red_star_node_core`). Membership stays the separate org identity from section 4 and open question 2. The network minor does not merge those keys.
+
+`--org-net-identity` prints the node public key and a short fingerprint. It does not print the seed.
+
+Discovery in this minor is an explicit peer address. `--org-net-listen` binds `127.0.0.1:0` unless `--org-net-addr` names another loopback socket. `--org-net-peer ADDR` stores that peer and dials it. A peer that is already stored is not dialed twice for the same sync.
+
+The first time a node accepts an organization from a peer, it stores the owner-signed org record (slug, name, public visibility, gated flag, owner public key) as the trust anchor for that slug. A later record for the same slug signed by a different owner key is refused.
+
+### What replicates
+
+`replicable(record, peer)` runs before any byte of that record is written to a stream. A false result means the record is absent on the wire, not present with a blank title.
+
+| Record | Leaves the owner node |
+| --- | --- |
+| Public org, not gated, public post or public asset, not archived | Yes, to any explicitly peered node |
+| Public org, gated, landing page (name plus register and login) | Yes, to any explicitly peered node |
+| Public org, gated, a public post or public asset | Only to a peer that proves it is an active member of that org, for this sync |
+| Private org, any row | No |
+| Private post or private asset, even inside a public org | No |
+| Archived body, title, or asset bytes | No |
+| Archive update (target id, archived, private, custody, who, when) | Yes, to any peer that already holds, or could hold, the public copy. No body |
+
+A membership proof is a signature over a nonce this node just minted, under the peer's membership key. This node accepts it when the signature verifies and that key is an active member. The proof is single-use for this sync. It is not a token the peer can hand to a third node. Gated bytes are not forwarded onward.
+
+A public ungated replica may be forwarded to another explicit peer. The forwarded envelope still has to verify. The receiver applies the same table.
+
+### Content addressing and signatures
+
+The signed bytes are this canonical layout, UTF-8, with `\n` between fields. Payload length is a decimal integer. The payload itself is the last field and may contain newlines. JSON key order is not the signed form.
+
+```text
+acp-org-net-v1
+<kind>
+<org slug>
+<content id>
+<prev id or ->
+<counter>
+<signer hex>
+<payload length>
+<payload bytes>
+```
+
+`kind` is `org`, `post`, `reply`, `asset`, `archive`, `invite`, or `service`. `content id` is lowercase hex SHA-256 of the payload. `counter` is a `u64` that increases by one for each envelope that signer emits for that org. The Ed25519 signature covers those bytes and travels beside them. It is not inside the hash.
+
+A public post payload is the slug, the local id, the title, the body, `visibility=public`, and `archived=false`. A public asset payload is the slug, the id, the file name, the mime type, and the bytes. An archive payload is the slug, the target content id, `archived=true`, `visibility=private`, the custody key, `archived_by`, and `archived_at`. It has no title and no body. An invite payload is the section 4 invite: public keys and signatures only. A service payload is one `Page` or one `ItemRec`, the same records as 3.45.0.
+
+### Conflict and update rules
+
+- A create has an empty previous id (`-`). It is accepted when the content id is new and the signature verifies.
+- An update names the previous content id. It is accepted when the receiver's current id for that logical record is that previous id, or when the signer is the Owner in the trust anchor and the counter is strictly greater than the stored counter.
+- Two accepted envelopes for the same previous id: the higher counter wins. The same counter breaks the tie by the lexicographically greater signer public key. The loser is stored on the receiver as a conflict note. It is not served, not exported, and not forwarded.
+- An archive envelope replaces the public replica. Later public updates whose previous id is the pre-archive id are refused. 3.49.0 has no un-archive. The owner node keeps the body in its local database. Every other node keeps the archive marker and drops the body it had.
+- The replication log records `kind = update` for an archive. It never records a delete.
+- Wall-clock time is displayed and is not the conflict order.
+
+### Serving a replica
+
+After a public ungated org has replicated, the receiving node can `--org-export` and `--org-serve` that slug from its own database. The public HTML, the Markdown sidecars, `feed.json`, and the download bytes match the owner node's public bundle. Order of equal timestamps may differ. A node that received only a gated landing page serves and exports that landing page. A member node that received gated public rows still applies section 10: an anonymous caller gets the landing page or an empty gated response, with no titles and no asset names.
+
+### Commands
+
+- `--org-net-identity` prints the node public key and fingerprint.
+- `--org-net-listen` binds the QUIC endpoint. `--org-net-addr` defaults to `127.0.0.1:0`.
+- `--org-net-peer ADDR` stores a loopback peer and dials it.
+- `--org-replicate SLUG` syncs with stored peers under the table above. It asks first. Cancel is the default. `--dry-run` lists the content ids that would leave and writes nothing on the wire. `--yes` confirms. Without a terminal, and without `--yes`, it is refused.
+- `--org-invite` accepts `--org-invite-peer ADDR` and runs the section 4 transcript on that connection. The file form from 3.46.0 is unchanged.
+- `--org-add` accepts `quic://127.0.0.1:PORT/SLUG` as well as the HTTP URL from 3.45.0.
+
+The terminal screen is Organizations › Network: this node's fingerprint, the stored peers, and the last sync's accepted and refused counts. Styling goes through ratatui-lipgloss. The Help topic is `org-network`.
+
+### Privacy
+
+- Private orgs, private rows, and archived bodies are absent from the stream. Tests capture the bytes and fail if a private title, a private body, or an archived body appears.
+- Gated public rows are absent unless this sync's membership proof verified.
+- Seeds, shared secrets, and HKDF output are not on the wire, in the log, or in a replica export. `Debug` for key types stays `[redacted]`.
+- An invite on this transport still holds public keys and signatures only.
+- The archive update carries columns, not the removed text.
+- No packet is sent to acp.us. A test that sees a non-loopback dial fails.
+
+### Test plan
+
+Mocked multi-node tests. Two or three processes, each with a throwaway `HOME`, QUIC on `127.0.0.1` and an ephemeral port. No external network. Nothing contacts acp.us. Gherkin stays on the file and HTTP paths from earlier minors. The multi-node cases are library tests so a scenario cannot block on a listen socket.
+
+- A public ungated post and a public asset replicate. The receiver's export and `serve` contain the HTML page, the Markdown sidecar, the feed entry, and the file bytes. A private post in the same org does not.
+- A private org replicates nothing: no name, no description, no posts.
+- A gated public org replicates the landing page to a non-member peer and does not replicate a public post or an asset name. The same org replicates that public post to a peer that signs a fresh membership nonce. The member peer's anonymous `serve` still hides the title.
+- An Owner archive on the owner node arrives as an update. The receiver drops the public body, keeps the marker, and does not serve the body. The captured frame has no body and the log kind is `update`.
+- Two updates of the same previous id: the higher counter is the one served. The loser is only in the conflict note.
+- An invite over `--org-invite-peer` completes the section 4 exchange. A substituted public key, a fingerprint mismatch, an expired invite, and a replayed invite add nobody. The captured invite bytes contain no seed.
+- `--org-add quic://127.0.0.1:…/SLUG` from a second home reads the public page. A gated anonymous caller gets readiness `gated` and an empty page.
+- `--org-replicate --dry-run` writes nothing. A non-loopback `--org-net-addr` is refused before bind.
+
+### Still unversioned
+
+These stay stubs. They get no version and they are not recorded as `prepared, gated:` on 3.49.0, because this minor does not pretend to ship them:
+
+- Wide-area discovery: Kademlia or any DHT, mDNS, and a public bootstrap or rendezvous host.
+- NAT traversal, ICE, hole punching, and relay.
+- Binding or dialing an address that is not `127.0.0.1`.
+- Handing a gated membership proof to a third node, or forwarding gated bytes.
+- Un-archive.
+- A new on-the-wire format beyond the section 8 set.
 
 ## 12. Security and privacy
 
@@ -392,6 +507,15 @@ Gated access (3.48.0):
 - `--org-open-code CODE` is what the app runs for a register or login code. It prints the org name, the origin, and the fingerprint, and it asks before sending
 - `--org-member-export` on `--org-export`, the confirmed member folder
 
+Network (3.49.0):
+
+- `--org-net-identity`
+- `--org-net-listen` and `--org-net-addr` (default `127.0.0.1:0`, loopback only)
+- `--org-net-peer ADDR`
+- `--org-replicate SLUG`
+- `--org-invite-peer ADDR` on the section 4 invite
+- `--org-add` also accepts `quic://127.0.0.1:PORT/SLUG`
+
 Terminal UI. All of it is styled with ratatui-lipgloss. Each screen has a tooltip and a Help topic.
 
 - Library › Organizations. List, create, edit, delete. The create form shows that the creator becomes the owner.
@@ -401,9 +525,10 @@ Terminal UI. All of it is styled with ratatui-lipgloss. Each screen has a toolti
 - Organizations › Members. Roster, invite, accept, and the fingerprint prompt.
 - Organizations › Roles. Owner, User, and Viewer, then custom roles between Viewer and Owner. The last Owner is marked and cannot be cleared from this screen. Register default and invite default are two fields.
 - Organizations › Access. The gated flag (on for a new org), Open versus Closed, and the pending list. Approving a pending member shows the fingerprint. Opening a code shows the org name and origin before the yes.
-- A confirm modal, Cancel focused, for making something public, publishing, deleting, removing a member, gating or ungating, and a member-only export.
+- Organizations › Network. This node's fingerprint, stored loopback peers, and the last sync's accepted and refused counts.
+- A confirm modal, Cancel focused, for making something public, publishing, deleting, removing a member, gating or ungating, a member-only export, and a replicate.
 
-Help topics: `orgs`, `org-posts`, `org-templates`, `org-assets`, `org-serve`, `org-service`, `org-members`, `org-roles`, `org-access`.
+Help topics: `orgs`, `org-posts`, `org-templates`, `org-assets`, `org-serve`, `org-service`, `org-members`, `org-roles`, `org-access`, `org-network`.
 
 ## 14. Test plan
 
@@ -481,7 +606,7 @@ Gated access. Two throwaway homes. One home owns the org and runs `serve` plus t
 - Open registration: the app and the service complete the exchange, the fingerprint matches, and the new member is active with the registration default (Viewer until changed).
 - Closed registration, the default: the same exchange leaves the member pending. A role without `invite` cannot approve them. After approval the member can read.
 - A public org that is not gated accepts an unauthenticated guest post. The stored author is `anonymous`. The same org accepts a non-member post signed with a Red Star identity key, and that stored author is the key. Neither caller can remove a member or archive someone else's post. An Owner can archive the anonymous post. A gated org, including one that is public, rejects both the guest write and the signed non-member write. The eleventh guest write from one source address to one org inside a minute is refused. A different source address, and the same address on a different org, are not. A body over 32 KiB and an attachment over 8 MiB are refused.
-- An Owner archive leaves the row in the database, marks it archived and private, sets custody to the Owner, and keeps the original author. A public snapshot, a serve body, an export, a feed, and a service response do not contain it. The replication record is an update, not a delete.
+- An Owner archive leaves the row in the database, marks it archived and private, sets custody to the Owner, and keeps the original author. A public snapshot, a serve body, an export, a feed, and a service response do not contain it. The replication record is an update, not a delete. The multi-node wire tests for that update are in section 11.
 - A replayed registration code is refused. An expired code is refused. A code polled or finished from a different browser session is refused.
 - Login: the app signs the nonce, the browser session that created the code receives the cookie, and a later read succeeds.
 - A replayed or expired login nonce is refused. A signature from the wrong key is refused. No session is issued.
@@ -503,16 +628,14 @@ Stacked draft pull requests, each based on the one above it, the first based on 
 | 3.41.0 | privacy | Public snapshot refuses every private combination, including archived rows. The per-org default can be switched |
 | 3.42.0 | templates | Edit a template with a live preview. The default asks for Cinzel and Lora and stays white-label |
 | 3.43.0 | assets | Add media, keep it private, and use public assets in the template. Owner removal archives an asset |
-| 3.44.0 | website | Export a static site and serve it on localhost. Public rows only. An archive is an update on the stub replication log |
-| 3.45.0 | service | Publish a manifest and endpoint. Another install adds it. Remote posts follow the role |
-| 3.46.0 | members | Identity keys, invites, fingerprints. Create already recorded the Owner |
+| 3.44.0 | website | Export a static site and serve it on localhost. Public rows only. Replication of that bundle is 3.49.0 |
+| 3.45.0 | service | Publish a manifest and an HTTP endpoint on localhost. Another install adds it. Remote posts follow the role. The peer endpoint is 3.49.0 |
+| 3.46.0 | members | Identity keys, invites, fingerprints, over a file or `127.0.0.1`. Create already recorded the Owner. The peer transport for the same transcript is 3.49.0 |
 | 3.47.0 | roles | Custom roles between Viewer and Owner. Separate register and invite defaults. Last-owner protection. No escalation |
 | 3.48.0 | gated access | Open versus Closed registration. Public and not gated: any client can view, post, reply, and attach. No identity stores `anonymous`. A signed identity is a verified author. A gated org rejects both. Owner-only actions still need a member. The browser holds a session cookie and no key |
+| 3.49.0 | network | QUIC peers on `127.0.0.1`. Replicate public ungated content. Gated content only to a member node. Private rows and archived bodies never leave. An archive is an update. A replica is served in the section 8 formats. Invites and the service records ride the same transport |
 
-Stubs, with no version of their own, recorded as `prepared, gated:` on the release that first has somewhere to put the sentence (3.44.0 for replication, 3.46.0 for invite transport):
-
-- Federation and replication of org content.
-- Any transport that is not a file or `127.0.0.1`.
+Stubs, with no version of their own. They are not `prepared, gated:` sentences on 3.44.0 or 3.46.0. Section 11 lists them again: wide-area discovery (DHT, mDNS, public bootstrap), NAT traversal and relay, a bind or dial that is not `127.0.0.1`, forwarding gated bytes or membership proofs, un-archive, and any format beyond section 8.
 
 Plugin crate version stays where `main` left it. These minors are the root crate.
 
@@ -524,7 +647,7 @@ Plugin crate version stays where `main` left it. These minors are the root crate
 4. Asset bytes. The plan stores files under the home directory at mode `0600` and refuses to copy private files into an export. Sealing the bytes the way the identity seed is sealed is safer and heavier. Say which you want.
 5. Markdown. The site writes `.md` files next to HTML and JSON. Say if `--format md` should become a third export format in the core.
 6. Whole-database `--export`. The plan leaves org posts out of a nick dump unless the export is `--org-export` or the selected source is that org, and even then only public rows are written. Say if a full dump should include public org posts automatically.
-7. Default serve port. The plan binds `127.0.0.1` and will pick a fixed port in the serve minor so tests can find it. Say if you already have a port reserved.
+7. Default serve port. The plan binds `127.0.0.1` and an ephemeral port (`:0`) so tests can read the bound address. Say if you already have a port reserved. The 3.49.0 QUIC listener uses the same loopback rule.
 8. Remote posts on a gated org. A member who posts through the service creates a post at the org's default visibility. A private result is stored and is not served. Say if those posts should be forced public. The public ungated path is the confirmed rule in section 9, not this question.
 9. Two Owners. An Owner may change another Owner's role when one Owner remains. Say if that should be refused and only a new Owner added, never a demotion.
 10. Fonts. Cinzel and Lora are named in CSS and not vendored. Say if the default template should ship the font files.
