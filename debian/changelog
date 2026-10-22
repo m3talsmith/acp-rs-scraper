@@ -1,3 +1,9 @@
+acp-red-star (3.44.0) unstable; urgency=medium
+
+  * Package 3.44.0. `--org-export` writes the public site. `--org-serve` serves it on 127.0.0.1. Private rows stay out.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 22:15:00 +0000
+
 acp-red-star (3.43.0) unstable; urgency=medium
 
   * Package 3.43.0. An organization file starts private, mode 0600. Removing it archives the row and keeps the bytes.

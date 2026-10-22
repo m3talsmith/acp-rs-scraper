@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.44.0] - 2026-10-22
+
+### Added
+
+- **Organization website.** `--org-export` writes the public site: `index.html`, one HTML page and one Markdown file per public post, a download page per public file, and `feed.json`. A private organization writes a page that says it has no public pages. A gated public organization writes the landing page only. `--org-serve` serves that same tree on `127.0.0.1` and refuses any other address. Replication of the site onto another node is 3.49.0.
+
 ## [3.43.0] - 2026-10-22
 
 ### Added

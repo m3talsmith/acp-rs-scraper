@@ -10,6 +10,7 @@ use crate::prelude::*;
 pub mod access;
 pub mod assets;
 pub mod cli;
+pub mod site;
 pub mod template;
 
 /// Who may read a row that is being rendered, served, or exported.

@@ -185,3 +185,23 @@ Feature: Organizations
     Then it succeeds
     And stdout contains "would archive"
     And stdout contains "not a delete"
+
+  Scenario: Export writes a public site and leaves a private post out
+    When I run "--org-create hold"
+    Then it succeeds
+    When I run "--org-post hold --org-title Secret --body hidden-body"
+    Then it succeeds
+    When I run "--org-export hold $HOME/site --dry-run"
+    Then it succeeds
+    And stdout contains "would export"
+    And stdout contains "dry-run: nothing was written"
+    And the file "$HOME/site/index.html" does not exist
+    When I run "--org-export hold $HOME/site --yes"
+    Then it succeeds
+    And stdout contains "left out"
+    And stdout contains "3.49.0"
+    And stdout does not contain "prepared, gated:"
+    And the file "$HOME/site/index.html" exists
+    And the file "$HOME/site/index.html" does not contain "hidden-body"
+    And the file "$HOME/site/feed.json" exists
+    And the file "$HOME/site/feed.json" does not contain "hidden-body"

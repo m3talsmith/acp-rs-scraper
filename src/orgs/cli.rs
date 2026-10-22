@@ -21,6 +21,9 @@ pub fn cli_requested(args: &Args) -> bool {
         || args.org_asset_list.is_some()
         || !args.org_asset_visibility.is_empty()
         || args.org_asset_remove.is_some()
+        || !args.org_export.is_empty()
+        || args.org_serve.is_some()
+        || args.org_serve_addr.is_some()
         || args.org_post.is_some()
         || args.org_name.is_some()
         || args.org_description.is_some()
@@ -98,6 +101,12 @@ pub fn run_cli(args: &Args) -> Result<()> {
     }
     if let Some(id) = &args.org_asset_remove {
         return remove_asset(args, &db, id);
+    }
+    if args.org_export.len() == 2 {
+        return export_site(args, &db);
+    }
+    if let Some(slug) = &args.org_serve {
+        return serve_site(args, &db, slug);
     }
     if let Some(slug) = &args.org_post {
         return post(args, &db, slug);
@@ -347,6 +356,40 @@ fn remove_asset(args: &Args, db: &Path, id: &str) -> Result<()> {
     let record = crate::orgs::assets::remove(&c, &actor, id)?;
     println!("archived {id}");
     println!("replication: {}", record.kind);
+    Ok(())
+}
+
+fn export_site(args: &Args, db: &Path) -> Result<()> {
+    let slug = &args.org_export[0];
+    let dir = PathBuf::from(&args.org_export[1]);
+    let preview = format!("would export the public site for {slug} to {}", dir.display());
+    if args.dry_run {
+        println!("{preview}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Write the public site? [y/N] ")? {
+        println!("{preview}");
+        println!("cancelled");
+        return Ok(());
+    }
+    let c = org_conn(db)?;
+    let site = crate::orgs::site::build(&c, db, slug)?;
+    crate::orgs::site::write(&site, &dir)?;
+    println!("exported {slug} to {}", dir.display());
+    println!("{}", site.note);
+    println!("public posts: {}", site.posts.len());
+    println!("left out: {}", site.omitted);
+    println!("{}", crate::orgs::site::REPLICATION_NOTE);
+    Ok(())
+}
+
+fn serve_site(args: &Args, db: &Path, slug: &str) -> Result<()> {
+    let raw = args.org_serve_addr.as_deref().unwrap_or("127.0.0.1:0");
+    let addr: std::net::SocketAddr = raw.parse().with_context(|| format!("bad address {raw}"))?;
+    let c = org_conn(db)?;
+    let site = crate::orgs::site::build(&c, db, slug)?;
+    crate::orgs::site::serve(&site, addr)?;
     Ok(())
 }
 
