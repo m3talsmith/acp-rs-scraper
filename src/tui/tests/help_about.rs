@@ -56,6 +56,23 @@ fn star_basket_and_research_do_not_share_a_topic() {
 }
 
 #[test]
+fn question_mark_opens_the_keys_and_the_guide_is_a_topic() {
+    let mut a = app();
+    key(&mut a, KeyCode::Char('?'));
+    let Some(Modal::Help(h)) = &a.modal else { panic!("help") };
+    assert_eq!(h.scroll, 0);
+    assert_eq!(h.lines[0], "[[keys]]");
+    let window = h.lines.iter().take(24).cloned().collect::<Vec<_>>().join("\n");
+    assert!(window.contains("Terminal UI keys"), "{window}");
+    assert!(!window.contains("not the master key"), "{window}");
+    let rec = HelpModal::topic("recovery");
+    assert_eq!(rec.lines[rec.scroll], "[[recovery]]");
+    let body = rec.lines.iter().skip(rec.scroll).take(12).cloned().collect::<Vec<_>>().join("\n");
+    assert!(body.contains("not the master key"), "{body}");
+    assert!(body.contains("Any 3 of those 5"), "{body}");
+}
+
+#[test]
 fn help_search_keeps_j_and_k_in_the_query() {
     let mut h = HelpModal::new();
     for c in "basket".chars() { h.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)); }

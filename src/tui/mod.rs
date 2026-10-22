@@ -154,7 +154,7 @@ pub async fn run(args: Args) -> Result<()> {
         app.push_status(msg);
     }
     if show_recovery_help {
-        app.modal = Some(modals::Modal::Help(modals::HelpModal::new()));
+        app.open_help(Some("recovery"));
     }
     app.note_no_color();
 

@@ -21,13 +21,20 @@ pub fn help_text() -> Vec<String> {
 }
 
 /// Help text for `brand`: key bindings, topics, then that brand's `--help`.
+///
+/// `?` starts on the keys. The recovery phrase is the `recovery` topic, and
+/// it is also still in `--help`.
 pub fn help_for(brand: &crate::brands::Brand) -> Vec<String> {
     use clap::CommandFactory;
     let guide = crate::crypto::recovery::GUIDE.trim();
-    let mut v: Vec<String> = guide.lines().map(str::to_string).collect();
-    v.extend(["[[keys]]".into(), "Terminal UI keys".into(), String::new()]);
+    let mut v = vec!["[[keys]]".into(), "Terminal UI keys".into(), String::new()];
     v.push("  Letters typed here search, including j and k. ↑ ↓ PgUp PgDn Home End scroll.".into());
     for (k, d) in crate::config::TUI_KEYBINDINGS { v.push(format!("  {k:<22} {d}")); }
+    v.push(String::new());
+    v.push("[[recovery]]".into());
+    v.push("Recovery phrase".into());
+    v.push(String::new());
+    v.extend(guide.lines().map(|l| if l.is_empty() { String::new() } else { format!("  {l}") }));
     v.extend(["".into(), "Menu commands map to these flags; Start Scanning runs the same scrape the CLI does.".into()]);
     v.extend(help_topics());
     v.extend(area_topics(brand));

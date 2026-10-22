@@ -566,7 +566,7 @@ fn explain_recovery(home: &std::path::Path) -> Result<()> {
 }
 
 /// Before the terminal UI covers the screen, offer to create the phrase.
-/// `Ok(true)` opens Help, which starts with the same steps.
+/// `Ok(true)` opens Help on the recovery topic. `?` itself opens the keys.
 pub fn tui_recovery_offer(home: &std::path::Path) -> Result<bool> {
     if !super::recovery::next_pending(home) {
         return Ok(false);

@@ -10,6 +10,14 @@ Feature: Demo fixes
     Then the Help text contains "Search: basket"
     And the Help text contains "Basket"
 
+  Scenario: Question mark opens the keys list
+    When I open Help at the start
+    Then the Help text contains "Terminal UI keys"
+    And the Help text does not contain "not the master key"
+    When I open the Help topic "recovery"
+    Then the Help text contains "not the master key"
+    And the Help text contains "Any 3 of those 5"
+
   Scenario: Sorting a thread while logged out stays on this machine
     When I sort an open thread while logged out
     Then sorting stays on this machine

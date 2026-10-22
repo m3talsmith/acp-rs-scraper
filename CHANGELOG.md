@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.9] - 2026-10-22
+
+### Fixed
+
+- **Help opens on the keys.** `?` starts on the key list. The recovery phrase is the `recovery` topic. A pending recovery still opens that topic. `--help` still prints the guide.
+
 ## [3.35.8] - 2026-10-22
 
 ### Fixed

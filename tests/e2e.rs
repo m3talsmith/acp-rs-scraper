@@ -205,6 +205,18 @@ async fn preview_lacks(w: &mut E2e, s: String) {
     assert!(!w.preview.contains(&s), "theme preview has {s:?}:\n{}", w.preview);
 }
 
+#[when("I open Help at the start")]
+async fn help_at_start(w: &mut E2e) {
+    let help = acp_red_star::tui::modals::HelpModal::new();
+    w.screen = help.lines.iter().take(24).cloned().collect::<Vec<_>>().join("\n");
+}
+
+#[when(expr = "I open the Help topic {string}")]
+async fn help_topic(w: &mut E2e, topic: String) {
+    let help = acp_red_star::tui::modals::HelpModal::topic(&topic);
+    w.screen = help.lines.iter().skip(help.scroll).take(16).cloned().collect::<Vec<_>>().join("\n");
+}
+
 #[when(expr = "I search Help for {string}")]
 async fn search_help(w: &mut E2e, query: String) {
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -218,6 +230,11 @@ async fn search_help(w: &mut E2e, query: String) {
 #[then(expr = "the Help text contains {string}")]
 async fn help_has(w: &mut E2e, s: String) {
     assert!(w.screen.contains(&s), "Help lacks {s:?}:\n{}", w.screen);
+}
+
+#[then(expr = "the Help text does not contain {string}")]
+async fn help_lacks(w: &mut E2e, s: String) {
+    assert!(!w.screen.contains(&s), "Help has {s:?}:\n{}", w.screen);
 }
 
 #[when("I sort an open thread while logged out")]
