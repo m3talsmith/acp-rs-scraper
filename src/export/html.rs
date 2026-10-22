@@ -215,7 +215,7 @@ pub fn paragraphs_html(text: &str) -> String {
     for ev in Parser::new_ext(text, opts) {
         match ev {
             Event::Start(Tag::Paragraph) => out.push_str("<p>"),
-            Event::End(TagEnd::Paragraph) => out.push_str("</p>\n"),
+            Event::End(TagEnd::Paragraph) => out.push_str("</p>"),
             Event::Start(Tag::Heading { level, .. }) => out.push_str(&format!("<{level}>")),
             Event::End(TagEnd::Heading(level)) => out.push_str(&format!("</{level}>\n")),
             Event::Start(Tag::BlockQuote(_)) => out.push_str("<blockquote>"),
