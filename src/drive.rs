@@ -12,13 +12,18 @@ use acp_rs_plugin::{
 
 use crate::prelude::*;
 
-/// The loaded service implements `cap`.
+/// The loaded service can run `cap` now.
+///
+/// A linked service may advertise a capability and still leave it gated.
+/// Those commands stay out of this binary until a service reports ready.
 pub fn handles(cap: CapabilityId) -> bool {
     service(cap).is_some()
 }
 
 fn service(cap: CapabilityId) -> Option<crate::plugins::Live> {
-    crate::plugins::live(cap)
+    let live = crate::plugins::live(cap)?;
+    let availability = live.get().availability(cap, &acp_rs_plugin::RuntimeCtx::ready());
+    (availability == acp_rs_plugin::Availability::Ready).then_some(live)
 }
 
 fn fail(err: ServiceError) -> anyhow::Error {
@@ -287,6 +292,9 @@ mod tests {
                 acp_rs_plugin::Availability::Gated
             );
         }
+        assert!(!handles(CapabilityId::Reader));
+        assert!(!handles(CapabilityId::Authenticator));
+        assert!(!handles(CapabilityId::Post));
     }
 
     #[test]
