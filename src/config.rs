@@ -310,7 +310,7 @@ pub fn theme_download_url(name: &str) -> String {
 pub const DEFAULT_THEME: &str = "default";
 /// Brand files (`<name>.toml`), under `$HOME`. Built-in brands work with or without this folder.
 pub const BRANDS_REL_DIR: &str = ".acp/brands";
-/// The brand used when `[ui] brand` is not set. It is the ACP Red Star logo, title, and motto.
+/// The brand used when `[ui] brand` is not set. Its displayed title is Red Star.
 pub const DEFAULT_BRAND: &str = "default";
 /// The neutral built-in brand: title "Red Star", a star, no motto.
 pub const PLAIN_BRAND: &str = "plain";
@@ -329,10 +329,10 @@ pub const MIGRATED_THEME: &str = "custom";
 /// Lowest text contrast the theme editor accepts without a warning.
 pub const THEME_MIN_CONTRAST: f64 = 3.0;
 
-/// Title shown in the TUI top bar.
-pub const TUI_TITLE: &str = "ACP Red Star";
-/// The header text next to the big "ACP".
-pub const TUI_SUBTITLE: &str = "ACP Red Star";
+/// Title shown for the Red Star brand: the header, About, and the terminal title.
+pub const TUI_TITLE: &str = "Red Star";
+/// The header title beside the brand word.
+pub const TUI_SUBTITLE: &str = "Red Star";
 /// Deepest stack of nested post details (linked posts opened from a detail).
 pub const MAX_DETAIL_DEPTH: usize = 8;
 /// Width of the nick bar (cells).
@@ -355,7 +355,7 @@ pub const MAX_FLAT_DEPTH: usize = 256;
 pub const TUI_SYNC_DEFAULT_MINUTES: u64 = 15;
 /// Smallest terminal the layout supports.
 pub const TUI_MIN_SIZE: (u16, u16) = (60, 19);
-/// Rows of the TUI header (logo, big "ACP" with a row of room above it, title, session).
+/// Rows of the TUI header (logo, brand word with a row of room above it, title, session).
 pub const TUI_HEADER_ROWS: u16 = 4;
 /// Research project files (copies, web snapshots), under `$HOME`.
 pub const RESEARCH_REL_DIR: &str = ".acp/research";
@@ -398,9 +398,9 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("PgUp PgDn Home End", "Page / jump"),
     ("m / F10 / Alt+letter", "Menu bar (underlined letter opens a command)"),
     ("F6", "Start Scanning (Cancel while a job runs)"),
-    ("F5", "Theme picker (also the ‹theme› ▾ switch in the header)"),
-    ("Shift-F5", "Theme editor"),
-    ("«brand» ▾", "Brand picker (the header switch beside the theme; Brand: use… in the command palette)"),
+    ("F5", "Theme picker (also the ‹theme› ▾ switch in the header). A theme includes its branding"),
+    ("Shift-F5", "Theme editor: branding and colours on the left, live preview on the right"),
+    ("Brand: use…", "Opens the theme picker. The logo, title, and motto travel with the theme"),
     ("Shift-S", "Search modal: keyword, nicks, post id, dates, posts/replies, order, limit"),
     ("? on a menu option", "Help for that option (Order, Limit, Nick order, Nick limit, Colour)"),
     ("Ctrl-S (Ctrl-Shift-S)", "Clear the search"),

@@ -1,3 +1,33 @@
+acp-red-star (3.39.0) unstable; urgency=medium
+
+  * Package 3.39.0. The built-in red-star theme is the Rebel Hold teal-to-blue watercolor.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 17:10:00 +0000
+
+acp-red-star (3.38.1) unstable; urgency=medium
+
+  * Package 3.38.1. The Red Star brand's displayed title is "Red Star".
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 16:50:00 +0000
+
+acp-red-star (3.38.0) unstable; urgency=medium
+
+  * Package 3.38.0. The Red Star header mark is the star-blade halberd, with the word RED STAR.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 15:30:00 +0000
+
+acp-red-star (3.37.0) unstable; urgency=medium
+
+  * Package 3.37.0. The built-in Red Star motto is "Research starts here."
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 12:20:00 +0000
+
+acp-red-star (3.36.0) unstable; urgency=medium
+
+  * Package 3.36.0. Branding (logo, title, motto) lives on the theme. Shift-F5 shows a live preview beside the editor.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 12:00:00 +0000
+
 acp-red-star (3.35.14) unstable; urgency=medium
 
   * Package 3.35.14. A pending recovery phrase is asked in the terminal UI. Not now is the default.

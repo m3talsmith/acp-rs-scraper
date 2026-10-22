@@ -6,10 +6,10 @@ use crate::cli::{ColorMode, colors_suppressed};
 use ratatui::style::{Color, Modifier, Style};
 
 /// The line under the title, the About header, and the wide status bar.
-pub const SLOGAN: &str = "The future belongs to the working class";
+pub const SLOGAN: &str = "Research starts here.";
 
 /// Display columns of [`SLOGAN`]. It is ASCII, so this is also its byte length.
-pub const SLOGAN_COLS: u16 = 39;
+pub const SLOGAN_COLS: u16 = 21;
 
 /// Blank columns kept between status text and the slogan.
 pub const SLOGAN_STATUS_GAP: u16 = 2;
@@ -31,7 +31,7 @@ const _: () = {
         i += 1;
     }
     assert!(b.len() == SLOGAN_COLS as usize);
-    assert!(SLOGAN_STATUS_MIN == 65);
+    assert!(SLOGAN_STATUS_MIN == 47);
 };
 
 /// The footer can show the slogan beside `status_cols` of text without covering it.
@@ -89,20 +89,21 @@ mod tests {
 
     #[test]
     fn status_slogan_hides_below_the_threshold_and_when_text_would_be_covered() {
-        assert!(!slogan_in_status(64, 0), "below the width threshold");
+        assert!(!slogan_in_status(46, 0), "below the width threshold");
         assert!(
             slogan_in_status(SLOGAN_STATUS_MIN, 0),
             "empty bottom row at the threshold"
         );
         assert!(slogan_in_status(160, 108), "the default hint fits at 160");
-        assert!(!slogan_in_status(148, 108), "108 + gap + slogan is 149");
+        assert!(!slogan_in_status(130, 108), "108 + gap + slogan is 131");
+        assert!(slogan_in_status(131, 108), "108 + gap + slogan fits at 131");
         assert!(
             !slogan_in_status(110, 108),
             "the default footer is too narrow"
         );
         assert!(
-            !slogan_in_status(80, 40),
-            "wide enough, but this line would be covered"
+            !slogan_in_status(80, 58),
+            "58 + gap + slogan is 81"
         );
         assert!(slogan_in_status(100, 20));
         assert!(!motto_in_status("", 160, 0), "an empty motto is hidden");

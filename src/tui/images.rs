@@ -21,7 +21,7 @@ use crate::prelude::*;
 use image::{DynamicImage, RgbaImage};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::style::Color;
+use ratatui::style::{Color, Style};
 
 /// The red star logo (`assets/red-star.png`), embedded.
 pub const LOGO_PNG: &[u8] = include_bytes!("../../assets/red-star.png");
@@ -606,6 +606,105 @@ pub fn draw_logo_text(buf: &mut Buffer, area: Rect, fg: Color, bg: Color) -> boo
         }
     }
     true
+}
+
+/// 16×12 dots of the star-blade halberd. `#` is the blade, the shaft, and the butt.
+/// The gaps in the blade are the five-point star.
+const HALBERD: [&str; 12] = [
+    "......##........",
+    ".....####.......",
+    ".....####.......",
+    "......#####.###.",
+    "..#######.#.#.#.",
+    ".#########...##.",
+    "...######.###.#.",
+    "......####.#.##.",
+    "......##........",
+    "......##........",
+    "......##........",
+    ".....####.......",
+];
+
+const _: () = {
+    let mut i = 0;
+    while i < HALBERD.len() {
+        assert!(HALBERD[i].len() == 16);
+        i += 1;
+    }
+};
+
+/// Whether dot `(x, y)` of the halberd mask is ink. `x` is 0..16 and `y` is 0..12.
+pub fn halberd_dot(x: usize, y: usize) -> bool {
+    HALBERD[y].as_bytes()[x] == b'#'
+}
+
+/// Blend `from` toward `to`. `t` is 0 at `from` and 1 at `to`.
+pub fn lerp_color(from: Color, to: Color, t: f64) -> Color {
+    let t = t.clamp(0.0, 1.0);
+    let a = crate::tui::theme::rgb_bytes(from);
+    let b = crate::tui::theme::rgb_bytes(to);
+    let m = |i: usize| (a[i] as f64 + (b[i] as f64 - a[i] as f64) * t).round().clamp(0.0, 255.0) as u8;
+    Color::Rgb(m(0), m(1), m(2))
+}
+
+/// Draw the star-blade halberd into `area`, centred, as sextant cells in `style`.
+///
+/// The mark is 8×4 cells (16×12 dots), the same slot as the built-in star. Ink uses
+/// the style's foreground and the ground uses its background, so a theme's header
+/// bar colours the blade. A smaller area clips it. This is terminal art on every
+/// graphics protocol.
+pub fn draw_halberd(buf: &mut Buffer, area: Rect, style: Style) {
+    const COLS: i32 = 8;
+    const ROWS: i32 = 4;
+    if area.width == 0 || area.height == 0 { return; }
+    let x0 = i32::from(area.x) + (i32::from(area.width) - COLS) / 2;
+    let y0 = i32::from(area.y) + (i32::from(area.height) - ROWS) / 2;
+    let right = i32::from(area.x) + i32::from(area.width);
+    let bottom = i32::from(area.y) + i32::from(area.height);
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            let (x, y) = (x0 + col, y0 + row);
+            if x < i32::from(area.x) || y < i32::from(area.y) || x >= right || y >= bottom { continue; }
+            let mut bits = 0u8;
+            for dy in 0..3 { for dx in 0..2 {
+                let (px, py) = ((col as usize) * 2 + dx, (row as usize) * 3 + dy);
+                if halberd_dot(px, py) { bits |= 1 << (dy * 2 + dx); }
+            } }
+            if let Some(c) = buf.cell_mut((x as u16, y as u16)) {
+                c.set_char(sextant(bits)).set_style(style);
+            }
+        }
+    }
+}
+
+/// Draw the halberd as in [`draw_halberd`], with ink running from `from` on the left to `to` on the right.
+///
+/// Empty cells stay as the bar painted them. Ink cells use `bg` so the blade sits on the header ground.
+pub fn draw_halberd_gradient(buf: &mut Buffer, area: Rect, from: Color, to: Color, bg: Color) {
+    const COLS: i32 = 8;
+    const ROWS: i32 = 4;
+    if area.width == 0 || area.height == 0 { return; }
+    let x0 = i32::from(area.x) + (i32::from(area.width) - COLS) / 2;
+    let y0 = i32::from(area.y) + (i32::from(area.height) - ROWS) / 2;
+    let right = i32::from(area.x) + i32::from(area.width);
+    let bottom = i32::from(area.y) + i32::from(area.height);
+    let denom = (COLS - 1) as f64;
+    for row in 0..ROWS {
+        for col in 0..COLS {
+            let (x, y) = (x0 + col, y0 + row);
+            if x < i32::from(area.x) || y < i32::from(area.y) || x >= right || y >= bottom { continue; }
+            let mut bits = 0u8;
+            for dy in 0..3 { for dx in 0..2 {
+                let (px, py) = ((col as usize) * 2 + dx, (row as usize) * 3 + dy);
+                if halberd_dot(px, py) { bits |= 1 << (dy * 2 + dx); }
+            } }
+            if bits == 0 { continue; }
+            let fg = lerp_color(from, to, col as f64 / denom);
+            if let Some(c) = buf.cell_mut((x as u16, y as u16)) {
+                c.set_char(sextant(bits)).set_fg(fg).set_bg(bg);
+            }
+        }
+    }
 }
 
 /// Whether a stored attachment is a picture the TUI can show.

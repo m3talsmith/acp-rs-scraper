@@ -244,7 +244,7 @@ pub enum Effect {
     /// Store `[ui] brand` in preferences.toml.
     SaveUiBrand(String),
     /// Write a copy of this theme into the exports folder.
-    ExportTheme(crate::themes::ThemeFile),
+    ExportTheme(Box<crate::themes::ThemeFile>),
     /// Download a theme from the repo into the themes folder (`true`: asked for by hand).
     DownloadTheme(String, bool),
     /// Publishing is not in this binary.
@@ -523,8 +523,10 @@ pub struct App {
     pub brands_dir: Option<PathBuf>,
     /// The selected brand's name.
     pub brand_name: String,
-    /// Logo, title, and motto. Independent of [`App::theme`].
+    /// Logo, title, and motto. Comes from the theme unless `--brand` or `[ui] brand` pinned it.
     pub brand: crate::brands::Brand,
+    /// `--brand` or `[ui] brand` wins for this run until a theme is picked or its `[brand]` is saved.
+    pub brand_pinned: bool,
     /// Why the selected brand couldn't be used.
     pub brand_error: Option<String>,
     /// What is wrong with the selected brand, for the header: `missing` or `broken`.
@@ -630,7 +632,7 @@ impl App {
             job: None, tracked: Vec::new(), pending_job: None, marks: HashSet::new(), view_mode: ViewMode::Nested, grid_cols: 1, sync_next: None, auto_running: false, anim: None, empty_anim: None, empty_anim_accent: false, empty_anim_start: Instant::now(), empty_anim_frame: None, hits: Vec::new(), theme, effects: Vec::new(), osc_links: Vec::new(), images: None, basket: Vec::new(), research_current: None,
             page_rows: 5, email: None, themes_dir: None, theme_name: DEFAULT_THEME.into(), theme_file: None, theme_error: None, theme_fault: None,
             theme_mode: crate::themes::Mode::System, dark_bg: None, theme_editor: None, theme_downloading: None,
-            brands_dir: None, brand_name: DEFAULT_BRAND.into(), brand: crate::brands::builtin_default(), brand_error: None, brand_fault: None, brand_editor: None,
+            brands_dir: None, brand_name: DEFAULT_BRAND.into(), brand: crate::brands::builtin_default(), brand_pinned: false, brand_error: None, brand_fault: None, brand_editor: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None, pending_outbox: None,
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
@@ -2251,10 +2253,10 @@ impl App {
             Action::ThemeExport => self.export_theme(),
             Action::ThemeInit => self.init_theme(),
             Action::ThemeStarter => self.theme_starter(None),
-            Action::BrandPicker => self.open_brand_picker(),
-            Action::BrandEditor => self.open_brand_editor(),
-            Action::BrandList => self.list_brands_modal(),
-            Action::BrandReload => self.reload_brand(),
+            Action::BrandPicker => self.open_theme_picker(),
+            Action::BrandEditor => self.open_theme_editor(),
+            Action::BrandList => self.list_themes(),
+            Action::BrandReload => self.reload_theme(),
             Action::NewPost => { self.close_menu(); self.open_new_post(); }
             Action::Reply => { self.close_menu(); self.open_reply(); }
             Action::Quote => { self.close_menu(); self.open_quote(); }
@@ -2697,10 +2699,10 @@ impl App {
             ("Theme: export".into(), PaletteCmd::Action(Action::ThemeExport)),
             ("Theme: init (download the default)".into(), PaletteCmd::Action(Action::ThemeInit)),
             ("Theme: starter [name]".into(), PaletteCmd::Action(Action::ThemeStarter)),
-            ("Brand: use…".into(), PaletteCmd::Action(Action::BrandPicker)),
-            ("Brand: list".into(), PaletteCmd::Action(Action::BrandList)),
-            ("Brand: edit…".into(), PaletteCmd::Action(Action::BrandEditor)),
-            ("Brand: reload".into(), PaletteCmd::Action(Action::BrandReload)),
+            ("Brand: use…".into(), PaletteCmd::Action(Action::ThemePicker)),
+            ("Brand: list".into(), PaletteCmd::Action(Action::ThemeList)),
+            ("Brand: edit… (Shift-F5)".into(), PaletteCmd::Action(Action::ThemeEditor)),
+            ("Brand: reload".into(), PaletteCmd::Action(Action::ThemeReload)),
             ("Search… (Shift-S)".into(), PaletteCmd::Action(Action::OpenSearchModal)),
             ("Clear search (Ctrl-S)".into(), PaletteCmd::Action(Action::ClearSearch)),
             ("Toggle log panel (l)".into(), PaletteCmd::Action(Action::ToggleLog)),

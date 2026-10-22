@@ -29,12 +29,13 @@ fn go_to(a: &mut App, r: Row) {
 #[test]
 fn full_screen_list_and_live_preview_by_the_real_ui() {
     let mut a = editor("screen");
-    let b = draw(&mut a, 140, 40);
+    // Branding sits above the palette, so the list needs a taller screen to reach card_focused.
+    let b = draw(&mut a, 140, 52);
     let s = text(&b);
     assert!(s.lines().next().unwrap().contains("Theme editor · default") && s.contains("‹dark› light"), "{s}");
     for t in ["Palette", "accent", "#dc2626", "Elements", "link", "card_focused", "Preview (sample posts)"] { assert!(s.contains(t), "no {t}:\n{s}"); }
     // The preview is the real UI (header, menu, nick bar) over the sample posts, not the database.
-    for t in ["ACP Red Star", "Scrape", "@sample", "May Day", "Workers of the world", "Strike fund", "Solidarity"] {
+    for t in ["Red Star", "Scrape", "@sample", "May Day", "Workers of the world", "Strike fund", "Solidarity"] {
         assert!(s.contains(t), "preview lacks {t}:\n{s}");
     }
     assert!(!s.contains("comrade") && !s.contains("Field notes"), "{s}");
@@ -58,15 +59,54 @@ fn the_preview_follows_the_active_brand_and_the_sample_nicks() {
     nicks.sort();
     assert_eq!(nicks, ["reader", "sample"]);
     let s = text(&draw(&mut a, 140, 40));
-    assert!(s.contains("Red Star") && s.contains("«plain»"), "{s}");
+    assert!(s.contains("Red Star"), "{s}");
+    assert!(!s.contains('«'), "{s}");
     assert!(s.contains('★'), "{s}");
     assert!(s.contains("@sample") && s.contains("@reader"), "{s}");
     assert!(s.contains("Field notes"), "{s}");
     assert!(!s.contains("ACP Red Star"), "{s}");
-    assert!(!s.contains("The future belongs to the working class"), "{s}");
+    assert!(!s.contains(crate::branding::SLOGAN), "{s}");
     assert!(!s.contains("May Day") && !s.contains("Workers of the world"), "{s}");
     assert!(!s.contains("Strike fund") && !s.contains("Solidarity"), "{s}");
     assert!(!s.contains("alice") && !s.contains("comrade"), "{s}");
+}
+
+#[test]
+fn branding_edits_update_the_side_by_side_preview() {
+    let mut a = editor("brand-live");
+    let s = text(&draw(&mut a, 140, 40));
+    assert!(s.contains("Branding") && s.contains("Preview (sample posts)"), "{s}");
+    assert!(s.contains("title"), "{s}");
+    on_key(&mut a, key(KeyCode::Enter));
+    on_key(&mut a, ctrl('u'));
+    type_str(&mut a, "North Star");
+    assert_eq!(ed(&a).preview.brand.title, "North Star");
+    on_key(&mut a, key(KeyCode::Enter));
+    go_to(&mut a, Row::Brand("motto"));
+    on_key(&mut a, key(KeyCode::Enter));
+    on_key(&mut a, ctrl('u'));
+    type_str(&mut a, "hold the line");
+    assert_eq!(ed(&a).preview.brand.motto, "hold the line");
+    on_key(&mut a, key(KeyCode::Enter));
+    go_to(&mut a, Row::Brand("logo"));
+    on_key(&mut a, key(KeyCode::Enter));
+    assert_eq!(ed(&a).preview.brand.logo, crate::brands::LogoKind::Text);
+    go_to(&mut a, Row::Brand("logo_text"));
+    on_key(&mut a, key(KeyCode::Enter));
+    on_key(&mut a, ctrl('u'));
+    type_str(&mut a, "NS");
+    assert_eq!(ed(&a).preview.brand.logo_text, "NS");
+    on_key(&mut a, key(KeyCode::Enter));
+    go_to(&mut a, Row::Palette("accent".into()));
+    on_key(&mut a, key(KeyCode::Enter));
+    on_key(&mut a, ctrl('u'));
+    type_str(&mut a, "#112233");
+    on_key(&mut a, key(KeyCode::Enter));
+    assert_eq!(ed(&a).preview.theme.accent, Color::Rgb(0x11, 0x22, 0x33));
+    let s = text(&draw(&mut a, 140, 40));
+    for t in ["Branding", "Preview (sample posts)", "North Star", "hold the line", "NS", "#112233"] {
+        assert!(s.contains(t), "preview lacks {t}:\n{s}");
+    }
 }
 
 #[test]

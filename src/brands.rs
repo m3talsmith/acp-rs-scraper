@@ -1,10 +1,12 @@
 //! Brands: the logo, the title, and the motto.
 //!
-//! A brand is independent of the theme. The built-in `default` brand is ACP Red
-//! Star. The built-in `plain` brand is a neutral title and a star, with no motto.
-//! A file `~/.acp/brands/<name>.toml` overrides a built-in of the same name.
-//! Loading, the size limit, and a broken file follow the theme rules: a broken
-//! file is reported and never overwritten.
+//! Branding travels with a theme (`[brand]` in the theme file). The built-in
+//! `default` brand is ACP Red Star. The built-in `plain` brand is a neutral title
+//! and a star, with no motto. A file `~/.acp/brands/<name>.toml` still overrides a
+//! built-in of the same name, and `--brand` still selects one for this run.
+//! Saving a theme writes that branding into the theme. Loading, the size limit,
+//! and a broken file follow the theme rules: a broken file is reported and never
+//! overwritten.
 
 use crate::branding::SLOGAN;
 use crate::config::{home, BRANDS_REL_DIR, BRAND_FORMAT_VERSION, BRAND_LOGO_MAX_BYTES, BRAND_MAX_BYTES, DEFAULT_BRAND, PLAIN_BRAND, TUI_TITLE};
@@ -17,6 +19,8 @@ use std::sync::Mutex;
 /// How the header logo is drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LogoKind {
+    /// The star-blade halberd, sextant blocks in the header bar's colours.
+    Halberd,
     /// The built-in red-star picture (sextants when the terminal has no graphics).
     Builtin,
     /// [`Brand::logo_text`], one line per row, in the logo's rectangle.
@@ -26,9 +30,10 @@ pub enum LogoKind {
 }
 
 impl LogoKind {
-    /// `builtin`, `text`, or `file`.
+    /// `halberd`, `builtin`, `text`, or `file`.
     pub fn parse(s: &str) -> Option<Self> {
         match s.trim() {
+            "halberd" => Some(Self::Halberd),
             "builtin" => Some(Self::Builtin),
             "text" => Some(Self::Text),
             "file" => Some(Self::File),
@@ -38,9 +43,19 @@ impl LogoKind {
     /// The TOML value.
     pub fn as_str(self) -> &'static str {
         match self {
+            Self::Halberd => "halberd",
             Self::Builtin => "builtin",
             Self::Text => "text",
             Self::File => "file",
+        }
+    }
+    /// The next logo in the editor: halberd, text, file, builtin.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Halberd => Self::Text,
+            Self::Text => Self::File,
+            Self::File => Self::Builtin,
+            Self::Builtin => Self::Halberd,
         }
     }
 }
@@ -56,7 +71,7 @@ pub struct Brand {
     pub title: String,
     /// Status bar and About. Empty hides it.
     pub motto: String,
-    /// Big letters beside the logo. Empty draws none. The default is `ACP`.
+    /// Big letters beside the logo. Empty draws none. The Red Star default is `RED STAR`.
     pub word: String,
     /// Which logo to draw.
     pub logo: LogoKind,
@@ -98,7 +113,7 @@ impl LoadError {
             LoadError::BadName(e) => e.clone(),
             LoadError::Missing(p) => format!(
                 "brand file {} is missing, and there is no built-in with that name. Using the default brand. \
-                 Pick one with the header's «brand» ▾ switch, or add a file under ~/.acp/brands.",
+                 Pick a theme with F5, or add a file under ~/.acp/brands.",
                 p.display()
             ),
             LoadError::Broken(p, e) => format!(
@@ -137,15 +152,15 @@ pub fn brand_path(dir: &Path, name: &str) -> std::result::Result<PathBuf, String
     Ok(dir.join(format!("{name}.toml")))
 }
 
-/// The built-in ACP Red Star brand. Unchanged from the header this program shipped with.
+/// The built-in ACP Red Star brand: the star-blade halberd and the word `RED STAR`.
 pub fn builtin_default() -> Brand {
     Brand {
         name: DEFAULT_BRAND.into(),
-        description: "ACP Red Star: the red star, the title, and the slogan.".into(),
+        description: "ACP Red Star: the star-blade halberd, the title, and the slogan.".into(),
         title: TUI_TITLE.into(),
         motto: SLOGAN.into(),
-        word: "ACP".into(),
-        logo: LogoKind::Builtin,
+        word: "RED STAR".into(),
+        logo: LogoKind::Halberd,
         logo_text: String::new(),
         logo_file: String::new(),
         logo_path: None,
@@ -166,6 +181,38 @@ pub fn builtin_plain() -> Brand {
         logo_file: String::new(),
         logo_path: None,
         from_file: false,
+    }
+}
+
+/// The theme's `[brand]` table for this brand.
+pub fn theme_brand_of(b: &Brand) -> crate::themes::ThemeBrand {
+    crate::themes::ThemeBrand {
+        title: b.title.clone(),
+        motto: b.motto.clone(),
+        word: b.word.clone(),
+        logo: b.logo.as_str().into(),
+        logo_text: b.logo_text.clone(),
+        logo_file: b.logo_file.clone(),
+    }
+}
+
+/// A brand from a theme's `[brand]` table. A `file` logo is resolved only when `dir` is set.
+pub fn from_theme_brand(name: &str, b: &crate::themes::ThemeBrand, dir: Option<&Path>) -> Brand {
+    let brand = Brand {
+        name: name.into(),
+        description: String::new(),
+        title: b.title.clone(),
+        motto: b.motto.clone(),
+        word: b.word.clone(),
+        logo: LogoKind::parse(&b.logo).unwrap_or(LogoKind::Builtin),
+        logo_text: b.logo_text.clone(),
+        logo_file: b.logo_file.clone(),
+        logo_path: None,
+        from_file: false,
+    };
+    match (dir, brand.logo) {
+        (Some(dir), LogoKind::File) => finalize(&brand, dir).unwrap_or(brand),
+        _ => brand,
     }
 }
 
@@ -328,7 +375,7 @@ pub fn finalize(draft: &Brand, dir: &Path) -> std::result::Result<Brand, String>
         b.description = b.title.clone();
     }
     match b.logo {
-        LogoKind::Builtin => {
+        LogoKind::Halberd | LogoKind::Builtin => {
             b.logo_text.clear();
             b.logo_file.clear();
             b.logo_path = None;
@@ -436,8 +483,8 @@ fn parse(src: &str, stem: &str, dir: &Path) -> std::result::Result<Brand, String
             "motto" => base.motto = v.as_str().ok_or("motto must be a string")?.to_string(),
             "word" => base.word = v.as_str().ok_or("word must be a string")?.to_string(),
             "logo" => {
-                let s = v.as_str().ok_or("logo must be builtin, text, or file")?;
-                base.logo = LogoKind::parse(s).ok_or_else(|| format!("logo {s:?} must be builtin, text, or file"))?;
+                let s = v.as_str().ok_or("logo must be halberd, text, file, or builtin")?;
+                base.logo = LogoKind::parse(s).ok_or_else(|| format!("logo {s:?} must be halberd, text, file, or builtin"))?;
             }
             "logo_text" => base.logo_text = v.as_str().ok_or("logo_text must be a string")?.to_string(),
             "logo_file" => base.logo_file = v.as_str().ok_or("logo_file must be a string")?.to_string(),
@@ -510,11 +557,12 @@ pub fn delete(dir: &Path, name: &str) -> Result<()> {
 
 /// Set clap's about text and the long version line from `brand`.
 ///
-/// The default title keeps the existing about text. `--version` adds the title
-/// on the next line. The short `-V` line stays `acp-red-star` and the version.
+/// A brand that keeps the ACP wording keeps the shipped about text. `--version`
+/// adds the displayed title on the next line. The short `-V` line stays
+/// `acp-red-star` and the version.
 pub fn style_command(mut cmd: clap::Command, brand: &Brand) -> clap::Command {
     cmd = cmd.long_version(format!("{}\n{}", env!("CARGO_PKG_VERSION"), brand.title));
-    if brand.title != TUI_TITLE {
+    if !brand.shows_acp() {
         let about = format!("{}: a local client for the Red Star forum (acp.us/rs)", brand.title);
         let long = cmd.get_long_about()
             .map(|s| s.to_string().replacen("ACP Red Star.", &format!("{}.", brand.title), 1))
@@ -554,10 +602,15 @@ mod tests {
     #[test]
     fn default_brand_is_the_shipped_header() {
         let b = builtin_default();
-        assert_eq!(b.title, "ACP Red Star");
+        assert_eq!(b.title, "Red Star");
         assert_eq!(b.motto, SLOGAN);
-        assert_eq!(b.word, "ACP");
-        assert_eq!(b.logo, LogoKind::Builtin);
+        assert_eq!(b.word, "RED STAR");
+        assert_eq!(b.logo, LogoKind::Halberd);
+        assert_eq!(b.logo.next(), LogoKind::Text);
+        assert_eq!(LogoKind::Text.next(), LogoKind::File);
+        assert_eq!(LogoKind::File.next(), LogoKind::Builtin);
+        assert_eq!(LogoKind::Builtin.next(), LogoKind::Halberd);
+        assert_eq!(LogoKind::parse("halberd"), Some(LogoKind::Halberd));
     }
 
     #[test]

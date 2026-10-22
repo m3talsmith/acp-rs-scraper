@@ -192,6 +192,8 @@ async fn theme_preview(w: &mut E2e, name: String) {
     let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
     app.brand = brand;
     app.brand_name = name;
+    // A chosen brand (`--brand`, or this step) stays on screen when the theme file has no [brand].
+    app.brand_pinned = true;
     let dir = w.home.join(".acp/themes");
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("default.toml"), include_str!("../themes/default.toml")).unwrap();
@@ -199,6 +201,62 @@ async fn theme_preview(w: &mut E2e, name: String) {
     assert!(app.use_theme("default", false), "the sample theme loads");
     app.open_theme_editor();
     assert!(app.theme_editor.is_some(), "the theme editor opens");
+    w.preview = acp_red_star::tui::widgets::screen_text(&mut app, 140, 40);
+}
+
+#[when(expr = "I edit the theme preview branding to title {string}, motto {string}, and logo text {string}")]
+async fn theme_preview_branding(w: &mut E2e, title: String, motto: String, logo: String) {
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    theme_preview(w, "default".into()).await;
+    let mut app = {
+        use clap::Parser;
+        let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+        let mut app = acp_red_star::tui::state::App::new(
+            Box::new(acp_red_star::tui::sample::sample_store()),
+            &args,
+            acp_red_star::tui::theme::Theme::reset(),
+            false,
+        );
+        app.themes_dir = Some(w.home.join(".acp/themes"));
+        assert!(app.use_theme("default", false));
+        app.open_theme_editor();
+        app
+    };
+    let key = |app: &mut acp_red_star::tui::state::App, code, mods| {
+        acp_red_star::tui::input::on_key(app, KeyEvent::new(code, mods));
+    };
+    let type_str = |app: &mut acp_red_star::tui::state::App, s: &str| {
+        for c in s.chars() { key(app, KeyCode::Char(c), KeyModifiers::NONE); }
+    };
+    let go = |app: &mut acp_red_star::tui::state::App, row| {
+        let i = app.theme_editor.as_ref().unwrap().rows().iter().position(|r| r == &row).unwrap();
+        app.theme_editor.as_mut().unwrap().cursor = i;
+    };
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    key(&mut app, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    type_str(&mut app, &title);
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    go(&mut app, acp_red_star::tui::editor::Row::Brand("motto"));
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    key(&mut app, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    type_str(&mut app, &motto);
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    go(&mut app, acp_red_star::tui::editor::Row::Brand("logo"));
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    go(&mut app, acp_red_star::tui::editor::Row::Brand("logo_text"));
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    key(&mut app, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    type_str(&mut app, &logo);
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    go(&mut app, acp_red_star::tui::editor::Row::Palette("accent".into()));
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    key(&mut app, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    type_str(&mut app, "#112233");
+    key(&mut app, KeyCode::Enter, KeyModifiers::NONE);
+    assert_eq!(app.theme_editor.as_ref().unwrap().preview.theme.accent, ratatui::style::Color::Rgb(0x11, 0x22, 0x33));
+    assert_eq!(app.theme_editor.as_ref().unwrap().preview.brand.title, title);
+    assert_eq!(app.theme_editor.as_ref().unwrap().preview.brand.motto, motto);
+    assert_eq!(app.theme_editor.as_ref().unwrap().preview.brand.logo_text, logo);
     w.preview = acp_red_star::tui::widgets::screen_text(&mut app, 140, 40);
 }
 

@@ -214,6 +214,51 @@ impl Variant {
     pub fn flip(self) -> Variant { match self { Variant::Dark => Variant::Light, Variant::Light => Variant::Dark } }
 }
 
+/// Logo, title, and motto carried by a theme (`[brand]`).
+///
+/// Missing `[brand]` means the theme file does not set branding. A user file in
+/// `~/.acp/brands` or `--brand` can still supply it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ThemeBrand {
+    /// Header, window title, About, status, `--help`, `--version`.
+    pub title: String,
+    /// Status bar and About. Empty hides it.
+    pub motto: String,
+    /// Big letters beside the logo. Empty draws none.
+    pub word: String,
+    /// `halberd`, `builtin`, `text`, or `file`.
+    pub logo: String,
+    /// Lines drawn when [`ThemeBrand::logo`] is `text`.
+    pub logo_text: String,
+    /// Path relative to `~/.acp/brands` when [`ThemeBrand::logo`] is `file`.
+    pub logo_file: String,
+}
+
+impl ThemeBrand {
+    /// Red Star: the displayed title, the slogan, the word RED STAR, and the star-blade halberd.
+    pub fn red_star() -> Self {
+        Self {
+            title: crate::config::TUI_TITLE.into(),
+            motto: crate::branding::SLOGAN.into(),
+            word: "RED STAR".into(),
+            logo: "halberd".into(),
+            logo_text: String::new(),
+            logo_file: String::new(),
+        }
+    }
+    /// Neutral demo branding: title Red Star, a star, no motto, no big word.
+    pub fn plain() -> Self {
+        Self {
+            title: "Red Star".into(),
+            motto: String::new(),
+            word: String::new(),
+            logo: "text".into(),
+            logo_text: "★".into(),
+            logo_file: String::new(),
+        }
+    }
+}
+
 /// A parsed theme file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ThemeFile {
@@ -223,6 +268,8 @@ pub struct ThemeFile {
     pub name: String,
     /// One line about it.
     pub description: String,
+    /// Logo, title, and motto. `None`: the file does not set them.
+    pub brand: Option<ThemeBrand>,
     /// The dark variant.
     pub dark: Section,
     /// The light variant (`None`: same as dark).
@@ -232,7 +279,7 @@ pub struct ThemeFile {
 impl ThemeFile {
     /// An empty theme (every colour the terminal's own).
     pub fn empty(name: &str) -> Self {
-        ThemeFile { version: THEME_FORMAT_VERSION, name: name.into(), description: String::new(), dark: Section::default(), light: None }
+        ThemeFile { version: THEME_FORMAT_VERSION, name: name.into(), description: String::new(), brand: None, dark: Section::default(), light: None }
     }
     /// The variant as it applies: `[light]` with missing entries taken from `[dark]`.
     pub fn section(&self, v: Variant) -> Section {
@@ -364,11 +411,12 @@ pub fn parse(src: &str, stem: &str) -> std::result::Result<(ThemeFile, Vec<Strin
     };
     let dark = sec("dark", &mut warn);
     let light = sec("light", &mut warn);
+    let brand = parse_brand(&table, &mut warn);
     if dark.is_none() { warn.push("no [dark] section: using the terminal's colours".into()); }
     for k in table.keys() {
-        if !["version", "name", "description", "dark", "light"].contains(&k.as_str()) { warn.push(format!("unknown key {k:?} (ignored)")); }
+        if !["version", "name", "description", "brand", "dark", "light"].contains(&k.as_str()) { warn.push(format!("unknown key {k:?} (ignored)")); }
     }
-    let f = ThemeFile { version, name, description, dark: dark.unwrap_or_default(), light };
+    let f = ThemeFile { version, name, description, brand, dark: dark.unwrap_or_default(), light };
     for v in [Variant::Dark, Variant::Light] {
         if v == Variant::Light && f.light.is_none() { continue; }
         let s = f.section(v);
@@ -390,6 +438,44 @@ fn is_reset_chain(s: &Section, r: &str) -> bool {
         match s.get(&cur) { Some(ColorSpec::Value(_)) => return true, Some(ColorSpec::Ref(n)) => cur = n.clone(), None => return false }
     }
     false
+}
+
+fn brand_text(t: &toml::Table, k: &str, w: &mut Vec<String>) -> String {
+    match t.get(k) {
+        None => String::new(),
+        Some(toml::Value::String(s)) => s.clone(),
+        Some(v) => {
+            w.push(format!("[brand] {k}: expected text, found {} (ignored)", v.type_str()));
+            String::new()
+        }
+    }
+}
+
+fn parse_brand(table: &toml::Table, w: &mut Vec<String>) -> Option<ThemeBrand> {
+    let v = table.get("brand")?;
+    let toml::Value::Table(t) = v else {
+        w.push(format!("[brand]: expected a table, found {} (ignored)", v.type_str()));
+        return None;
+    };
+    let mut logo = brand_text(t, "logo", w);
+    if logo.is_empty() { logo = "builtin".into(); }
+    if !["halberd", "builtin", "text", "file"].contains(&logo.as_str()) {
+        w.push(format!("[brand] logo: expected halberd, builtin, text, or file, found {logo:?} (using builtin)"));
+        logo = "builtin".into();
+    }
+    for k in t.keys() {
+        if !["title", "motto", "word", "logo", "logo_text", "logo_file"].contains(&k.as_str()) {
+            w.push(format!("[brand] unknown key {k:?} (ignored)"));
+        }
+    }
+    Some(ThemeBrand {
+        title: brand_text(t, "title", w),
+        motto: brand_text(t, "motto", w),
+        word: brand_text(t, "word", w),
+        logo,
+        logo_text: brand_text(t, "logo_text", w),
+        logo_file: brand_text(t, "logo_file", w),
+    })
 }
 
 fn parse_section(k: &str, t: &toml::Table, w: &mut Vec<String>) -> Section {
@@ -433,6 +519,12 @@ pub fn to_toml(f: &ThemeFile) -> String {
     let q = |s: &str| toml::Value::String(s.into()).to_string();
     let mut o = format!("# acp-red-star theme, format v{THEME_FORMAT_VERSION}. See docs/USAGE.md (Themes).\nversion = {}\nname = {}\ndescription = {}\n",
         f.version, q(&f.name), q(&f.description));
+    if let Some(b) = &f.brand {
+        o.push_str("\n[brand]\n");
+        for (k, v) in [("title", &b.title), ("motto", &b.motto), ("word", &b.word), ("logo", &b.logo), ("logo_text", &b.logo_text), ("logo_file", &b.logo_file)] {
+            o.push_str(&format!("{k} = {}\n", q(v)));
+        }
+    }
     let mut sec = |k: &str, s: &Section| {
         o.push_str(&format!("\n[{k}.palette]\n"));
         let mut pal: Vec<&(String, ColorSpec)> = s.palette.iter().collect();

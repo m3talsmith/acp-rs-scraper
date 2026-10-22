@@ -80,8 +80,8 @@ fn f5_opens_the_picker_and_it_previews_then_uses_or_restores() {
     let mut a = themed_app("picker");
     on_key(&mut a, key(KeyCode::F(5)));
     let Some(Modal::ThemePicker(p)) = &a.modal else { panic!("picker") };
-    assert_eq!(p.entries.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["default", "green"]);
-    assert_eq!(p.rows(), 3, "the themes, then Edit themes…");
+    assert_eq!(p.entries.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["default", "green", "plain", "red-star"]);
+    assert_eq!(p.rows(), 5, "the theme files, the built-ins, then Edit themes…");
     let s = text(&draw(&mut a, 110, 30));
     assert!(s.contains("All green") && s.contains("Edit themes…"), "{s}");
     on_key(&mut a, key(KeyCode::Down));
@@ -226,9 +226,11 @@ fn with_no_themes_the_picker_offers_download_and_starter() {
     let (mut a, d) = first_run_app("pick-empty");
     a.open_theme_picker();
     let s = text(&draw(&mut a, 120, 30));
-    for t in ["Download the default theme", "Create starter theme", "Edit themes…"] { assert!(s.contains(t), "no {t}:\n{s}"); }
-    let Some(Modal::ThemePicker(p)) = &a.modal else { panic!() };
-    assert_eq!((p.rows(), p.chosen()), (3, PickerChoice::Download));
+    for t in ["Download the default theme", "Create starter theme", "Edit themes…", "plain", "red-star"] { assert!(s.contains(t), "no {t}:\n{s}"); }
+    let Some(Modal::ThemePicker(p)) = &mut a.modal else { panic!() };
+    let at = p.entries.len();
+    p.cursor = at;
+    assert_eq!(p.chosen(), PickerChoice::Download);
     on_key(&mut a, key(KeyCode::Enter));
     assert!(matches!(&a.effects[..], [Effect::DownloadTheme(n, true)] if n == "default"));
     // A themed folder doesn't offer them.
@@ -243,7 +245,8 @@ fn with_no_themes_the_picker_offers_download_and_starter() {
 fn create_starter_theme_from_the_picker_writes_it_and_uses_it() {
     let (mut a, d) = first_run_app("pick-starter");
     a.open_theme_picker();
-    on_key(&mut a, key(KeyCode::Down));
+    let Some(Modal::ThemePicker(p)) = &mut a.modal else { panic!() };
+    p.cursor = p.entries.len() + 1;
     on_key(&mut a, key(KeyCode::Enter));
     let l = themes::load(&d, "starter").unwrap();
     assert!(l.warnings.is_empty());

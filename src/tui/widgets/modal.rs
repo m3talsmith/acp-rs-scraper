@@ -94,7 +94,7 @@ fn draw_job(f: &mut Frame, app: &mut App, area: Rect, m: &JobModal, t: &Theme) {
         line(format!("Pid: {}", job.pid), t.muted().into()),
     ];
     if !job.running { lines.push(line(format!("Exit: {}", job.exit), t.plain().into())); }
-    if !job.error.is_empty() { lines.push(line(format!("Error: {}", job.error), t.accent().into())); }
+    if !job.error.is_empty() { lines.push(line(format!("Error: {}", job.error), t.problem().into())); }
     if !job.cmd.is_empty() { lines.push(line(format!("Command: {}", job.cmd), t.muted().into())); }
     lines.push(line("Log:".into(), t.bold().into()));
     let used = lines.len() as u16;
@@ -108,7 +108,7 @@ fn draw_job(f: &mut Frame, app: &mut App, area: Rect, m: &JobModal, t: &Theme) {
     let scroll = m.scroll.min(max_scroll);
     for (k, line) in job.tail.iter().skip(scroll).take(log_h).enumerate() {
         let rr = row(log_top + k as u16);
-        let st = if status_line_is_problem(line) { t.accent() } else { t.muted() };
+        let st = if status_line_is_problem(line) { t.problem() } else { t.muted() };
         f.render_widget(Paragraph::new(Span::styled(clip(line, inner.width as usize), st)), rr);
     }
     let labels: Vec<String> = if job.running { vec!["Cancel".into(), "Close".into()] } else { vec!["Close".into()] };
@@ -210,7 +210,7 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
         }
     });
     if y < btn_y {
-        f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
+        f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.problem() } else { t.muted() })), row(y));
     }
     let (labels, focus) = if edit_reply {
         let focus = match m.focus {
@@ -315,7 +315,7 @@ fn draw_rules(f: &mut Frame, app: &mut App, area: Rect, m: &crate::tui::modals::
     }
     if let Some(e) = &m.error {
         let rr = Rect { y: inner.y + 7, height: 1, ..inner };
-        f.render_widget(Paragraph::new(Span::styled(e.clone(), t.accent())), rr);
+        f.render_widget(Paragraph::new(Span::styled(e.clone(), t.problem())), rr);
     }
     let labels: Vec<String> = m.buttons().iter().map(|s| (*s).to_string()).collect();
     let focus = match m.focus { RuleFocus::Button(i) => Some(i), _ => None };
@@ -351,7 +351,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let text: Vec<String> = mm.lines.iter().flat_map(|l| wrap(l, w as usize - 4)).collect();
             let r = modal_rect(area, w, text.len() as u16 + 5);
             let inner = frame(f, &t, r, &mm.title);
-            let st = if mm.error { t.accent() } else { t.plain() };
+            let st = if mm.error { t.problem() } else { t.plain() };
             f.render_widget(Paragraph::new(text.into_iter().map(|l| Line::styled(l, &st)).collect::<Vec<_>>()),
                 Rect { height: inner.height.saturating_sub(2), ..inner });
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["OK".into()], Some(0));
@@ -364,7 +364,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             let inner = frame(f, &t, r, &c.title);
             let mut lines: Vec<Line> = text.into_iter().map(Line::raw).collect();
             if c.strict { lines.push(Line::raw("")); lines.push(field_line("Type yes", &c.typed, true, &t)); }
-            if let Some(e) = &c.error { lines.push(Line::styled(e.clone(), t.accent())); }
+            if let Some(e) = &c.error { lines.push(Line::styled(e.clone(), t.problem())); }
             f.render_widget(Paragraph::new(lines), Rect { height: inner.height.saturating_sub(2), ..inner });
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &c.buttons, Some(c.focus));
         }
@@ -393,7 +393,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 f.render_widget(Paragraph::new(Span::styled(tip, t.muted())), Rect { y: inner.y + nf as u16 + 1, height: 1, ..inner });
             }
             if let Some(e) = &s.error {
-                f.render_widget(Paragraph::new(Span::styled(e.clone(), t.accent())), Rect { y: inner.y + nf as u16 + 2, height: 1, ..inner });
+                f.render_widget(Paragraph::new(Span::styled(e.clone(), t.problem())), Rect { y: inner.y + nf as u16 + 2, height: 1, ..inner });
             }
             let labels: Vec<String> = SEARCH_BUTTONS.iter().map(|b| b.to_string()).collect();
             let focus = s.focus.checked_sub(nf);
@@ -443,7 +443,7 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             f.render_widget(Paragraph::new(field_line("Description", &m.desc, m.focus == RField::Desc, &t)), row(y));
             app.hits.push((row(y), Hit::Modal(ModalHit::Field(3))));
             y += 1;
-            if let Some(e) = &m.error { f.render_widget(Paragraph::new(Span::styled(e.clone(), t.accent())), row(y)); }
+            if let Some(e) = &m.error { f.render_widget(Paragraph::new(Span::styled(e.clone(), t.problem())), row(y)); }
             let focus = match m.focus { RField::Button(b) => Some(b), _ => None };
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &m.buttons(), focus);
         }
@@ -463,7 +463,10 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                         let cur = if e.name == p.current { "●" } else { " " };
                         match &e.error {
                             Some(err) => (format!(" {cur} {:<16} ⚠ {err}", e.name), true),
-                            None => (format!(" {cur} {:<16} {}", e.name, e.description), false),
+                            None => {
+                                let label = if e.title.is_empty() { e.description.clone() } else { e.title.clone() };
+                                (format!(" {cur} {:<12} {label}", e.name), false)
+                            }
                         }
                     }
                     None => (match p.action_row(i) {

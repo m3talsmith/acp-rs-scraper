@@ -1,25 +1,78 @@
 # acp-red-star theme, format v1. See docs/USAGE.md (Themes).
+# Rebel Hold watercolor. Dark grounds are night #04121a, the header is the
+# deeper #03090f, and panels sit in #0b2a33. Text is #bfe9e1, bold is #e6fbf7.
+# The mark runs #2fb49a to #2a86b8. Light is paper #f7f5ef and ink #0d3b4a,
+# with the mark running #1f9a7e to #1b6f9a. Body text is at least 4.5:1.
+# Borders and the light mark's teal end are at least 3:1.
 version = 1
 name = "red-star"
-description = "ACP Red Star brand: ink black, vermilion and gold, cream text, from the banner"
+description = "Rebel Hold watercolor: teal and blue on night, paper and ink in the light"
 
 [dark.palette]
-accent = "#c8102e"
-muted = "#e8b648"
-border = "#a20b19"
-on_accent = "#f6e8c8"
-fg = "#f6e8c8"
-bg = "#0e0404"
-yellow = "#e8b648"
+accent = "#2fb49a"
+muted = "#339e90"
+border = "#288e95"
+on_accent = "#03090f"
+fg = "#bfe9e1"
+bg = "#04121a"
+bright = "#e6fbf7"
+deep = "#03090f"
+surface = "#0b2a33"
+raised = "#123c47"
+aqua = "#4ca6a5"
+link = "#2a86b8"
+chip = "#1c6f93"
+mark = "#2fb49a"
+mark_end = "#2a86b8"
+danger = "#c67b6d"
 
 [dark.styles.bold]
-fg = "@yellow"
+fg = "@bright"
+
+[dark.styles.link]
+fg = "@link"
+underline = true
+
+[dark.styles.gone]
+fg = "@muted"
+
+[dark.styles.code]
+fg = "@aqua"
+bg = "@surface"
+
+[dark.styles.selected]
+fg = "@bright"
+bg = "@chip"
+bold = true
+
+[dark.styles.field]
+fg = "@bright"
+bg = "@surface"
+underline = true
 
 [dark.styles.bar]
+fg = "@bright"
+bg = "@deep"
+bold = true
+
+[dark.styles.button]
+fg = "@on_accent"
+bg = "@accent"
+bold = true
+
+[dark.styles.post_tag]
+fg = "@bright"
+bg = "@chip"
+bold = true
+
+[dark.styles.reply_tag]
+fg = "@on_accent"
+bg = "@accent"
 bold = true
 
 [dark.styles.dialog]
-bg = "@bg"
+bg = "@surface"
+border = "@border"
 
 # Markdown in post bodies ([light] uses these too unless it sets its own)
 [dark.styles.h1]
@@ -31,7 +84,7 @@ bold = true
 bold = true
 
 [dark.styles.h3]
-fg = "@yellow"
+fg = "@aqua"
 bold = true
 
 [dark.styles.h4]
@@ -48,7 +101,7 @@ italic = true
 
 [dark.styles.quote]
 fg = "@muted"
-border = "@yellow"
+border = "@link"
 italic = true
 
 [dark.styles.code_block]
@@ -65,7 +118,7 @@ bold = true
 border = "@border"
 
 [dark.styles.table_header]
-fg = "@yellow"
+fg = "@aqua"
 bold = true
 
 [dark.styles.rule]
@@ -75,23 +128,63 @@ fg = "@muted"
 fg = "@muted"
 
 [light.palette]
-accent = "#c8102e"
-muted = "#825f10"
-border = "#5c060e"
-on_accent = "#f6e8c8"
-fg = "#0e0404"
-bg = "#f6e8c8"
-yellow = "#825f10"
+accent = "#1b6f9a"
+muted = "#1c6f93"
+border = "#1f9a7e"
+on_accent = "#f7f5ef"
+fg = "#0d3b4a"
+bg = "#f7f5ef"
+bright = "#04121a"
+deep = "#e7f4f1"
+surface = "#e7f4f1"
+raised = "#d7ebe6"
+aqua = "#1b6f9a"
+link = "#1b6f9a"
+chip = "#d7ebe6"
+mark = "#1f9a7e"
+mark_end = "#1b6f9a"
+danger = "#9f5450"
 
 [light.styles.bold]
-fg = "@yellow"
+fg = "@bright"
+
+[light.styles.code]
+fg = "@accent"
+bg = "@surface"
+
+[light.styles.selected]
+fg = "@fg"
+bg = "@raised"
+bold = true
+
+[light.styles.field]
+fg = "@fg"
+bg = "@surface"
+underline = true
 
 [light.styles.bar]
+fg = "@fg"
+bg = "@deep"
+bold = true
+
+[light.styles.button]
+fg = "@on_accent"
+bg = "@accent"
+bold = true
+
+[light.styles.h1]
+fg = "@on_accent"
+bg = "@accent"
+bold = true
+
+[light.styles.h3]
+fg = "@accent"
 bold = true
 
 [light.styles.dialog]
 bg = "@bg"
 
 [light.styles.post_tag]
-fg = "@bg"
-bg = "@fg"
+fg = "@on_accent"
+bg = "@accent"
+bold = true

@@ -31,6 +31,8 @@ pub struct ThemePickerModal {
     pub cursor: usize,
     /// The theme in use when it opened (put back on Esc).
     pub restore: Theme,
+    /// The branding in use when it opened (put back on Esc).
+    pub restore_brand: crate::brands::Brand,
     /// Its name.
     pub current: String,
     /// Rows after the themes, before "Edit themes…" (Download / Starter when there are no themes).
@@ -39,10 +41,11 @@ pub struct ThemePickerModal {
 
 impl ThemePickerModal {
     /// Picker over `entries`, highlighting `current`.
-    pub fn new(entries: Vec<Entry>, current: &str, restore: Theme) -> Self {
+    pub fn new(entries: Vec<Entry>, current: &str, restore: Theme, restore_brand: crate::brands::Brand) -> Self {
         let cursor = entries.iter().position(|e| e.name == current).unwrap_or(0);
-        let extras = if entries.is_empty() { vec![PickerChoice::Download, PickerChoice::Starter] } else { Vec::new() };
-        ThemePickerModal { entries, cursor, restore, current: current.into(), extras }
+        // Built-ins are always listed. Download and starter stay available until a theme file exists.
+        let extras = if entries.iter().all(|e| e.builtin) { vec![PickerChoice::Download, PickerChoice::Starter] } else { Vec::new() };
+        ThemePickerModal { entries, cursor, restore, restore_brand, current: current.into(), extras }
     }
     /// Rows: the themes, the extras and "Edit themes…".
     pub fn rows(&self) -> usize { self.entries.len() + self.extras.len() + 1 }

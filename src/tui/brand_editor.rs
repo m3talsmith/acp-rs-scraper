@@ -98,11 +98,7 @@ impl BrandEditor {
 
     fn activate(&mut self) {
         if self.cursor == 3 {
-            self.draft.logo = match self.draft.logo {
-                LogoKind::Builtin => LogoKind::Text,
-                LogoKind::Text => LogoKind::File,
-                LogoKind::File => LogoKind::Builtin,
-            };
+            self.draft.logo = self.draft.logo.next();
             if self.draft.logo == LogoKind::Text && self.draft.logo_text.is_empty() {
                 self.draft.logo_text = "★".into();
             }

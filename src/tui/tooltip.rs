@@ -50,7 +50,7 @@ pub fn tip_for(app: &App, hit: Hit) -> Option<Tip> {
         Hit::Basket(_) | Hit::BasketTop => Some(tip("Export basket (x)", "basket")),
         Hit::Research(_) | Hit::ResearchTop => Some(tip("Add to a research project (r)", "research")),
         Hit::ThemeSwitch => Some(tip("Theme (F5)", "debug")),
-        Hit::BrandSwitch => Some(tip("Brand (header «name» ▾)", "brands")),
+        Hit::BrandSwitch => Some(tip("Branding is part of the theme (F5 / Shift-F5)", "brands")),
         Hit::Job | Hit::Status => Some(tip("Job details (Enter)", "keys")),
         Hit::Logo => Some(tip(app.brand.title.clone(), "about-credits")),
         Hit::HelpMark => Some(tip("Help (? / F1)", "getting-started")),

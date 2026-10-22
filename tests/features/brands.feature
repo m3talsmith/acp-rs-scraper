@@ -1,7 +1,8 @@
 Feature: Brands
-  The logo, title, and motto are a brand. Built-ins ship with the program.
-  A file in ~/.acp/brands overrides a built-in of the same name. --brand selects
-  one for this run. The theme is a different choice.
+  The logo, title, and motto travel with a theme. Built-in brands still ship
+  with the program. A file in ~/.acp/brands overrides a built-in of the same
+  name. --brand selects one for this run. Saving a theme writes that branding
+  into the theme file.
 
   Background:
     Given a mock Red Star site
@@ -10,11 +11,10 @@ Feature: Brands
     When I run "--list-brands"
     Then it succeeds
     And stdout contains "● default"
-    And stdout contains "ACP Red Star"
     And stdout contains "plain"
     And stdout contains "Red Star"
     And stdout contains "(no motto)"
-    And stdout contains "The future belongs to the working class"
+    And stdout contains "Research starts here."
 
   Scenario: --brand plain changes help and version and does not save the choice
     When I run "--brand plain -h"
@@ -34,6 +34,16 @@ Feature: Brands
     When I run "--help"
     Then stdout contains "ACP Red Star"
 
+  Scenario: The theme editor preview sits beside the editor and follows branding
+    When I edit the theme preview branding to title "North Star", motto "hold the line", and logo text "NS"
+    Then the theme preview contains "Theme editor"
+    And the theme preview contains "Branding"
+    And the theme preview contains "Preview (sample posts)"
+    And the theme preview contains "North Star"
+    And the theme preview contains "hold the line"
+    And the theme preview contains "NS"
+    And the theme preview contains "#112233"
+
   Scenario: The theme editor preview uses the selected brand and the sample nicks
     When I open the theme editor preview on the brand "plain"
     Then the theme preview contains "Red Star"
@@ -41,7 +51,7 @@ Feature: Brands
     And the theme preview contains "@sample"
     And the theme preview contains "@reader"
     And the theme preview does not contain "ACP Red Star"
-    And the theme preview does not contain "The future belongs to the working class"
+    And the theme preview does not contain "Research starts here."
     And the theme preview does not contain "comrade"
 
   Scenario: --brand plain still opens the terminal UI
@@ -79,6 +89,18 @@ Feature: Brands
     And stderr contains "broken.toml"
     And the file "$HOME/.acp/brands/broken.toml" contains "version = [oops"
 
+  Scenario: The Red Star logo is the star-blade halberd
+    When I open the theme editor preview on the brand "default"
+    Then the theme preview contains "halberd"
+    And the theme preview contains "RED STAR"
+    And the theme preview contains "Red Star"
+    And the theme preview contains "Research starts here."
+    And the theme preview does not contain "ACP Red Star"
+    When I open the theme editor preview on the brand "plain"
+    Then the theme preview contains "★"
+    And the theme preview does not contain "RED STAR"
+    And the theme preview does not contain "halberd"
+
   Scenario: The persisted brand is used when --brand is omitted
     Given a local file "$HOME/.acp/preferences.toml" containing "[ui]\nbrand = 'plain'\n"
     When I run "--version"
@@ -86,4 +108,8 @@ Feature: Brands
     And stdout contains "Red Star"
     And stdout does not contain "ACP Red Star"
     When I run "--brand default --version"
-    Then stdout contains "ACP Red Star"
+    Then stdout contains "Red Star"
+    And stdout does not contain "ACP Red Star"
+    When I run "--brand default --list-brands"
+    Then stdout contains "● default"
+    And stdout contains "Research starts here."

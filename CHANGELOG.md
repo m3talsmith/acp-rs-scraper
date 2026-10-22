@@ -19,6 +19,36 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.39.0] - 2026-10-22
+
+### Changed
+
+- **Red Star watercolor.** The built-in `red-star` theme leaves red, black, and gold. Dark is night `#04121a` with a deeper header `#03090f`, text `#bfe9e1`, and a teal-to-blue mark (`#2fb49a` to `#2a86b8`). Light is paper `#f7f5ef` and ink `#0d3b4a`, with the mark running `#1f9a7e` to `#1b6f9a`. The halberd and the word RED STAR use that gradient. The motto stays "Research starts here." The plain theme and the other themes are unchanged. Body text is at least 4.5:1. Borders and the light mark's teal end are at least 3:1. Error text is a softened coral.
+
+## [3.38.1] - 2026-10-22
+
+### Fixed
+
+- **Red Star title.** The built-in Red Star brand's displayed title is "Red Star". The header, the theme editor's title, the live preview, About, and the terminal title use it. The plain brand is unchanged. The binary name, the crate name, and `--help`'s product text stay ACP Red Star.
+
+## [3.38.0] - 2026-10-22
+
+### Changed
+
+- **Red Star mark.** The built-in Red Star header mark is the star-blade halberd: a halberd with a five-point star cut into the axe blade, drawn as sextant blocks in the theme's accent colours. The word beside it is RED STAR. Enter on Logo cycles halberd, text, file, and builtin. The plain brand stays a star with no word.
+
+## [3.37.0] - 2026-10-22
+
+### Changed
+
+- **Red Star motto.** The built-in Red Star brand's motto is "Research starts here." Welcome, About, the status bar, the theme picker, the theme editor's branding fields, and its live preview use it. HTML export headers use the brand title and do not print a motto. The neutral `plain` brand still has no motto.
+
+## [3.36.0] - 2026-10-22
+
+### Added
+
+- **Branding on the theme.** The logo, the title, and the motto are part of the theme. F5 (and the header `‹name› ▾`) opens the theme picker, and each row shows that theme's title. Shift-F5 opens the editor with the list on the left and Preview (sample posts) on the right. The preview updates as you edit the title, the motto, the logo, and the colours. Branding is the first section. Enter edits a line. Enter on Logo cycles builtin, text, and file. Ctrl-S writes `[brand]` into the theme file. The built-in `red-star` theme is red, black, and gold with the ACP Red Star branding. The built-in `plain` theme is a neutral title and a star, with no motto. `~/.acp/brands/<name>.toml`, `--brand`, and `[ui] brand` still select branding. Saving a theme copies that branding into the theme. The header no longer has a separate brand switch. Brand: use…, Brand: list, Brand: edit…, and Brand: reload in the command palette open the theme picker, the theme list, the theme editor, and a theme reload.
+
 ## [3.35.14] - 2026-10-22
 
 ### Fixed

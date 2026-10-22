@@ -133,8 +133,10 @@ fn save_is_atomic_private_and_lists_back() {
     std::fs::write(d.join("broken.toml"), "nope = [").unwrap();
     std::fs::write(d.join("Not-Valid.toml"), "").unwrap();
     let l = list(&d);
-    assert_eq!(l.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["broken", "mine"]);
+    assert_eq!(l.iter().map(|e| e.name.as_str()).collect::<Vec<_>>(), ["broken", "mine", "plain", "red-star"]);
     assert!(l[0].error.is_some() && l[1].description == "Mine");
+    assert!(l.iter().any(|e| e.name == "plain" && e.builtin && e.title == "Red Star"));
+    assert!(l.iter().any(|e| e.name == "red-star" && e.builtin && e.title == "Red Star"));
     assert!(std::fs::read_dir(&d).unwrap().flatten().all(|e| !e.file_name().to_string_lossy().ends_with(".tmp")), "no temp files left");
     delete(&d, "mine").unwrap();
     assert!(!p.exists());
@@ -196,13 +198,37 @@ fn contrast_ratios() {
 }
 
 #[test]
-fn red_star_is_the_banner_palette_and_body_text_meets_aa() {
+fn a_brand_table_round_trips_and_builtins_carry_branding() {
+    let src = "version = 1\nname = \"mine\"\n[brand]\ntitle = \"North Star\"\nmotto = \"hold the line\"\nword = \"NS\"\nlogo = \"text\"\nlogo_text = \"N\"\nlogo_file = \"\"\n[dark.palette]\naccent = \"#112233\"\n";
+    let (f, w) = parse(src, "mine").unwrap();
+    assert!(w.is_empty(), "{w:?}");
+    let b = f.brand.clone().unwrap();
+    assert_eq!((b.title.as_str(), b.motto.as_str(), b.logo.as_str(), b.logo_text.as_str()), ("North Star", "hold the line", "text", "N"));
+    let (again, w2) = parse(&to_toml(&f), "mine").unwrap();
+    assert!(w2.is_empty(), "{w2:?}");
+    assert_eq!(again.brand, f.brand);
+    let red = builtin_red_star();
+    assert_eq!(red.dark.color("accent"), Color::Rgb(0x2f, 0xb4, 0x9a));
+    assert_eq!(red.dark.color("bg"), Color::Rgb(0x04, 0x12, 0x1a));
+    assert_eq!(red.brand.as_ref().unwrap().title, "Red Star");
+    assert_eq!(red.brand.as_ref().unwrap().word, "RED STAR");
+    assert_eq!(red.brand.as_ref().unwrap().logo, "halberd");
+    let plain = builtin_plain();
+    assert_ne!(plain.dark.color("accent"), red.dark.color("accent"));
+    assert_eq!(plain.brand.as_ref().unwrap().title, "Red Star");
+    assert!(plain.brand.as_ref().unwrap().motto.is_empty());
+    assert!(plain.brand.as_ref().unwrap().logo_text.contains('★'));
+}
+
+#[test]
+fn red_star_is_the_watercolor_palette_and_body_text_meets_aa() {
     use ratatui::style::Color;
     let src = include_str!("../../themes/red-star.toml");
     let (f, w) = parse(src, "red-star").unwrap();
     assert!(w.is_empty(), "{w:?}");
     assert_eq!(f.name, "red-star");
-    assert_eq!(f.description, "ACP Red Star brand: ink black, vermilion and gold, cream text, from the banner");
+    assert_eq!(f.description, "Rebel Hold watercolor: teal and blue on night, paper and ink in the light");
+    assert!(!src.contains("#c8102e") && !src.contains("#e8b648"), "the vermilion and gold are gone");
     let poster = parse(include_str!("../../themes/chinese-poster.toml"), "chinese-poster").unwrap().0;
     for side in ["dark", "light"] {
         let want = if side == "dark" { &poster.dark.styles } else { &poster.light.as_ref().unwrap().styles };
@@ -214,28 +240,57 @@ fn red_star_is_the_banner_palette_and_body_text_meets_aa() {
     let ratio = |a, b| contrast(a, b).unwrap();
     let dark = crate::tui::theme::Theme::from_file(&f, Variant::Dark);
     let light = crate::tui::theme::Theme::from_file(&f, Variant::Light);
-    assert_eq!(dark.bg, Color::Rgb(0x0e, 0x04, 0x04));
-    assert_eq!(dark.fg, Color::Rgb(0xf6, 0xe8, 0xc8));
-    assert_eq!(dark.accent, Color::Rgb(0xc8, 0x10, 0x2e));
-    assert_eq!(dark.muted, Color::Rgb(0xe8, 0xb6, 0x48));
-    assert_eq!(dark.on_accent, Color::Rgb(0xf6, 0xe8, 0xc8));
-    assert_eq!(light.bg, Color::Rgb(0xf6, 0xe8, 0xc8));
-    assert_eq!(light.fg, Color::Rgb(0x0e, 0x04, 0x04));
-    assert_eq!(light.accent, Color::Rgb(0xc8, 0x10, 0x2e));
+    assert_eq!(dark.bg, Color::Rgb(0x04, 0x12, 0x1a));
+    assert_eq!(dark.fg, Color::Rgb(0xbf, 0xe9, 0xe1));
+    assert_eq!(dark.accent, Color::Rgb(0x2f, 0xb4, 0x9a));
+    assert_eq!(dark.muted, Color::Rgb(0x33, 0x9e, 0x90));
+    assert_eq!(dark.on_accent, Color::Rgb(0x03, 0x09, 0x0f));
+    assert_eq!((dark.mark, dark.mark_end), (Color::Rgb(0x2f, 0xb4, 0x9a), Color::Rgb(0x2a, 0x86, 0xb8)));
+    assert_eq!(light.bg, Color::Rgb(0xf7, 0xf5, 0xef));
+    assert_eq!(light.fg, Color::Rgb(0x0d, 0x3b, 0x4a));
+    assert_eq!(light.accent, Color::Rgb(0x1b, 0x6f, 0x9a));
+    assert_eq!((light.mark, light.mark_end), (Color::Rgb(0x1f, 0x9a, 0x7e), Color::Rgb(0x1b, 0x6f, 0x9a)));
+    let style = |t: &crate::tui::theme::Theme, e| ratatui::style::Style::from(&t.element(e));
+    let dark_bar = style(&dark, Element::Bar);
+    let light_bar = style(&light, Element::Bar);
+    assert_eq!((dark_bar.fg, dark_bar.bg), (Some(Color::Rgb(0xe6, 0xfb, 0xf7)), Some(Color::Rgb(0x03, 0x09, 0x0f))));
+    assert_eq!((light_bar.fg, light_bar.bg), (Some(Color::Rgb(0x0d, 0x3b, 0x4a)), Some(Color::Rgb(0xe7, 0xf4, 0xf1))));
     let body = [
         ("dark fg/bg", ratio(dark.fg, dark.bg)),
         ("dark muted/bg", ratio(dark.muted, dark.bg)),
+        ("dark link/bg", ratio(Color::Rgb(0x2a, 0x86, 0xb8), dark.bg)),
+        ("dark danger/bg", ratio(dark.danger, dark.bg)),
         ("light fg/bg", ratio(light.fg, light.bg)),
         ("light muted/bg", ratio(light.muted, light.bg)),
+        ("light accent/bg", ratio(light.accent, light.bg)),
+        ("light danger/bg", ratio(light.danger, light.bg)),
     ];
     for (name, r) in body {
         assert!(r >= 4.5, "{name} is {r:.2}:1");
     }
-    assert!(ratio(dark.accent, dark.bg) >= 3.0, "dark accent/bg");
-    assert!(ratio(light.accent, light.bg) >= 4.5, "light accent/bg");
-    assert!(ratio(dark.on_accent, dark.accent) >= 4.5, "h1 cream on vermilion");
-    assert!(ratio(light.on_accent, light.accent) >= 4.5, "light h1 cream on vermilion");
-    assert!(ratio(dark.border, dark.bg) >= 2.0, "dark border should read on ink");
+    let chrome = [
+        ("dark accent/bg", ratio(dark.accent, dark.bg)),
+        ("dark border/bg", ratio(dark.border, dark.bg)),
+        ("dark on_accent/accent", ratio(dark.on_accent, dark.accent)),
+        ("light on_accent/accent", ratio(light.on_accent, light.accent)),
+        ("light border/bg", ratio(light.border, light.bg)),
+        ("dark mark/bar", ratio(dark.mark, dark_bar.bg.unwrap())),
+        ("dark mark_end/bar", ratio(dark.mark_end, dark_bar.bg.unwrap())),
+        ("light mark/bar", ratio(light.mark, light_bar.bg.unwrap())),
+        ("light mark_end/bar", ratio(light.mark_end, light_bar.bg.unwrap())),
+    ];
+    for (name, r) in chrome {
+        assert!(r >= 3.0, "{name} is {r:.2}:1");
+    }
+    for (name, t) in [("dark", &dark), ("light", &light)] {
+        for e in [Element::Selected, Element::Field, Element::Bar, Element::Button, Element::PostTag, Element::Gone, Element::Code] {
+            let st = style(t, e);
+            let fg = st.fg.filter(|c| *c != Color::Reset).unwrap_or(t.fg);
+            let bg = st.bg.filter(|c| *c != Color::Reset).unwrap_or(t.bg);
+            let r = ratio(fg, bg);
+            assert!(r >= 4.5, "{name} {} is {r:.2}:1", e.name());
+        }
+    }
 }
 
 #[test]

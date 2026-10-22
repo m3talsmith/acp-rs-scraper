@@ -40,9 +40,9 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
 `acp-red-star` (no flags) or `acp-red-star --tui` opens it. It needs a terminal on stdin/stdout
 (at least 60×19); piped or scripted runs get an error naming the headless flags instead.
 
-- **Layout:** a 4-row header on the red bar (the red star logo in white over all four rows, a big
-  "ACP" drawn with tui-big-text on rows 2–4 so it has a row of room above, then name, version,
-  session and running job on the middle row of the "ACP") · menu bar (View, Search, Compose,
+- **Layout:** a 4-row header on the accent bar (the star-blade halberd in the bar colours over
+  all four rows, the word RED STAR drawn with tui-big-text on rows 2–4 so it has a row of room
+  above, then name, version, session and running job on the middle row of that word) · menu bar (View, Search, Compose,
   Library, Bookmarks, Research, Sync, Discover, Account, Debug, Help, About, Quit; Scrape and
   Start Scanning pinned on the right) · nick bar on the left (`@nick` and post count) · Body · status
   line (`l` expands it to a log panel). Click that line, or the header's `⟳ kind running (pid)` mark, or press Tab until Status is focused and then Enter, to open job details: the name, what started it, the state, the start time and elapsed time, the stage and a spinner, and a scrollable log. Elapsed counts only while the job is running. After it finishes, fails, or is cancelled, that line stays at the total run time. If the end was not recorded, it says `unknown`. Several jobs are a list; the elapsed line is the selected job. Esc closes the window. `c` or Cancel stops a job that is still running. The password and the database key are not shown. The header mark and the status bar do not show a duration, and a later start of the terminal UI does not reload jobs from log files.
@@ -182,12 +182,12 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   section needed into a temporary directory, which is deleted); the format is gzip'd text:
   `ACPANIM 1`, `fps N`, `size COLS ROWS`, then each frame after a `%%` line.
 - **Themes:** files in `~/.acp/themes/`; `F5` or the header `‹name› ▾` switch picks one, `Shift-F5`
-  edits them. See [Themes](#themes).
+  edits colours and branding (logo, title, motto) with a live preview beside the list. See [Themes](#themes).
 - **Keys:** `?`/`F1` lists them all next to the full `--help`.
 
 ## Themes
 
-Every colour of the terminal UI comes from a theme file; nothing is compiled in.
+Every colour of the terminal UI comes from a theme file. `red-star` and `plain` also ship in the binary, branding included, and a file of the same name overrides them.
 
 - **Where.** `~/.acp/themes/<name>.toml`. Names are lowercase letters, digits, `-` and `_`, at
   most 32 characters; anything else (such as `../x`) is refused. This folder (under `$HOME`) is
@@ -221,8 +221,8 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   a theme that can't be used reads `‹default: missing› ▾` (no file) or `‹mine: broken› ▾` (the
   file can't be read as a theme).
 - **Themes in the repo.** `default` (ACP red on the terminal's colours), `soviet` (red and gold),
-  `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (ACP Red
-  Star brand: ink black, vermilion and gold, cream text, from the banner), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
+  `constructivist` (red, black and cream), `cuba` (olive green, red and black), `red-star` (Rebel Hold
+  watercolor: teal and blue on night, paper and ink in the light), `chinese-poster` (vermilion and golden yellow), `plattenbau` (concrete greys, red
   accent), `rs` (Red Star site: near-black zinc with ACP red and vote gold), `acp` (American Communist Party: ACP red, black and white on blush pink); each has
   dark and light variants with text contrast of at least 3:1. Only `default`
   is downloaded automatically; get the rest with `--theme-init NAME` or `--theme-init all`.
@@ -230,23 +230,33 @@ Every colour of the terminal UI comes from a theme file; nothing is compiled in.
   | "system"`. `system` (default) uses `COLORFGBG` when set, else asks the terminal for its background colour
   (`OSC 11`), else dark. `--theme NAME` overrides for one run; `--list-themes`
   lists them.
-- **Brands.** The logo, the title, and the motto are a brand. The theme is a different choice:
-  any brand works with any theme. The built-in `default` brand is ACP Red Star (the red-star logo,
-  the word ACP, the title, and "The future belongs to the working class"). The built-in `plain`
-  brand is the title Red Star, a star, and no motto. `acp-red-star --brand plain` uses it for this
-  run and does not write the preference. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps
-  it. `--list-brands` lists built-ins and files. A user brand is `~/.acp/brands/<name>.toml`
-  (names: lowercase letters, digits, `-` and `_`, at most 32 characters). A file overrides a
-  built-in of the same name. `version = 1` is required. `title` is the header, the window title,
-  About, `--help`, `--version`, and the HTML export header. `motto` is the status bar and the
-  About border; an empty motto is hidden. `word` is the big letters beside the logo; empty draws
-  none. `logo` is `builtin` (the red star), `text` (`logo_text`, one line per row), or `file`
-  (`logo_file`, a path inside `~/.acp/brands`). An absolute path, `..`, or a symlink that leaves
-  that folder is refused. A broken file is reported and never overwritten. The header switch
-  `«name» ▾` opens the picker (moving the highlight previews it; Esc puts the old brand back).
-  Edit brands… and the command palette's Brand: edit… open the editor. Ctrl-S saves, Ctrl-R
-  reverts, Ctrl-N saves as new, Ctrl-D duplicates, Ctrl-X deletes, Ctrl-C closes. Credits and the
-  other surprises keep their own text.
+- **Branding.** The logo, the title, and the motto live on the theme, in a `[brand]` table
+  (`title`, `motto`, `word`, `logo`, `logo_text`, `logo_file`). `F5` (or the header `‹name› ▾`)
+  opens the theme picker; each row shows that theme's title. Moving the highlight previews the
+  colours and the branding; Esc puts the previous theme back. `e` jumps to Edit themes… and Enter
+  opens the editor. `Shift-F5` opens the editor directly: Branding, then the palette, then the
+  elements, on the left, and Preview (sample posts) on the right. The preview updates as you type
+  a title, motto, word, or logo text, when Enter cycles the logo (`halberd`, `text`, `file`, `builtin`), and
+  when a colour changes. Tab flips dark and light. Ctrl-S saves the theme, including `[brand]`.
+  Esc closes. The built-in `red-star` theme is the Rebel Hold teal-to-blue watercolor with the Red Star branding
+  (the star-blade halberd and the word RED STAR run from teal to blue, the title is Red Star, and the motto is "Research starts here.").
+  The built-in `plain` theme is neutral colours, the title Red Star, a star, and no motto.
+  `acp-red-star --brand plain` still uses that branding for this run and does not write the
+  preference. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps it until you pick a theme
+  or save `[brand]` into the theme file. `--list-brands` lists built-ins and files. A user brand
+  is still `~/.acp/brands/<name>.toml` (names: lowercase letters, digits, `-` and `_`, at most 32
+  characters). A file overrides a built-in of the same name, and it supplies branding for a theme
+  of that name that has no `[brand]`. Saving the theme writes the branding into the theme file
+  and does not change the brand file. `version = 1` is required on a brand file. `title` is the
+  header, the window title, About, `--help`, `--version`, and the HTML export header. `motto` is
+  the status bar and the About border; an empty motto is hidden. `word` is the big letters beside
+  the logo; empty draws none. `logo` is `halberd` (the star-blade halberd, the Red Star default),
+  `text` (`logo_text`, one line per row), `file` (`logo_file`, a path inside `~/.acp/brands`), or
+  `builtin` (the red-star picture). An absolute path, `..`, or a
+  symlink that leaves that folder is refused. A broken file is reported and never overwritten.
+  Brand: use…, Brand: list, Brand: edit…, and Brand: reload in the command palette open the theme
+  picker, the theme list, the theme editor, and a theme reload. Credits and the other surprises
+  keep their own text.
 - **Colour.** `--color auto|always|never`. `auto` (the default) follows `NO_COLOR`: a non-empty value
   turns colours off and leaves bold, dim, and underline. `always` forces colours on, which is what a
   recording needs when the shell exported `NO_COLOR=1`. `never` turns colours off. `[ui] color` in

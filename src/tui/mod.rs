@@ -137,14 +137,24 @@ fn setup_themes(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
     Ok(())
 }
 
-/// Brand at startup: `--brand`, else `[ui] brand`, else the built-in default.
-/// A broken file falls back to the default brand and is not overwritten.
+/// Brand at startup: `--brand` or `[ui] brand` pins branding for this run.
+/// Otherwise the selected theme's `[brand]` (or the built-in for that name) is used.
+/// A broken brand file falls back to the default brand and is not overwritten.
 fn setup_brands(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
     let dir = crate::brands::brands_dir()?;
     app.brands_dir = Some(dir);
-    let name = args.brand.clone().or_else(|| prefs.ui.as_ref().and_then(|u| u.brand.clone())).unwrap_or_else(|| DEFAULT_BRAND.into());
-    let before = app.modal.take();
-    if app.use_brand(&name, false) { app.modal = before; }
+    let explicit = args.brand.clone().or_else(|| prefs.ui.as_ref().and_then(|u| u.brand.clone()));
+    if let Some(name) = explicit {
+        app.brand_pinned = true;
+        let before = app.modal.take();
+        if app.use_brand(&name, false) { app.modal = before; }
+    } else if let Some(file) = app.theme_file.clone() {
+        let b = app.branding_of(&file);
+        app.install_brand(b);
+    } else {
+        let before = app.modal.take();
+        if app.use_brand(DEFAULT_BRAND, false) { app.modal = before; }
+    }
     Ok(())
 }
 

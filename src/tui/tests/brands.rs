@@ -1,4 +1,4 @@
-//! Brand picker, editor, and header. The default brand stays ACP Red Star.
+//! Brand picker, editor, and header. The Red Star title is Red Star.
 
 use super::*;
 use crate::brands::{self, LogoKind};
@@ -29,13 +29,14 @@ fn home(name: &str) -> PathBuf {
 }
 
 #[test]
-fn the_default_header_is_still_acp_red_star() {
+fn the_default_header_title_is_red_star() {
     let mut a = app();
     let s = render(&mut a, 140, 40);
-    assert!(s.contains("ACP Red Star"), "{s}");
+    assert!(s.contains("Red Star"), "{s}");
+    assert!(!s.contains("ACP Red Star"), "{s}");
     assert!(s.contains(crate::branding::SLOGAN), "{s}");
-    assert!(s.contains("«default» ▾"), "{s}");
     assert!(s.contains("‹default› ▾"), "{s}");
+    assert!(!s.contains("«default» ▾"), "{s}");
 }
 
 #[test]
@@ -47,65 +48,77 @@ fn a_plain_brand_drops_acp_and_the_motto_and_keeps_the_theme() {
     let s = render(&mut a, 140, 40);
     assert!(s.contains("Red Star"), "{s}");
     assert!(s.contains('★'), "{s}");
-    assert!(s.contains("«plain» ▾"), "{s}");
     assert!(s.contains("‹red-star› ▾"), "{s}");
+    assert!(!s.contains('«'), "{s}");
     assert!(!s.contains("ACP"), "{s}");
     assert!(!s.contains(crate::branding::SLOGAN), "{s}");
 }
 
 #[test]
-fn the_picker_previews_and_esc_restores_without_touching_the_theme() {
+fn the_picker_previews_branding_and_esc_restores_the_theme() {
     let dir = home("picker");
+    let themes = dir.join(".acp/themes");
+    std::fs::create_dir_all(&themes).unwrap();
     let mut a = app();
     a.brands_dir = Some(dir.join(".acp/brands"));
+    a.themes_dir = Some(themes);
     a.theme_name = "soviet".into();
-    a.open_brand_picker();
-    let Some(Modal::BrandPicker(p)) = &a.modal else { panic!("picker") };
-    assert!(p.entries.iter().any(|e| e.name == "plain"));
+    a.open_theme_picker();
+    let Some(Modal::ThemePicker(p)) = &a.modal else { panic!("picker") };
+    assert!(p.entries.iter().any(|e| e.name == "plain" && e.title == "Red Star"));
+    assert!(p.entries.iter().any(|e| e.name == "red-star" && e.title == "Red Star"));
     key(&mut a, KeyCode::Char('j'), KeyModifiers::NONE);
+    key(&mut a, KeyCode::Char('k'), KeyModifiers::NONE);
     assert_eq!(a.brand.title, "Red Star");
-    assert_eq!(a.theme_name, "soviet");
+    assert_eq!(a.theme_name, "soviet", "preview does not select");
     key(&mut a, KeyCode::Esc, KeyModifiers::NONE);
     assert!(a.modal.is_none());
-    assert_eq!(a.brand.title, "ACP Red Star");
+    assert_eq!(a.brand.title, "Red Star");
     assert_eq!(a.theme_name, "soviet");
     assert!(a.effects.is_empty(), "Esc does not save");
 }
 
 #[test]
-fn choosing_a_brand_persists_it_and_leaves_the_theme() {
+fn choosing_a_theme_applies_its_branding() {
     let dir = home("choose");
+    let themes = dir.join(".acp/themes");
+    std::fs::create_dir_all(&themes).unwrap();
     let mut a = app();
     a.brands_dir = Some(dir.join(".acp/brands"));
+    a.themes_dir = Some(themes);
     a.theme_name = "cuba".into();
-    a.open_brand_picker();
-    let Some(Modal::BrandPicker(p)) = &mut a.modal else { panic!() };
+    a.open_theme_picker();
+    let Some(Modal::ThemePicker(p)) = &mut a.modal else { panic!() };
     p.cursor = p.entries.iter().position(|e| e.name == "plain").unwrap();
     a.close_modal(ModalResult::ClosedSubmitted);
-    assert_eq!(a.brand_name, "plain");
+    assert_eq!(a.theme_name, "plain");
     assert_eq!(a.brand.logo, LogoKind::Text);
     assert!(a.brand.motto.is_empty());
-    assert_eq!(a.theme_name, "cuba");
-    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::SaveUiBrand(n) if n == "plain")));
+    assert_eq!(a.brand.title, "Red Star");
+    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::SaveUiTheme(n) if n == "plain")));
+    assert!(!a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::SaveUiBrand(_))));
 }
 
 #[test]
-fn the_editor_saves_a_new_brand_and_reverts() {
+fn the_theme_editor_saves_branding_into_the_theme() {
     let dir = home("edit");
-    let brands = dir.join(".acp/brands");
+    let themes = dir.join(".acp/themes");
+    std::fs::create_dir_all(&themes).unwrap();
+    std::fs::write(themes.join("default.toml"), "version = 1\nname = \"default\"\ndescription = \"d\"\n[dark.palette]\naccent = \"#112233\"\n").unwrap();
     let mut a = app();
-    a.brands_dir = Some(brands.clone());
-    a.open_brand_editor();
-    key(&mut a, KeyCode::Char('n'), KeyModifiers::CONTROL);
-    for c in "demo".chars() { key(&mut a, KeyCode::Char(c), KeyModifiers::NONE); }
+    a.brands_dir = Some(dir.join(".acp/brands"));
+    a.themes_dir = Some(themes.clone());
+    a.use_theme("default", false);
+    a.open_theme_editor();
     key(&mut a, KeyCode::Enter, KeyModifiers::NONE);
-    assert_eq!(a.brand_editor.as_ref().unwrap().draft.name, "demo");
+    key(&mut a, KeyCode::Char('u'), KeyModifiers::CONTROL);
+    for c in "North Star".chars() { key(&mut a, KeyCode::Char(c), KeyModifiers::NONE); }
+    assert_eq!(a.theme_editor.as_ref().unwrap().preview.brand.title, "North Star");
+    key(&mut a, KeyCode::Enter, KeyModifiers::NONE);
     key(&mut a, KeyCode::Char('s'), KeyModifiers::CONTROL);
-    assert!(brands.join("demo.toml").is_file());
-    let text = std::fs::read_to_string(brands.join("demo.toml")).unwrap();
-    assert!(text.contains("Red Star") || text.contains("demo"), "{text}");
-    key(&mut a, KeyCode::Char('r'), KeyModifiers::CONTROL);
-    assert_eq!(a.brand.title, a.brand_editor.as_ref().unwrap().saved.title);
+    let text = std::fs::read_to_string(themes.join("default.toml")).unwrap();
+    assert!(text.contains("[brand]"), "{text}");
+    assert!(text.contains("North Star"), "{text}");
     let _ = BrandChoice::None;
 }
 
@@ -122,6 +135,8 @@ fn a_neutral_brand_hides_the_party_wording() {
     assert!(acp.contains("ACP Red Star is a local client"), "{acp}");
     assert!(acp.contains("ACP platform"), "{acp}");
     assert!(acp.contains("Sync with acp.us"), "{acp}");
+    assert!(acp.contains("RED STAR") && acp.contains("halberd"), "{acp}");
+    assert!(!help.contains("RED STAR"), "{help}");
 
     let mut a = app();
     a.menu.menu.apply_brand(&plain);
@@ -145,18 +160,19 @@ fn a_neutral_brand_hides_the_party_wording() {
 }
 
 #[test]
-fn the_picker_row_uses_that_brands_title() {
+fn the_picker_row_uses_that_themes_title() {
     let dir = home("rows");
+    let themes = dir.join(".acp/themes");
+    std::fs::create_dir_all(&themes).unwrap();
     let mut a = app();
     a.brands_dir = Some(dir.join(".acp/brands"));
-    a.open_brand_picker();
+    a.themes_dir = Some(themes);
+    a.open_theme_picker();
     let s = render(&mut a, 100, 30);
-    assert!(s.contains("default") && s.contains("ACP Red Star"), "{s}");
+    assert!(s.contains("red-star") && s.contains("Red Star"), "{s}");
     assert!(s.contains("plain") && s.contains("Red Star"), "{s}");
-    let Some(Modal::BrandPicker(p)) = &a.modal else { panic!("picker") };
-    let default = p.entries.iter().find(|e| e.name == "default").unwrap();
+    let Some(Modal::ThemePicker(p)) = &a.modal else { panic!("picker") };
     let plain = p.entries.iter().find(|e| e.name == "plain").unwrap();
-    assert_eq!(default.title, brands::builtin_default().title);
     assert_eq!(plain.title, "Red Star");
     assert!(!plain.title.contains("ACP"));
 }
@@ -169,7 +185,7 @@ fn a_logo_path_that_escapes_is_refused() {
     let mut a = app();
     a.brands_dir = Some(brands);
     assert!(!a.use_brand("bad", false));
-    assert_eq!(a.brand.title, "ACP Red Star");
+    assert_eq!(a.brand.title, "Red Star");
     assert_eq!(a.brand_fault, Some("broken"));
     let kept = std::fs::read_to_string(a.brands_dir.unwrap().join("bad.toml")).unwrap();
     assert!(kept.contains("../x.png"), "the broken file is not overwritten");
