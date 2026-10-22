@@ -4,8 +4,12 @@
 //! A plugin built with another compiler, or against another version of this
 //! crate, is refused before `register`.
 
-use std::future::Future;
-use std::pin::Pin;
+use crate::records::{
+    Availability, Budget, CapFut, Cursor, Draft, Expand, FeedRule, Field, FilledFields, ItemRec,
+    MediaBytes, MediaRequest, NoticeRec, Page, ResearchRef, Resolved, RouteKind, RuntimeCtx,
+    SealedMaterial, ServiceError, SourceId, Spend, Target, VoteChoice, WriteOutcome,
+    not_implemented,
+};
 
 /// `rustc --version` this crate was built with. Plugin authors read it from `--doctor`.
 pub const RUSTC_VERSION: &str = env!("ACP_RUSTC_VERSION");
@@ -106,128 +110,16 @@ const ALL: [CapabilityId; 18] = [
     CapabilityId::LocalPost,
 ];
 
-/// Whether a capability can run right now.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Availability {
-    /// Usable now.
-    Ready,
-    /// Implemented, and the user is not signed in.
-    NeedsAuth,
-    /// Implemented, and not sent until a capture is in the tree.
-    Gated,
-    /// Over a cap or paused.
-    Limited,
-    /// The user has not enabled the service, or the trait is absent.
-    Off,
-}
-
-impl Availability {
-    /// Short name.
-    pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Ready => "ready",
-            Self::NeedsAuth => "needs auth",
-            Self::Gated => "gated",
-            Self::Limited => "limited",
-            Self::Off => "off",
-        }
-    }
-}
-
-/// Where a settings field is stored.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Store {
-    /// `~/.acp/services/<id>.toml`.
-    Config,
-    /// Sealed in the encrypted database. Never written to a file and never printed.
-    Secret,
-}
-
-/// The shape of one settings field.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FieldKind {
-    /// A boolean.
-    Bool,
-    /// A single line.
-    Text,
-    /// An integer.
-    Int,
-    /// One of these labels.
-    Enum(&'static [&'static str]),
-    /// A list of strings.
-    StringList,
-    /// A secret. The value is never shown.
-    Secret,
-}
-
-/// One field in a service schema.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Field {
-    /// Toml key.
-    pub key: &'static str,
-    /// Label in the Services screen.
-    pub label: &'static str,
-    /// Help line.
-    pub help: &'static str,
-    /// Value shape.
-    pub kind: FieldKind,
-    /// Where it is stored.
-    pub store: Store,
-}
-
-/// What the host knows when it asks whether a capability can run.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct RuntimeCtx {
-    /// The user has enabled this service.
-    pub enabled: bool,
-    /// A session or token is present.
-    pub logged_in: bool,
-    /// A cap that is blocking the service, when one is.
-    pub limited: Option<&'static str>,
-}
-
-impl RuntimeCtx {
-    /// Enabled, signed in, under the caps. Used when the host has not loaded a file.
-    pub fn ready() -> Self {
-        Self { enabled: true, logged_in: true, limited: None }
-    }
-}
-
-/// Failure from a capability call. A missing trait is [`ServiceError::NotImplemented`].
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ServiceError {
-    /// The service left this capability off `implemented()`.
-    NotImplemented {
-        /// Service id.
-        service: String,
-        /// Capability id.
-        capability: String,
-    },
-    /// Any other refusal.
-    Message(String),
-}
-
-impl ServiceError {
-    /// The host called a capability the service does not implement.
-    pub fn not_implemented(service: &str, capability: &str) -> Self {
-        Self::NotImplemented { service: service.into(), capability: capability.into() }
-    }
-}
-
-impl std::fmt::Display for ServiceError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::NotImplemented { service, capability } => {
-                write!(f, "{service} does not implement {capability}")
-            }
-            Self::Message(m) => write!(f, "{m}"),
-        }
-    }
-}
-
-impl std::error::Error for ServiceError {}
-
 /// Object-safe service. Async calls return a boxed future so the value can cross a plugin.
+///
+/// Override a method to provide that capability. The default returns
+/// [`ServiceError::NotImplemented`]. The host does not call a capability the
+/// service left off [`DynService::implemented`]; a call that arrives anyway
+/// gets that error.
+///
+/// An out-of-tree crate can implement this trait directly. It can also
+/// implement [`crate::Service`] and the capability traits. That path gets this
+/// trait from a blanket impl. Do not implement both.
 pub trait DynService: Send + Sync {
     /// Stable id: `redstar`, `x`, `youtube`, or a plugin id.
     fn id(&self) -> &'static str;
@@ -246,10 +138,7 @@ pub trait DynService: Send + Sync {
     }
 
     /// Probe `cap`. A capability left off `implemented()` returns not-implemented.
-    fn probe<'a>(
-        &'a self,
-        cap: CapabilityId,
-    ) -> Pin<Box<dyn Future<Output = Result<(), ServiceError>> + Send + 'a>> {
+    fn probe<'a>(&'a self, cap: CapabilityId) -> CapFut<'a, ()> {
         let ok = self.has(cap);
         let service = self.id().to_string();
         let capability = cap.as_str().to_string();
@@ -260,6 +149,127 @@ pub trait DynService: Send + Sync {
                 Err(ServiceError::not_implemented(&service, &capability))
             }
         })
+    }
+
+    /// [`schema`](DynService::schema) plus the service id.
+    fn config_schema(&self) -> crate::records::ConfigSchema {
+        crate::records::ConfigSchema {
+            service: crate::records::ServiceId::new(self.id()),
+            fields: self.schema(),
+        }
+    }
+
+    /// Exchange filled schema fields for secret material the core seals.
+    fn authenticate<'a>(
+        &'a self,
+        _route: RouteKind,
+        _fields: &'a FilledFields,
+    ) -> CapFut<'a, SealedMaterial> {
+        not_implemented(self.id(), CapabilityId::Authenticator.as_str())
+    }
+
+    /// Turn `target` into a stable id.
+    fn resolve<'a>(&'a self, _target: &'a Target) -> CapFut<'a, Resolved> {
+        not_implemented(self.id(), CapabilityId::Reader.as_str())
+    }
+
+    /// One page, newest first. `stop_at` ends an incremental sync.
+    fn page<'a>(
+        &'a self,
+        _resolved: &'a Resolved,
+        _cursor: &'a Cursor,
+        _stop_at: Option<&'a str>,
+        _budget: &'a mut Budget,
+    ) -> CapFut<'a, Page> {
+        not_implemented(self.id(), CapabilityId::Reader.as_str())
+    }
+
+    /// More of one item.
+    fn expand<'a>(
+        &'a self,
+        _item: &'a SourceId,
+        _what: Expand,
+        _budget: &'a mut Budget,
+    ) -> CapFut<'a, Page> {
+        not_implemented(self.id(), CapabilityId::Reader.as_str())
+    }
+
+    /// Incremental items for the open view.
+    fn live<'a>(&'a self, _view: &'a SourceId) -> CapFut<'a, Vec<ItemRec>> {
+        not_implemented(self.id(), CapabilityId::Live.as_str())
+    }
+
+    /// A notice the core stores.
+    fn notify<'a>(&'a self, _event: &'a NoticeRec) -> CapFut<'a, NoticeRec> {
+        not_implemented(self.id(), CapabilityId::Notification.as_str())
+    }
+
+    /// Publish a new post.
+    fn publish<'a>(&'a self, _draft: &'a Draft) -> CapFut<'a, WriteOutcome> {
+        not_implemented(self.id(), CapabilityId::Post.as_str())
+    }
+
+    /// Publish a reply.
+    fn reply<'a>(&'a self, _draft: &'a Draft) -> CapFut<'a, WriteOutcome> {
+        not_implemented(self.id(), CapabilityId::Reply.as_str())
+    }
+
+    /// Upload attachments the core has already loaded.
+    fn upload<'a>(&'a self, _draft: &'a Draft) -> CapFut<'a, WriteOutcome> {
+        not_implemented(self.id(), CapabilityId::Upload.as_str())
+    }
+
+    /// Vote on `item`.
+    fn vote<'a>(&'a self, _item: &'a SourceId, _choice: VoteChoice) -> CapFut<'a, ()> {
+        not_implemented(self.id(), CapabilityId::Vote.as_str())
+    }
+
+    /// Follow `account` when `enabled` is set.
+    fn subscribe<'a>(&'a self, _account: &'a SourceId, _enabled: bool) -> CapFut<'a, ()> {
+        not_implemented(self.id(), CapabilityId::Subscribe.as_str())
+    }
+
+    /// Replace the body of `item`.
+    fn edit<'a>(&'a self, _item: &'a SourceId, _body: &'a str) -> CapFut<'a, WriteOutcome> {
+        not_implemented(self.id(), CapabilityId::Edit.as_str())
+    }
+
+    /// Delete `item`.
+    fn delete<'a>(&'a self, _item: &'a SourceId) -> CapFut<'a, ()> {
+        not_implemented(self.id(), CapabilityId::Delete.as_str())
+    }
+
+    /// Repost `item`. The service may refuse an empty `quote`.
+    fn repost<'a>(
+        &'a self,
+        _item: &'a SourceId,
+        _quote: Option<&'a str>,
+    ) -> CapFut<'a, WriteOutcome> {
+        not_implemented(self.id(), CapabilityId::Repost.as_str())
+    }
+
+    /// Record `item` against a research project. The core owns that table.
+    fn add_research<'a>(&'a self, _item: &'a ResearchRef) -> CapFut<'a, ()> {
+        not_implemented(self.id(), CapabilityId::Research.as_str())
+    }
+
+    /// Rows for a feed rule. The core inserts them.
+    fn refresh<'a>(&'a self, _rule: &'a FeedRule, _budget: &'a mut Budget) -> CapFut<'a, Page> {
+        not_implemented(self.id(), CapabilityId::Feeds.as_str())
+    }
+
+    /// Bytes for a URL the service already resolved.
+    fn fetch<'a>(
+        &'a self,
+        _req: &'a MediaRequest,
+        _budget: &'a mut Budget,
+    ) -> CapFut<'a, MediaBytes> {
+        not_implemented(self.id(), CapabilityId::MediaFetcher.as_str())
+    }
+
+    /// The estimate for what `budget` still allows.
+    fn estimate<'a>(&'a self, _budget: &'a Budget) -> CapFut<'a, Spend> {
+        not_implemented(self.id(), CapabilityId::CostMeter.as_str())
     }
 }
 
@@ -290,19 +300,16 @@ pub trait PluginRegistrar {
 macro_rules! declare_builtin {
     ($ty:ty) => {
         #[allow(improper_ctypes_definitions)]
-        unsafe extern "C" fn _acp_plugin_register(
-            reg: &mut dyn $crate::PluginRegistrar,
-        ) {
+        unsafe extern "C" fn _acp_plugin_register(reg: &mut dyn $crate::PluginRegistrar) {
             reg.register_service(Box::new(<$ty>::default()));
         }
 
         #[doc = "Plugin entry. Built-ins call `register` directly. There is no `dlopen`."]
-        pub static plugin_declaration: $crate::PluginDeclaration =
-            $crate::PluginDeclaration {
-                rustc_version: $crate::RUSTC_VERSION,
-                core_version: $crate::CORE_VERSION,
-                register: _acp_plugin_register,
-            };
+        pub static plugin_declaration: $crate::PluginDeclaration = $crate::PluginDeclaration {
+            rustc_version: $crate::RUSTC_VERSION,
+            core_version: $crate::CORE_VERSION,
+            register: _acp_plugin_register,
+        };
     };
 }
 
@@ -311,20 +318,17 @@ macro_rules! declare_builtin {
 macro_rules! declare_plugin {
     ($ty:ty) => {
         #[allow(improper_ctypes_definitions)]
-        unsafe extern "C" fn _acp_plugin_register(
-            reg: &mut dyn $crate::PluginRegistrar,
-        ) {
+        unsafe extern "C" fn _acp_plugin_register(reg: &mut dyn $crate::PluginRegistrar) {
             reg.register_service(Box::new(<$ty>::default()));
         }
 
         #[doc = "Plugin entry the host reads after the package gate and the version check."]
         #[unsafe(no_mangle)]
-        pub static plugin_declaration: $crate::PluginDeclaration =
-            $crate::PluginDeclaration {
-                rustc_version: $crate::RUSTC_VERSION,
-                core_version: $crate::CORE_VERSION,
-                register: _acp_plugin_register,
-            };
+        pub static plugin_declaration: $crate::PluginDeclaration = $crate::PluginDeclaration {
+            rustc_version: $crate::RUSTC_VERSION,
+            core_version: $crate::CORE_VERSION,
+            register: _acp_plugin_register,
+        };
     };
 }
 
@@ -334,7 +338,9 @@ pub const RESERVED_IDS: &[&str] = &["redstar", "x", "youtube"];
 /// The rustc and core versions match this binary.
 pub fn versions_match(rustc_version: &str, core_version: &str) -> Result<(), String> {
     if rustc_version != RUSTC_VERSION {
-        return Err(format!("rustc mismatch: plugin has {rustc_version}, this binary has {RUSTC_VERSION}"));
+        return Err(format!(
+            "rustc mismatch: plugin has {rustc_version}, this binary has {RUSTC_VERSION}"
+        ));
     }
     if core_version != CORE_VERSION {
         return Err(format!(
@@ -365,6 +371,7 @@ pub fn combine_sort_key<'a>(posted_at: &'a str, edited_at: Option<&'a str>) -> &
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::records::{Availability, Field, RuntimeCtx};
     use std::future::Future;
 
     #[test]
@@ -387,19 +394,34 @@ mod tests {
     #[test]
     fn a_placeholder_edit_is_not_a_time() {
         assert_eq!(combine_sort_key("2020-01-01", Some("~0001")), "2020-01-01");
-        assert_eq!(combine_sort_key("2020-01-01", Some("2024-05-01")), "2024-05-01");
+        assert_eq!(
+            combine_sort_key("2020-01-01", Some("2024-05-01")),
+            "2024-05-01"
+        );
         assert_eq!(combine_sort_key("2020-01-01", None), "2020-01-01");
     }
 
     struct Bare;
 
     impl DynService for Bare {
-        fn id(&self) -> &'static str { "bare" }
-        fn display_name(&self) -> &'static str { "Bare" }
-        fn implemented(&self) -> &'static [CapabilityId] { &[CapabilityId::Notification] }
-        fn schema(&self) -> &'static [Field] { &[] }
+        fn id(&self) -> &'static str {
+            "bare"
+        }
+        fn display_name(&self) -> &'static str {
+            "Bare"
+        }
+        fn implemented(&self) -> &'static [CapabilityId] {
+            &[CapabilityId::Notification]
+        }
+        fn schema(&self) -> &'static [Field] {
+            &[]
+        }
         fn availability(&self, cap: CapabilityId, ctx: &RuntimeCtx) -> Availability {
-            if !ctx.enabled || !self.has(cap) { Availability::Off } else { Availability::Ready }
+            if !ctx.enabled || !self.has(cap) {
+                Availability::Off
+            } else {
+                Availability::Ready
+            }
         }
     }
 
@@ -408,11 +430,20 @@ mod tests {
         let bare = Bare;
         assert!(bare.has(CapabilityId::Notification));
         assert!(!bare.has(CapabilityId::Vote));
-        assert!(!any_implements([&bare as &dyn DynService], CapabilityId::Vote));
-        assert!(any_implements([&bare as &dyn DynService], CapabilityId::Notification));
+        assert!(!any_implements(
+            [&bare as &dyn DynService],
+            CapabilityId::Vote
+        ));
+        assert!(any_implements(
+            [&bare as &dyn DynService],
+            CapabilityId::Notification
+        ));
         let err = futures_block(bare.probe(CapabilityId::Vote)).unwrap_err();
         assert!(err.to_string().contains("does not implement vote"), "{err}");
         assert!(futures_block(bare.probe(CapabilityId::Notification)).is_ok());
+        let sid = crate::records::SourceId::new(crate::records::ServiceId::new("bare"), "1");
+        let err = futures_block(bare.vote(&sid, crate::records::VoteChoice::Up)).unwrap_err();
+        assert!(err.to_string().contains("does not implement vote"), "{err}");
     }
 
     fn futures_block<F: Future>(f: F) -> F::Output {

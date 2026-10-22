@@ -10,7 +10,7 @@ All rule changes and additions go in this file.
 - **Every version bump edits `CHANGELOG.md`** in [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) format: a dated `## [x.y.z]` section with Added / Changed / Fixed / Removed subsections (one heading of each kind per release). Nothing ships from `## [Unreleased]`.
 - **Tags are created and pushed only from main; never push a tag from a feature branch.** On any other branch `.githooks/post-commit` does not tag: it prints that tagging happens when the bump lands on main. A commit on local `main` is tagged by that hook. A merge on GitHub is tagged by `.github/workflows/tag-on-main.yml`, which creates `vX.Y.Z` only when `Cargo.toml`'s version changed and the tag does not exist. Don't tag by hand. `.githooks/pre-commit` blocks a version bump without a matching changelog entry.
 - Keep the version in sync everywhere: `Cargo.toml`/`Cargo.lock`, the README version line, `debian/changelog`, the Fedora spec and `PKGBUILD`.
-- Never rewrite published history: no force-pushes, and never move or delete existing tags. A history scrub of site internals is undecided. Do not run one. The draft spec is in `architecture/PLAN-SERVICE-SPLIT.md`.
+- Never rewrite published history: no force-pushes, and never move or delete existing tags. One exception is approved and not yet run: a history scrub of site internals on this public repo, after step (c) has merged and the service tree is on `acp--red-star-service`. The spec is in `architecture/PLAN-SERVICE-SPLIT.md`. Do not run it before that. Do not contact GitHub Support.
 
 ## Commits, pushes and PRs
 - Commit when work is done **and tested**.
@@ -50,7 +50,7 @@ All rule changes and additions go in this file.
 - A pull request that touches the ACP Red Star service opens on <https://github.com/m3talsmith/acp--red-star-service>, not on this repo. That surface is the scraper, login and one-time codes, the LiveView socket, sync against the site, compose and publish, interactions, Spaces, live updates, account writes, notification parsing from the site, HAR and capture docs, and site fixtures.
 - This repo only takes core and white-label pull requests: traits, the plugin loader and gate, brands, themes, the encrypted database, identity, the terminal shell, and the rest of the core.
 - After the split has landed, port each still-open service pull request on this repo as a new draft on `acp--red-star-service`, then close the original with a comment that links the new draft. Do not close the original before that draft exists. Do not close it without the link. Delete the stale branch only after the pull request is closed.
-- The service repo carries the same safety rules in its own `AGENTS.md`. A history scrub of this repo is undecided, and that file does not grant a force-push either.
+- The service repo carries the same safety rules in its own `AGENTS.md`. The history scrub is approved for this public repo only, and only after step (c) has merged and the service tree is on the private repo. The private repo does not get that exception.
 - X and YouTube are not the ACP Red Star service. They stay in this repo unless Michael says otherwise.
 
 ## Services, input and UX
