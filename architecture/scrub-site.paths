@@ -1,0 +1,59 @@
+# Paths removed from acp-rs-scraper history by git filter-repo --invert-paths.
+# One path per line. A trailing slash is a directory prefix.
+# Lines starting with # are comments and are not passed to filter-repo.
+#
+# These paths are Red Star site internals. The rehearsal was run against
+# main 3c84eb2e (before the split). The live scrub runs only after the split
+# PRs are merged, the service tree is in acp--red-star-service, and each of
+# these paths is absent from the scrub tip. A path that still exists at that
+# tip is skipped, not deleted: filter-repo would also drop the kept file.
+#
+# Kept on purpose (not listed): assets/ (logos, banner, wallpapers,
+# empty-body animation), src/eggs.rs, docs/.secrets/, src/branding.rs,
+# src/brands.rs once it lands, src/auth/prefs.rs, themes, crypto, storage,
+# the TUI shell, and docs/history/.
+
+src/liveview/
+src/scrape/
+src/site/
+src/auth/session.rs
+src/media.rs
+src/tui/modals/login.rs
+src/tui/tests/delete.rs
+src/tui/tests/edit.rs
+src/tui/tests/reads.rs
+src/tui/tests/repost.rs
+src/tui/tests/site_attachments.rs
+src/tui/tests/subscribe.rs
+src/tui/tests/sync.rs
+src/tui/tests/vote.rs
+tests/fixtures/site/
+tests/support/mock.rs
+tests/login_ws.rs
+tests/features/bodies.feature
+tests/features/edit.feature
+tests/features/login.feature
+tests/features/replies.feature
+tests/features/scrape.feature
+tests/features/sync.feature
+tests/features/truncated.feature
+architecture/INTERACTIONS-CAPTURE.md
+architecture/UPLOAD-CAPTURE.md
+docs/LIVE-PUBLISH-TEST.md
+docs/api/acp_rs_scraper/auth/fn.detect_code_form.html
+docs/api/acp_rs_scraper/auth/fn.find_redirect.html
+docs/api/acp_rs_scraper/auth/fn.login.html
+docs/api/acp_rs_scraper/auth/fn.login_flow.html
+docs/api/acp_rs_scraper/auth/fn.session_valid.html
+docs/api/acp_rs_scraper/auth/fn.trigger_action_post.html
+docs/api/acp_rs_scraper/auth/session/
+docs/api/acp_rs_scraper/http/
+docs/api/acp_rs_scraper/liveview/
+docs/api/acp_rs_scraper/media/
+docs/api/acp_rs_scraper/scrape/
+docs/api/src/acp_rs_scraper/auth/mod.rs.html
+docs/api/src/acp_rs_scraper/auth/session.rs.html
+docs/api/src/acp_rs_scraper/http.rs.html
+docs/api/src/acp_rs_scraper/liveview/
+docs/api/src/acp_rs_scraper/media.rs.html
+docs/api/src/acp_rs_scraper/scrape/
