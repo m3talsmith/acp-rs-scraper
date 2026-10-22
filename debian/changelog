@@ -4,6 +4,72 @@ acp-red-star (3.45.0) unstable; urgency=medium
 
  -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 05:40:00 +0000
 
+acp-red-star (3.35.14) unstable; urgency=medium
+
+  * Package 3.35.14. A pending recovery phrase is asked in the terminal UI. Not now is the default.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 06:00:00 +0000
+
+acp-red-star (3.35.13) unstable; urgency=medium
+
+  * Package 3.35.13. A second basket export leaves the earlier file and writes a new name.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 05:50:00 +0000
+
+acp-red-star (3.35.12) unstable; urgency=medium
+
+  * Package 3.35.12. Research add file shows ~ or a relative path.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 05:40:00 +0000
+
+acp-red-star (3.35.11) unstable; urgency=medium
+
+  * Package 3.35.11. HTML export renders Markdown. Raw HTML in a post is escaped.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 05:30:00 +0000
+
+acp-red-star (3.35.10) unstable; urgency=medium
+
+  * Package 3.35.10. Help search finds the layout topic.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 05:20:00 +0000
+
+acp-red-star (3.35.9) unstable; urgency=medium
+
+  * Package 3.35.9. Question mark opens the key list. The recovery phrase is its own Help topic.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 05:10:00 +0000
+
+acp-red-star (3.35.8) unstable; urgency=medium
+
+  * Package 3.35.8. A neutral brand leaves out the ACP wording. The ACP brand keeps it.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 05:00:00 +0000
+
+acp-red-star (3.35.7) unstable; urgency=medium
+
+  * Package 3.35.7. Thread sort reorders stored replies and does not open login.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 04:50:00 +0000
+
+acp-red-star (3.35.6) unstable; urgency=medium
+
+  * Package 3.35.6. Help search keeps j and k.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 04:40:00 +0000
+
+acp-red-star (3.35.5) unstable; urgency=medium
+
+  * Package 3.35.5. The theme editor preview uses the brand on screen and the sample nicks.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 04:30:00 +0000
+
+acp-red-star (3.35.4) unstable; urgency=medium
+
+  * Package 3.35.4. Theme editor samples use ordinary preview text. 3.35.3 widens the nick-bar collapse target. 3.35.2 stops Explore after 12 seconds with no reply and stores nothing.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 04:10:00 +0000
+
 acp-red-star (3.35.0) unstable; urgency=medium
 
   * Package 3.35.0. The logo, title, and motto are a brand. `acp-red-star --brand plain` is a neutral title and a star, with no motto.

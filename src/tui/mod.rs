@@ -123,7 +123,7 @@ pub async fn run(args: Args) -> Result<()> {
     }
     let home_dir = home()?;
     crate::crypto::cmd::prepare_db_quiet()?;
-    let show_recovery_help = crate::crypto::cmd::tui_recovery_offer(&home_dir)?;
+    let recovery_offer = crate::crypto::cmd::tui_recovery_offer(&home_dir)?;
     let db = home_dir.join(DB_REL_PATH);
     let prefs = load_prefs();
     let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
@@ -153,9 +153,7 @@ pub async fn run(args: Args) -> Result<()> {
     if let Some(msg) = crate::crypto::backup::schedule_reminder(&home_dir) {
         app.push_status(msg);
     }
-    if show_recovery_help {
-        app.modal = Some(modals::Modal::Help(modals::HelpModal::new()));
-    }
+    app.offer_recovery(recovery_offer, &home_dir);
     app.note_no_color();
 
     let (log_tx, log_rx) = std::sync::mpsc::channel::<String>();
@@ -240,9 +238,15 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     // Input thread → channel.
     let (ev_tx, mut ev_rx) = tokio::sync::mpsc::unbounded_channel();
     let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let pause_input = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let stop2 = stop.clone();
+    let pause2 = pause_input.clone();
     std::thread::spawn(move || {
         while !stop2.load(std::sync::atomic::Ordering::Relaxed) {
+            if pause2.load(std::sync::atomic::Ordering::Relaxed) {
+                std::thread::sleep(Duration::from_millis(50));
+                continue;
+            }
             if crossterm::event::poll(Duration::from_millis(100)).unwrap_or(false) {
                 match crossterm::event::read() { Ok(e) => { if ev_tx.send(e).is_err() { break; } } Err(_) => break }
             }
@@ -450,6 +454,25 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Ok(removed) => app.logged_out(removed),
                     Err(e) => app.error("Logout failed", &format!("{e:#}")),
                 },
+                Effect::CreatePhrase => {
+                    pause_input.store(true, std::sync::atomic::Ordering::Relaxed);
+                    std::thread::sleep(Duration::from_millis(150));
+                    while ev_rx.try_recv().is_ok() {}
+                    restore_terminal();
+                    let created = tokio::task::block_in_place(crate::crypto::cmd::identity_init);
+                    enable_raw_mode()?;
+                    execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+                    let _ = execute!(std::io::stdout(), crossterm::terminal::SetTitle(app.brand.title.clone()));
+                    term.0.clear()?;
+                    pause_input.store(false, std::sync::atomic::Ordering::Relaxed);
+                    match created {
+                        Ok(()) => {
+                            app.push_status("recovery phrase created");
+                            app.open_help(Some("recovery"));
+                        }
+                        Err(e) => app.error("Recovery phrase", &format!("{e:#}")),
+                    }
+                }
                 Effect::Quit { cancel_job } => {
                     if let Some(mut j) = job.take() {
                         if cancel_job { let _ = j.cancel(); } else { detached = Some((j.kind.name(), j.pid(), j.log.clone())); }
