@@ -63,9 +63,13 @@ Update 2026-10-21 (attachment uploads): **3.36.0** follows 3.35.0. A confirmed p
 
 Update 2026-10-21 (interaction audit): **3.37.0** follows 3.36.0. Vote, subscribe, delete, edit, and repost were checked against the frames in the repo. None have a live websocket frame. The JavaScript survey and the stub fixtures are not that frame. The five stay gated. Confirm still sends nothing. The clicks to record are [INTERACTIONS-CAPTURE.md](./INTERACTIONS-CAPTURE.md). The hand check lists the blocked client steps in [docs/LIVE-PUBLISH-TEST.md](../docs/LIVE-PUBLISH-TEST.md). This does not renumber 3.31.0–3.36.0. The crate version stays 3.5.0. The write-up is §7.14.13.
 
+Update 2026-10-21 (outbox): crate **3.34.0** is P6. Drafts, keep-local posts, `post_versions`, and the send queue. A queued text post or reply uses the same confirm and `--dry-run` as a direct publish. An item older than 24 hours asks again. `sending` is read back before another try. Per-draft keys and review links stay with the review stage. The plan stage was called 3.16.0. This follows crate 3.33.0 and does not renumber earlier releases.
+
 Update 2026-10-21 (reply edit): crate **3.33.0** sends a reply-body edit. Validate, then save, once. The open is the captured redirect join to `/rs/post/{id}/edit`. The only field is `form[body_input]`. A top-level post edit, vote, subscribe, delete, and repost stay prepared, gated. The site does not support changing attachments on an edit; that is not prepared, gated. This follows crate 3.32.0 and does not renumber earlier releases.
 
-Update 2026-10-21 (feeds): crate **3.35.0** is feeds core and the local view, **3.36.0** is the editor and add-to-feed, **3.37.0** exports the matching posts, and **3.38.0** shares and imports the rules (`*.acpfeed`, `acpfeed1:`). These follow crate 3.33.0 on this branch. Crate 3.34.0 is the outbox on its own branch and is not in this tree. The plan stages 3.17.0–3.20.0 are not these crate versions. Refresh uses the existing nick, tag, and search reads and asks first. `--dry-run` does not connect. Nothing in this stage is gated. This does not renumber earlier releases.
+Update 2026-10-21 (feeds): crate **3.45.0** is feeds core and the local view, **3.46.0** is the editor and add-to-feed, **3.47.0** exports the matching posts, and **3.48.0** shares and imports the rules (`*.acpfeed`, `acpfeed1:`). These follow outbox crate 3.34.0. Open pull requests that have not merged use 3.34.1 (recovery), 3.34.2 through 3.40.0 (interactions), 3.41.0 (spaces), 3.42.0–3.43.0 (live), and 3.44.0 (account). The plan stages 3.17.0–3.20.0 are not these crate versions. Refresh uses the existing nick, tag, and search reads and asks first. `--dry-run` does not connect. Nothing in this stage is gated. This does not renumber earlier releases.
+
+Update 2026-10-21 (modal input): focus, modes, and a remappable keymap ship before the 3.0 launch, early enough that people are not trained on the fixed keys first. The design is [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md). The version number is not assigned here. The write-up in this file is §4.6. Plugin reload is the Ctrl global `plugins.reload`.
 
 Goal: the app can do everything the Red Star website (`https://acp.us/rs`) can do,
 plus two client-side features the site doesn't have: **Feeds** (curated, shareable views)
@@ -308,8 +312,8 @@ Crate versions after 3.5.0 are the sequence in [CHANGELOG.md](../CHANGELOG.md), 
 | P3: Interactions | **3.33.0** reply edit; the rest prepared, gated | A reply edit sends validate, then save, once. Top-level post edits (title-only and body-only), vote, subscribe, delete, and repost stay prepared, gated until their captures arrive. The site does not support changing attachments on an edit. The stubs were recorded in crate 3.27.0. Reply edit is usable in 3.33.0. A deleted post shows a tombstone icon (🪦, or `[RIP]` when the terminal cannot draw that glyph) and the retained body stays openable (§6.6, §7.5). |
 | P4: Live | plan 3.10.0–3.11.0, not shipped | Live updates; Notifications pane. Those digits are plan stages. Crate 3.10.0 is the site-copy cap. |
 | P5: Account | plan 3.12.0–3.15.0, not shipped | Edit profile, Site settings, Report post, Report user. Those digits are plan stages. |
-| P6: Outbox | plan 3.16.0, not shipped | Offline drafts and queue, plus **local-first posts, drafts and `post_versions`** (§7.14.8). Crate 3.16.0 is the restyled `red-star` theme. |
-| P7: Feeds | **3.35.0–3.38.0** | Feeds core + view (3.35.0); editor + add-to-feed (3.36.0); export (3.37.0); share/import (3.38.0) (§6). The plan stages were 3.17.0–3.20.0. |
+| P6: Outbox | **3.34.0** | Offline drafts and the send queue, plus local-first posts and `post_versions` (§7.14.8). A queued text post or reply sends with the same confirm rules. The plan stage was called 3.16.0. Crate 3.16.0 is the restyled `red-star` theme. Per-draft keys and review links stay with the review stage. |
+| P7: Feeds | **3.45.0–3.48.0** | Feeds core + view (3.45.0); editor + add-to-feed (3.46.0); export (3.47.0); share/import (3.48.0) (§6). The plan stages were 3.17.0–3.20.0. |
 | P8: Spaces (optional) | plan 3.21.0, not shipped | List of spaces / live badge / recordings link. Crate 3.21.0 is hover tooltips. |
 | Password change / re-key | **not shipped** | `--change-password` re-keys local data only. The master and the `acp-id` do not change, and node certificates stay valid. The SQLCipher database key, the sealed keystore, the sealed phrase or entropy, and the backup-wrapping key are re-wrapped in one transaction that rolls back on failure. The old password is required (§7.13.13). This is before the daemon and the OS keyring. The plan stage was called 3.22.0. Crate 3.22.0 is Help. |
 | P9: Decentralization | plan 3.23.0–3.27.0, not shipped | Network node: `--serve`, enrollment, relays, peers, replication, NAT traversal, write relay to the site, media blobs, feeds/research sharing (§7). The master, phrase, shares, encryption at rest and backup shipped in 3.0.0. The shared core shipped in 3.2.0. Local node identity and the certificate format ship in 3.3.0. The re-key stays before this phase and has not shipped. It stays inside 3.x (§7.14.10). Crate 3.23.0 is About. |
@@ -326,6 +330,7 @@ Crate versions after 3.5.0 are the sequence in [CHANGELOG.md](../CHANGELOG.md), 
 | TUI menu categories | **3.20.0** | Reorganize the menu bar (§4.2). Shipped. |
 | Hover tooltips | **3.21.0** | Every button, menu item, and card icon explains itself on hover, including its key when it has one, and a deep link to the Help topic for that action (§4.3). One shared helper, in the client. Shipped. |
 | Help topics | **3.22.0** | Help is topics you can move between, with search, and a `?` on the header that opens Help (§4.4). `?` and F1 stay the entry. Shipped. This crate version is not the re-key. |
+| Modal input, focus, and keymap | required before the 3.0 launch | Focus sets the mode. Global keys are Ctrl chords, including `plugins.reload`. Other keys are mode hotkeys from the focused service's capabilities. Bindings live in `~/.acp/keymap.toml`, reload in the app, and edit in Preferences. Help, tooltips, the action bar, and About show the active binding. Design: [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md) (§4.6). The version number is not assigned here. Ships early enough that people are not trained on the fixed keys first. |
 | About | **3.23.0** | A menu item with three segments opens one modal focused on that section: Credits, Why this is necessary, and ACP platform (§4.2). Shipped. |
 | Launch docs | before the 3.0 client is presented | User-facing name ACP Red Star, the two workspace crates, source install plus the Releases page, Getting Started, Help completeness, About, `SECURITY.md`, and a refresh of SPECS and PLAN-2.0 (§4.5). Not a numbered minor. Does not block attachments. |
 | Alpha packaging | parked until both gates | Pack alphas only after writes and replies with attachments are done and the decentralized network (P9, 3.23.0–3.27.0) is completed. Notes separate functional from stubbed. The server (`acp-rs`) and the relay (`acp-rs-relay`) are separate installs and stay embedded in the app, on this same gate. No alpha tag, and no server or relay release, until then (§4.5). |
@@ -503,6 +508,12 @@ These are end-of-3.0 work. They wait until the launch docs exist. They are not a
 7. A separate ACP community-work video: chapter fieldwork in the manner of a Habitat-style build, distinct from the infrared cutscene and from the demo movie. It is promo, not code. This note does not produce it.
 8. A Red Star forum launch write-up for comrades, covering v3. It is promo, not code. The showcase features the cutscene in both forms, the normal video and the ASCII / terminal form, alongside the elevator pitch and the demo movie. The community-work video stays its own piece and is not folded into the cutscene or the demo. The pre-launch / coming-soon draft is kept at [docs/history/v3/redstar-v3-prelaunch-post.md](../docs/history/v3/redstar-v3-prelaunch-post.md) and linked from the README. That file is not the live forum post. At the 3.0 release, switch the README link from the pre-launch post to `docs/history/v3/redstar-v3-launch-post.md` (the launch post, written as if 3.x has fully shipped, and published only when it is done).
 
+### 4.6 Modal input, focus, and keymap (required before the 3.0 launch)
+
+The terminal's keys become modal before launch, so people learn one map. The design is [PLAN-MODES-KEYMAP.md](./PLAN-MODES-KEYMAP.md). This section does not assign a minor and does not move a numbered stage.
+
+Focus is one pane, widget, or object. Tab, Shift-Tab, and a click move it. The focused widget shows an indicator drawn with `ratatui-lipgloss`. The focused object sets the mode: a post is post mode, and in post mode `r` replies. Global keys are Ctrl-<key>. Every other key is a mode hotkey. A mode's keys are the capabilities of that object's service. Help, tooltips, the action bar, and About show the binding loaded from `~/.acp/keymap.toml`. Preferences edits that file and uses the same reload as the reload action. A bad file shows the error and keeps the previous map. Plugin reload is the Ctrl global `plugins.reload` (default `ctrl-p`, remappable). The keymap file sets that chord.
+
 ---
 
 ## 5. Risks
@@ -517,11 +528,11 @@ These are end-of-3.0 work. They wait until the launch docs exist. They are not a
 
 ---
 
-## 6. Feeds (client-side; phase P7, crate 3.35.0 → 3.38.0)
+## 6. Feeds (client-side; phase P7, crate 3.45.0 → 3.48.0)
 
 Feeds are named, saved, local views built from rules over the local DB. They can refresh from the
 site through targeted syncs, export with the existing formats, and be shared as a portable definition. No
-personal data goes into a shared definition. The plan stages were 3.17.0–3.20.0. Those digits are not these crate versions. Crate 3.34.0 is the outbox on its own branch.
+personal data goes into a shared definition. The plan stages were 3.17.0–3.20.0. Those digits are not these crate versions. Outbox crate 3.34.0 is on main.
 
 ### 6.1 Rules model
 - **Sources:**
@@ -654,7 +665,7 @@ Shipped flags use `--feed-nick`, `--feed-tag`, and `--feed-search` so they do no
   - Create a feed → view it → export JSON/HTML.
   - Share → import into a second throwaway HOME → same results from that DB.
   - Refresh triggers mocked tag, profile and search fetches (fake LV server).
-- Version phase: P7, crate **3.35.0** (core + view), **3.36.0** (editor + add-to-feed), **3.37.0** (export) and **3.38.0** (share/import). The plan stages were 3.17.0–3.20.0.
+- Version phase: P7, crate **3.45.0** (core + view), **3.46.0** (editor + add-to-feed), **3.47.0** (export) and **3.48.0** (share/import). The plan stages were 3.17.0–3.20.0.
 
 ---
 

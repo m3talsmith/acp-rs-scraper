@@ -35,6 +35,8 @@ pub enum ConfirmAction {
         /// argv including `argv[0]`.
         argv: Vec<String>,
     },
+    /// Send one outbox row. The id is the `Q-` id.
+    SendOutbox(String),
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.

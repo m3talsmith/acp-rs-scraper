@@ -6,29 +6,35 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.38.0] - 2026-10-21
+## [3.48.0] - 2026-10-21
 
 ### Added
 
 - **Feed share and import.** `--feed-share NAME` writes the rules as TOML. `--share-string` prints `acpfeed1:` and the deflated rules. `--output` is the file. `--feed-import` reads a `.acpfeed` file, `-` for stdin, or an `acpfeed1:` string. `--feed-name` stores it under another name. `--feed-replace` replaces a feed that already has that name. A clash without one of those two stops. The file and the string are the rules only: no bookmarks, notes, paths, cookies, seen rows, or last refresh. A personal key is refused. Unknown keys are dropped with a warning. The definition is at most 64 KiB, at most 200 rules, and version 1.
 
-## [3.37.0] - 2026-10-21
+## [3.47.0] - 2026-10-21
 
 ### Added
 
 - **Feed export.** `--feed-export NAME` writes the posts this feed matches, with the existing JSON and HTML exporters. `--output` is the file. This is the posts, not the rules. Library › Feeds › Export does the same.
 
-## [3.36.0] - 2026-10-21
+## [3.46.0] - 2026-10-21
 
 ### Added
 
 - **Feed editor and add to feed.** Library › Feeds opens the menu. The editor sets the name, the description, any or all, the sort, the dates, and one rule. Save uses `--feed-edit` when the name exists and `--feed-create` otherwise. Add rule uses `--feed-add`. `f` adds the open post's nick, the selected nick, or the current search. The add box starts on Cancel. `--feed-remove-rule` drops a nick, tag, or search. `--feed-exclude` makes the new rule an exclude.
 
-## [3.35.0] - 2026-10-21
+## [3.45.0] - 2026-10-21
 
 ### Added
 
 - **Feeds.** A feed is rules over the local database. `--feed-list` lists them and does not create a database. `--feed-create NAME` creates one, or updates the description and filters when the name exists. `--feed-show NAME` prints the matching posts and marks them seen. The nick bar lists feeds. Opening one reads the local database. Includes combine with `--feed-match any` or `all`. Excludes always subtract. `--feed-sort` is newest, oldest, or score. `--feed-since` and `--feed-until` take an ISO date or a number of days like `30d`. `--feed-kinds` is posts, replies, or both. `--feed-min-score` drops a lower score, and a post with no score. `--feed-has-media` keeps posts that have a stored attachment. Search is the local LIKE search. A tombstoned post stays in the list. `--feed-refresh NAME` asks `Refresh this feed from the site? [y/N]`, then reads the included nicks, tags, and searches with the existing scrapers. Excludes are not fetched. `--dry-run` prints the plan and does not connect. `--feed-delete NAME` asks `Delete this feed? [y/N]`. The posts stay. Cancel is the default.
+
+## [3.34.0] - 2026-10-21
+
+### Added
+
+- **Drafts and the outbox.** A post is stored on this machine before it is sent. `--draft-save` writes a draft. The same `--draft-id` writes another `post_versions` row. `--keep-local` leaves the post off the queue. `--draft-list` prints them. `--outbox-queue ID` queues that local id. `--outbox-list` prints the queue. `--outbox-cancel ID` marks a queued, failed, or draft row cancelled. `--outbox-send ID` asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same validate and save frames as a direct text publish and opens no connection. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Votes and the other gated writes are not sent from it. In the terminal UI, Save draft is on the compose box and under Compose. Send from outbox starts on Cancel.
 
 ## [3.33.0] - 2026-10-21
 

@@ -157,6 +157,33 @@ pub const FEEDS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS feeds (
             PRIMARY KEY (feed_id, post_id)
         );";
 
+/// A post written on this machine before it is sent (§7.14.8).
+/// `state` is `draft`, `local`, `queued`, or `published`.
+pub const LOCAL_POSTS_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS local_posts (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            thread_id TEXT NOT NULL DEFAULT '',
+            state TEXT NOT NULL CHECK (state IN ('draft','local','queued','published')),
+            site_post_id TEXT,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );";
+
+/// Offline send queue (§2.2). `payload` is JSON. `sending` is left in place
+/// if the process stops, so the next send reads back before it tries again.
+pub const OUTBOX_SCHEMA: &str = "CREATE TABLE IF NOT EXISTS outbox (
+            id TEXT PRIMARY KEY,
+            action TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            status TEXT NOT NULL CHECK (status IN ('draft','queued','sending','sent','failed','cancelled')),
+            created_at TEXT NOT NULL,
+            confirmed_at TEXT,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            last_error TEXT NOT NULL DEFAULT '',
+            result_post_id TEXT
+        );";
+
 /// A named site read (Top, and later the other read-parity feeds), in the
 /// order the site returned. `post_ids` is a JSON array of post ids. The posts
 /// themselves live in `posts`, so the view still opens offline. Created on first use.

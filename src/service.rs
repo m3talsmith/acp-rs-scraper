@@ -1,6 +1,6 @@
-//! Red Star capabilities used by feeds.
+//! Red Star capabilities used by feeds and the outbox.
 //!
-//! The service split has not landed. This id is the one that split keeps.
+//! The service split has not landed. These ids are the ones that split keeps.
 
 use crate::prelude::*;
 
@@ -9,6 +9,10 @@ use crate::prelude::*;
 pub enum CapabilityId {
     /// Named local views over the database.
     Feeds,
+    /// Local drafts and the send queue.
+    Outbox,
+    /// A post stored on this machine before it is sent.
+    LocalPost,
 }
 
 impl CapabilityId {
@@ -16,6 +20,8 @@ impl CapabilityId {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Feeds => "feeds",
+            Self::Outbox => "outbox",
+            Self::LocalPost => "local_post",
         }
     }
 }
@@ -23,9 +29,9 @@ impl CapabilityId {
 /// Whether a capability can run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Availability {
-    /// The local feed view is shipped.
+    /// The local feed view or the local queue is shipped.
     Ready,
-    /// Prepared, and it does not run.
+    /// Prepared, and it does not send.
     Gated,
 }
 
@@ -38,7 +44,7 @@ impl RedStar {
 
     /// Capabilities this binary implements.
     pub fn implemented() -> &'static [CapabilityId] {
-        &[CapabilityId::Feeds]
+        &[CapabilityId::Feeds, CapabilityId::Outbox, CapabilityId::LocalPost]
     }
 
     /// Runtime state. `None` means this service does not implement `id`.

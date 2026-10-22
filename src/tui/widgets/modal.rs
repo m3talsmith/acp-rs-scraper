@@ -214,12 +214,23 @@ fn draw_compose(f: &mut Frame, app: &mut App, area: Rect, m: &ComposeModal, t: &
     if y < btn_y {
         f.render_widget(Paragraph::new(Span::styled(clip(&note, inner.width as usize), if m.error.is_some() { t.accent() } else { t.muted() })), row(y));
     }
-    let focus = match m.focus {
-        ComposeFocus::Cancel => Some(0),
-        ComposeFocus::Publish => Some(1),
-        _ => None,
+    let (labels, focus) = if edit_reply {
+        let focus = match m.focus {
+            ComposeFocus::Cancel => Some(0),
+            ComposeFocus::Publish => Some(1),
+            _ => None,
+        };
+        (vec!["Cancel".into(), "Publish".into()], focus)
+    } else {
+        let focus = match m.focus {
+            ComposeFocus::Cancel => Some(0),
+            ComposeFocus::Draft => Some(1),
+            ComposeFocus::Publish => Some(2),
+            _ => None,
+        };
+        (vec!["Cancel".into(), "Save draft".into(), "Publish".into()], focus)
     };
-    buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Cancel".into(), "Publish".into()], focus);
+    buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &labels, focus);
 }
 
 fn draw_about(f: &mut Frame, app: &mut App, area: Rect, m: &AboutModal, t: &Theme) {

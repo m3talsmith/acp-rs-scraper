@@ -834,7 +834,7 @@ CREATE TABLE research_items (
   UNIQUE (project_id, kind, ref)
 );
 
-CREATE TABLE feeds (               -- 3.35.0; named local views. definition is canonical JSON
+CREATE TABLE feeds (               -- 3.45.0; named local views. definition is canonical JSON
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE COLLATE NOCASE,
   description TEXT NOT NULL DEFAULT '',
@@ -935,6 +935,15 @@ CREATE TABLE feed_seen (
 
 ## Writing
 
+3.34.0 stores a draft on this machine before it is sent. `--draft-save --draft-id ID --body TEXT` writes it. `--draft-title` is the new-post title. `--draft-thread THREAD` makes it a reply. The same id writes another version in `post_versions`. `--keep-local` stores it as `local` and leaves it off the queue. `--draft-list` prints the drafts. `--outbox-queue ID` queues that local id. The outbox id is `Q-` plus the local id. `--outbox-list` prints the queue. `--outbox-cancel ID` marks a queued, failed, or draft row cancelled. A row left in `sending` is not cancelled until a read-back. `--outbox-send ID` asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same validate and save frames as a direct text publish and opens no connection. An item older than 24 hours asks again. The queue sends only a text post or a reply. A vote or another gated write is refused. In the terminal UI, the compose box has Save draft (Cancel stays the default). Compose › Save draft uses the draft fields. Send from outbox starts on Cancel.
+
+```bash
+acp-red-star --draft-save --draft-id D1 --draft-title "Shop notes" --body "hello"
+acp-red-star --draft-save --draft-id D1 --body "hello, revised"
+acp-red-star --outbox-queue D1
+acp-red-star --outbox-send Q-D1 --dry-run
+```
+
 3.4.0 composes a new post or a reply. Writes are on unless `ui.writes = false` in `~/.acp/preferences.toml` or `ACP_WRITES=off`. The environment wins.
 
 In the terminal UI, `n` opens New post. On an open post, `r` replies (a comment pre-fills the reference) and `Q` quotes that post. A reply's body starts with a `postRef` node. On the thread root, `postId` and `threadId` are both that thread's id. On a comment, `postId` is the comment. `+` prepares an upvote on the open or highlighted post and `-` prepares a downvote. Neither sends. `--vote POST` with `--vote-state 1`, `0`, or `-1` does the same from the command line (`1` is the default). `--dry-run` prints the hook. A confirmed vote does not connect. The live frame has not been captured. Post menu (`p`) › Subscribe prepares `subscribe` with state `1` and does not send it. `--subscribe THREAD` with `--subscribe-state 1` or `0` does the same from the command line (`1` is the default). `--dry-run` prints the hook. A confirmed subscribe does not connect. The live frame has not been captured. Post menu (`p`) › Delete asks you to type yes. Cancel is the default. `--delete POST` asks the same on a terminal. `--yes` confirms. `--dry-run` prints the `delete-post` hook. A confirmed delete does not connect. The live frame has not been captured. Post menu (`p`) › Edit refuses a post older than one hour. On a reply, inside that hour, the compose box starts on Cancel and then asks you to type yes. A confirmed reply edit sends validate, then save, once. `--edit REPLY` needs `--body` or `--body-file`. `--posted-at UNIX` checks the same hour. Omit `--posted-at` and the hour is not checked. `--dry-run` prints the frames and does not connect. A top-level post edit is not sent. The site does not support changing attachments on an edit, so `--attachment` with `--edit` is refused before a connection. Post menu (`p`) › Repost names `/rs/post/new?repost=POST` and does not send. `--repost POST` does the same. `--reposts` still only reads the list. The repost form has not been captured, so it is not built. `--dry-run` prints the route. A confirmed repost does not connect. The button under the cursor starts on Cancel. A text post or reply sends validate, then save, once, and prints the new post id and URL. A rejection is shown and is not retried. `--dry-run` prints those frames and opens no connection. The 30 second gap starts when you confirm. A failed upload is not retried, and a save is not sent again. `--dry-run` does not start the gap.
@@ -967,7 +976,7 @@ Licensed GPL-3.0-or-later (see `LICENSE`).
 
 ### Code layout and tests
 
-The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post, Reply, and local attachments), `feeds` (local views, 3.35.0–3.38.0), `service` (Red Star capability ids), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
+The crate is a library with a thin binary (`src/main.rs` → `app::run`). Modules are split by domain: `cli`, `config` (all constants and site URLs), `logging`, `http`, `auth`, `liveview`, `scrape/{feed,thread,profile,mentions,reads,refetch,edits}`, `site` (New post, Reply, and local attachments), `feeds` (local views, 3.45.0–3.48.0), `outbox` (drafts and the send queue, 3.34.0), `service` (Red Star capability ids), `media`, `storage/{db,schema}`, `export/{json,html,archive}`, `import`, `maintenance`, `research/{mod,cli}`, `themes/{format,download,mod}`, `tui/{state,input,layout,commands,data,jobs,theme,theming,editor,sample,markdown,images,widgets/,modals/}` and `app`. Unit tests live next to their module in `tests.rs` files (e.g. `src/cli/tests.rs`).
 
 TUI styling goes through `tui::theme` only. `themes` (`themes/format.rs`: the TOML v1 parser,
 colours, elements, contrast; `themes/mod.rs`: files, migration, background detection;

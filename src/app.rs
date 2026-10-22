@@ -231,6 +231,7 @@ pub async fn run() -> Result<()> {
     if args.encrypt_db { return crate::crypto::cmd::encrypt_db(); }
     if args.change_password { return crate::crypto::cmd::change_password(); }
     if crate::feeds::cli_requested(&args) { return crate::feeds::run_cli(&args).await; }
+    if crate::outbox::cli_requested(&args) { return crate::outbox::run_cli(&args).await; }
     if crate::site::cli_requested(&args) { return crate::site::run_cli(&args).await; }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
