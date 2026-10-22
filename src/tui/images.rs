@@ -315,6 +315,21 @@ pub fn fit(w: u32, h: u32, cell: (u16, u16), max_cols: u16, max_rows: u16) -> (u
     (cols, rows)
 }
 
+/// Draw the picture at `path` with half blocks (two pixels per cell). Used for a brand
+/// logo when the terminal has no graphics protocol.
+pub fn draw_halfblocks_file(buf: &mut Buffer, area: Rect, path: &Path) -> bool {
+    let Ok(img) = image::open(path) else { return false };
+    let img = img.to_rgba8();
+    let (cols, rows) = fit(img.width(), img.height(), DEFAULT_CELL, area.width, area.height);
+    if cols == 0 || rows == 0 { return false; }
+    let x = area.x + (area.width - cols) / 2;
+    let y = area.y + (area.height - rows) / 2;
+    let rect = Rect { x, y, width: cols, height: rows };
+    let small = image::imageops::resize(&img, u32::from(cols), u32::from(rows) * 2, image::imageops::FilterType::Triangle);
+    halfblocks(buf, rect, &small);
+    true
+}
+
 /// Draw `img` (cols × 2·rows pixels) as `▀` / `▄` cells; transparent pixels leave the cell's background.
 pub fn halfblocks(buf: &mut Buffer, rect: Rect, img: &RgbaImage) {
     let px = |x: u32, y: u32| img.get_pixel_checked(x, y).filter(|p| p.0[3] >= 128).map(|p| Color::Rgb(p.0[0], p.0[1], p.0[2]));

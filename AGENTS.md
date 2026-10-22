@@ -42,6 +42,7 @@ All rule changes and additions go in this file.
 - The header uses `tui-big-text`.
 - Installs come from GitHub Releases binaries or building from source.
 - Themes: TOML files in `~/.acp/themes/`. Keep the theme system in sync with grokbot-tui: when themes change here, note it so the change can be ported there (and vice versa).
+- Brands: the logo, the title, and the motto. The built-in `default` brand is ACP Red Star. The built-in `plain` brand is a neutral title and a star with no motto (`--brand plain`). User files are `~/.acp/brands/<name>.toml` and override a built-in of the same name. A brand is independent of the theme. Credits and the other surprises keep their own text.
 - Decentralization uses libp2p.
 
 ## Services, input and UX
