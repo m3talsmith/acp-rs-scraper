@@ -15,10 +15,12 @@ pub mod hpke;
 pub mod master;
 pub mod node;
 pub mod password;
+pub mod service;
 pub mod slip39;
 pub mod stage;
 pub mod store;
 
 pub use cbor::{Cbor, blake3_hash, from_slice, to_vec};
+pub use service::{CORE_VERSION, RUSTC_VERSION};
 pub use master::{AcpId, Master, derive_master, phrase_from_entropy, recover_seed};
 pub use password::{Argon2Params, Stretch, check_password, default_params};

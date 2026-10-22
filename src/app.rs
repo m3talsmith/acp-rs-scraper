@@ -235,6 +235,31 @@ pub async fn run() -> Result<()> {
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
     if args.list_themes { return run_list_themes(&args).await; }
+    if let Ok(dir) = home() {
+        let _ = crate::plugins::startup(&dir);
+    }
+    if args.doctor { return crate::services::print_doctor(); }
+    if args.services { return crate::services::print_services(); }
+    if let Some(id) = args.service_enable.as_deref() {
+        crate::services::set_enabled(&home()?, id, true)?;
+        println!("{id} enabled");
+        return Ok(());
+    }
+    if let Some(id) = args.service_disable.as_deref() {
+        crate::services::set_enabled(&home()?, id, false)?;
+        println!("{id} disabled");
+        return Ok(());
+    }
+    if let Some(parts) = &args.service_set {
+        let (id, key, value) = (&parts[0], &parts[1], &parts[2]);
+        crate::services::set_config(&home()?, id, key, value)?;
+        println!("{id} {key} updated");
+        return Ok(());
+    }
+    if args.quarantine { return crate::services::print_quarantine(); }
+    if let Some(name) = args.quarantine_show.as_deref() { return crate::services::print_quarantine_show(name); }
+    if let Some(name) = args.quarantine_restore.as_deref() { return crate::services::quarantine_restore(name); }
+    if let Some(name) = args.quarantine_delete.as_deref() { return crate::services::quarantine_delete(name); }
     if let Some(t) = &args.theme { check_theme(t).await?; }
     if tui {
         return crate::tui::run(args).await;

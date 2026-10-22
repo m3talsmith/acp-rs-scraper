@@ -15,6 +15,7 @@ pub mod post;
 pub mod research;
 pub mod rules;
 pub mod search;
+pub mod services;
 pub mod theme_picker;
 
 use crossterm::event::KeyEvent;
@@ -33,6 +34,7 @@ pub use post::*;
 pub use research::*;
 pub use rules::*;
 pub use search::*;
+pub use services::*;
 pub use theme_picker::*;
 
 /// How a modal closed.
@@ -102,6 +104,8 @@ pub enum Modal {
     History(HistoryModal),
     /// Action-history paths. Choosing one restores that path.
     Branches(BranchesModal),
+    /// Account › Services. Enable, quarantine, and plugin reload.
+    Services(ServicesModal),
 }
 
 impl Modal {
@@ -117,6 +121,7 @@ impl Modal {
             Modal::Rules(m) => m,
             Modal::History(m) => m,
             Modal::Branches(m) => m,
+            Modal::Services(m) => m,
         }
     }
 }

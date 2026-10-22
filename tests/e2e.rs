@@ -97,6 +97,13 @@ async fn site(w: &mut E2e) { w.mock = Some(Mock::start().await); }
 #[given("the site's \"Posts and replies\" URL is broken")]
 async fn broken_replies(w: &mut E2e) { w.mock().inner.lock().unwrap().replies_url_broken = true; }
 
+#[given(expr = "a plugin archive {string} that fails the package check")]
+async fn bad_plugin(w: &mut E2e, name: String) {
+    let dir = w.home.join(".acp/plugins");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join(name), b"this is not a gzipped tar").unwrap();
+}
+
 #[given(expr = "I will enter the code {string}")]
 async fn will_enter(w: &mut E2e, code: String) { w.code = code; }
 

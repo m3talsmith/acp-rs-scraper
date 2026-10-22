@@ -582,6 +582,9 @@ fn snapshot_db(home: &Path) -> Result<Vec<u8>> {
     ))
     .context("snapshot")?;
     drop(src);
+    if let Ok(plain) = crate::storage::db::open_db(&tmp) {
+        crate::services::strip_secrets(&plain)?;
+    }
     let bytes = std::fs::read(&tmp).context("reading the database snapshot")?;
     let _ = std::fs::remove_file(&tmp);
     Ok(bytes)

@@ -655,6 +655,34 @@ pub struct Args {
         "show_phrase", "node_init", "new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost",
     ])]
     pub node_id: bool,
+
+    /// Print the rustc version and the core-crate version a plugin must be built with. This is the only place that pin is printed.
+    #[arg(long, exclusive = true, help_heading = "Services")]
+    pub doctor: bool,
+    /// List registered services. Red Star is enabled when ~/.acp/services/redstar.toml is missing. Other services start disabled. Secret values are not printed.
+    #[arg(long, exclusive = true, help_heading = "Services")]
+    pub services: bool,
+    /// Turn a service on and write enabled = true in ~/.acp/services/<id>.toml.
+    #[arg(long, value_name = "SERVICE", exclusive = true, help_heading = "Services")]
+    pub service_enable: Option<String>,
+    /// Turn a service off. Red Star stays installed. Missing redstar.toml means on, so this writes the file.
+    #[arg(long, value_name = "SERVICE", exclusive = true, help_heading = "Services")]
+    pub service_disable: Option<String>,
+    /// Set one non-secret field: --service-set SERVICE KEY VALUE. A secret field is refused and the value is not stored.
+    #[arg(long, num_args = 3, value_names = ["SERVICE", "KEY", "VALUE"], exclusive = true, help_heading = "Services")]
+    pub service_set: Option<Vec<String>>,
+    /// List quarantined packages. Plugins are the first kind.
+    #[arg(long, exclusive = true, help_heading = "Services")]
+    pub quarantine: bool,
+    /// Print one quarantined item and why it was moved.
+    #[arg(long, value_name = "FILE", exclusive = true, help_heading = "Services")]
+    pub quarantine_show: Option<String>,
+    /// Move a quarantined plugin back to ~/.acp/plugins and run the package check again.
+    #[arg(long, value_name = "FILE", exclusive = true, help_heading = "Services")]
+    pub quarantine_restore: Option<String>,
+    /// Delete a quarantined copy. The plugins directory is left alone.
+    #[arg(long, value_name = "FILE", exclusive = true, help_heading = "Services")]
+    pub quarantine_delete: Option<String>,
 }
 
 /// File format for `--rules-import`, `--rules-export`, `--rules-list`, and `--rules-show`.

@@ -573,6 +573,10 @@ pub struct App {
     pub tip: Option<crate::tui::tooltip::Tip>,
     /// Where that control was drawn.
     pub tip_at: Rect,
+    /// Mixed (default) or grouped. Mixed looks like today's list.
+    pub combine: crate::services::Combine,
+    /// `all` or a service id. Remembered in `[ui] source`.
+    pub source: String,
 }
 
 fn nick_label(q: &str) -> String {
@@ -621,6 +625,7 @@ impl App {
             branches: Vec::new(), branch_at: 0, action_at: 0, action_scroll: 0, action_cursor: 0, action_page: 1,
             restoring: false, record_ready: false, nicks_open: true, actions_open: false,
             tip: None, tip_at: Rect::default(),
+            combine: crate::services::Combine::Mixed, source: "all".into(),
         };
         app.load_notices();
         app.refresh_nicks();
@@ -1876,6 +1881,16 @@ impl App {
                     self.push_status(format!("{}. Help: nick-order", crate::tui::order::result_status(&nick_label(&self.nick_filter.value), shown, total, self.nick_order, self.nick_limit.is_some())));
                 }
             }
+            (View, "combine") => {
+                let grouped = self.menu.menu.choice(View, "combine").eq_ignore_ascii_case("grouped");
+                let next = if grouped { crate::services::Combine::Grouped } else { crate::services::Combine::Mixed };
+                if self.combine != next {
+                    self.combine = next;
+                    self.persist_ui_string("combine", next.as_str());
+                    let label = if grouped { "grouped · Red Star" } else { "mixed" };
+                    self.push_status(format!("combine: {label}. Help: combine"));
+                }
+            }
             (View, "color") => {
                 let mode = color_from_choice(self.menu.menu.choice(View, "color"));
                 if self.color_mode != mode {
@@ -1948,6 +1963,12 @@ impl App {
         self.modal = Some(Modal::Help(h));
     }
     /// Write `[ui] color` when the TUI has a real preferences file (not a unit test).
+    fn persist_ui_string(&mut self, key: &str, value: &str) {
+        if self.themes_dir.is_none() { return; }
+        if let Err(e) = crate::auth::prefs::save_ui_string(key, value) {
+            self.push_status(format!("error: could not save {key}: {e:#}"));
+        }
+    }
     fn persist_color_mode(&mut self) {
         if self.themes_dir.is_none() { return; }
         if let Err(e) = crate::auth::prefs::save_ui_color(self.color_mode.as_str()) {
@@ -2398,6 +2419,35 @@ impl App {
                 Ok(argv) => self.start_online_job(JobKind::Sync, argv),
                 Err(e) => self.error("Cannot sync", &e),
             },
+            Action::OpenServices => {
+                self.close_menu();
+                let home = crate::config::home().unwrap_or_default();
+                self.modal = Some(Modal::Services(crate::tui::modals::ServicesModal::from_rows(crate::services::services_rows(&home))));
+            }
+            Action::ReloadPlugins => {
+                self.close_menu();
+                match crate::services::reload_plugins() {
+                    Ok(report) => self.push_status(format!(
+                        "plugins reloaded: {} loaded, {} kept, {} refused, {} quarantined",
+                        report.loaded, report.kept, report.refused.len(), report.quarantined.len()
+                    )),
+                    Err(e) => self.error("Plugins", &format!("{e:#}")),
+                }
+            }
+            Action::CycleSource => {
+                self.close_menu();
+                self.source = if self.source == "all" { "redstar".into() } else { "all".into() };
+                let source = self.source.clone();
+                self.persist_ui_string("source", &source);
+                self.push_status(format!("source: {source}. Help: source"));
+            }
+            Action::ReloadKeymap => {
+                self.close_menu();
+                match crate::keymap::reload() {
+                    Ok(()) => self.push_status("keymap reloaded"),
+                    Err(e) => self.error("Keymap", &e),
+                }
+            }
             Action::Quit => {
                 self.close_menu();
                 if let Some(j) = &self.job {

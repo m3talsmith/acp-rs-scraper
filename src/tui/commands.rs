@@ -207,6 +207,14 @@ pub enum Action {
     ToggleNicks,
     /// Collapse or open the action history bar.
     ToggleActions,
+    /// Account › Services.
+    OpenServices,
+    /// Reload plugins. Preferences › Services and `plugins.reload` call one loader.
+    ReloadPlugins,
+    /// Next source in the combined view. `view.source`.
+    CycleSource,
+    /// Read the keymap again.
+    ReloadKeymap,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -383,6 +391,8 @@ fn view_item() -> MenuCommand {
         opt("explore", "Explore", "--explore", false, button(Action::OpenExplore)),
         opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
         opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
+        opt_topic("combine", "Combine", "mixed (default) or grouped", "combine", false, choice(&["Mixed", "Grouped"])),
+        opt_topic("source", "Source", "view.source", "source", false, button(Action::CycleSource)),
     ])
 }
 
@@ -485,6 +495,7 @@ fn account_item() -> MenuCommand {
     shown(CommandId::Session, "Account", 'n', vec![
         opt("login", "Log in", "", false, button(Action::Login)),
         opt("logout", "Log out", "--logout", false, button(Action::Logout)),
+        opt_topic("services", "Services", "plugins.reload", "services", false, button(Action::OpenServices)),
     ])
 }
 

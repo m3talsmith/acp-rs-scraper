@@ -1,0 +1,8 @@
+# Default keymap. A missing ~/.acp/keymap.toml uses this file.
+# The chord is the key. The value is the action. Widgets do not hardcode these chords.
+
+[global]
+"ctrl-space" = "palette.open"   # command palette. Ctrl-Space stays here.
+"ctrl-]" = "view.source"         # which service's rows are on screen
+"ctrl-k" = "keymap.reload"
+"ctrl-p" = "plugins.reload"      # pick up plugins placed in ~/.acp/plugins

@@ -552,6 +552,27 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
             }
             buttons(f, app, Rect { y: inner.y + inner.height.saturating_sub(1), height: 1, ..inner }, &["Close".into()], None);
         }
+        Modal::Services(m) => {
+            let rows = m.rows.len().max(1) as u16;
+            let r = modal_rect(area, 72, rows + 3);
+            let inner = frame(f, &t, r, "Services · Space toggles · u restore · d delete · Esc");
+            for (i, row) in m.rows.iter().enumerate() {
+                if i as u16 >= inner.height { break; }
+                let rr = Rect { y: inner.y + i as u16, height: 1, ..inner };
+                let st = if i == m.cursor { t.selected() } else { t.plain() };
+                let line = match row {
+                    crate::services::ServiceRow::Service { label, enabled, .. } => {
+                        format!(" {}  {}", if *enabled { "on " } else { "off" }, label)
+                    }
+                    crate::services::ServiceRow::Header(text) => format!(" {text}"),
+                    crate::services::ServiceRow::Note(text) => format!(" {text}"),
+                    crate::services::ServiceRow::Quarantine { file, reason } => format!(" {file}  {reason}"),
+                    crate::services::ServiceRow::Reload => " Reload plugins".into(),
+                };
+                f.render_widget(Paragraph::new(Span::styled(line, st)), rr);
+                app.hits.push((rr, Hit::Modal(ModalHit::Item(i))));
+            }
+        }
         Modal::History(h) => {
             let rows = h.rows.len().max(1) as u16;
             let r = modal_rect(area, 72, rows + 4);

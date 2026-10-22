@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.34.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.52.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -12,7 +12,7 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 
 <!-- TODO(3.0 release): switch the link above from the pre-launch post to docs/history/v3/redstar-v3-launch-post.md. Publish that launch post only when 3.x has fully shipped. -->
 
-**Build on this foundation.** The Cargo workspace has two crates. [`acp-red-star`](Cargo.toml) at the repository root is the terminal client and the `acp-red-star` binary. [`acp_red_star_node_core`](crates/acp_red_star_node_core) is the shared library for identity, canonical CBOR, and sealed secrets. The client depends on it. The list is in [docs/INSTALL.md](docs/INSTALL.md#workspace-crates).
+**Build on this foundation.** The Cargo workspace has three crates. [`acp-red-star`](Cargo.toml) at the repository root is the terminal client and the `acp-red-star` binary. [`acp_red_star_node_core`](crates/acp_red_star_node_core) is the shared library for identity, canonical CBOR, sealed secrets, and the service plugin ABI. [`acp_red_star_service_redstar`](crates/acp_red_star_service_redstar) registers Red Star on that ABI. The client depends on both. The list is in [docs/INSTALL.md](docs/INSTALL.md#workspace-crates).
 
 ## Breaking changes in 3.0.0
 
@@ -23,7 +23,13 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.34.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.52.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+
+**3.52.0** adds mixed and grouped combined views. Mixed is the default and keeps today's list order. Grouped adds a Red Star section. View › Combine remembers the choice. View › Source cycles All and Red Star. Bookmarks, site search, and edit history stay on every source.
+
+**3.51.0** checks an external plugin package before it is loaded. The archive is `<name>-<os>-<arch>-<version>.tar.gz` with `package.toml`. A failed check is logged as a potential security threat and the archive moves to `~/.acp/quarantined/plugins/`. A rustc or core-version mismatch is refused and is not quarantined. `--doctor` prints that pin. Preferences › Services and `plugins.reload` (default Ctrl-P, remappable) reload plugins. Ctrl-Space stays the command palette.
+
+**3.50.0** registers Red Star as its own service. The UI offers a capability when that service implements it. Notification is on the set. Red Star is on when `~/.acp/services/redstar.toml` is missing. Non-secret settings live in that file. A secret stays in the encrypted database and is left out of a backup snapshot. Existing Red Star commands behave as they did. The scrape, login, and write modules stay in the root crate.
 
 **3.34.0** stores a draft before it is sent. `--draft-save` writes it. The same `--draft-id` keeps another version. `--keep-local` leaves it off the queue. `--outbox-queue` queues it. `--outbox-send` asks first, and Cancel is the default. `--dry-run` prints the same frames as a text publish and does not connect. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Save draft is on the compose box.
 
@@ -512,6 +518,34 @@ Identity:
       --node-id
           Print this machine's node name, account id, peer id, and fingerprint
 
+Services:
+      --doctor
+          Print the rustc version and the core-crate version a plugin must be built with. This is the only place that pin is printed
+
+      --services
+          List registered services. Red Star is enabled when ~/.acp/services/redstar.toml is missing. Other services start disabled. Secret values are not printed
+
+      --service-enable <SERVICE>
+          Turn a service on and write enabled = true in ~/.acp/services/<id>.toml
+
+      --service-disable <SERVICE>
+          Turn a service off. Red Star stays installed. Missing redstar.toml means on, so this writes the file
+
+      --service-set <SERVICE> <KEY> <VALUE>
+          Set one non-secret field: --service-set SERVICE KEY VALUE. A secret field is refused and the value is not stored
+
+      --quarantine
+          List quarantined packages. Plugins are the first kind
+
+      --quarantine-show <FILE>
+          Print one quarantined item and why it was moved
+
+      --quarantine-restore <FILE>
+          Move a quarantined plugin back to ~/.acp/plugins and run the package check again
+
+      --quarantine-delete <FILE>
+          Delete a quarantined copy. The plugins directory is left alone
+
 The password that opens the database is not the master key. There is no password reset. If the password is lost, the database cannot be opened, even when you still have the recovery phrase.
 
 The master key is a 24-word recovery phrase (BIP-39). This program mixes that phrase with the password using Argon2id. A new computer needs both before it can open an encrypted backup, which is a .acpbackup file. The password is not written into the phrase.
@@ -621,7 +655,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.34.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.52.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
@@ -683,7 +717,7 @@ headless scrape is now `--scrape`.
   Options show as checkboxes `[x]`, dropdowns `‹ … ›`,
   text fields `[…]` and buttons `< … >`; `*` marks a required one. Keyboard: `m`/`F10` or
   `Alt`+the underlined letter, `↑↓` to pick, `Space`/`Enter` to change, `Esc` to close.
-  `Ctrl-Space` (or `Ctrl-P`) opens a command palette. Selecting nicks fills Scrape › Nicks.
+  `Ctrl-Space` opens a command palette. `Ctrl-P` reloads plugins (`plugins.reload` in the keymap; the keymap can change that chord). Selecting nicks fills Scrape › Nicks. Account › Services lists registered services. View › Combine picks mixed or grouped. View › Source cycles All and Red Star (`view.source`, default `Ctrl-]`).
 - **Start Scanning** (pinned right, or `F6`; it was `F5` before 2.12) builds the same argv the CLI takes, checks it with
   clap, and runs the headless scraper as a background process, with its progress in the status
   line (`l` shows a 10-line log panel). Its full log is in `~/.acp/logs/tui-scan-<time>.log`

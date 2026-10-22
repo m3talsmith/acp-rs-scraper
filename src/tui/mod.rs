@@ -141,6 +141,13 @@ pub async fn run(args: Args) -> Result<()> {
     setup_themes(&mut app, &args, &prefs)?;
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
+    if let Some(c) = prefs.ui.as_ref().and_then(|u| u.combine.as_deref()) {
+        app.combine = crate::services::Combine::parse(c);
+        app.menu.menu.set_choice(crate::tui::commands::CommandId::View, "combine", if app.combine == crate::services::Combine::Grouped { "Grouped" } else { "Mixed" });
+    }
+    if let Some(s) = prefs.ui.as_ref().and_then(|u| u.source.clone()) {
+        app.source = s;
+    }
     if let Some(n) = prefs.ui.as_ref().and_then(|u| u.search_history_limit) {
         app.menu.menu.set_text(crate::tui::commands::CommandId::Search, "keep", &n.to_string());
     }

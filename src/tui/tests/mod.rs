@@ -40,6 +40,7 @@ mod editor;
 mod eggs;
 mod rules;
 mod help_about;
+mod services;
 
 use crate::prelude::*;
 use crate::tui::data::MemStore;

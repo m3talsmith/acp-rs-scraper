@@ -33,7 +33,7 @@ That build also writes `./target/release/acprs` and `./target/release/acp-rs-scr
 
 You can also run it through cargo with `cargo run --release -- <flags>`, or `cargo run --release --bin acprs -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
-The workspace members are `acp-red-star` (repository root, the terminal client and binary) and `acp_red_star_node_core` (`crates/acp_red_star_node_core`), the library for account identity, canonical CBOR, and a secret-store interface. `acp_red_star_node_core` is `publish = false`. The binary depends on that library. The module list is in [INSTALL.md](INSTALL.md#workspace-crates). Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
+The workspace members are `acp-red-star` (repository root, the terminal client and binary), `acp_red_star_node_core` (`crates/acp_red_star_node_core`), and `acp_red_star_service_redstar` (`crates/acp_red_star_service_redstar`). The core library holds account identity, canonical CBOR, a secret-store interface, and the service plugin ABI. It is `publish = false`. The Red Star service crate registers Red Star on that ABI. The scrape, login, and write modules stay in the root crate. The module list is in [INSTALL.md](INSTALL.md#workspace-crates). Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
 
 ## Terminal UI
 
@@ -100,12 +100,12 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   | Maintain | `--remove-nick` (field, else selection) `--keep-replies` `--dry-run`; Clear all = `--clear-all`; both get `--yes` after the TUI's own confirmation |
   | Session | Log in (modal) / Log out (`--logout`, then the Login modal) |
   | Bookmarks | Show (`B`), Bookmark current post (`b`: `--bookmark` / `--unbookmark`), Sync with acp.us (`--sync-bookmarks`) |
-  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; Colour; ◂ Previous post / Next post ▸ (TUI only) |
+  | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; Colour; Combine (mixed or grouped); Source (All or Red Star); ◂ Previous post / Next post ▸ (TUI only) |
   | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; Whole site is `acprs --sync --scrape-all` (incremental, then rules); on a timer when Auto sync is ticked; Rules… (`--rules-list`) |
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
-  The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, then Help, About, and Quit, with Scrape immediately left of Start Scanning. Library opens Export, Import, Basket, List, and Maintain. Bookmarks is its own menu: Show, Bookmark current, and Sync with acp.us. Account is Log in and Log out. Search keeps local and site search. Search › History re-runs a past query, Clear history deletes those rows and the action branches, and History kept is blank by default, which keeps every search. A number there is an optional cap. Sync keeps the local copy up to date (site sync, auto-sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is its own minor and is not part of 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
+  The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, then Help, About, and Quit, with Scrape immediately left of Start Scanning. Library opens Export, Import, Basket, List, and Maintain. Bookmarks is its own menu: Show, Bookmark current, and Sync with acp.us. Account is Log in, Log out, and Services. Search keeps local and site search. Search › History re-runs a past query, Clear history deletes those rows and the action branches, and History kept is blank by default, which keeps every search. A number there is an optional cap. Sync keeps the local copy up to date (site sync, auto-sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is its own minor and is not part of 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
 
   Hover a button, menu item, or icon (the star, the basket, the research ◈, and the rest) and a short explanation appears, including its key when it has one, as in `Bookmark (b)`. The next line is `? {topic}` and opens the Help topic for that action. Bookmark, the basket, and research do not open the same page. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.3.
 
@@ -116,6 +116,9 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   Every argv is validated by clap before it runs, then runs as the headless binary in its own
   process group, logging to `~/.acp/logs/tui-<kind>-<time>.log` (mode 0600). Cancel kills it;
   quitting asks whether to keep it running in the background (default) or cancel it.
+- **Services.** Account › Services lists every registered service. Red Star is on when `~/.acp/services/redstar.toml` is missing. Any other service is off until you enable it. Space toggles one. Non-secret settings live in that toml file. A secret stays in the encrypted database and is never printed. Reload plugins runs the same check as `plugins.reload`. The default chord is Ctrl-P (`keymap/default.toml`). The keymap can change it. Ctrl-Space stays the command palette. A failed package moves to `~/.acp/quarantined/plugins/`. `u` restores it and checks it again. `d` deletes that copy. A rustc or core-version mismatch is refused and is not quarantined. `--doctor` prints that pin.
+- **Combined views.** View › Combine picks mixed or grouped. Mixed is the default and keeps today's list order. Grouped adds a section per service. With only Red Star that section is Red Star. The choice is remembered in `[ui] combine`.
+- **Source.** View › Source cycles All and Red Star. The default chord is `view.source`, Ctrl-] in `keymap/default.toml`. The choice is remembered in `[ui] source`. Bookmarks, site search, and edit history stay available on every source. With only Red Star, switching source does not hide posts.
 - **Previous / next:** `◂ prev` / `next ▸` on the nav bar (`,` `.` or `Alt-←` `Alt-→`) walk back
   and forth through the posts opened in the detail stack, with an `n/m` position; opening a new
   post or link drops the forward part.
@@ -380,6 +383,11 @@ The command then offers five SLIP-39 shares (any 3 of 5). One or two shares do n
 | What | Path |
 |---|---|
 | Preferences | `~/.acp/preferences.toml` |
+| Keymap (missing file uses the built-in default and does not write this path) | `~/.acp/keymap.toml` |
+| Service settings, non-secret (Red Star is on when its file is missing) | `~/.acp/services/<id>.toml` |
+| External plugin packages (the app does not download these) | `~/.acp/plugins/<name>-<os>-<arch>-<version>.tar.gz` |
+| Loaded plugin trees | `~/.acp/plugins/<name>/<version>/` |
+| Quarantined packages, with a `.reason` sidecar | `~/.acp/quarantined/<kind>/` |
 | Saved login session (mode `0600`) | `~/.acp/session.json` |
 | Logs of jobs started from the TUI (mode `0600`) | `~/.acp/logs/tui-<kind>-<time>.log` |
 | Database (encrypted in 3.0.0) | `~/.acp/ai/data/rs.database` |
@@ -610,6 +618,31 @@ An archive contains `<name>/<name>.<ext>` (one per format) and `<name>/attachmen
 | `--debug` | Print every LiveView websocket message (cut at 2000 characters). Turns on verbose too. `ACP_DEBUG=1` does the same. CSRF tokens, signed sessions, cookies and bearer tokens are replaced with `[REDACTED]` before anything reaches stderr or `success.log` (1.24.0). |
 
 `-q` can't be combined with `-v` or `--debug`.
+
+### Services
+
+These flags stand alone. They do not open the terminal UI and they do not scrape.
+
+| Flag | Meaning |
+|---|---|
+| `--doctor` | Print the rustc version and the `acp_red_star_node_core` version a plugin must be built with. This is the only place that pin is printed. |
+| `--services` | List registered services: id, display name, and enabled or disabled. Red Star is enabled when `~/.acp/services/redstar.toml` is missing. A refused plugin is named with the reason. Secret values are not printed. |
+| `--service-enable SERVICE` | Turn that service on. Writes `enabled = true` in `~/.acp/services/<id>.toml`. |
+| `--service-disable SERVICE` | Turn that service off. Red Star stays installed. A missing `redstar.toml` means on, so this writes the file. |
+| `--service-set SERVICE KEY VALUE` | Set one non-secret field. A secret field is refused and the value is not stored or printed. |
+| `--quarantine` | List quarantined packages. Plugins are the first kind. |
+| `--quarantine-show FILE` | Print one quarantined item and why it was moved. |
+| `--quarantine-restore FILE` | Move that archive back to `~/.acp/plugins` and run the package check again. |
+| `--quarantine-delete FILE` | Delete the quarantined copy. The plugins directory is left alone. |
+
+```sh
+acp-red-star --doctor
+acp-red-star --services
+acp-red-star --service-set redstar mentions true
+acp-red-star --quarantine
+```
+
+A plugin archive is `<name>-<os>-<arch>-<version>.tar.gz`. It contains `package.toml` with `[meta]` and `[install]`. Every binary and library entry has a sha256. The app checks the name, the version, the operating system, the architecture, the paths, and each hash before it loads the library. A failed check is logged as a potential security threat (the name, the path, and the reason; never the file bytes) and the archive moves to `~/.acp/quarantined/plugins/`. A rustc or core-version mismatch is refused and is not quarantined. Preferences › Services and `plugins.reload` call that same loader. A changed package is checked again. A failed check waits until nothing is inside the library, unloads it, and quarantines it. A version mismatch keeps the copy already loaded.
 
 ## Workflows
 

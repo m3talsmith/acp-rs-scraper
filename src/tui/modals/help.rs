@@ -250,6 +250,25 @@ fn area_topics() -> Vec<String> {
     push_topic(&mut v, "account", "Account", &[
         "  Log in uses the email code. Log out deletes ~/.acp/session.json.",
         "  Browsing the local database does not need a session. Start Scanning does.",
+        "  Account › Services lists every registered service. Red Star is on when its file is missing.",
+    ]);
+    push_topic(&mut v, "services", "Services", &[
+        "  Red Star is enabled when ~/.acp/services/redstar.toml is missing. Other services start off.",
+        "  Non-secret settings live in that toml file. Secrets stay in the encrypted database and are never printed.",
+        "  Space toggles a service. Reload plugins runs the same check as plugins.reload.",
+        "  The default chord for plugins.reload is ctrl-p in keymap/default.toml. The keymap can change it.",
+        "  A failed package moves to ~/.acp/quarantined/plugins. u restores it and checks it again. d deletes that copy.",
+        "  A rustc or core-version mismatch is refused and is not quarantined. --doctor prints that pin.",
+    ]);
+    push_topic(&mut v, "combine", "Combine", &[
+        "  Mixed is the default: one list, the same order this view already uses.",
+        "  Grouped adds a section per service. With only Red Star that section is Red Star.",
+        "  The choice is remembered in [ui] combine.",
+    ]);
+    push_topic(&mut v, "source", "Source", &[
+        "  View › Source cycles All and Red Star. The choice is remembered in [ui] source.",
+        "  The default chord is view.source, ctrl-] in keymap/default.toml.",
+        "  Bookmarks, site search, and edit history stay available on every source.",
     ]);
     push_topic(&mut v, "about-credits", "About · Credits", &[
         "  About is one modal with three sections. Credits names who built the client.",

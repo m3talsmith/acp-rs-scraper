@@ -60,10 +60,21 @@ pub fn on_key(app: &mut App, k: KeyEvent) {
     let alt = k.modifiers.contains(KeyModifiers::ALT);
     match k.code {
         KeyCode::Char(' ') | KeyCode::Null if ctrl => { app.modal = Some(Modal::Palette(PaletteModal::new(app.palette_entries()))); return; }
-        KeyCode::Char('p') if ctrl => { app.modal = Some(Modal::Palette(PaletteModal::new(app.palette_entries()))); return; }
         KeyCode::Char('s') | KeyCode::Char('S') if ctrl => { app.act(Action::ClearSearch); return; }
         KeyCode::Char('r') if ctrl => { app.act(Action::RefreshNicks); return; }
         KeyCode::Char('a') if ctrl && app.focus == Focus::Nicks => { app.select_all(); return; }
+        KeyCode::Char(c) if ctrl && crate::keymap::lookup_char(c).is_some() => {
+            match crate::keymap::lookup_char(c) {
+                Some(crate::keymap::GlobalAction::Palette) => {
+                    app.modal = Some(Modal::Palette(PaletteModal::new(app.palette_entries())));
+                }
+                Some(crate::keymap::GlobalAction::ReloadPlugins) => app.act(Action::ReloadPlugins),
+                Some(crate::keymap::GlobalAction::CycleSource) => app.act(Action::CycleSource),
+                Some(crate::keymap::GlobalAction::ReloadKeymap) => app.act(Action::ReloadKeymap),
+                None => {}
+            }
+            return;
+        }
         KeyCode::Left if alt => { app.act(Action::StackPrev); return; }
         KeyCode::Right if alt => { app.act(Action::StackNext); return; }
         KeyCode::Char(c) if alt => {

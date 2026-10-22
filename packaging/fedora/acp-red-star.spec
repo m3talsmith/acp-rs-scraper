@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.34.0
+Version:        3.52.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,9 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.52.0-1
+- Package 3.52.0. Red Star registers as a service. Plugin packages are checked and quarantined. Mixed and grouped views. Existing Red Star commands behave as before.
+
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.34.0-1
 - Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish.
 
