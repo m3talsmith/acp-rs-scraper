@@ -217,6 +217,27 @@ async fn help_topic(w: &mut E2e, topic: String) {
     w.screen = help.lines.iter().skip(help.scroll).take(16).cloned().collect::<Vec<_>>().join("\n");
 }
 
+#[when("I add a research file under the home directory")]
+async fn research_file_label(w: &mut E2e) {
+    use clap::Parser;
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/ubuntu".into());
+    let abs = format!("{home}/docs/notes.txt");
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    app.menu.menu.set_text(acp_red_star::tui::commands::CommandId::Research, "file", &abs);
+    app.act(acp_red_star::tui::commands::Action::AddFileToResearch);
+    w.screen = match app.modal {
+        Some(acp_red_star::tui::modals::Modal::Research(m)) => m.what.iter().map(|(l, _)| l.clone()).collect::<Vec<_>>().join("\n"),
+        other => format!("{other:?}"),
+    };
+    let _ = home;
+}
+
 #[when("I render an HTML export of a Markdown post")]
 async fn html_markdown(w: &mut E2e) {
     let doc = serde_json::json!({

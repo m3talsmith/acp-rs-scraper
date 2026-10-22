@@ -2272,7 +2272,7 @@ impl App {
             Action::AddFileToResearch => {
                 let f = self.menu.menu.text(CommandId::Research, "file");
                 if f.trim().is_empty() { self.error("Add local file", "type the file's path in Research › Local file first (~ works)"); }
-                else { self.open_research_add(vec![(format!("Local file {f}"), ResearchSource::File(f))]); }
+                else { self.open_research_add(vec![(format!("Local file {}", crate::research::display_path(&f)), ResearchSource::File(f))]); }
             }
             Action::AddUrlToResearch => {
                 let u = self.menu.menu.text(CommandId::Research, "url");
@@ -2974,7 +2974,8 @@ pub fn web_links(text: &str) -> Vec<String> {
 pub fn research_post(it: &ResearchItem) -> Post {
     let mut body = String::new();
     if !it.note.trim().is_empty() { body.push_str(&format!("> {}\n\n", it.note.trim())); }
-    body.push_str(&it.r#ref);
+    let shown = crate::research::display_path(&it.r#ref);
+    body.push_str(&shown);
     if let Some(s) = it.meta["size"].as_u64() { body.push_str(&format!(" · {s} bytes")); }
     if let Some(m) = it.meta["mime_type"].as_str().or(it.meta["content_type"].as_str()) { body.push_str(&format!(" · {m}")); }
     if !it.content.trim().is_empty() {
@@ -2984,7 +2985,7 @@ pub fn research_post(it: &ResearchItem) -> Post {
         if it.content.chars().count() > 6000 { body.push_str("\n\n…"); }
     }
     let nick = match it.kind { ItemKind::WebUrl => "web", ItemKind::LocalFile => "file", _ => "missing post" };
-    let content = if it.kind.is_post() { format!("{} is not in the database any more.\n\n{body}", it.r#ref) } else { body };
+    let content = if it.kind.is_post() { format!("{shown} is not in the database any more.\n\n{body}") } else { body };
     Post { post_id: format!("research:{}", it.id), parent_post_id: String::new(), in_reply_to_id: String::new(), nick: nick.into(),
         title: it.title.clone(), content, posted_at: it.added_at.clone(), media: Vec::new(), truncated: false, body_json: String::new(), score: None }
 }

@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.12] - 2026-10-22
+
+### Fixed
+
+- **Research file path.** Adding a file shows `~/…` or a path relative to the working directory. The path that is stored, and the path `--file` uses, stay the real path.
+
 ## [3.35.11] - 2026-10-22
 
 ### Fixed
