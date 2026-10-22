@@ -1,6 +1,6 @@
 [package]
 name = "acp_red_star_service_x"
-version = "3.53.0"
+version = "3.54.0"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
