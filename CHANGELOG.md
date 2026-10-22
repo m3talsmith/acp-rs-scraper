@@ -8,7 +8,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- **Service traits and the package gate.** `crates/acp_rs_plugin` holds the capability traits, the records a service returns (`Page`, `ItemRec`, `AccountRec`, `Target`, `Budget`), and the archive check. An out-of-tree crate depends on it by git revision. Each capability method defaults to not-implemented, so the crate overrides only what it provides. Red Star still runs from this binary through an in-tree adapter. The outbox and a local post stay ready. `--doctor` prints the rustc pin and this crate's version. `plugins::reload` scans `~/.acp/plugins` with that same check. It is not called on startup and it is not bound to a key. A failed plugin archive moves to `~/.acp/quarantined/plugins/`. A rustc or plugin-crate mismatch is refused and is not quarantined. A package that passes stays off until it is enabled. There is no version bump: commands behave as they did. The plugin crate stays `0.1.0`.
+- **Service traits and the package gate.** `crates/acp_rs_plugin` holds the capability traits, the records a service returns (`Page`, `ItemRec`, `AccountRec`, `Target`, `Budget`), and the archive check. An out-of-tree crate depends on it by git revision. Each capability method defaults to not-implemented, so the crate overrides only what it provides. The outbox and a local post stay ready. `--doctor` prints the rustc pin and this crate's version. `plugins::reload` scans `~/.acp/plugins` with that same check. It is not called on startup and it is not bound to a key. A failed plugin archive moves to `~/.acp/quarantined/plugins/`. A rustc or plugin-crate mismatch is refused and is not quarantined. A package that passes stays off until it is enabled. There is no version bump. The root crate stays `3.35.14`. The plugin crate stays `0.1.0`.
+
+### Removed
+
+- **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
 ## [3.35.14] - 2026-10-22
 

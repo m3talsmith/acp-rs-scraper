@@ -1,4 +1,4 @@
-//! Compose: Cancel sends nothing, a text Publish is queued, a file is refused.
+//! Compose: Cancel sends nothing. Publish says this binary does not publish. A file stays local.
 
 use super::*;
 use crate::tui::input::on_key;
@@ -49,10 +49,9 @@ fn new_post_cancel_sends_nothing_and_publish_is_gated() {
     assert_eq!(m.title, "T");
     assert!(m.body.starts_with("hi"), "{}", m.body);
     key(&mut a, KeyCode::Enter);
-    assert!(a.modal.is_none(), "the compose box closes while the send runs: {:?}", a.modal);
-    assert!(a.status.iter().any(|s| s.contains("publishing")), "{:?}", a.status);
-    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::Publish(_))));
-    assert!(a.last_write_unix.is_some());
+    assert!(a.modal.is_none(), "the compose box closes: {:?}", a.modal);
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
     let screen = render(&mut a);
     assert!(!screen.contains("nothing was published"), "{screen}");
 }
@@ -75,14 +74,9 @@ fn reply_on_a_comment_prefixes_the_ref_and_quote_uses_the_body() {
     }
     a.modal = None;
     key(&mut a, KeyCode::Char('Q'));
-    let plan = {
-        let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
-        assert_eq!(m.quote.as_deref(), Some("Reply to alice"));
-        assert_eq!(m.quote_post.as_deref(), Some("BOB000002"));
-        crate::site::prepare(&m.draft(0, None, true)).unwrap()
-    };
-    assert_eq!(plan.body["content"][0]["type"], "postRef");
-    assert_eq!(plan.body["content"][1]["type"], "blockquote");
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert_eq!(m.quote.as_deref(), Some("Reply to alice"));
+    assert_eq!(m.quote_post.as_deref(), Some("BOB000002"));
     key(&mut a, KeyCode::Esc);
     assert!(a.modal.is_none());
 }
@@ -103,25 +97,8 @@ fn reply_on_a_root_post_uses_the_thread_as_post_ref() {
         }
         other => panic!("{other:?}"),
     }
-    let plan = {
-        let Some(Modal::Compose(m)) = &mut a.modal else { panic!("{:?}", a.modal); };
-        m.body = "hello".into();
-        crate::site::prepare(&m.draft(0, None, true)).unwrap()
-    };
-    assert_eq!(plan.body["content"][0]["attrs"]["postId"], "ALICE0001");
-    assert_eq!(plan.body["content"][0]["attrs"]["threadId"], "ALICE0001");
-    let draft = {
-        let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
-        m.draft(0, None, true)
-    };
-    let crate::site::Gate::Send(plan) = crate::site::decide(&draft, true, false).unwrap() else {
-        panic!("a text reply is ready to send");
-    };
-    let payloads = crate::site::event_payloads(&plan);
-    assert_eq!(payloads.len(), 2);
-    assert_eq!(payloads[0]["event"], "validate");
-    assert_eq!(payloads[1]["event"], "save");
-    assert!(plan.attachments.is_empty());
+    let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
+    assert!(m.attachments.is_empty());
 }
 
 #[test]
@@ -167,16 +144,10 @@ fn attach_line_lists_a_local_file_and_publish_stays_gated() {
     assert!(m.attach_path.is_empty(), "{}", m.attach_path);
     assert_eq!(m.attachments.len(), 1);
     assert!(m.error.is_none(), "{:?}", m.error);
-    let plan = crate::site::prepare(&m.draft(0, None, true)).unwrap();
-    assert_eq!(plan.attachments[0].kind, crate::site::AttachmentKind::Media);
-    let listed = crate::site::dry_run_text(&plan);
-    assert!(listed.contains("media photo.jpg"), "{listed}");
-    assert!(listed.contains("allow_upload"), "{listed}");
-    assert!(!listed.contains("nothing was published"), "{listed}");
-    let frames = serde_json::to_string(&crate::site::liveview_frames(&plan)).unwrap();
-    assert!(!frames.contains("photo.jpg"), "{frames}");
-    assert!(!frames.contains("allow_upload"), "{frames}");
-    assert!(!frames.contains("lvu"), "{frames}");
+    let plan = crate::files::plan_attachment(&m.attachments[0]).unwrap();
+    assert_eq!(plan.kind, crate::files::AttachmentKind::Media);
+    assert_eq!(plan.name, "photo.jpg");
+    assert!(plan.on_site);
     let screen = render(&mut a);
     assert!(screen.contains("photo.jpg"), "{screen}");
     assert!(screen.contains("Attach"), "{screen}");
@@ -185,9 +156,8 @@ fn attach_line_lists_a_local_file_and_publish_stays_gated() {
     key(&mut a, KeyCode::Tab);
     key(&mut a, KeyCode::Enter);
     assert!(a.modal.is_none(), "publish closes the compose box: {:?}", a.modal);
-    assert!(a.status.iter().any(|s| s.contains("publishing")), "{:?}", a.status);
-    assert!(a.effects.iter().any(|e| matches!(e, crate::tui::state::Effect::Publish(_))));
-    assert!(a.last_write_unix.is_some());
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
     let _ = std::fs::remove_dir_all(&dir);
 }
 
@@ -218,12 +188,10 @@ fn reply_attach_line_accepts_a_pdf_and_drops_it_on_backspace() {
     }
     key(&mut a, KeyCode::Enter);
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
-    let plan = crate::site::prepare(&m.draft(0, None, true)).unwrap();
-    assert_eq!(plan.attachments[0].kind, crate::site::AttachmentKind::File);
-    assert_eq!(plan.attachments[0].kind.input_name(), "file_attachments");
-    let frames = serde_json::to_string(&crate::site::liveview_frames(&plan)).unwrap();
-    assert!(!frames.contains("notes.pdf"), "{frames}");
-    assert!(!frames.contains("file_attachments"), "{frames}");
+    let plan = crate::files::plan_attachment(&m.attachments[0]).unwrap();
+    assert_eq!(plan.kind, crate::files::AttachmentKind::File);
+    assert_eq!(plan.kind.input_name(), "file_attachments");
+    assert!(plan.on_site);
     for c in bad.display().to_string().chars() {
         key(&mut a, KeyCode::Char(c));
     }
@@ -231,10 +199,11 @@ fn reply_attach_line_accepts_a_pdf_and_drops_it_on_backspace() {
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };
     assert!(m.error.is_none(), "{:?}", m.error);
     assert_eq!(m.attachments.len(), 2, "a text file stays attached locally");
-    let plan = crate::site::prepare(&m.draft(0, None, true)).unwrap();
-    assert!(plan.attachments[0].on_site, "a pdf is uploaded");
-    assert!(!plan.attachments[1].on_site, "a text file stays off the site");
-    assert_eq!(plan.attachments[0].kind.input_name(), "file_attachments");
+    let pdf = crate::files::plan_attachment(&m.attachments[0]).unwrap();
+    let txt = crate::files::plan_attachment(&m.attachments[1]).unwrap();
+    assert!(pdf.on_site, "a pdf can go with the service copy");
+    assert!(!txt.on_site, "a text file stays off the service copy");
+    assert_eq!(pdf.kind.input_name(), "file_attachments");
     assert!(m.attach_path.is_empty());
     key(&mut a, KeyCode::Backspace);
     let Some(Modal::Compose(m)) = &a.modal else { panic!("{:?}", a.modal); };

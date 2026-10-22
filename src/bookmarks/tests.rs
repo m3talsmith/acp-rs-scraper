@@ -1,34 +1,8 @@
-//! Unit tests for bookmark storage and sync planning.
+//! Unit tests for the local bookmark store.
 
 use super::*;
 
-fn bm(id: &str, remote: bool, deleted: bool) -> Bookmark { Bookmark { post_id: id.into(), created_at: "t".into(), remote, deleted } }
 fn ids(v: &[&str]) -> Vec<String> { v.iter().map(|s| s.to_string()).collect() }
-
-#[test]
-fn bookmark_event_is_a_hook_with_an_explicit_state() {
-    let add = bookmark_event("A1", true);
-    assert_eq!(add["type"], "hook");
-    assert_eq!(add["event"], "bookmark");
-    assert_eq!(BOOKMARK_EVENT, "bookmark");
-    assert_eq!(add["value"]["id"], "A1");
-    assert_eq!(add["value"]["state"], "1");
-    assert_eq!(bookmark_event("A1", false)["value"]["state"], "0");
-}
-
-#[test]
-fn plan_covers_every_case() {
-    let local = [bm("LOCAL", false, false), bm("BOTH", true, false), bm("SEEN", false, false),
-                 bm("GONE", true, false), bm("UNMARK", true, true), bm("STALE", true, true)];
-    let p = plan_sync(&local, &ids(&["BOTH", "SEEN", "UNMARK", "NEW"]), true);
-    assert_eq!(p.push_add, ids(&["LOCAL"]));
-    assert_eq!(p.push_remove, ids(&["UNMARK"]));
-    assert_eq!(p.set_remote, ids(&["SEEN"]));
-    assert_eq!(p.insert_remote, ids(&["NEW"]));
-    assert_eq!(p.delete_rows, ids(&["GONE", "STALE"]));
-    let partial = plan_sync(&local, &ids(&["BOTH"]), false);
-    assert!(!partial.delete_rows.contains(&"GONE".to_string()), "an incomplete site list never deletes");
-}
 
 #[test]
 fn local_add_remove_round_trip() {
@@ -52,12 +26,4 @@ fn post_id_lists() {
     assert_eq!(parse_post_ids(" A1, post-B2 ,A1").unwrap(), ["A1", "B2"]);
     assert!(parse_post_ids(",").is_err());
     assert!(parse_post_ids("a/b").is_err());
-}
-
-#[test]
-fn feed_items_become_posts() {
-    let r = feed_item_post(&json!({"id": "R1", "thread_id": "A1", "author": {"username": "bob"}, "body": "hi", "inserted_at": "t"}));
-    assert_eq!((r.parent_post_id.as_str(), r.nick.as_str()), ("A1", "bob"));
-    let a = feed_item_post(&json!({"id": "A1", "thread_id": "A1", "author": {"username": "alice"}, "inserted_at": "t"}));
-    assert!(a.parent_post_id.is_empty());
 }

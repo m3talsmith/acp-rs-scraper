@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["MatchType"],"fn":["author_objects","body_of","crawl_mentions","enrich_from_feed","enrich_from_html","enrich_profile","flatten_text","html_unescape","is_site_image","match_post","mention_nodes","word_match"],"struct":["MentionHit","MentionTarget","Profile"]};

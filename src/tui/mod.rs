@@ -34,28 +34,10 @@ use crate::prelude::*;
 use state::{App, Effect, JobView};
 use std::time::{Duration, Instant};
 
-/// What the login modal asks the running attempt to do. The channel stays open
-/// so a wrong code or a dropped socket does not throw the attempt away.
-enum LoginCmd {
-    /// Submit this code or login link.
-    Code(String),
-    /// Ask the site for another code on this same attempt.
-    Resend,
-}
-
 /// Messages from background tasks to the event loop.
 enum Msg {
-    SessionChecked(std::result::Result<bool, String>, jobs::JobKind, Vec<String>),
-    LoginNeedCode(u64),
-    /// The attempt is still alive. Stay on the code step and show this error.
-    LoginHold(u64, String),
-    LoginDone(u64, std::result::Result<(), String>),
-    AutoSyncChecked(std::result::Result<bool, String>, Vec<String>),
+    /// A theme file finished downloading.
     ThemeDownloaded(String, bool, std::result::Result<crate::themes::download::Fetched, String>),
-    /// One upload percent changed. The line is `uploading {name} {pct}%`.
-    PublishProgress(String),
-    /// One text publish finished. The error is already redacted.
-    Published(std::result::Result<String, String>),
 }
 
 struct Terminal(ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>);
@@ -70,51 +52,6 @@ impl Drop for Terminal {
     fn drop(&mut self) { restore_terminal(); }
 }
 
-/// Login on this runtime, same as the command line. The sign-in POST used to
-/// hold a non-`Send` HTML node across the request, so this ran on a second
-/// runtime and the code submit failed with "websocket closed". Dropping `rx`
-/// (via `login_tx`) ends the wait. `JoinHandle::abort` stops a submit already
-/// in flight.
-fn spawn_login(
-    http: reqwest::Client, jar: Arc<Jar>, email: String,
-    rx: tokio::sync::mpsc::UnboundedReceiver<LoginCmd>,
-    tx: tokio::sync::mpsc::UnboundedSender<Msg>, g: u64,
-) -> tokio::task::JoinHandle<()> {
-    tokio::spawn(login_attempt(http, jar, email, rx, tx, g))
-}
-
-/// Email, then wait. Heartbeats run during the wait. A close reconnects.
-/// `LoginHold` keeps the channel; only success, cancel, or a failed start ends it.
-async fn login_attempt(
-    http: reqwest::Client, jar: Arc<Jar>, email: String,
-    mut rx: tokio::sync::mpsc::UnboundedReceiver<LoginCmd>,
-    tx: tokio::sync::mpsc::UnboundedSender<Msg>, g: u64,
-) {
-    let mut session = match LoginSession::start(&http, &jar, Some(email)).await {
-        Ok(LoginStart::Already) => { let _ = tx.send(Msg::LoginDone(g, Ok(()))); return; }
-        Ok(LoginStart::NeedCode(s)) => *s,
-        Err(e) => { let _ = tx.send(Msg::LoginDone(g, Err(format!("{e:#}")))); return; }
-    };
-    let _ = tx.send(Msg::LoginNeedCode(g));
-    loop {
-        match session.pump_until(rx.recv()).await {
-            Ok(None) => return,
-            Ok(Some(LoginCmd::Code(c))) => match session.submit_code(&c).await {
-                Ok(()) => { let _ = tx.send(Msg::LoginDone(g, Ok(()))); return; }
-                Err(e) => { let _ = tx.send(Msg::LoginHold(g, format!("{e:#}"))); }
-            },
-            Ok(Some(LoginCmd::Resend)) => match session.resend().await {
-                Ok(()) => { let _ = tx.send(Msg::LoginNeedCode(g)); }
-                Err(e) => { let _ = tx.send(Msg::LoginHold(g, format!("{e:#}"))); }
-            },
-            Err(e) => {
-                let _ = tx.send(Msg::LoginHold(g, format!("{e:#}")));
-                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-            }
-        }
-    }
-}
-
 /// Open the terminal UI. Needs a terminal on stdin and stdout.
 pub async fn run(args: Args) -> Result<()> {
     use std::io::IsTerminal;
@@ -126,8 +63,7 @@ pub async fn run(args: Args) -> Result<()> {
     let recovery_offer = crate::crypto::cmd::tui_recovery_offer(&home_dir)?;
     let db = home_dir.join(DB_REL_PATH);
     let prefs = load_prefs();
-    let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(),
-        session_path().map(|p| p.exists()).unwrap_or(false));
+    let mut app = App::new(Box::new(data::SqliteStore::new(db)), &args, theme::Theme::reset(), false);
     app.no_color = no_color_set();
     if let Some(n) = prefs.ui.as_ref().and_then(|u| u.notify.clone()) {
         app.notices.settings.dnd = n.dnd;
@@ -214,9 +150,6 @@ fn setup_brands(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
 
 async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) -> Result<Option<(&'static str, u32, PathBuf)>> {
     use crossterm::{event::EnableMouseCapture, execute, terminal::{EnterAlternateScreen, enable_raw_mode}};
-    let jar = Arc::new(Jar::default());
-    if let Err(e) = load_session(&jar) { app.push_status(format!("warning: ignoring saved session: {e:#}")); }
-    let http = client(jar.clone())?;
 
     apply_color_mode(app.color_mode);
     app.notices.enable_desktop();
@@ -256,11 +189,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     let mut job: Option<jobs::Job> = None;
     // Small writes (bookmarks) that run next to the main job.
     let mut side: Vec<jobs::Job> = Vec::new();
-    let mut login_tx: Option<tokio::sync::mpsc::UnboundedSender<LoginCmd>> = None;
-    let mut login_task: Option<tokio::task::JoinHandle<()>> = None;
     let mut detached = None;
-    // Generation of the current login attempt; replies from abandoned ones are ignored.
-    let mut login_gen: u64 = 0;
 
     'outer: loop {
         let now = Instant::now();
@@ -296,15 +225,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 while let Ok(ev) = ev_rx.try_recv() { input::on_event(app, ev); }
             }
             Some(m) = msg_rx.recv() => match m {
-                Msg::SessionChecked(r, k, argv) => app.session_checked(r, k, argv),
-                Msg::LoginNeedCode(g) if g == login_gen => app.login_need_code(),
-                Msg::LoginHold(g, e) if g == login_gen => app.login_hold(&e),
-                Msg::LoginDone(g, r) if g == login_gen => { login_tx = None; login_task = None; app.login_done(r); }
-                Msg::AutoSyncChecked(r, argv) => app.auto_sync_checked(r, argv),
                 Msg::ThemeDownloaded(name, manual, r) => app.theme_downloaded(&name, manual, r),
-                Msg::PublishProgress(line) => app.push_status(line),
-                Msg::Published(r) => app.publish_finished(r),
-                Msg::LoginNeedCode(_) | Msg::LoginHold(..) | Msg::LoginDone(..) => {}
             },
             _ = tokio::time::sleep(wait) => {}
         }
@@ -335,13 +256,10 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
         }
         for eff in std::mem::take(&mut app.effects) {
             match eff {
-                Effect::CheckSessionThen(kind, argv) => {
-                    let (http, tx) = (http.clone(), msg_tx.clone());
-                    app.push_status("checking the saved session…");
-                    tokio::spawn(async move {
-                        let r = session_valid(&http).await.map_err(|e| format!("{e:#}"));
-                        let _ = tx.send(Msg::SessionChecked(r, kind, argv));
-                    });
+                Effect::CheckSessionThen(_, _) | Effect::AutoSync(_) | Effect::Publish | Effect::EditReply
+                | Effect::LoginEmail(_) | Effect::LoginCode(_) | Effect::LoginResend | Effect::LoginCancel
+                | Effect::Logout => {
+                    app.push_status(crate::service::SERVICE_ABSENT.to_string());
                 }
                 Effect::RunJob(kind, argv) => {
                     if job.is_some() { app.error("Busy", "another job is still running"); continue; }
@@ -349,13 +267,6 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                         Ok(j) => { app.job_started(JobView { kind, pid: j.pid(), log: j.log.clone() }, &j.cmd); job = Some(j); }
                         Err(e) => app.error("Cannot start", &format!("{e:#}")),
                     }
-                }
-                Effect::AutoSync(argv) => {
-                    let (http, tx) = (http.clone(), msg_tx.clone());
-                    tokio::spawn(async move {
-                        let r = session_valid(&http).await.map_err(|e| format!("{e:#}"));
-                        let _ = tx.send(Msg::AutoSyncChecked(r, argv));
-                    });
                 }
                 Effect::SaveSyncPrefs(p) => match save_sync_prefs(&p) {
                     Ok(()) => app.push_status("sync defaults saved to ~/.acp/preferences.toml"),
@@ -373,31 +284,6 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Ok(p) => app.modal = Some(modals::Modal::Message(modals::MessageModal::info("Theme exported", &format!("Wrote {}", p.display())))),
                     Err(e) => app.error("Cannot export the theme", &format!("{e:#}")),
                 },
-                Effect::Publish(plan) => {
-                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
-                    let now = chrono::Utc::now().timestamp();
-                    tokio::spawn(async move {
-                        crate::site::store_last_write(now);
-                        let tx_progress = tx.clone();
-                        let r = crate::site::publish_text(&http, &jar, &plan, false, move |line| {
-                            let _ = tx_progress.send(Msg::PublishProgress(line.to_string()));
-                        })
-                        .await
-                        .map(|p| crate::site::published_text(&p, &plan))
-                        .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
-                        let _ = tx.send(Msg::Published(r));
-                    });
-                }
-                Effect::EditReply(plan) => {
-                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
-                    tokio::spawn(async move {
-                        let r = crate::site::edit::publish_reply_edit(&http, &jar, &plan)
-                            .await
-                            .map(|p| format!("published {}\n{}", p.id, p.url))
-                            .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
-                        let _ = tx.send(Msg::Published(r));
-                    });
-                }
                 Effect::DownloadTheme(name, manual) => {
                     let Some(dir) = app.themes_dir.clone() else { continue };
                     let tx = msg_tx.clone();
@@ -425,34 +311,6 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                         app.mark_job_cancelled(pid);
                         app.push_status(format!("{} cancelled (pid {pid})", j.kind.name()));
                     }
-                },
-                Effect::LoginEmail(email) => {
-                    // Same runtime as the HTTP client. The command channel stays open
-                    // across a wrong code or a dropped socket. Dropping `login_tx`
-                    // cancels the wait; abort stops a submit already in flight.
-                    login_gen += 1;
-                    let g = login_gen;
-                    if let Some(t) = login_task.take() { t.abort(); }
-                    let (cmd_tx, cmd_rx) = tokio::sync::mpsc::unbounded_channel();
-                    login_tx = Some(cmd_tx);
-                    login_task = Some(spawn_login(http.clone(), jar.clone(), email, cmd_rx, msg_tx.clone(), g));
-                }
-                Effect::LoginCode(c) => match &login_tx {
-                    Some(tx) => { let _ = tx.send(LoginCmd::Code(c)); }
-                    None => app.login_expired(),
-                },
-                Effect::LoginResend => match &login_tx {
-                    Some(tx) => { let _ = tx.send(LoginCmd::Resend); }
-                    None => app.login_expired(),
-                },
-                Effect::LoginCancel => {
-                    login_tx = None;
-                    if let Some(t) = login_task.take() { t.abort(); }
-                    login_gen += 1;
-                }
-                Effect::Logout => match logout(&jar) {
-                    Ok(removed) => app.logged_out(removed),
-                    Err(e) => app.error("Logout failed", &format!("{e:#}")),
                 },
                 Effect::CreatePhrase => {
                     pause_input.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -484,7 +342,6 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     }
     stop.store(true, std::sync::atomic::Ordering::Relaxed);
     if let Some(im) = app.images.as_ref() { im.clear_screen_images(&mut std::io::stdout()); }
-    drop((login_tx, login_task));
     drop(term);
     Ok(detached)
 }

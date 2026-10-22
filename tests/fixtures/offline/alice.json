@@ -1,0 +1,111 @@
+{
+  "nick": "alice",
+  "format": "acp-rs-export",
+  "format_version": 2,
+  "exported_at": "2026-10-22T00:00:00Z",
+  "counts": { "posts": 6, "replies": 1 },
+  "profiles": [],
+  "mentions": [],
+  "posts": [
+    {
+      "post_id": "A5",
+      "kind": "post",
+      "parent_post_id": "",
+      "in_reply_to_id": "",
+      "nick": "alice",
+      "title": "A5 title",
+      "content": "fifth general strike",
+      "posted_at": "2026-10-05T12:00:00Z",
+      "truncated": false,
+      "attachments": [],
+      "children": []
+    },
+    {
+      "post_id": "A4",
+      "kind": "post",
+      "parent_post_id": "",
+      "in_reply_to_id": "",
+      "nick": "alice",
+      "title": "A4 title",
+      "content": "fourth",
+      "posted_at": "2026-10-04T12:00:00Z",
+      "truncated": false,
+      "attachments": [],
+      "children": []
+    },
+    {
+      "post_id": "A3",
+      "kind": "post",
+      "parent_post_id": "",
+      "in_reply_to_id": "",
+      "nick": "alice",
+      "title": "A3 title",
+      "content": "third",
+      "posted_at": "2026-10-03T12:00:00Z",
+      "truncated": false,
+      "attachments": [],
+      "children": []
+    },
+    {
+      "post_id": "A2",
+      "kind": "post",
+      "parent_post_id": "",
+      "in_reply_to_id": "",
+      "nick": "alice",
+      "title": "A2 title",
+      "content": "second",
+      "posted_at": "2026-10-02T12:00:00Z",
+      "truncated": false,
+      "attachments": [],
+      "children": []
+    },
+    {
+      "post_id": "A1",
+      "kind": "post",
+      "parent_post_id": "",
+      "in_reply_to_id": "",
+      "nick": "alice",
+      "title": "A1 title",
+      "content": "first post from alice",
+      "posted_at": "2026-10-01T12:00:00Z",
+      "truncated": false,
+      "attachments": [
+        {
+          "url": "fixture://a1.png",
+          "kind": "image",
+          "mime_type": "image/png",
+          "local_path": "a1.png",
+          "on_site": true
+        }
+      ],
+      "children": [
+        {
+          "post_id": "R1",
+          "kind": "reply",
+          "parent_post_id": "A1",
+          "in_reply_to_id": "A1",
+          "nick": "bob",
+          "title": "",
+          "content": "bob replies to alice",
+          "posted_at": "2026-10-08T13:00:00Z",
+          "truncated": false,
+          "attachments": [],
+          "children": []
+        }
+      ]
+    },
+    {
+      "post_id": "AR1",
+      "kind": "reply",
+      "parent_post_id": "B1",
+      "in_reply_to_id": "B1",
+      "nick": "alice",
+      "title": "",
+      "content": "alice replies to bob",
+      "posted_at": "2026-10-09T13:00:00Z",
+      "truncated": false,
+      "attachments": [],
+      "children": []
+    }
+  ]
+}

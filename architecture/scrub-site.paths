@@ -1,18 +1,21 @@
-# Paths a history scrub would remove from this repo by git filter-repo --invert-paths.
-# The scrub is undecided. Do not run it.
+# Paths a history scrub removes from this repo by git filter-repo --invert-paths.
+# The scrub is approved. Do not run it yet.
+# This repo is public. Run the scrub only after this core deletion is merged
+# and the service tree is in the private service repo. Do not contact GitHub
+# Support. Do not force-push before those conditions.
 # One path per line. A trailing slash is a directory prefix.
 # Lines starting with # are comments and are not passed to filter-repo.
 #
 # These paths are Red Star site internals. The rehearsal was run against
-# main 3c84eb2e (before the split). The live scrub runs only after the split
-# PRs are merged, the service tree is in acp--red-star-service, and each of
-# these paths is absent from the scrub tip. A path that still exists at that
+# main 3c84eb2e (before the split). A path that still exists at the scrub
 # tip is skipped, not deleted: filter-repo would also drop the kept file.
 #
 # Kept on purpose (not listed): assets/ (logos, banner, wallpapers,
 # empty-body animation), src/eggs.rs, docs/.secrets/, src/branding.rs,
-# src/brands.rs once it lands, src/auth/prefs.rs, themes, crypto, storage,
-# the TUI shell, and docs/history/.
+# src/brands.rs, src/prefs.rs (moved out of src/auth/ before this deletion),
+# themes, crypto, storage, the TUI shell, and docs/history/.
+# tests/support/mock.rs stays absent. Theme and article checks live in
+# tests/support/themes.rs, which is not a scrub path.
 
 src/liveview/
 src/scrape/

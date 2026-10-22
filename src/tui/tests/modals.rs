@@ -7,55 +7,6 @@ fn k(c: KeyCode) -> KeyEvent { KeyEvent::new(c, KeyModifiers::NONE) }
 fn typ(m: &mut dyn ModalState, s: &str) { for ch in s.chars() { m.on_key(k(KeyCode::Char(ch))); } }
 
 #[test]
-fn login_email_then_code() {
-    let mut m = LoginModal::new(None, None);
-    m.on_key(k(KeyCode::Enter));
-    assert!(m.error.is_some() && m.request.is_none(), "needs an email");
-    typ(&mut m, "me@example.test");
-    assert_eq!(m.on_key(k(KeyCode::Enter)), None);
-    assert_eq!(m.request.take(), Some(LoginRequest::SendEmail("me@example.test".into())));
-    assert!(matches!(m.step, LoginStep::Busy(_)));
-    typ(&mut m, "ignored while busy");
-    m.need_code();
-    typ(&mut m, "123456");
-    m.on_key(k(KeyCode::Enter));
-    assert_eq!(m.request.take(), Some(LoginRequest::SubmitCode("123456".into())));
-    assert_eq!(m.on_key(k(KeyCode::Esc)), Some(ModalResult::ClosedCancelled));
-}
-
-#[test]
-fn login_code_step_resends_and_a_failed_verify_stays_there() {
-    let mut m = LoginModal::new(Some("a@b.c".into()), None);
-    m.need_code();
-    typ(&mut m, "111111");
-    m.on_key(k(KeyCode::F(2)));
-    assert_eq!(m.request.take(), Some(LoginRequest::Resend));
-    assert!(matches!(m.step, LoginStep::Busy(ref s) if s.starts_with("Sending another")));
-    assert!(m.code.value.is_empty());
-    m.need_code();
-    assert_eq!(m.on_click(ModalHit::Button(1)), None);
-    assert_eq!(m.request.take(), Some(LoginRequest::Resend));
-    m.need_code();
-    typ(&mut m, "222222");
-    m.held("websocket closed");
-    assert_eq!(m.step, LoginStep::Code);
-    assert!(m.code.value.is_empty());
-    assert_eq!(m.error.as_deref(), Some("websocket closed"));
-    assert_eq!(m.on_key(k(KeyCode::F(1))), Some(ModalResult::Help("login")));
-    m.need_code();
-    assert_eq!(m.on_click(ModalHit::Button(2)), Some(ModalResult::ClosedCancelled));
-}
-
-#[test]
-fn login_prefills_email_and_clicks() {
-    let mut m = LoginModal::new(Some("a@b.c".into()), Some("why".into()));
-    assert_eq!(m.email.value, "a@b.c");
-    assert_eq!(m.on_click(ModalHit::Button(0)), None);
-    assert!(matches!(m.request, Some(LoginRequest::SendEmail(_))));
-    assert_eq!(m.on_click(ModalHit::Button(1)), Some(ModalResult::ClosedCancelled));
-}
-
-#[test]
 fn search_modal_fields_kind_and_buttons() {
     let mut m = SearchModal::new(&Default::default());
     typ(&mut m, "strike");

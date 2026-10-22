@@ -19,7 +19,7 @@ pub fn expand_menu_path(raw: &str) -> String {
     let trimmed = raw.trim();
     if trimmed.is_empty() { return String::new(); }
     let home = crate::config::home().ok();
-    crate::site::expand_with_home(std::path::Path::new(trimmed), home.as_deref()).to_string_lossy().into_owned()
+    crate::files::expand_with_home(std::path::Path::new(trimmed), home.as_deref()).to_string_lossy().into_owned()
 }
 
 /// Menu text fields that name a file or directory.

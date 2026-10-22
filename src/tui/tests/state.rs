@@ -152,7 +152,7 @@ fn clear_search_and_empty_filter() {
 }
 
 #[test]
-fn start_scan_needs_nicks_then_checks_session_then_logs_in() {
+fn start_scan_needs_nicks_then_refuses() {
     let mut a = app();
     a.act(Action::StartScan);
     assert!(matches!(a.modal, Some(Modal::Message(_))));
@@ -160,28 +160,20 @@ fn start_scan_needs_nicks_then_checks_session_then_logs_in() {
     a.modal = None;
     a.select_only(nick_idx(&a, "alice"));
     a.act(Action::StartScan);
-    let Some(Effect::CheckSessionThen(JobKind::Scan, argv)) = a.effects.pop() else { panic!("{:?}", a.effects) };
-    assert_eq!(a.session, SessionState::Checking);
-    // Logged out: Login modal, scan pending.
-    a.session_checked(Ok(false), JobKind::Scan, argv.clone());
-    assert!(matches!(a.modal, Some(Modal::Login(_))));
-    assert_eq!(a.pending_job.as_ref(), Some(&(JobKind::Scan, argv.clone())));
-    a.login_need_code();
-    let Some(Modal::Login(m)) = &a.modal else { panic!() };
-    assert_eq!(m.step, LoginStep::Code);
-    a.login_done(Ok(()));
-    assert!(a.modal.is_none());
-    assert_eq!(a.session, SessionState::Valid);
-    assert_eq!(a.effects, [Effect::RunJob(JobKind::Scan, argv)]);
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert_eq!(a.session, SessionState::LoggedOut);
 }
 
 #[test]
-fn start_scan_with_valid_session_runs_and_cancel_while_running() {
+fn start_scan_with_a_running_job_cancels_it() {
     let mut a = app();
     a.session = SessionState::Valid;
     a.menu.menu.set_text(CommandId::Scrape, "nicks", "@zed");
     a.act(Action::StartScan);
-    assert!(matches!(a.effects.as_slice(), [Effect::RunJob(JobKind::Scan, _)]));
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
     a.effects.clear();
     a.job_started(JobView { kind: JobKind::Scan, pid: 42, log: "/tmp/x.log".into() }, "acp-red-star --nicks zed");
     a.act(Action::StartScan);
@@ -192,58 +184,50 @@ fn start_scan_with_valid_session_runs_and_cancel_while_running() {
 }
 
 #[test]
-fn login_cancel_drops_pending_scan() {
+fn login_is_a_message_and_drops_the_pending_scan() {
     let mut a = app();
     a.open_login(Some((JobKind::Scan, vec!["x".into()])));
+    assert!(matches!(a.modal, Some(Modal::Message(_))));
+    assert!(a.pending_job.is_none());
     a.close_modal(ModalResult::ClosedCancelled);
     assert!(a.pending_job.is_none());
-    assert_eq!(a.effects, [Effect::LoginCancel]);
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.modal.is_none());
 }
 
 #[test]
-fn login_hold_keeps_the_code_step_and_help_does_not_drop_the_attempt() {
+fn login_status_does_not_open_a_code_step() {
     let mut a = app();
     a.open_login(Some((JobKind::Scan, vec!["x".into()])));
     a.login_need_code();
     a.login_hold("websocket closed");
-    let Some(Modal::Login(m)) = &a.modal else { panic!() };
-    assert_eq!(m.step, LoginStep::Code);
-    assert_eq!(m.error.as_deref(), Some("websocket closed"));
-    assert!(a.pending_job.is_some());
-    crate::tui::input::on_event(&mut a, crossterm::event::Event::Key(
-        crossterm::event::KeyEvent::new(crossterm::event::KeyCode::F(2), crossterm::event::KeyModifiers::NONE)));
-    assert_eq!(a.effects, [Effect::LoginResend]);
-    a.effects.clear();
-    crate::tui::input::on_event(&mut a, crossterm::event::Event::Key(
-        crossterm::event::KeyEvent::new(crossterm::event::KeyCode::F(1), crossterm::event::KeyModifiers::NONE)));
-    assert!(matches!(a.modal, Some(Modal::Help(_))));
-    assert!(a.paused_login.as_ref().is_some_and(|m| m.on_code_step()));
-    assert!(a.effects.is_empty());
-    a.close_modal(ModalResult::ClosedCancelled);
-    let Some(Modal::Login(m)) = &a.modal else { panic!("login should return after help") };
-    assert!(m.on_code_step());
-    assert!(a.pending_job.is_some());
+    assert!(matches!(a.modal, Some(Modal::Message(_))));
+    assert!(a.pending_job.is_none());
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
 }
 
 #[test]
-fn login_failure_stays_open_with_error() {
+fn login_failure_stays_a_message() {
     let mut a = app();
     a.open_login(None);
     a.login_done(Err("sign-in POST failed".into()));
-    let Some(Modal::Login(m)) = &a.modal else { panic!() };
-    assert_eq!(m.error.as_deref(), Some("sign-in POST failed"));
-    assert_eq!(m.step, LoginStep::Email);
+    let Some(Modal::Message(m)) = &a.modal else { panic!("{:?}", a.modal) };
+    assert_eq!(m.title, "Login");
+    assert!(m.lines.iter().any(|l| l.contains("not in this binary")), "{:?}", m.lines);
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
 }
 
 #[test]
-fn logout_routes_to_login() {
+fn logout_clears_the_session_without_a_login_screen() {
     let mut a = app();
     a.session = SessionState::Valid;
     a.act(Action::Logout);
     assert_eq!(a.effects, [Effect::Logout]);
     a.logged_out(true);
     assert_eq!(a.session, SessionState::LoggedOut);
-    assert!(matches!(a.modal, Some(Modal::Login(_))));
+    assert!(a.modal.is_none(), "{:?}", a.modal);
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
 }
 
 #[test]
@@ -377,7 +361,8 @@ fn library_opens_export_and_escape_returns() {
     assert!(a.status.back().unwrap().contains("network node"));
     a.menu.menu.set_text(CommandId::Search, "query", "strike");
     a.act(Action::RunSiteSearch);
-    assert!(a.effects.iter().any(|e| matches!(e, Effect::CheckSessionThen(_, _) | Effect::RunJob(_, _))));
+    assert!(a.effects.is_empty(), "{:?}", a.effects);
+    assert!(a.status.iter().any(|s| s.contains("not in this binary")), "{:?}", a.status);
     a.act(Action::NewPost);
     assert!(matches!(a.modal, Some(Modal::Message(_)) | Some(Modal::Compose(_))));
 }

@@ -1,8 +1,8 @@
 //! Order and limit on lists and filters. The window is [`apply_order_limit`].
 
 use super::*;
-use crate::auth::prefs::{ListOrderPrefs, save_list_order_at};
-use crate::scrape::feed::apply_order_limit;
+use crate::prefs::{ListOrderPrefs, save_list_order_at};
+use crate::lists::apply_order_limit;
 use crate::tui::commands::{Action, CommandId};
 use crate::tui::data::SearchFilter;
 use crate::tui::input::on_key;
@@ -278,7 +278,7 @@ fn list_order_prefs_round_trip_without_touching_other_keys() {
         ..ListOrderPrefs::default()
     };
     save_list_order_at(&path, &prefs).unwrap();
-    let loaded: crate::auth::prefs::Prefs =
+    let loaded: crate::prefs::Prefs =
         toml::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(loaded.email.as_deref(), Some("me@example.test"));
     let got = loaded.ui.unwrap().list_order.unwrap();

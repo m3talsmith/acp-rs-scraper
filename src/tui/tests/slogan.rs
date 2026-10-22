@@ -116,24 +116,15 @@ fn an_empty_search_does_not_repeat_the_welcome_line() {
 }
 
 #[test]
-fn login_shows_the_title_then_the_slogan() {
+fn login_says_this_binary_does_not_log_in() {
     let mut a = app();
     a.open_login(None);
     let buf = buffer(&mut a, 110, 30);
-    let hits = slogans(&buf);
-    assert_eq!(
-        hits.len(),
-        1,
-        "{:?}",
-        hits.iter().map(|&(_, y)| row(&buf, y)).collect::<Vec<_>>()
-    );
-    let (x, y) = hits[0];
-    assert!(row(&buf, y - 1).contains(TUI_SUBTITLE));
-    assert!(
-        row(&buf, y).contains("Log in")
-            || (0..buf.area.height).any(|r| row(&buf, r).contains("Log in to acp.us"))
-    );
-    assert_eq!(style_at(&buf, x, y).fg, Some(SLOGAN_GOLD));
+    let screen: String = (0..buf.area.height).map(|y| row(&buf, y)).collect::<Vec<_>>().join("\n");
+    assert!(screen.contains("Login"), "{screen}");
+    assert!(screen.contains("not in this binary"), "{screen}");
+    assert!(!screen.contains("Send code"), "{screen}");
+    assert!(!screen.contains("Log in to acp.us"), "{screen}");
 }
 
 #[test]

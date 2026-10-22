@@ -3,7 +3,7 @@
 use crate::tui::commands::{is_path_field, Action, Widget};
 use crate::tui::layout::contains;
 use crate::tui::modals::*;
-use crate::tui::state::{App, Effect, Focus, Hit, ViewMode};
+use crate::tui::state::{App, Focus, Hit, ViewMode};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use std::time::Instant;
 
@@ -17,14 +17,6 @@ pub fn on_event(app: &mut App, ev: Event) {
 }
 
 fn after_modal(app: &mut App, r: Option<ModalResult>) {
-    if let Some(Modal::Login(m)) = &mut app.modal
-        && let Some(req) = m.request.take() {
-            app.effects.push(match req {
-                LoginRequest::SendEmail(e) => Effect::LoginEmail(e),
-                LoginRequest::SubmitCode(c) => Effect::LoginCode(c),
-                LoginRequest::Resend => Effect::LoginResend,
-            });
-        }
     if let Some(pid) = app.take_job_cancel() { app.cancel_tracked(pid); }
     if let Some(r) = r { app.close_modal(r); }
     else if matches!(app.modal, Some(Modal::ThemePicker(_))) { app.preview_picker(); }
@@ -397,7 +389,7 @@ fn complete_open_path(app: &mut App) {
     }
     let home = crate::config::home().ok();
     let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    let done = crate::site::complete_path(&current, home.as_deref(), &cwd);
+    let done = crate::files::complete_path(&current, home.as_deref(), &cwd);
     if done.matches.is_empty() && done.text == current {
         app.menu.editing = false;
         app.finish_menu_text();

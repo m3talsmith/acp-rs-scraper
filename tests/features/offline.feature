@@ -3,7 +3,7 @@ Feature: Offline search, export, import and maintenance
 
   Background:
     Given a mock Red Star site
-    And I have run "--nick alice --no-mentions"
+    And I have imported the offline fixture
 
   Scenario: Search the local database
     When I run "--search strike"

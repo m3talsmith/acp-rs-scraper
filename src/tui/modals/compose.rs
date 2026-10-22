@@ -5,7 +5,7 @@
 //! from local nicks and tags.
 
 use super::*;
-use crate::site::{Draft, NickHint, completions, prepare};
+use crate::files::{NickHint, complete_path, completions, plan_attachment};
 use crossterm::event::KeyCode;
 
 /// Which field or button is active.
@@ -131,31 +131,7 @@ impl ComposeModal {
         }
     }
 
-    /// The draft the safety layer checks. The clock is the caller's.
-    pub fn draft(&self, now_unix: i64, last_write_unix: Option<i64>, writes_on: bool) -> Draft {
-        let (thread, in_reply_to) = match &self.kind {
-            ComposeKind::NewPost | ComposeKind::EditReply { .. } => (None, None),
-            ComposeKind::Reply { thread, in_reply_to } => (Some(thread.clone()), in_reply_to.clone()),
-        };
-        Draft {
-            title: self.title.clone(),
-            body: self.body.clone(),
-            thread,
-            in_reply_to,
-            quote: self.quote.clone(),
-            quote_post: self.quote_post.clone(),
-            attachments: self.attachments.clone(),
-            site_attachments: self.site_pick.as_ref().map(|pick| pick.iter().enumerate().filter(|(_, on)| **on).map(|(i, _)| i).collect()),
-            html: None,
-            accept_bundle: false,
-            stored_bundle: None,
-            now_unix,
-            last_write_unix,
-            writes_on,
-        }
-    }
-
-    fn matches(&self) -> Vec<crate::site::Completion> {
+    fn matches(&self) -> Vec<crate::files::Completion> {
         match &self.pending {
             Some(q) => completions(q, &self.nicks, &self.tags),
             None => Vec::new(),
@@ -231,7 +207,7 @@ impl ComposeModal {
             self.error = Some("type a file path, then Enter".into());
             return;
         }
-        let planned = match crate::site::plan_attachment(std::path::Path::new(raw)) {
+        let planned = match plan_attachment(std::path::Path::new(raw)) {
             Ok(planned) => planned,
             Err(message) => {
                 self.error = Some(message);
@@ -270,6 +246,7 @@ impl ComposeModal {
         }
     }
 
+    #[allow(dead_code)]
     fn open_site_picker(&mut self) {
         let max = crate::config::SITE_MAX_ATTACHMENTS;
         let mut pick = vec![false; self.attachments.len()];
@@ -326,7 +303,7 @@ impl ComposeModal {
         }
         let home = crate::config::home().ok();
         let cwd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-        let done = crate::site::complete_path(&self.attach_path, home.as_deref(), &cwd);
+        let done = complete_path(&self.attach_path, home.as_deref(), &cwd);
         if done.matches.is_empty() && done.text == self.attach_path {
             self.move_focus(1);
             return;
@@ -355,23 +332,9 @@ impl ComposeModal {
             }
             return Some(ModalResult::ClosedSubmitted);
         }
-        if self.eligible_site_count() > crate::config::SITE_MAX_ATTACHMENTS && self.site_pick.is_none() {
-            self.open_site_picker();
-            return None;
-        }
-        if let Some(pick) = &self.site_pick {
-            let n = pick.iter().filter(|on| **on).count();
-            let max = crate::config::SITE_MAX_ATTACHMENTS;
-            if n > max {
-                self.error = Some(format!("Red Star allows {max} attachments on the site copy"));
-                self.focus = ComposeFocus::SitePick;
-                return None;
-            }
-        }
-        let draft = self.draft(0, None, true);
-        if let Err(e) = prepare(&draft) {
-            self.error = Some(e.message);
-            self.focus = if self.site_pick.is_some() { ComposeFocus::SitePick } else { ComposeFocus::Body };
+        if self.body.trim().is_empty() && self.quote.as_ref().is_none_or(|q| q.trim().is_empty()) {
+            self.error = Some("a post needs a body".into());
+            self.focus = ComposeFocus::Body;
             return None;
         }
         Some(ModalResult::ClosedSubmitted)

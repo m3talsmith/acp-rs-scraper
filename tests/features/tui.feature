@@ -20,25 +20,24 @@ Feature: Terminal UI entry and the menu → command-line bridge
     Then it fails
     And stderr contains "the terminal UI needs a terminal"
 
-  Scenario: --scrape keeps the old prompt-for-nicks scrape
+  Scenario: --scrape does not fetch
     When I run "--scrape --no-mentions"
     Then it fails
-    And stderr contains "Nick(s) to scrape"
+    And stderr contains "not in this binary"
 
-  Scenario: --scrape with nicks scrapes headlessly
+  Scenario: --scrape with nicks does not fetch
     When I run "--scrape --nick alice --no-mentions"
-    Then it succeeds
-    And the database has 7 posts
+    Then it fails
+    And stderr contains "not in this binary"
 
-  Scenario: Start Scanning runs the scrape the Scrape menu describes
+  Scenario: Start Scanning does not fetch
     Given the TUI Scrape menu has "Mentions" off
     When I start scanning from the TUI with the nicks "alice" selected
-    Then it succeeds
-    And stderr contains "Logged in."
-    And the database has 7 posts
+    Then it fails
+    And stderr contains "not in this binary"
 
   Scenario: Bulk export from the TUI selection
-    Given I have run "--nick alice --no-mentions"
+    Given I have imported the offline fixture
     When I export the TUI selection "alice" to "$HOME/sel.json" as "json,html"
     Then it succeeds
     And the file "$HOME/sel.json" exists
@@ -46,7 +45,7 @@ Feature: Terminal UI entry and the menu → command-line bridge
     And the file "$HOME/sel.json" contains "alice"
 
   Scenario: Remove from the Maintain menu (after the TUI's confirmation)
-    Given I have run "--nick alice --no-mentions"
+    Given I have imported the offline fixture
     When I remove the TUI selection "alice" from the Maintain menu
     Then it succeeds
     And the database has 0 posts by "alice"
