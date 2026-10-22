@@ -683,6 +683,9 @@ pub struct Args {
     /// Delete a quarantined copy. The plugins directory is left alone.
     #[arg(long, value_name = "FILE", exclusive = true, help_heading = "Services")]
     pub quarantine_delete: Option<String>,
+    /// Prepared read of one YouTube channel or video. Does not connect and does not spawn yt-dlp. Nothing is fetched.
+    #[arg(long, value_name = "TARGET", exclusive = true, help_heading = "Services")]
+    pub youtube_read: Option<String>,
 }
 
 /// File format for `--rules-import`, `--rules-export`, `--rules-list`, and `--rules-show`.

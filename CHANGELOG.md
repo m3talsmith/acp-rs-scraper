@@ -6,6 +6,10 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **YouTube service, prepared, gated.** `crates/acp_red_star_service_youtube` registers through `declare_builtin!`. It is off when `~/.acp/services/youtube.toml` is missing. `--youtube-read TARGET` stops before any connection, does not spawn yt-dlp, and says nothing was fetched. Captions plan every track in `caption_locales` (default `en`, written as `en.*`). A locale the video does not have is skipped. `max_comments = 0` and `comment_depth = 0` mean no cap. Live chat replay is a separate argument list (`kind=chat`) and is on by default. Shorts are on. The streams tab is off. The API route names the Data API lists and does not call them. The root crate version is unchanged.
+
 ## [3.52.0] - 2026-10-22
 
 ### Added

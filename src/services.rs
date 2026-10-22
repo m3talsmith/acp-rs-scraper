@@ -43,6 +43,7 @@ pub fn service_path(home: &Path, id: &str) -> PathBuf {
 pub fn builtins() -> Vec<Box<dyn DynService>> {
     let mut reg = BuiltinRegistrar { services: Vec::new() };
     unsafe { (acp_red_star_service_redstar::plugin_declaration.register)(&mut reg) };
+    unsafe { (acp_red_star_service_youtube::plugin_declaration.register)(&mut reg) };
     reg.services
 }
 
@@ -308,6 +309,11 @@ pub fn strip_secrets(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
+/// A prepared YouTube read. Nothing is fetched and yt-dlp is not spawned.
+pub fn youtube_read(target: &str) -> Result<()> {
+    acp_red_star_service_youtube::prepare_read(target).map_err(|e| anyhow!("{e}"))
+}
+
 /// Lines for the Services window.
 pub fn services_rows(home: &Path) -> Vec<ServiceRow> {
     let mut rows = Vec::new();
@@ -408,6 +414,24 @@ mod tests {
         let err = set_config(&home, "redstar", "session", "super-secret-token").unwrap_err().to_string();
         assert!(err.contains("no field") || err.contains("secret"), "{err}");
         assert!(!err.contains("super-secret-token"), "{err}");
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    #[test]
+    fn a_youtube_api_key_in_toml_is_refused_without_the_value() {
+        let home = std::env::temp_dir().join(format!("acp-ytsec-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&home);
+        let path = service_path(&home, "youtube");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, "enabled = true\napi_key = \"not-a-key\"\n").unwrap();
+        let err = is_enabled(&home, "youtube").unwrap_err().to_string();
+        assert!(err.contains("api_key"), "{err}");
+        assert!(!err.contains("not-a-key"), "{err}");
+        let ids: Vec<_> = builtins().iter().map(|s| s.id()).collect();
+        assert_eq!(ids, vec!["redstar", "youtube"]);
+        let err = youtube_read("alice").unwrap_err().to_string();
+        assert!(err.contains("Nothing was fetched"), "{err}");
+        assert!(!err.contains("youtube.com"), "{err}");
         let _ = std::fs::remove_dir_all(&home);
     }
 

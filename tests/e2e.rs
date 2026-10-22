@@ -184,6 +184,9 @@ async fn fails(w: &mut E2e) { assert_ne!(w.last.code, 0, "unexpected success:\n{
 #[then(expr = "stderr contains {string}")]
 async fn stderr_has(w: &mut E2e, s: String) { assert!(w.last.stderr.contains(&s), "stderr lacks {s:?}:\n{}", w.last.stderr); }
 
+#[then(expr = "stderr does not contain {string}")]
+async fn stderr_lacks(w: &mut E2e, s: String) { assert!(!w.last.stderr.contains(&s), "stderr has {s:?}:\n{}", w.last.stderr); }
+
 #[then(expr = "stdout contains {string}")]
 async fn stdout_has(w: &mut E2e, s: String) { assert!(w.last.stdout.contains(&s), "stdout lacks {s:?}:\n{}", w.last.stdout); }
 

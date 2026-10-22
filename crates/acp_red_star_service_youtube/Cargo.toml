@@ -1,0 +1,13 @@
+[package]
+name = "acp_red_star_service_youtube"
+version = "3.52.0"
+edition = "2024"
+rust-version = "1.88"
+license = "GPL-3.0-or-later"
+authors = ["m3talsmith <m3talsmith@gmail.com>"]
+description = "YouTube service: capabilities, schema, and a prepared yt-dlp plan. Nothing is fetched."
+repository = "https://github.com/m3talsmith/acp-rs-scraper"
+publish = false
+
+[dependencies]
+acp_red_star_node_core = { path = "../acp_red_star_node_core" }

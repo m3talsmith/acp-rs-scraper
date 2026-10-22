@@ -33,7 +33,7 @@ That build also writes `./target/release/acprs` and `./target/release/acp-rs-scr
 
 You can also run it through cargo with `cargo run --release -- <flags>`, or `cargo run --release --bin acprs -- <flags>`. The first build sets git's `core.hooksPath` to `.githooks` (see [Contributing](#contributing)).
 
-The workspace members are `acp-red-star` (repository root, the terminal client and binary), `acp_red_star_node_core` (`crates/acp_red_star_node_core`), and `acp_red_star_service_redstar` (`crates/acp_red_star_service_redstar`). The core library holds account identity, canonical CBOR, a secret-store interface, and the service plugin ABI. It is `publish = false`. The Red Star service crate registers Red Star on that ABI. The scrape, login, and write modules stay in the root crate. The module list is in [INSTALL.md](INSTALL.md#workspace-crates). Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
+The workspace members are `acp-red-star` (repository root, the terminal client and binary), `acp_red_star_node_core` (`crates/acp_red_star_node_core`), `acp_red_star_service_redstar` (`crates/acp_red_star_service_redstar`), and `acp_red_star_service_youtube` (`crates/acp_red_star_service_youtube`). The core library holds account identity, canonical CBOR, a secret-store interface, and the service plugin ABI. It is `publish = false`. The Red Star service crate registers Red Star on that ABI. The YouTube service crate registers YouTube on the same ABI, plans a yt-dlp argument list, and refuses the read. The scrape, login, and write modules stay in the root crate. The module list is in [INSTALL.md](INSTALL.md#workspace-crates). Command-line flags, `preferences.toml`, the encrypted database, and `.acpbackup` files are unchanged. The CBOR rules are in [PROTOCOL.md](PROTOCOL.md).
 
 ## Terminal UI
 
@@ -634,13 +634,17 @@ These flags stand alone. They do not open the terminal UI and they do not scrape
 | `--quarantine-show FILE` | Print one quarantined item and why it was moved. |
 | `--quarantine-restore FILE` | Move that archive back to `~/.acp/plugins` and run the package check again. |
 | `--quarantine-delete FILE` | Delete the quarantined copy. The plugins directory is left alone. |
+| `--youtube-read TARGET` | Prepared read of one channel or video. Does not connect and does not spawn yt-dlp. The command fails and says nothing was fetched. |
 
 ```sh
 acp-red-star --doctor
 acp-red-star --services
 acp-red-star --service-set redstar mentions true
 acp-red-star --quarantine
+acp-red-star --youtube-read alice
 ```
+
+`--youtube-read` is prepared and gated. Captions use `caption_locales` (default `en`). A locale the video does not have is skipped. `max_comments = 0` and `comment_depth = 0` mean no cap. Live chat replay is a separate plan and is on by default. Shorts are on. The streams tab is off. Enabling YouTube does not fetch. Secrets (`api_key`, `cookies`) are refused if they appear in `~/.acp/services/youtube.toml`.
 
 A plugin archive is `<name>-<os>-<arch>-<version>.tar.gz`. It contains `package.toml` with `[meta]` and `[install]`. Every binary and library entry has a sha256. The app checks the name, the version, the operating system, the architecture, the paths, and each hash before it loads the library. A failed check is logged as a potential security threat (the name, the path, and the reason; never the file bytes) and the archive moves to `~/.acp/quarantined/plugins/`. A rustc or core-version mismatch is refused and is not quarantined. Preferences › Services and `plugins.reload` call that same loader. A changed package is checked again. A failed check waits until nothing is inside the library, unloads it, and quarantines it. A version mismatch keeps the copy already loaded.
 
