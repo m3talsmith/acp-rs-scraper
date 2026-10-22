@@ -180,6 +180,8 @@ pub enum Action {
     OpenLiveFeed,
     /// Site notification pane (View › Site notifications). Not View › Notifications.
     OpenSiteNotifications,
+    /// Account › Services. Not a key binding.
+    OpenServices,
     /// Account › Profile.
     ShowProfile,
     /// Account › Site settings.
@@ -430,6 +432,8 @@ fn view_item() -> MenuCommand {
         opt_topic("live", "Live", "--live", "live", false, button(Action::OpenLive)),
         opt_topic("live_feed", "Live feed", "--live-feed", "live", false, button(Action::OpenLiveFeed)),
         opt_topic("site_notifications", "Site notifications", "--site-notifications", "site-notifications", false, button(Action::OpenSiteNotifications)),
+        opt_topic("combine", "Combine", "mixed or grouped", "combine", false, choice(&["Mixed", "Grouped"])),
+        opt_topic("source", "Source", "all, or a service id", "combine", false, text("all")),
         opt("prev", "◂ Previous post", ", / Alt-←", false, button(Action::StackPrev)),
         opt("next", "Next post ▸", ". / Alt-→", false, button(Action::StackNext)),
     ])
@@ -573,6 +577,7 @@ fn account_item() -> MenuCommand {
         opt_topic("save_settings", "Save site settings", "--save-settings", "site-settings", false, button(Action::SaveSiteSettings)),
         opt_topic("reason", "Report reason", "--reason", "report-user", false, choice(&["constitution", "illegal_obscene", "spam", "uncomradely"])),
         opt_topic("report_user", "Report user", "--report-user", "report-user", false, button(Action::ReportUser)),
+        opt_topic("services", "Services", "plugins.reload", "services", false, button(Action::OpenServices)),
     ])
 }
 

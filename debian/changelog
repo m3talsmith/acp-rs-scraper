@@ -1,3 +1,21 @@
+acp-red-star (3.53.0) unstable; urgency=medium
+
+  * Package 3.53.0. View › Combine and View › Source remember how a list is labeled.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 12:40:00 +0000
+
+acp-red-star (3.52.0) unstable; urgency=medium
+
+  * Package 3.52.0. Quarantine can be listed, restored, and deleted from the command line.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 12:30:00 +0000
+
+acp-red-star (3.51.0) unstable; urgency=medium
+
+  * Package 3.51.0. Service files and sealed secrets stay on this machine.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 12:20:00 +0000
+
 acp-red-star (3.50.0) unstable; urgency=medium
 
   * Package 3.50.0. A password change rewraps the local keys and leaves the account id as it is.

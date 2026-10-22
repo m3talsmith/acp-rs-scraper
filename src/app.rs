@@ -234,6 +234,9 @@ pub async fn run() -> Result<()> {
     if args.plugins_reload {
         return crate::plugins::run_reload();
     }
+    if crate::services::cli_requested(&args) {
+        return crate::services::run_cli(&args);
+    }
     let (brand, brand_warn) = crate::brands::selected(args.brand.as_deref());
     crate::brands::install(&brand);
     if let Some(w) = brand_warn {

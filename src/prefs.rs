@@ -52,6 +52,12 @@ pub struct UiPrefs {
     /// How many search-history rows to keep. Omitted keeps the entire history.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub search_history_limit: Option<u64>,
+    /// `mixed` or `grouped`. Omitted means mixed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub combine: Option<String>,
+    /// `all`, or a service id. Omitted means all.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 /// `[ui.notify]` in `~/.acp/preferences.toml`.
@@ -147,6 +153,26 @@ pub fn save_ui_color_at(path: &Path, color: &str) -> Result<()> {
 /// Set `[ui] color` in `~/.acp/preferences.toml`, keeping every other key.
 pub fn save_ui_color(color: &str) -> Result<()> {
     save_ui_color_at(&home()?.join(PREFS_REL_PATH), color)
+}
+
+/// Set `[ui] combine` and `[ui] source` in `path`, keeping every other key.
+pub fn save_view_source_at(path: &Path, combine: &str, source: &str) -> Result<()> {
+    let mut t: toml::Table = match std::fs::read_to_string(path) {
+        Ok(s) => toml::from_str(&s).with_context(|| format!("{} is not valid TOML; not changing it", path.display()))?,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => toml::Table::new(),
+        Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
+    };
+    let ui = t.entry("ui").or_insert_with(|| toml::Value::Table(toml::Table::new()));
+    let Some(ui) = ui.as_table_mut() else { bail!("[ui] in {} is not a table; not changing it", path.display()) };
+    ui.insert("combine".into(), toml::Value::String(combine.into()));
+    ui.insert("source".into(), toml::Value::String(source.into()));
+    if let Some(parent) = path.parent() { std::fs::create_dir_all(parent)?; }
+    crate::themes::atomic_write(path, toml::to_string(&t)?.as_bytes()).with_context(|| format!("writing {}", path.display()))
+}
+
+/// Set `[ui] combine` and `[ui] source` in `~/.acp/preferences.toml`.
+pub fn save_view_source(combine: &str, source: &str) -> Result<()> {
+    save_view_source_at(&home()?.join(PREFS_REL_PATH), combine, source)
 }
 
 /// Set `[ui.notify]` in `path`, keeping every other key.

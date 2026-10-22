@@ -14,6 +14,7 @@ pub mod post;
 pub mod research;
 pub mod rules;
 pub mod search;
+pub mod services;
 pub mod brand_picker;
 pub mod theme_picker;
 
@@ -32,6 +33,7 @@ pub use post::*;
 pub use research::*;
 pub use rules::*;
 pub use search::*;
+pub use services::*;
 pub use brand_picker::*;
 pub use theme_picker::*;
 
@@ -102,6 +104,8 @@ pub enum Modal {
     History(HistoryModal),
     /// Action-history paths. Choosing one restores that path.
     Branches(BranchesModal),
+    /// Account › Services. Enable a service, read a quarantine reason, reload plugins.
+    Services(ServicesModal),
 }
 
 impl Modal {
@@ -118,6 +122,7 @@ impl Modal {
             Modal::Rules(m) => m,
             Modal::History(m) => m,
             Modal::Branches(m) => m,
+            Modal::Services(m) => m,
         }
     }
 }

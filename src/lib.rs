@@ -21,6 +21,7 @@
 //! - [`livefeed`]: live thread, live feed, and the site notification pane. The service keeps the socket.
 //! - [`account`]: profile, site settings, and reports. A dry-run does not call a service.
 //! - [`feeds`]: local views. Refresh calls the loaded service. A dry-run prints the plan.
+//! - [`services`]: service files, sealed secrets, and the quarantine list. This binary does not link a site service.
 //! - [`storage`]: SQLite schema and queries.
 //! - [`export`]: JSON / HTML rendering and `.tar.gz` archives; [`import`] reads them back.
 //! - [`branding`]: the slogan shared by the welcome screen, About, and the status bar.
@@ -68,6 +69,7 @@ pub mod plugins;
 pub mod research;
 pub mod rules;
 pub mod service;
+pub mod services;
 pub mod storage;
 pub mod themes;
 pub mod tui;

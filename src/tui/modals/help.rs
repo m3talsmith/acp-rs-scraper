@@ -262,6 +262,19 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
         "  Rules run when the related post is already stored. The service keeps the socket.",
         "  --dry-run prints the request and does not call the service.",
     ]);
+    push_topic(&mut v, "services", "Services", &[
+        "  Account › Services lists linked services and the quarantine directory.",
+        "  redstar is reserved. It is on when ~/.acp/services/redstar.toml is missing.",
+        "  Other services start off. A secret field is refused and the value is not stored.",
+        "  Reload plugins runs the package check. It is not bound to a key.",
+        "  u restores a quarantined archive. d deletes that copy.",
+    ]);
+    push_topic(&mut v, "combine", "Combine", &[
+        "  View › Combine remembers mixed or grouped in [ui] combine.",
+        "  View › Source remembers all, or a service id, in [ui] source.",
+        "  The navigation bar shows a choice that is not the default.",
+        "  Posts in this database are not tagged with a service, so the list stays one list.",
+    ]);
     push_topic(&mut v, "research", "Research", &[
         "  r, or the ◈ on a card, adds the current post to a research project.",
         "  Add current view / search queues the list on screen. Export project writes that project.",

@@ -20,6 +20,24 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.53.0] - 2026-10-22
+
+### Added
+
+- **Combined view choice.** View › Combine remembers mixed or grouped in `[ui] combine`. View › Source remembers `all` or a service id in `[ui] source`. The navigation bar shows a choice that is not the default. Posts in this database are not tagged with a service, so the list stays one list.
+
+## [3.52.0] - 2026-10-22
+
+### Added
+
+- **Quarantine commands.** `--quarantine`, `--quarantine-show`, `--quarantine-restore`, and `--quarantine-delete` list, read, restore, and delete. Account › Services is the same list. Reload plugins is that window. It is not bound to a key. The package gate itself is already on the plugin stack.
+
+## [3.51.0] - 2026-10-22
+
+### Added
+
+- **Service files.** `--services`, `--service-enable`, `--service-disable`, and `--service-set` read and write `~/.acp/services/<id>.toml`. `redstar` is reserved and on when its file is missing. This binary does not link that service. A secret field is refused and the value is not stored or printed. Secrets that are set go in `source_secrets`, and a backup snapshot drops those rows.
+
 ## [3.50.0] - 2026-10-22
 
 ### Added

@@ -119,6 +119,10 @@ fn setup_themes(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
     }
     app.themes_dir = Some(dir.clone());
     app.apply_list_prefs(prefs.ui.as_ref().and_then(|u| u.list_order.as_ref()));
+    app.combine = crate::services::Combine::parse(prefs.ui.as_ref().and_then(|u| u.combine.as_deref()).unwrap_or("mixed"));
+    app.source = prefs.ui.as_ref().and_then(|u| u.source.clone()).filter(|s| !s.is_empty()).unwrap_or_else(|| "all".into());
+    app.menu.menu.set_choice(crate::tui::commands::CommandId::View, "combine", if app.combine == crate::services::Combine::Grouped { "Grouped" } else { "Mixed" });
+    app.menu.menu.set_text(crate::tui::commands::CommandId::View, "source", &app.source);
     app.theme_mode = crate::themes::Mode::parse(prefs.ui.as_ref().and_then(|u| u.theme_mode.as_deref()));
     app.dark_bg = crate::themes::colorfgbg_dark(std::env::var("COLORFGBG").ok().as_deref());
     let name = args.theme.clone().or(migrated).or_else(|| prefs.ui.as_ref().and_then(|u| u.theme.clone())).unwrap_or_else(|| DEFAULT_THEME.into());

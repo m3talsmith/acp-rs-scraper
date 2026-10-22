@@ -48,6 +48,9 @@ pub fn draw(f: &mut Frame, app: &mut App, r: Rect, now: Instant) {
     let title = if v.title.is_empty() { "Select a nick on the left".to_string() } else { v.title.clone() };
     spans.push(Span::styled(title, t.bold()));
     spans.push(Span::styled(format!("  {} posts", v.posts.len()), t.muted()));
+    if app.combine != crate::services::Combine::Mixed || app.source != "all" {
+        spans.push(Span::styled(format!("  {} · {}", app.combine.as_str(), app.source), t.muted()));
+    }
     if !v.stack.is_empty() {
         spans.push(Span::styled(format!("  · detail {}/{}", v.stack.len(), crate::config::MAX_DETAIL_DEPTH), t.muted()));
     }

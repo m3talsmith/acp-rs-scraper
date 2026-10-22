@@ -344,6 +344,30 @@ pub struct Args {
     /// Unload installed packages, then load every archive in ~/.acp/plugins that passes the sha256 gate. An ABI or plugin-crate mismatch is refused and the archive stays. A bad archive is quarantined and is not opened.
     #[arg(long, exclusive = true, help_heading = "Interface")]
     pub plugins_reload: bool,
+    /// List linked services. redstar is reserved and on when ~/.acp/services/redstar.toml is missing. Other services start off. Secret values are not printed.
+    #[arg(long, exclusive = true, help_heading = "Services")]
+    pub services: bool,
+    /// Turn a service on and write enabled = true in ~/.acp/services/<id>.toml.
+    #[arg(long, value_name = "SERVICE", exclusive = true, help_heading = "Services")]
+    pub service_enable: Option<String>,
+    /// Turn a service off. A missing redstar.toml means on, so turning it off writes the file.
+    #[arg(long, value_name = "SERVICE", exclusive = true, help_heading = "Services")]
+    pub service_disable: Option<String>,
+    /// Set one non-secret field: --service-set SERVICE KEY VALUE. A secret field is refused and the value is not stored.
+    #[arg(long, num_args = 3, value_names = ["SERVICE", "KEY", "VALUE"], exclusive = true, help_heading = "Services")]
+    pub service_set: Option<Vec<String>>,
+    /// List quarantined packages. Plugins are the first kind.
+    #[arg(long, exclusive = true, help_heading = "Services")]
+    pub quarantine: bool,
+    /// Print one quarantined item and why it was moved.
+    #[arg(long, value_name = "FILE", exclusive = true, help_heading = "Services")]
+    pub quarantine_show: Option<String>,
+    /// Move a quarantined plugin back to ~/.acp/plugins and run the package check again.
+    #[arg(long, value_name = "FILE", exclusive = true, help_heading = "Services")]
+    pub quarantine_restore: Option<String>,
+    /// Delete a quarantined copy. The plugins directory is left alone.
+    #[arg(long, value_name = "FILE", exclusive = true, help_heading = "Services")]
+    pub quarantine_delete: Option<String>,
     /// List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit.
     #[arg(long, help_heading = "Interface")]
     pub list_themes: bool,

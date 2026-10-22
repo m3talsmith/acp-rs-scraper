@@ -7,7 +7,7 @@
 %global debug_package %{nil}
 
 Name:           acp-red-star
-Version:        3.50.0
+Version:        3.53.0
 Release:        1%{?dist}
 Summary:        Scrape Red Star (acp.us/rs) posts into SQLite and export them
 License:        GPL-3.0-or-later
@@ -56,6 +56,15 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.53.0-1
+- Package 3.53.0. View › Combine and View › Source remember how a list is labeled.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.52.0-1
+- Package 3.52.0. Quarantine can be listed, restored, and deleted from the command line.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.51.0-1
+- Package 3.51.0. Service files and sealed secrets stay on this machine.
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.50.0-1
 - Package 3.50.0. A password change rewraps the local keys and leaves the account id as it is.
 

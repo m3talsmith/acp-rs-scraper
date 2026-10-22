@@ -535,6 +535,10 @@ pub struct App {
     pub pending_feed: Option<String>,
     /// Spaces keyed by post id, for the live badge on the Spaces list.
     pub spaces: HashMap<String, crate::spaces::SpaceRow>,
+    /// Mixed or grouped. The navigation bar shows a non-default choice.
+    pub combine: crate::services::Combine,
+    /// `all`, or a service id.
+    pub source: String,
     /// Thread whose reply order a running sort job should restore.
     pub pending_sort: Option<(String, ThreadSort)>,
     /// Header chip for this machine's node (`◉ label`). Empty when no node exists.
@@ -635,6 +639,7 @@ impl App {
             brands_dir: None, brand_name: DEFAULT_BRAND.into(), brand: crate::brands::builtin_default(), brand_error: None, brand_fault: None, brand_editor: None,
             pending_feed: None, pending_sort: None, node_chip: String::new(), last_write_unix: None, pending_outbox: None,
             spaces: HashMap::new(),
+            combine: crate::services::Combine::Mixed, source: "all".into(),
             orders: crate::tui::order::ListOrders::default(), nick_order: ScrapeOrder::Newest, nick_limit: None,
             color_mode: ColorMode::Auto, no_color: false,
             konami: crate::eggs::Konami::new(), egg: None, logo_taps: 0, logo_tap_at: None,
@@ -1065,6 +1070,13 @@ impl App {
             Ok(argv) => self.start_job(JobKind::Read, argv),
             Err(e) => self.error("Site notifications", &e),
         }
+    }
+    /// Account › Services. No new key.
+    pub fn open_services(&mut self) {
+        self.close_menu();
+        let home = crate::config::home().unwrap_or_default();
+        let rows = crate::services::services_rows(&home);
+        self.modal = Some(Modal::Services(crate::tui::modals::ServicesModal::from_rows(rows)));
     }
     fn selected_nick(&self) -> Option<String> {
         self.selected.first().cloned().or_else(|| self.nicks.get(self.nick_cursor).map(|n| n.nick.clone()))
@@ -2098,6 +2110,12 @@ impl App {
                     else { self.push_status(format!("colour: {mode}. Help: color")); }
                 }
             }
+            (View, "combine") => {
+                let grouped = self.menu.menu.choice(View, "combine") == "Grouped";
+                self.combine = if grouped { crate::services::Combine::Grouped } else { crate::services::Combine::Mixed };
+                self.persist_view_source();
+                self.push_status(format!("combine: {}. Help: combine", self.combine.as_str()));
+            }
             (Search, "order") => {
                 let order = crate::tui::order::order_from_choice(self.menu.menu.choice(Search, "order"));
                 if self.view().kind == crate::tui::order::ListKind::Search {
@@ -2119,6 +2137,7 @@ impl App {
         let Some(key) = self.menu.menu.items[item].opts.get(self.menu.opt).map(|o| o.key) else { return };
         match (id, key) {
             (View, "nick_limit") => self.apply_nick_limit_text(),
+            (View, "source") => self.apply_source_text(),
             (Search, "limit") => self.apply_search_limit_text(),
             _ => {}
         }
@@ -2191,6 +2210,26 @@ impl App {
         if let Err(e) = crate::prefs::save_ui_color(self.color_mode.as_str()) {
             self.push_status(format!("error: could not save colour: {e:#}"));
         }
+    }
+    /// Write `[ui] combine` and `[ui] source` when the TUI has a real preferences file.
+    fn persist_view_source(&mut self) {
+        if self.themes_dir.is_none() { return; }
+        if let Err(e) = crate::prefs::save_view_source(self.combine.as_str(), &self.source) {
+            self.push_status(format!("error: could not save the view: {e:#}"));
+        }
+    }
+    fn apply_source_text(&mut self) {
+        let text = self.menu.menu.text(CommandId::View, "source");
+        let source = if text.is_empty() { "all".to_string() } else { text };
+        let ok = source == "all"
+            || (source.len() <= 64 && source.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-'));
+        if !ok {
+            self.error("Source", "use all, or a service id");
+            return;
+        }
+        self.source = source;
+        self.persist_view_source();
+        self.push_status(format!("source: {}. Help: combine", self.source));
     }
     /// The NO_COLOR hint, when colours are off because of it.
     pub fn color_hint(&self) -> Option<&'static str> { no_color_hint(self.color_mode, self.no_color) }
@@ -2484,6 +2523,7 @@ impl App {
             Action::OpenLive => self.open_live(),
             Action::OpenLiveFeed => self.open_live_feed(),
             Action::OpenSiteNotifications => self.open_site_notifications(),
+            Action::OpenServices => self.open_services(),
             Action::ShowProfile => self.show_profile(),
             Action::ShowSiteSettings => self.show_site_settings(),
             Action::EditProfile => self.edit_profile(),
