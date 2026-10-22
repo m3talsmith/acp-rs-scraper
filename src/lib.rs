@@ -14,7 +14,7 @@
 //! - [`auth`]: email + one-time-code login, saved preferences.
 //! - [`liveview`]: LiveView websocket client and diff renderer.
 //! - [`scrape`]: profile/site feeds, threads, "Posts and replies" filter, mentions.
-//! - [`site`]: New post and Reply (3.4.0), with local attachments (3.5.0). Text publish sends validate and save (3.31.0). The site copy of images, videos, and PDFs uploads first (3.32.0). A reply edit sends validate and save (3.33.0) and keeps a leading quote (3.35.5). A vote (3.36.0), a site bookmark (3.37.0), a subscribe (3.38.0), a delete (3.39.0), a top-level post edit (3.40.0), and a quote repost (3.41.0) are sent. Unsubscribe and clearing a site bookmark are not. The site does not allow a plain repost. Share is not a write. The site does not support changing attachments on an edit.
+//! - [`site`]: New post and Reply (3.4.0), with local attachments (3.5.0). Text publish sends validate and save (3.31.0). The site copy of images, videos, and PDFs uploads first (3.32.0). A reply edit sends validate and save (3.33.0) and keeps a leading quote (3.35.6). A vote (3.36.0), a site bookmark (3.37.0), a subscribe (3.38.0), a delete (3.39.0), a top-level post edit (3.40.0), and a quote repost (3.41.0) are sent. Unsubscribe and clearing a site bookmark are not. The site does not allow a plain repost. Share is not a write. The site does not support changing attachments on an edit.
 //! - [`outbox`]: Drafts and the send queue (3.34.0). A draft is stored before it is sent. A queued text post or reply uses the same confirm rules as a direct publish.
 //! - [`media`]: attachment discovery and download.
 //! - [`storage`]: SQLite schema and queries.

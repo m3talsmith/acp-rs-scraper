@@ -57,7 +57,7 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 
 %changelog
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.41.0-1
-- Package 3.41.0. A reply edit keeps a leading quote (3.35.5). A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent (3.36.0 through 3.41.0).
+- Package 3.41.0. A reply edit keeps a leading quote (3.35.6). A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent (3.36.0 through 3.41.0).
 
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.0-1
 - Package 3.35.0. The logo, title, and motto are a brand. --brand plain is a neutral title and a star, with no motto.
