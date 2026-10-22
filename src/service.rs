@@ -12,8 +12,9 @@ pub const SERVICE_ABSENT: &str = "fetching, login, and publishing are not in thi
 
 /// Register the linked services. External packages are not loaded at startup.
 pub fn install(reg: &mut dyn acp_rs_plugin::PluginRegistrar) {
-    // SAFETY: this calls the built-in entry linked into this binary. It registers X and returns.
+    // SAFETY: these call the built-in entries linked into this binary. They register X and YouTube and return.
     unsafe { (acp_red_star_service_x::plugin_declaration.register)(reg) }
+    unsafe { (acp_red_star_service_youtube::plugin_declaration.register)(reg) }
 }
 
 /// The host's list of built-in services. X is linked. Red Star is not.
@@ -136,10 +137,11 @@ mod tests {
     }
 
     #[test]
-    fn this_binary_links_x_and_a_package_cannot_claim_redstar() {
+    fn this_binary_links_x_and_youtube_and_a_package_cannot_claim_redstar() {
         let builtins = Registry::builtins();
-        assert_eq!(builtins.services().len(), 1);
+        assert_eq!(builtins.services().len(), 2);
         assert_eq!(builtins.services()[0].id(), "x");
+        assert_eq!(builtins.services()[1].id(), "youtube");
         let mut external = Registry::external(false);
         external.register_service(Box::new(Claim));
         assert!(external.services().is_empty());

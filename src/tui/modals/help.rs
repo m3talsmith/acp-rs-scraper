@@ -268,6 +268,7 @@ fn area_topics(brand: &crate::brands::Brand) -> Vec<String> {
         "  Other services start off. A secret field is refused and the value is not stored.",
         "  Reload plugins runs the package check. It is not bound to a key.",
         "  --x-read names a prepared read and does not connect.",
+        "  --youtube-read names a prepared read, does not connect, and does not spawn yt-dlp.",
         "  u restores a quarantined archive. d deletes that copy.",
     ]);
     push_topic(&mut v, "combine", "Combine", &[

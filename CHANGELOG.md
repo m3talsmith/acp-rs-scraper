@@ -20,6 +20,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.55.0] - 2026-10-22
+
+### Added
+
+- **YouTube service, prepared, gated.** `crates/acp_red_star_service_youtube` registers through `declare_builtin!`. It is off when `~/.acp/services/youtube.toml` is missing. `--youtube-read TARGET` stops before any connection, does not spawn yt-dlp, and says nothing was fetched. Captions plan the listed locales. A locale the video does not have is skipped. Live chat replay is a separate argument list and is not run. The API route names the Data API lists and does not call them. X stays linked.
+
 ## [3.54.0] - 2026-10-22
 
 ### Added
