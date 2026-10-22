@@ -1,3 +1,9 @@
+acp-red-star (3.39.1) unstable; urgency=medium
+
+  * Package 3.39.1. A menu category opens on the row under the bar.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 22:50:00 +0000
+
 acp-red-star (3.39.0) unstable; urgency=medium
 
   * Package 3.39.0. The built-in red-star theme is the Rebel Hold teal-to-blue watercolor.

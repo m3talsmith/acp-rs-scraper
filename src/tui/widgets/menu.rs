@@ -120,12 +120,23 @@ pub fn widget_text(w: &Widget, editing: bool) -> String {
     }
 }
 
-/// Draw the open dropdown under its item (on top of the layout).
+/// First option index that keeps `opt` inside a window of `visible` rows.
+fn dropdown_scroll(opt: usize, n: usize, visible: usize) -> usize {
+    if visible == 0 || n <= visible { return 0; }
+    let opt = opt.min(n - 1);
+    (opt + 1).saturating_sub(visible)
+}
+
+/// Draw the open dropdown on the row under the menu bar. The bar stays visible.
 pub fn draw_dropdown(f: &mut Frame, app: &mut App, screen: Rect) {
     let Some(i) = app.menu.open else { return };
     let t = app.theme;
     let placed = app.menu.anchor.unwrap_or(i);
-    let x = app.hits.iter().find(|(_, h)| *h == Hit::MenuItem(placed)).map(|(r, _)| r.x).unwrap_or(screen.x);
+    let bar = app.hits.iter().find(|(_, h)| *h == Hit::MenuItem(placed)).map(|(r, _)| *r);
+    let (x0, bar_y) = match bar {
+        Some(r) => (r.x, r.y),
+        None => (screen.x, screen.y),
+    };
     let c = &app.menu.menu.items[i];
     let rows: Vec<(Line, bool)> = c.opts.iter().enumerate().map(|(k, o)| {
         let cur = k == app.menu.opt;
@@ -142,22 +153,28 @@ pub fn draw_dropdown(f: &mut Frame, app: &mut App, screen: Rect) {
     }).collect();
     let hint = c.opts.get(app.menu.opt).map(crate::tui::commands::Opt::hint_line).unwrap_or_default();
     let w = rows.iter().map(|(l, _)| l.width()).max().unwrap_or(10).max(hint.chars().count() + 2).max(c.label.len() + 4) as u16 + 4;
-    let h = rows.len() as u16 + 3;
     let w = w.min(screen.width);
-    let x = x.min(screen.x + screen.width - w);
-    let r = Rect { x, y: screen.y + 2, width: w, height: h.min(screen.height.saturating_sub(2)) };
+    if w == 0 { return; }
+    let x = x0.min(screen.x.saturating_add(screen.width.saturating_sub(w)));
+    let y = bar_y.saturating_add(1);
+    let room = screen.y.saturating_add(screen.height).saturating_sub(y);
+    if room == 0 { return; }
+    let h = (rows.len() as u16 + 3).min(room);
+    let r = Rect { x, y, width: w, height: h };
     f.render_widget(Clear, r);
     let b = boxed(&t.dialog()).title(format!(" {} ", c.label));
     let inner = b.inner(r);
     f.render_widget(b, r);
-    for (k, (line, _)) in rows.into_iter().enumerate() {
-        if k as u16 >= inner.height { break; }
-        let rr = Rect { x: inner.x, y: inner.y + k as u16, width: inner.width, height: 1 };
+    let hint_rows = u16::from(inner.height > 1);
+    let visible = inner.height.saturating_sub(hint_rows) as usize;
+    let start = dropdown_scroll(app.menu.opt, rows.len(), visible);
+    for (k, (line, _)) in rows.into_iter().enumerate().skip(start).take(visible) {
+        let rr = Rect { x: inner.x, y: inner.y + (k - start) as u16, width: inner.width, height: 1 };
         f.render_widget(Paragraph::new(line), rr);
         app.hits.push((rr, Hit::MenuOpt(k)));
     }
-    if inner.height as usize > c.opts.len() {
+    if hint_rows == 1 {
         f.render_widget(Paragraph::new(Span::styled(format!(" {hint}"), t.muted())),
-            Rect { x: inner.x, y: inner.y + c.opts.len() as u16, width: inner.width, height: 1 });
+            Rect { x: inner.x, y: inner.y + visible as u16, width: inner.width, height: 1 });
     }
 }
