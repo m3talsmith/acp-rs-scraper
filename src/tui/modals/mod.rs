@@ -15,6 +15,7 @@ pub mod post;
 pub mod research;
 pub mod rules;
 pub mod search;
+pub mod brand_picker;
 pub mod theme_picker;
 
 use crossterm::event::KeyEvent;
@@ -33,6 +34,7 @@ pub use post::*;
 pub use research::*;
 pub use rules::*;
 pub use search::*;
+pub use brand_picker::*;
 pub use theme_picker::*;
 
 /// How a modal closed.
@@ -88,6 +90,8 @@ pub enum Modal {
     Research(ResearchModal),
     /// Pick a theme (F5).
     ThemePicker(Box<ThemePickerModal>),
+    /// Pick a brand (the header's `«brand» ▾`).
+    BrandPicker(Box<BrandPickerModal>),
     /// Read-only actions for one post (`p`).
     Post(PostMenu),
     /// Running and recent jobs.
@@ -110,6 +114,7 @@ impl Modal {
         match self {
             Modal::Login(m) => m, Modal::Help(m) => m, Modal::Confirm(m) => m,
             Modal::Message(m) => m, Modal::Search(m) => m, Modal::Palette(m) => m, Modal::Research(m) => m, Modal::ThemePicker(m) => m.as_mut(),
+            Modal::BrandPicker(m) => m.as_mut(),
             Modal::Post(m) => m,
             Modal::Job(m) => m,
             Modal::Compose(m) => m,

@@ -1,8 +1,14 @@
-acp-red-star (3.49.0) unstable; urgency=medium
+acp-red-star (3.50.0) unstable; urgency=medium
 
-  * Package 3.49.0. A password change rewraps the database, the node keystore, the recovery phrase, and the backup wrapping key in one step. The account id does not change.
+  * Package 3.50.0. A password change rewraps the database, the node keystore, the recovery phrase, and the backup wrapping key in one step. The account id does not change.
 
- -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 01:40:00 +0000
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 06:00:00 +0000
+
+acp-red-star (3.35.0) unstable; urgency=medium
+
+  * Package 3.35.0. The logo, title, and motto are a brand. `acp-red-star --brand plain` is a neutral title and a star, with no motto.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 02:40:00 +0000
 
 acp-red-star (3.34.0) unstable; urgency=medium
 

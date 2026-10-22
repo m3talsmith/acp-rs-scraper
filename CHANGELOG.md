@@ -6,11 +6,17 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.49.0] - 2026-10-22
+## [3.50.0] - 2026-10-22
 
 ### Added
 
 - **Password change.** `--change-password` asks for the current password and a new one, then rewraps the database bootstrap, the node keystore, the recovery phrase, the existing master secret, and the backup wrapping key in one step. A failure puts the old wraps back. A wrong current password writes nothing. The SQLCipher key stays the same. The master, the account id, and node certificates stay as they are. A backup written before the change still needs that password. A backup written after it is format 2: it opens with the new password, and a new machine can still check the phrase against the same account id.
+
+## [3.35.0] - 2026-10-22
+
+### Added
+
+- **Brands.** The logo, the title, and the motto follow a brand, the same way colours follow a theme. The built-in `default` brand is still ACP Red Star: the red-star logo, the word ACP, the title, and "The future belongs to the working class". The built-in `plain` brand is the title Red Star, a star, and no motto (`acp-red-star --brand plain`). `--brand NAME` selects one for this run. `[ui] brand` in `~/.acp/preferences.toml` keeps it. The header switch `«name» ▾` opens the picker; moving the highlight previews it and Esc puts the old brand back. The brand editor edits the title, motto, word, and logo (Ctrl-S save, Ctrl-R revert, Ctrl-N save as new, Ctrl-D duplicate, Ctrl-X delete, Ctrl-C close). User brands are `~/.acp/brands/<name>.toml`. A logo is built-in, inline text, or a file inside that folder; a path that leaves the folder is refused. A brand is independent of the theme. `--help`, `--version`, the terminal title, and HTML export headers use the title. Credits and the other surprises keep their own text.
 
 ## [3.34.0] - 2026-10-21
 

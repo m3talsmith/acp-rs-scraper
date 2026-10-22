@@ -4,15 +4,18 @@ resolver = "2"
 
 [package]
 name = "acp-red-star"
-version = "3.49.0"
+version = "3.50.0"
 edition = "2024"
 rust-version = "1.88"
 license = "GPL-3.0-or-later"
 authors = ["m3talsmith <m3talsmith@gmail.com>"]
 description = "ACP Red Star, a local client for the Red Star forum"
-repository = "https://github.com/m3talsmith/acp-rs-scraper"
-homepage = "https://github.com/m3talsmith/acp-rs-scraper"
-# documentation = "https://github.com/m3talsmith/acp-rs-scraper/docs"
+# GitHub path placeholder. Michael is renaming this repository. One later
+# patch replaces <core-repo> in these fields and in the README badges.
+# Do not retarget git remotes for that rename.
+repository = "https://github.com/m3talsmith/<core-repo>"
+homepage = "https://github.com/m3talsmith/<core-repo>"
+# documentation = "https://github.com/m3talsmith/<core-repo>/docs"
 keywords = ["acp", "rs", "redstar"]
 categories = ["command-line-utilities", "web-programming"]
 # Poster art stays in the repository. It is not part of the published crate.
@@ -22,6 +25,7 @@ exclude = ["assets/wallpapers/"]
 name = "acp-red-star"
 path = "src/main.rs"
 
+# Compatibility command through version 3. This is not the repository path.
 [[bin]]
 name = "acp-rs-scraper"
 path = "src/bin/acp-rs-scraper.rs"
@@ -44,7 +48,7 @@ serde_json = "1"
 toml = "1.1.8"
 regex = "1"
 url = "2"
-clap = { version = "4", features = ["derive"] }
+clap = { version = "4", features = ["derive", "string"] }
 tar = "0.4"
 flate2 = "1"
 chrono = { version = "0.4", default-features = false, features = ["clock"] }

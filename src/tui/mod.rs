@@ -11,6 +11,7 @@
 //! [`modals`], [`commands`] (menu ↔ flags), [`data`] (read-only DB), [`jobs`],
 //! [`theme`] (styles), [`theming`] (theme files in the app), [`editor`] (Shift-F5).
 
+pub mod brand_editor;
 pub mod commands;
 pub mod data;
 pub mod editor;
@@ -139,6 +140,7 @@ pub async fn run(args: Args) -> Result<()> {
         app.node_chip = node.chip();
     }
     setup_themes(&mut app, &args, &prefs)?;
+    setup_brands(&mut app, &args, &prefs)?;
     app.email = prefs.email.filter(|e| !e.is_empty());
     if let Some(s) = &prefs.sync { app.menu.menu.apply_sync_prefs(s); }
     if let Some(n) = prefs.ui.as_ref().and_then(|u| u.search_history_limit) {
@@ -201,6 +203,17 @@ fn setup_themes(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
     Ok(())
 }
 
+/// Brand at startup: `--brand`, else `[ui] brand`, else the built-in default.
+/// A broken file falls back to the default brand and is not overwritten.
+fn setup_brands(app: &mut App, args: &Args, prefs: &Prefs) -> Result<()> {
+    let dir = crate::brands::brands_dir()?;
+    app.brands_dir = Some(dir);
+    let name = args.brand.clone().or_else(|| prefs.ui.as_ref().and_then(|u| u.brand.clone())).unwrap_or_else(|| DEFAULT_BRAND.into());
+    let before = app.modal.take();
+    if app.use_brand(&name, false) { app.modal = before; }
+    Ok(())
+}
+
 async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) -> Result<Option<(&'static str, u32, PathBuf)>> {
     use crossterm::{event::EnableMouseCapture, execute, terminal::{EnterAlternateScreen, enable_raw_mode}};
     let jar = Arc::new(Jar::default());
@@ -211,6 +224,7 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
     app.notices.enable_desktop();
     enable_raw_mode()?;
     execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+    let _ = execute!(std::io::stdout(), crossterm::terminal::SetTitle(app.brand.title.clone()));
     let prev = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| { restore_terminal(); prev(info); }));
     // `theme_mode = "system"` without COLORFGBG: ask the terminal for its background.
@@ -346,6 +360,10 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                 Effect::SaveUiTheme(name) => match save_ui_theme(&name) {
                     Ok(()) => app.push_status(format!("theme {name} selected (saved to ~/.acp/preferences.toml)")),
                     Err(e) => app.error("Cannot save the theme choice", &format!("{e:#}")),
+                },
+                Effect::SaveUiBrand(name) => match save_ui_brand(&name) {
+                    Ok(()) => app.push_status(format!("brand {name} selected (saved to ~/.acp/preferences.toml)")),
+                    Err(e) => app.error("Cannot save the brand choice", &format!("{e:#}")),
                 },
                 Effect::ExportTheme(f) => match export_theme(&f) {
                     Ok(p) => app.modal = Some(modals::Modal::Message(modals::MessageModal::info("Theme exported", &format!("Wrote {}", p.display())))),
