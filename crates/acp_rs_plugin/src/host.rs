@@ -6,6 +6,13 @@
 //! the [`std::sync::Arc`] and calls it. HTTP, configuration, storage, sealed
 //! secrets, bookmarks, the outbox, export, import, rules, research,
 //! maintenance, notices, preferences, and the binary name stay in the core.
+//!
+//! [`Host`] methods are synchronous. They block the caller until the core
+//! finishes. HTTP runs on a worker thread with its own runtime, so a plugin
+//! may call them from a thread or runtime it owns.
+//!
+//! A websocket upgrade is out of scope. The service keeps its own LiveView
+//! socket. [`Host::http_get`] and [`Host::http_post`] return an HTTP response.
 
 use std::sync::{Arc, Mutex};
 
@@ -35,15 +42,52 @@ impl std::fmt::Display for HostError {
 
 impl std::error::Error for HostError {}
 
-/// Bytes from one host HTTP call.
-#[derive(Clone, Debug, PartialEq, Eq)]
+/// Bytes and headers from one host HTTP call.
+///
+/// `url` is the final URL after redirects. `headers` are that response's
+/// headers. Each `Location` the client followed is included as the resolved
+/// URL. `set_cookie_names` lists cookie names from `Set-Cookie` on every hop.
+/// Cookie values are not logged. [`Debug`] redacts `Set-Cookie` and `Cookie`.
+#[derive(Clone, PartialEq, Eq)]
 pub struct HttpResponse {
-    /// HTTP status code.
+    /// HTTP status code of the final response.
     pub status: u16,
     /// Response body.
     pub body: Vec<u8>,
     /// `Content-Type`, or empty when the response had none.
     pub content_type: String,
+    /// Final URL after redirects.
+    pub url: String,
+    /// Final response headers, plus each followed `Location`.
+    pub headers: Vec<HttpHeader>,
+    /// Cookie names set on any hop in this call. Values stay in the jar.
+    pub set_cookie_names: Vec<String>,
+}
+
+impl std::fmt::Debug for HttpResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let headers: Vec<HttpHeader> = self
+            .headers
+            .iter()
+            .map(|header| {
+                if header.name.eq_ignore_ascii_case("set-cookie")
+                    || header.name.eq_ignore_ascii_case("cookie")
+                {
+                    HttpHeader::new(header.name.clone(), "[redacted]")
+                } else {
+                    header.clone()
+                }
+            })
+            .collect();
+        f.debug_struct("HttpResponse")
+            .field("status", &self.status)
+            .field("body", &self.body)
+            .field("content_type", &self.content_type)
+            .field("url", &self.url)
+            .field("headers", &headers)
+            .field("set_cookie_names", &self.set_cookie_names)
+            .finish()
+    }
 }
 
 /// One extra request header. Cookies go through [`Host::set_cookie`], not this.
@@ -66,14 +110,26 @@ impl HttpHeader {
 }
 
 /// One cookie in a service's jar.
-#[derive(Clone, Debug, PartialEq, Eq)]
+///
+/// [`Debug`] prints the name and URL. The value is `[redacted]`.
+#[derive(Clone, PartialEq, Eq)]
 pub struct CookieRec {
     /// Cookie name.
     pub name: String,
-    /// Cookie value.
+    /// Cookie value. Callers read this field. Logs and [`Debug`] do not.
     pub value: String,
     /// URL the cookie was stored against.
     pub url: String,
+}
+
+impl std::fmt::Debug for CookieRec {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CookieRec")
+            .field("name", &self.name)
+            .field("value", &"[redacted]")
+            .field("url", &self.url)
+            .finish()
+    }
 }
 
 /// Post ids the core already has, plus stored reply counts per thread root.
@@ -194,6 +250,11 @@ pub struct BookmarkSync {
 ///
 /// The service does not receive a SQLCipher connection, the database key, or
 /// the root crate. Paths are text. Secrets are opaque bytes the core stores.
+///
+/// Every method is synchronous and blocks until the core finishes. A plugin
+/// may call them from a thread or runtime it owns. HTTP does not use that
+/// runtime. A websocket upgrade is not part of this trait. The service keeps
+/// its own LiveView socket.
 pub trait Host: Send + Sync {
     /// Directory that holds `~/.acp` for this process, or the test root.
     fn home(&self) -> Result<String, HostError>;
@@ -297,6 +358,8 @@ pub trait Host: Send + Sync {
     ///
     /// `service` selects that service's cookie jar. `headers` are extra request
     /// headers. A `Cookie` header is refused: cookies go through [`Host::set_cookie`].
+    /// [`HttpResponse::url`] is the final URL after redirects. The call blocks.
+    /// It is safe to make from a plugin-owned thread or runtime.
     fn http_get(
         &self,
         service: &str,
@@ -312,9 +375,12 @@ pub trait Host: Send + Sync {
         body: &[u8],
         content_type: &str,
     ) -> Result<HttpResponse, HostError>;
-    /// Store `name`=`value` in `service`'s jar for `url`. A later call with the same name replaces the value.
+    /// Store `name`=`value` in `service`'s jar for `url`.
+    ///
+    /// That jar is the one source of truth. A cookie a response already stored
+    /// stays. The same name and URL replace the value. Every other cookie stays.
     fn set_cookie(&self, service: &str, url: &str, name: &str, value: &str) -> Result<(), HostError>;
-    /// Cookies stored for `service`, across every URL.
+    /// Cookies in `service`'s jar, including ones a response `Set-Cookie` stored.
     fn cookies(&self, service: &str) -> Result<Vec<CookieRec>, HostError>;
     /// Drop every cookie stored for `service`.
     fn clear_cookies(&self, service: &str) -> Result<(), HostError>;

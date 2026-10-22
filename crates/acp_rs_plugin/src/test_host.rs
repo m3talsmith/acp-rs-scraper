@@ -27,6 +27,9 @@ struct HttpScript {
     status: u16,
     body: Vec<u8>,
     content_type: String,
+    /// Empty means the request URL. A test sets this to the URL after a redirect.
+    url: String,
+    headers: Vec<HttpHeader>,
     last: String,
 }
 
@@ -71,6 +74,8 @@ impl MemHost {
                     status: 200,
                     body: Vec::new(),
                     content_type: "text/plain".into(),
+                    url: String::new(),
+                    headers: Vec::new(),
                     last: String::new(),
                 },
                 research: Vec::new(),
@@ -79,11 +84,29 @@ impl MemHost {
     }
 
     /// The next HTTP call returns this response and does not open a socket.
+    ///
+    /// This clears a scripted final URL and scripted headers from an earlier call.
     pub fn script_http(&self, status: u16, body: impl Into<Vec<u8>>, content_type: &str) {
         let mut mem = self.lock();
         mem.http.status = status;
         mem.http.body = body.into();
         mem.http.content_type = content_type.to_string();
+        mem.http.url.clear();
+        mem.http.headers.clear();
+    }
+
+    /// Headers for the next scripted response.
+    ///
+    /// A `Set-Cookie` is merged into that service's jar when the call runs.
+    /// The response lists the cookie name and keeps the header. [`Debug`] on
+    /// [`HttpResponse`] redacts the value.
+    pub fn script_headers(&self, headers: impl IntoIterator<Item = HttpHeader>) {
+        self.lock().http.headers = headers.into_iter().collect();
+    }
+
+    /// Final URL the next scripted response reports. Empty keeps the request URL.
+    pub fn script_final_url(&self, url: &str) {
+        self.lock().http.url = url.to_string();
     }
 
     /// The last HTTP request line, including headers the caller passed.
@@ -584,16 +607,87 @@ impl MemHost {
         for header in headers {
             line.push_str(&format!("\n{}: {}", header.name, header.value));
         }
+        let cookie_line = cookie_header(mem.cookies.get(service), url);
+        if !cookie_line.is_empty() {
+            line.push_str(&format!("\nCookie: {cookie_line}"));
+        }
         if !body.is_empty() {
             line.push_str(&format!("\n{}", String::from_utf8_lossy(body)));
         }
         mem.http.last = line;
+        let scripted = mem.http.headers.clone();
+        let mut set_cookie_names = Vec::new();
+        for header in &scripted {
+            if header.name.eq_ignore_ascii_case("set-cookie") {
+                if let Some((name, value)) = cookie_pair(&header.value) {
+                    set_cookie_names.push(name.clone());
+                    merge_cookie(
+                        mem.cookies.entry(service.to_string()).or_default(),
+                        CookieRec {
+                            name,
+                            value,
+                            url: url.to_string(),
+                        },
+                    );
+                }
+            }
+        }
+        let final_url = if mem.http.url.is_empty() {
+            url.to_string()
+        } else {
+            mem.http.url.clone()
+        };
         Ok(HttpResponse {
             status: mem.http.status,
             body: mem.http.body.clone(),
             content_type: mem.http.content_type.clone(),
+            url: final_url,
+            headers: scripted,
+            set_cookie_names,
         })
     }
+}
+
+fn cookie_pair(text: &str) -> Option<(String, String)> {
+    let pair = text.split(';').next()?.trim();
+    let (name, value) = pair.split_once('=')?;
+    let name = name.trim();
+    if name.is_empty() {
+        return None;
+    }
+    Some((name.to_string(), value.trim().to_string()))
+}
+
+fn merge_cookie(slot: &mut Vec<CookieRec>, cookie: CookieRec) {
+    if let Some(existing) = slot
+        .iter_mut()
+        .find(|row| row.name == cookie.name && row.url == cookie.url)
+    {
+        existing.value = cookie.value;
+    } else {
+        slot.push(cookie);
+    }
+}
+
+fn cookie_header(cookies: Option<&Vec<CookieRec>>, url: &str) -> String {
+    let Some(cookies) = cookies else {
+        return String::new();
+    };
+    cookies
+        .iter()
+        .filter(|cookie| same_origin(&cookie.url, url))
+        .map(|cookie| format!("{}={}", cookie.name, cookie.value))
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+fn same_origin(left: &str, right: &str) -> bool {
+    origin(left).is_some() && origin(left) == origin(right)
+}
+
+fn origin(url: &str) -> Option<&str> {
+    let rest = url.split_once("://")?.1;
+    rest.split('/').next()
 }
 
 fn segment_item(segment: &crate::records::SegmentRec) -> ItemRec {
@@ -691,5 +785,41 @@ mod tests {
         assert_eq!(response.status, 201);
         assert!(host.last_http().contains("X-Test: yes"));
         assert!(host.http_get("redstar", "http://127.0.0.1/", &[HttpHeader::new("Cookie", "no")]).is_err());
+    }
+
+    #[test]
+    fn login_cookie_survives_set_cookie_and_the_next_request() {
+        let host = MemHost::new("/tmp/mem-host");
+        host.script_http(302, Vec::<u8>::new(), "text/plain");
+        host.script_final_url("http://127.0.0.1/home");
+        host.script_headers([
+            HttpHeader::new("Location", "http://127.0.0.1/home"),
+            HttpHeader::new("Set-Cookie", "session=s3cret; Path=/; HttpOnly"),
+        ]);
+        let response = host
+            .http_post(
+                "redstar",
+                "http://127.0.0.1/login",
+                &[],
+                b"email=ada",
+                "application/x-www-form-urlencoded",
+            )
+            .unwrap();
+        assert!(response.url.ends_with("/home"), "{}", response.url);
+        assert!(response.headers.iter().any(|header| header.name.eq_ignore_ascii_case("location")));
+        assert_eq!(response.set_cookie_names, vec!["session".to_string()]);
+        assert!(!format!("{response:?}").contains("s3cret"), "{response:?}");
+        let stored = host.cookies("redstar").unwrap();
+        assert!(stored.iter().any(|cookie| cookie.name == "session" && cookie.value == "s3cret"));
+        assert!(!format!("{stored:?}").contains("s3cret"), "{stored:?}");
+        host.set_cookie("redstar", "http://127.0.0.1/", "theme", "dark").unwrap();
+        let stored = host.cookies("redstar").unwrap();
+        assert!(stored.iter().any(|cookie| cookie.name == "session" && cookie.value == "s3cret"));
+        assert!(stored.iter().any(|cookie| cookie.name == "theme" && cookie.value == "dark"));
+        host.script_http(200, b"ok".to_vec(), "text/plain");
+        let _ = host.http_get("redstar", "http://127.0.0.1/home", &[]).unwrap();
+        let last = host.last_http();
+        assert!(last.contains("session=s3cret"), "{last}");
+        assert!(last.contains("theme=dark"), "{last}");
     }
 }
