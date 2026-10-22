@@ -129,10 +129,15 @@ pub enum Outcome {
     Close,
 }
 
-fn preview_app(theme: Theme) -> Box<App> {
+fn preview_app(theme: Theme, brand_name: &str, brand: &crate::brands::Brand) -> Box<App> {
     use clap::Parser;
     let args = Args::parse_from(["acp-red-star"]);
     let mut a = App::new(Box::new(crate::tui::sample::sample_store()), &args, theme, true);
+    a.brand_name = brand_name.to_string();
+    a.brand = brand.clone();
+    let keep = crate::tui::sample::SAMPLE_NICKS;
+    a.all_nicks.retain(|n| keep.contains(&n.nick.as_str()));
+    a.nicks.retain(|n| keep.contains(&n.nick.as_str()));
     let i = a.nicks.iter().position(|n| n.nick == "sample").unwrap_or(0);
     a.select_only(i);
     a.focus = Focus::Body;
@@ -154,7 +159,7 @@ impl ThemeEditor {
         };
         let t = Theme::from_file(&file, app.variant());
         let mut ed = ThemeEditor { file, saved, variant: app.variant(), cursor: 1, scroll: 0, expanded: None, picker: None, prompt: None, message, highlight: true,
-            disk, broken, truecolor: truecolor(std::env::var("COLORTERM").ok().as_deref()), preview: preview_app(t) };
+            disk, broken, truecolor: truecolor(std::env::var("COLORTERM").ok().as_deref()), preview: preview_app(t, &app.brand_name, &app.brand) };
         ed.sync_preview();
         ed
     }

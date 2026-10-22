@@ -6,6 +6,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [3.35.5] - 2026-10-22
+
+### Fixed
+
+- **Theme preview brand.** The theme editor's preview uses the brand that is on screen, and the sample nicks @sample and @reader. A neutral brand no longer shows the ACP Red Star header, logo, or motto in that preview.
+
 ## [3.35.4] - 2026-10-22
 
 ### Fixed

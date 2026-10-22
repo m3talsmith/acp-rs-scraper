@@ -36,6 +36,8 @@ struct E2e {
     env: Vec<(String, String)>,
     /// Theme downloads go here instead of the mock (e.g. a closed port: offline).
     theme_url: Option<String>,
+    /// Text of the last theme-editor frame.
+    preview: String,
 }
 
 impl E2e {
@@ -44,7 +46,7 @@ impl E2e {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         std::fs::create_dir_all(home.join(".acp")).unwrap();
         std::fs::write(home.join(".acp/preferences.toml"), "email = \"alice@example.test\"\n").unwrap();
-        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None }
+        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None, preview: String::new() }
     }
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
@@ -166,6 +168,39 @@ async fn tui_sync(w: &mut E2e, nicks: String) {
     let sel: Vec<String> = nicks.split(',').map(String::from).collect();
     let argv = w.menu().sync_argv(&sel).unwrap();
     w.run_argv(&argv[1..]).await;
+}
+
+#[when(expr = "I open the theme editor preview on the brand {string}")]
+async fn theme_preview(w: &mut E2e, name: String) {
+    use clap::Parser;
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
+    app.brand = brand;
+    app.brand_name = name;
+    let dir = w.home.join(".acp/themes");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("default.toml"), include_str!("../themes/default.toml")).unwrap();
+    app.themes_dir = Some(dir);
+    assert!(app.use_theme("default", false), "the sample theme loads");
+    app.open_theme_editor();
+    assert!(app.theme_editor.is_some(), "the theme editor opens");
+    w.preview = acp_red_star::tui::widgets::screen_text(&mut app, 140, 40);
+}
+
+#[then(expr = "the theme preview contains {string}")]
+async fn preview_has(w: &mut E2e, s: String) {
+    assert!(w.preview.contains(&s), "theme preview lacks {s:?}:\n{}", w.preview);
+}
+
+#[then(expr = "the theme preview does not contain {string}")]
+async fn preview_lacks(w: &mut E2e, s: String) {
+    assert!(!w.preview.contains(&s), "theme preview has {s:?}:\n{}", w.preview);
 }
 
 #[then(expr = "stdout does not contain {string}")]

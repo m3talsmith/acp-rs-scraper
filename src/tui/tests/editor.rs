@@ -43,6 +43,28 @@ fn full_screen_list_and_live_preview_by_the_real_ui() {
 }
 
 #[test]
+fn the_preview_follows_the_active_brand_and_the_sample_nicks() {
+    let mut a = themed_app("plain-preview");
+    a.brand = crate::brands::builtin_plain();
+    a.brand_name = "plain".into();
+    on_key(&mut a, KeyEvent::new(KeyCode::F(5), KeyModifiers::SHIFT));
+    let p = &ed(&a).preview;
+    assert_eq!(p.brand.title, "Red Star");
+    assert!(p.brand.motto.is_empty() && p.brand.word.is_empty());
+    assert!(p.brand.logo_text.contains('★'));
+    let mut nicks: Vec<_> = p.nicks.iter().map(|n| n.nick.clone()).collect();
+    nicks.sort();
+    assert_eq!(nicks, ["reader", "sample"]);
+    let s = text(&draw(&mut a, 140, 40));
+    assert!(s.contains("Red Star") && s.contains("«plain»"), "{s}");
+    assert!(s.contains('★'), "{s}");
+    assert!(s.contains("@sample") && s.contains("@reader"), "{s}");
+    assert!(!s.contains("ACP Red Star"), "{s}");
+    assert!(!s.contains("The future belongs to the working class"), "{s}");
+    assert!(!s.contains("alice") && !s.contains("comrade"), "{s}");
+}
+
+#[test]
 fn hex_input_sets_a_colour_marks_it_and_updates_the_preview() {
     let mut a = editor("hex");
     go_to(&mut a, Row::Palette("accent".into()));

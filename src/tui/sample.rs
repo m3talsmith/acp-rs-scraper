@@ -8,6 +8,9 @@ fn post(id: &str, parent: &str, reply_to: &str, nick: &str, at: &str, title: &st
         title: title.into(), content: content.into(), posted_at: at.into(), media: Vec::new(), truncated: false, body_json: String::new(), score: None }
 }
 
+/// Nicks in the theme preview. They are not members of the site.
+pub const SAMPLE_NICKS: &[&str] = &["sample", "reader"];
+
 /// A small made-up forum: two members, posts, a reply and a cross-link.
 pub fn sample_store() -> MemStore {
     MemStore {
