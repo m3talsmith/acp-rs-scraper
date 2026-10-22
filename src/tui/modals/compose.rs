@@ -23,7 +23,9 @@ pub enum ComposeFocus {
     SitePick,
     /// Default. Enter closes and sends nothing.
     Cancel,
-    /// Enter asks the caller to publish. The send stays gated.
+    /// Store the title and body in the local draft. Nothing is sent.
+    Draft,
+    /// Enter asks the caller to publish.
     Publish,
 }
 
@@ -83,6 +85,8 @@ pub struct ComposeModal {
     pub site_pick: Option<Vec<bool>>,
     /// Highlighted picker row.
     pub site_at: usize,
+    /// Enter on Save draft set this. The caller stores the post and does not publish.
+    pub close_as_draft: bool,
 }
 
 impl ComposeModal {
@@ -123,6 +127,7 @@ impl ComposeModal {
             attachments: Vec::new(),
             site_pick: None,
             site_at: 0,
+            close_as_draft: false,
         }
     }
 
@@ -173,6 +178,9 @@ impl ComposeModal {
             v.push(ComposeFocus::Complete);
         }
         v.push(ComposeFocus::Cancel);
+        if !matches!(self.kind, ComposeKind::EditReply { .. }) {
+            v.push(ComposeFocus::Draft);
+        }
         v.push(ComposeFocus::Publish);
         v
     }
@@ -189,7 +197,7 @@ impl ComposeModal {
             ComposeFocus::Body => Some(&mut self.body),
             ComposeFocus::Attach => Some(&mut self.attach_path),
             ComposeFocus::Complete => self.pending.as_mut(),
-            ComposeFocus::Cancel | ComposeFocus::Publish | ComposeFocus::SitePick => None,
+            ComposeFocus::Cancel | ComposeFocus::Draft | ComposeFocus::Publish | ComposeFocus::SitePick => None,
         }
     }
 
@@ -328,6 +336,16 @@ impl ComposeModal {
         self.path_at = 0;
     }
 
+    fn try_draft(&mut self) -> Option<ModalResult> {
+        if self.body.trim().is_empty() && self.quote.as_ref().is_none_or(|q| q.trim().is_empty()) {
+            self.error = Some("a draft needs a body".into());
+            self.focus = ComposeFocus::Body;
+            return None;
+        }
+        self.close_as_draft = true;
+        Some(ModalResult::ClosedSubmitted)
+    }
+
     fn try_publish(&mut self) -> Option<ModalResult> {
         if matches!(self.kind, ComposeKind::EditReply { .. }) {
             if self.body.trim().is_empty() {
@@ -430,6 +448,7 @@ impl ModalState for ComposeModal {
             }
             KeyCode::Enter => match self.focus {
                 ComposeFocus::Cancel => Some(ModalResult::ClosedCancelled),
+                ComposeFocus::Draft => self.try_draft(),
                 ComposeFocus::Publish | ComposeFocus::SitePick => self.try_publish(),
                 ComposeFocus::Complete => {
                     self.apply_completion();
@@ -484,7 +503,7 @@ impl ModalState for ComposeModal {
                 } else if self.focus == ComposeFocus::Attach {
                     self.clear_path_matches();
                     self.attach_path.push(c);
-                } else if self.focus != ComposeFocus::Cancel && self.focus != ComposeFocus::Publish && self.focus != ComposeFocus::SitePick {
+                } else if self.focus != ComposeFocus::Cancel && self.focus != ComposeFocus::Draft && self.focus != ComposeFocus::Publish && self.focus != ComposeFocus::SitePick {
                     if self.focus == ComposeFocus::Complete {
                         self.focus = ComposeFocus::Body;
                     }
@@ -515,7 +534,9 @@ impl ModalState for ComposeModal {
     fn on_click(&mut self, h: ModalHit) -> Option<ModalResult> {
         match h {
             ModalHit::Button(0) => Some(ModalResult::ClosedCancelled),
-            ModalHit::Button(1) => self.try_publish(),
+            ModalHit::Button(1) if matches!(self.kind, ComposeKind::EditReply { .. }) => self.try_publish(),
+            ModalHit::Button(1) => self.try_draft(),
+            ModalHit::Button(2) => self.try_publish(),
             ModalHit::Field(0) if matches!(self.kind, ComposeKind::NewPost) => {
                 self.focus = ComposeFocus::Title;
                 None

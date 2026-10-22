@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.33.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.34.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,7 +23,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI under `?`.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.33.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.34.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+
+**3.34.0** stores a draft before it is sent. `--draft-save` writes it. The same `--draft-id` keeps another version. `--keep-local` leaves it off the queue. `--outbox-queue` queues it. `--outbox-send` asks first, and Cancel is the default. `--dry-run` prints the same frames as a text publish and does not connect. An item older than 24 hours asks again. A row left in `sending` is read back before another try. The queue sends only a text post or a reply. Save draft is on the compose box.
 
 **3.5.0** attaches local files to New post and Reply. Any file can be attached, including audio and documents. In the compose box, type a path on the attach line and press Enter. `--attachment` does the same on the command line. The app, the archive, and the network keep every file. Red Star takes up to 4 images, videos, or PDFs on the site copy: more than 4 opens a picker (or `--site-attachments 1,3,5,6`), audio and other documents stay local, and with no choice the first 4 of those are the site copy. **3.32.0** uploads that site copy over the LiveView upload channel, then sends the text. `--dry-run` prints the `allow_upload` plan and does not connect. A file the site rejects stops the publish and is not dropped quietly. Export, Import, Research export, and Start Scanning output paths expand `~`, and Tab completes them.
 
@@ -177,6 +179,36 @@ Writing:
 
       --site-attachments <LIST>
           Which `--attachment` files go to Red Star. LIST is 1-based indexes, comma-separated, for example 1,3,5,6. At most 4, and each index has to be an image, a video, or a PDF. Naming an audio file or another type is an error that names that file. Omit it and the first 4 images, videos, or PDFs are the site copy; other types are skipped. A notice names files left off when there are more than 4
+
+      --draft-save
+          Save a draft in the encrypted database. Needs `--body` or `--body-file`. The same `--draft-id` writes another version. Nothing is sent
+
+      --keep-local
+          With `--draft-save`: keep the post on this machine (`local`) instead of a draft that can be queued
+
+      --draft-id <ID>
+          With `--draft-save`. A blank id is generated. The same id writes another version
+
+      --draft-title <TITLE>
+          With `--draft-save`. The title of a new post. A reply leaves this blank
+
+      --draft-thread <THREAD>
+          With `--draft-save`. A thread id makes the draft a reply. Blank is a new post
+
+      --draft-list
+          List drafts and keep-local posts. Nothing is sent
+
+      --outbox-list
+          List the outbox. Nothing is sent
+
+      --outbox-queue <ID>
+          Queue a draft or a keep-local post. ID is the local id from `--draft-save`, not the `Q-` outbox id. Nothing is sent
+
+      --outbox-send <ID>
+          Send one queued text post or reply. The terminal asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same frames as a direct publish and does not connect. An item older than 24 hours asks again. A row left in `sending` is read back before another try. Votes and the other gated writes are not sent from the queue
+
+      --outbox-cancel <ID>
+          Mark a queued, failed, or draft outbox row cancelled. A row that is `sending` stays until a read-back. A sent row stays sent
 
       --dry-run
           With a write: print the documented frames and open no connection. With --remove-nick / --clear-all: show what would be removed and change nothing
@@ -589,7 +621,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺 🬭🬹🬎🬎🬹🬭  🬭🬹🬎🬂🬂🬎🬋 🬂██🬂🬂█🬹                             |  big ACP with a row of
-| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.33.0  |  room above, session,
+| 🬬🬏🬞🬝🬬🬏🬞🬝 ██🬋🬋██  🬎█🬭  🬭🬭  ██🬂🬂🬂    ACP Red Star    v3.34.0  |  room above, session,
 |  🬊🬩🬭🬭🬚🬆  🬂🬂  🬂🬂    🬂🬂🬂🬂  🬂🬂🬂🬂                                |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |
