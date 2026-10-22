@@ -49,10 +49,10 @@ The root `Cargo.toml` workspace members are `"."`, `"crates/acp_red_star_node_co
 
 | Package | Path | Version in this tree | What it is |
 |---|---|---|---|
-| `acp-red-star` | repository root (`Cargo.toml`) | 3.52.0 | Terminal client and CLI. The binaries are `acp-red-star`, `acprs`, and `acp-rs-scraper` (the compatibility name through version 3). The Cargo description is "ACP Red Star, a local client for the Red Star forum". Edition 2024, `rust-version` 1.88. |
+| `acp-red-star` | repository root (`Cargo.toml`) | 3.53.0 | Terminal client and CLI. The binaries are `acp-red-star`, `acprs`, and `acp-rs-scraper` (the compatibility name through version 3). The Cargo description is "ACP Red Star, a local client for the Red Star forum". Edition 2024, `rust-version` 1.88. |
 | `acp_red_star_node_core` | `crates/acp_red_star_node_core` | 3.3.0 | Shared identity, canonical CBOR, sealed secrets, and the service plugin ABI. `publish = false`. The root package depends on it with `path = "crates/acp_red_star_node_core"`. It does not open the SQLite database, draw the terminal, or talk to the network. |
-| `acp_red_star_service_redstar` | `crates/acp_red_star_service_redstar` | 3.52.0 | Red Star's capability set, settings schema, and `plugin_declaration`. The scrape, login, and write modules stay in the root crate. |
-| `acp_red_star_service_x` | `crates/acp_red_star_service_x` | 3.52.0 | X's capability set, settings schema, and `plugin_declaration`. Reads and writes are prepared and gated. The crate does not open a connection. |
+| `acp_red_star_service_redstar` | `crates/acp_red_star_service_redstar` | 3.53.0 | Red Star's capability set, settings schema, and `plugin_declaration`. The scrape, login, and write modules stay in the root crate. |
+| `acp_red_star_service_x` | `crates/acp_red_star_service_x` | 3.53.0 | X's capability set, settings schema, and `plugin_declaration`. Reads and writes are prepared and gated. The crate does not open a connection. |
 
 Public modules of `acp_red_star_node_core`: `cbor`, `hpke`, `master`, `node`, `password`, `service`, `slip39`, `stage`, `store`. The encoding rules are in [PROTOCOL.md](PROTOCOL.md).
 

@@ -522,7 +522,6 @@ mod tests {
         assert_eq!(AUTHORIZER_TTL_SECS, 30 * 24 * 60 * 60);
         assert_eq!(NODE_TTL_SECS, 365 * 24 * 60 * 60);
         assert_eq!(CLOCK_SKEW_SECS, 5 * 60);
-        assert!(AUTHORIZER_TTL_SECS < NODE_TTL_SECS);
         let master = sample_master();
         let node = NodeSecret::from_seeds([7; 32], [8; 32]);
         let now = 1_700_000_000u64;
