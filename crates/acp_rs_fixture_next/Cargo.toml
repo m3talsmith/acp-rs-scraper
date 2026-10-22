@@ -1,0 +1,14 @@
+[package]
+name = "acp_rs_fixture_next"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "GPL-3.0-or-later"
+publish = false
+description = "Replacement reader plugin used to test reload. It has no site client."
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+acp_rs_plugin = { path = "../acp_rs_plugin" }

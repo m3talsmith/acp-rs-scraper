@@ -90,6 +90,13 @@ async fn login_attempt(
     mut rx: tokio::sync::mpsc::UnboundedReceiver<LoginCmd>,
     tx: tokio::sync::mpsc::UnboundedSender<Msg>, g: u64,
 ) {
+    if crate::drive::handles(acp_rs_plugin::CapabilityId::Authenticator) {
+        let result = crate::drive::login(crate::host_api::CoreHost::shared().as_ref())
+            .await
+            .map_err(|e| format!("{e:#}"));
+        let _ = tx.send(Msg::LoginDone(g, result));
+        return;
+    }
     let mut session = match LoginSession::start(&http, &jar, Some(email)).await {
         Ok(LoginStart::Already) => { let _ = tx.send(Msg::LoginDone(g, Ok(()))); return; }
         Ok(LoginStart::NeedCode(s)) => *s,
@@ -374,19 +381,32 @@ async fn event_loop(app: &mut App, log_rx: std::sync::mpsc::Receiver<String>) ->
                     Err(e) => app.error("Cannot export the theme", &format!("{e:#}")),
                 },
                 Effect::Publish(plan) => {
-                    let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
-                    let now = chrono::Utc::now().timestamp();
-                    tokio::spawn(async move {
-                        crate::site::store_last_write(now);
-                        let tx_progress = tx.clone();
-                        let r = crate::site::publish_text(&http, &jar, &plan, false, move |line| {
-                            let _ = tx_progress.send(Msg::PublishProgress(line.to_string()));
-                        })
-                        .await
-                        .map(|p| crate::site::published_text(&p, &plan))
-                        .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
-                        let _ = tx.send(Msg::Published(r));
-                    });
+                    if crate::drive::handles(acp_rs_plugin::CapabilityId::Post)
+                        || crate::drive::handles(acp_rs_plugin::CapabilityId::Reply)
+                    {
+                        let tx = msg_tx.clone();
+                        let draft = crate::drive::draft_from_plan(&plan);
+                        tokio::spawn(async move {
+                            let r = crate::drive::publish_draft(&draft)
+                                .await
+                                .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
+                            let _ = tx.send(Msg::Published(r));
+                        });
+                    } else {
+                        let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());
+                        let now = chrono::Utc::now().timestamp();
+                        tokio::spawn(async move {
+                            crate::site::store_last_write(now);
+                            let tx_progress = tx.clone();
+                            let r = crate::site::publish_text(&http, &jar, &plan, false, move |line| {
+                                let _ = tx_progress.send(Msg::PublishProgress(line.to_string()));
+                            })
+                            .await
+                            .map(|p| crate::site::published_text(&p, &plan))
+                            .map_err(|e| crate::logging::redact_secrets(&format!("{e:#}")));
+                            let _ = tx.send(Msg::Published(r));
+                        });
+                    }
                 }
                 Effect::EditReply(plan) => {
                     let (http, jar, tx) = (http.clone(), jar.clone(), msg_tx.clone());

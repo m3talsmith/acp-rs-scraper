@@ -3,7 +3,21 @@
 use crate::prelude::*;
 
 /// HTTP client with Firefox headers, sharing `jar` for cookies (the login session).
-pub fn client(jar: Arc<Jar>) -> Result<reqwest::Client> {
+pub fn client<C>(jar: Arc<C>) -> Result<reqwest::Client>
+where
+    C: CookieStore + 'static,
+{
+    client_with(jar, reqwest::redirect::Policy::default())
+}
+
+/// Same client as [`client`], with `redirect` instead of the default policy.
+///
+/// The host uses this to record each `Location` it follows. Other callers keep
+/// [`client`].
+pub fn client_with<C>(jar: Arc<C>, redirect: reqwest::redirect::Policy) -> Result<reqwest::Client>
+where
+    C: CookieStore + 'static,
+{
     use reqwest::header::*;
     let mut h = HeaderMap::new();
     h.insert(ACCEPT, HeaderValue::from_static(
@@ -17,6 +31,7 @@ pub fn client(jar: Arc<Jar>) -> Result<reqwest::Client> {
     Ok(reqwest::Client::builder()
         .user_agent(FIREFOX_UA)
         .default_headers(h)
+        .redirect(redirect)
         .cookie_provider(jar)
         .build()?)
 }

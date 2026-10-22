@@ -679,3 +679,117 @@ async fn theme_no_cookies(w: &mut E2e) {
     let c = w.mock().inner.lock().unwrap().theme_cookies.clone();
     assert!(c.is_empty(), "{c:?}");
 }
+
+fn plugin_library(crate_name: &str) -> PathBuf {
+    let mut path = std::env::current_exe().expect("test executable");
+    // The e2e binary and the fixture cdylibs both live in target/debug/deps.
+    path.pop();
+    path.join(format!(
+        "{}{}{}",
+        std::env::consts::DLL_PREFIX,
+        crate_name,
+        std::env::consts::DLL_SUFFIX
+    ))
+}
+
+fn plugin_archive(files: &[(&str, &[u8])]) -> Vec<u8> {
+    let mut body = Vec::new();
+    {
+        let enc = flate2::write::GzEncoder::new(&mut body, flate2::Compression::default());
+        let mut builder = tar::Builder::new(enc);
+        for (path, data) in files {
+            let mut header = tar::Header::new_gnu();
+            header.set_path(path).unwrap();
+            header.set_size(data.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder.append(&header, *data).unwrap();
+        }
+        builder.finish().unwrap();
+    }
+    body
+}
+
+fn install_plugin(home: &std::path::Path, crate_name: &str, package: &str, sha: Option<&str>) {
+    let so = std::fs::read(plugin_library(crate_name))
+        .unwrap_or_else(|err| panic!("reading {crate_name}: {err}"));
+    let sha = sha.map(str::to_string).unwrap_or_else(|| acp_rs_plugin::sha256_bytes(&so));
+    let manifest = format!(
+        r#"[meta]
+name = "{package}"
+version = "0.1.0"
+license = "MIT"
+
+[install]
+libraries = [
+  {{ name = "{package}", path = "lib/libfixture.so", sha256 = "{sha}" }}
+]
+"#
+    );
+    let bytes = plugin_archive(&[
+        ("package.toml", manifest.as_bytes()),
+        ("LICENSE", b"MIT"),
+        ("lib/libfixture.so", &so),
+    ]);
+    let filename = format!(
+        "{package}-{}-{}-0.1.0.tar.gz",
+        acp_rs_plugin::host_os(),
+        acp_rs_plugin::host_arch()
+    );
+    let dir = home.join(".acp/plugins");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join(filename), bytes).unwrap();
+}
+
+fn archives_in(dir: &std::path::Path) -> bool {
+    std::fs::read_dir(dir).ok().is_some_and(|entries| {
+        entries.filter_map(|entry| entry.ok()).any(|entry| {
+            entry
+                .path()
+                .file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.ends_with(".tar.gz"))
+        })
+    })
+}
+
+#[given("the fixture package is installed")]
+async fn install_fixture(w: &mut E2e) {
+    install_plugin(&w.home, "acp_rs_fixture", "fixture", None);
+}
+
+#[given("the reloaded fixture package replaces it")]
+async fn install_fixture_next(w: &mut E2e) {
+    install_plugin(&w.home, "acp_rs_fixture_next", "fixture", None);
+}
+
+#[given("the mismatch package is installed")]
+async fn install_mismatch(w: &mut E2e) {
+    install_plugin(&w.home, "acp_rs_fixture_mismatch", "mismatch", None);
+}
+
+#[given("a fixture package with a bad sha256 is installed")]
+async fn install_bad_sha(w: &mut E2e) {
+    install_plugin(&w.home, "acp_rs_fixture", "fixture", Some(&"ab".repeat(32)));
+}
+
+#[then("the installed plugin archive is still in place")]
+async fn plugin_archive_stays(w: &mut E2e) {
+    assert!(archives_in(&w.home.join(".acp/plugins")), "the package was moved");
+}
+
+#[then("the quarantined plugin archive exists")]
+async fn plugin_quarantined(w: &mut E2e) {
+    assert!(
+        archives_in(&w.home.join(".acp/quarantined/plugins")),
+        "nothing was quarantined"
+    );
+}
+
+#[then("the plugins directory has no archive")]
+async fn plugins_dir_empty(w: &mut E2e) {
+    assert!(
+        !archives_in(&w.home.join(".acp/plugins")),
+        "a package is still installed"
+    );
+}
