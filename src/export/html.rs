@@ -72,6 +72,12 @@ pub fn html_post(v: &Value, out: &mut String, depth: usize, ids: &HashSet<String
 
 /// Render an export document as one self-contained HTML page, embedding the JSON for re-import.
 pub fn build_html(doc: &Value) -> String {
+    build_html_with(doc, &crate::brands::current().title)
+}
+
+/// [`build_html`] with an explicit product title in the document header.
+pub fn build_html_with(doc: &Value, product: &str) -> String {
+    let product = esc(product);
     let title = esc(doc["title"].as_str().or(doc["nick"].as_str()).unwrap_or_default());
     let nick = title.clone();
     let mut body = String::new();
@@ -120,7 +126,7 @@ pub fn build_html(doc: &Value) -> String {
         body.push_str("</ul>");
     }
     format!(r#"<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1"><title>{nick}</title>
+<meta name="viewport" content="width=device-width,initial-scale=1"><title>{product} — {nick}</title>
 <style>
 body{{font:16px/1.5 system-ui,sans-serif;max-width:800px;margin:2em auto;padding:0 1em;color:#18181b;background:#fafafa}}
 .post{{background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:.8em 1em;margin:.8em 0}}
@@ -134,7 +140,7 @@ h2{{margin:.2em 0;font-size:1.25em}} .meta{{color:#71717a;font-size:.85em}} .bod
 .research{{background:#fff;border:1px solid #e4e4e7;border-radius:8px;padding:.8em 1em;margin:1em 0}} .research-items li{{margin:.5em 0}}
 .note{{margin:.3em 0 .3em .5em;padding-left:.7em;border-left:3px solid #dc2626;color:#3f3f46}}
 .mentions{{padding-left:1.2em}} .reply-to a{{color:#dc2626}}
-</style><script type="application/json" id="{data_id}">{data}</script></head><body><h1>{nick}</h1><p class="meta">Exported {}</p>{body}</body></html>"#,
+</style><script type="application/json" id="{data_id}">{data}</script></head><body><p class="meta">{product}</p><h1>{nick}</h1><p class="meta">Exported {}</p>{body}</body></html>"#,
         esc(doc["exported_at"].as_str().unwrap_or_default()),
         data_id = HTML_DATA_ID,
         data = doc.to_string().replace('<', "\\u003c"))
@@ -209,6 +215,15 @@ mod tests {
         assert!(h.contains("class=\"post kind-post d0\" id=\"post-R1\""));
         assert!(h.contains("class=\"post kind-reply d0\" id=\"post-C1\""));
         assert!(h.contains("1 posts · 2 replies"));
+    }
+
+    #[test]
+    fn the_header_uses_the_product_title_and_the_nick_stays_the_heading() {
+        let doc = json!({"nick": "@reader", "posts": []});
+        let h = build_html_with(&doc, "Red Star");
+        assert!(h.contains("<title>Red Star — @reader</title>"), "{h}");
+        assert!(h.contains("<p class=\"meta\">Red Star</p><h1>@reader</h1>"), "{h}");
+        assert!(!h.contains("ACP Red Star"), "{h}");
     }
 
     #[test]

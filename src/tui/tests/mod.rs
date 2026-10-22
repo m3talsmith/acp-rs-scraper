@@ -36,6 +36,7 @@ mod color;
 mod reads;
 mod session;
 mod theming;
+mod brands;
 mod editor;
 mod eggs;
 mod rules;

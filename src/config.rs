@@ -283,7 +283,7 @@ pub const HTML_DATA_ID: &str = "acp-data";
 // ---------------------------------------------------------------- terminal UI
 /// Arguments that do not count as "a flag was given" when deciding whether a bare
 /// invocation opens the terminal UI (logging only; they carry over to TUI scans).
-pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log", "theme", "color"];
+pub const TUI_NEUTRAL_ARGS: &[&str] = &["tui", "quiet", "verbose", "debug", "enable_logging", "log", "error_log", "theme", "brand", "color"];
 
 /// Theme files (`<name>.toml`), under `$HOME`. Every theme, the default included, lives here.
 pub const THEMES_REL_DIR: &str = ".acp/themes";
@@ -308,6 +308,18 @@ pub fn theme_download_url(name: &str) -> String {
 }
 /// The theme used when `[ui] theme` is not set.
 pub const DEFAULT_THEME: &str = "default";
+/// Brand files (`<name>.toml`), under `$HOME`. Built-in brands work with or without this folder.
+pub const BRANDS_REL_DIR: &str = ".acp/brands";
+/// The brand used when `[ui] brand` is not set. It is the ACP Red Star logo, title, and motto.
+pub const DEFAULT_BRAND: &str = "default";
+/// The neutral built-in brand: title "Red Star", a star, no motto.
+pub const PLAIN_BRAND: &str = "plain";
+/// Brand file format written by this build (files with a newer `version` are refused).
+pub const BRAND_FORMAT_VERSION: i64 = 1;
+/// Largest brand file read (bigger ones are refused).
+pub const BRAND_MAX_BYTES: u64 = 64 * 1024;
+/// Largest logo image a brand may point at.
+pub const BRAND_LOGO_MAX_BYTES: u64 = 4 * 1024 * 1024;
 /// Theme file format written by this build (files with a newer `version` are refused).
 pub const THEME_FORMAT_VERSION: i64 = 1;
 /// Largest theme file read (bigger ones are refused).
@@ -388,6 +400,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("F6", "Start Scanning (Cancel while a job runs)"),
     ("F5", "Theme picker (also the ‹theme› ▾ switch in the header)"),
     ("Shift-F5", "Theme editor"),
+    ("«brand» ▾", "Brand picker (the header switch beside the theme; Brand: use… in the command palette)"),
     ("Shift-S", "Search modal: keyword, nicks, post id, dates, posts/replies, order, limit"),
     ("? on a menu option", "Help for that option (Order, Limit, Nick order, Nick limit, Colour)"),
     ("Ctrl-S (Ctrl-Shift-S)", "Clear the search"),

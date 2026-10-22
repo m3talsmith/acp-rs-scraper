@@ -105,6 +105,34 @@ pub fn run_bookmarks(args: &Args) -> Result<()> {
     Ok(())
 }
 
+/// `--brand NAME`: a built-in, or a usable file in `~/.acp/brands`.
+fn check_brand(name: &str) -> Result<()> {
+    crate::brands::check(name)
+}
+
+/// `--list-brands`: built-ins and brand files. ● marks the one in use.
+fn run_list_brands(args: &Args) -> Result<()> {
+    let dir = crate::brands::brands_dir()?;
+    let prefs = load_prefs();
+    let current = args.brand.clone().or_else(|| prefs.ui.as_ref().and_then(|u| u.brand.clone())).unwrap_or_else(|| DEFAULT_BRAND.into());
+    let entries = crate::brands::list(&dir);
+    println!("Brands (built-in, and files in {}):", dir.display());
+    for e in &entries {
+        let mark = if e.name == current { "●" } else { " " };
+        match &e.error {
+            Some(err) => println!("{mark} {:<20} BROKEN: {err}", e.name),
+            None => {
+                let motto = if e.motto.is_empty() { "(no motto)" } else { e.motto.as_str() };
+                println!("{mark} {:<20} {}  — {motto}", e.name, e.title);
+            }
+        }
+    }
+    if !entries.iter().any(|e| e.name == current && e.error.is_none()) {
+        println!("(selected brand {current} is missing or broken: the default brand is used)");
+    }
+    Ok(())
+}
+
 /// `--theme NAME`: the name must be valid and the file usable.
 async fn check_theme(name: &str) -> Result<()> {
     let dir = crate::themes::themes_dir()?;
@@ -191,6 +219,11 @@ pub async fn run() -> Result<()> {
         Ok(v) => v,
         Err(e) => e.exit(),
     };
+    let (brand, brand_warn) = crate::brands::selected(args.brand.as_deref());
+    crate::brands::install(&brand);
+    if let Some(w) = brand_warn {
+        if args.brand.is_none() { eprintln!("warning: {w}"); }
+    }
     apply_color_mode(resolve_color_mode(args.color, load_prefs().ui.as_ref().and_then(|u| u.color.as_deref())));
     // Before the database, the home directory, and the terminal UI. `--roar --tui` still exits here.
     if args.roar {
@@ -234,6 +267,7 @@ pub async fn run() -> Result<()> {
     if crate::site::cli_requested(&args) { return crate::site::run_cli(&args).await; }
     if let Some(t) = &args.theme_init { return run_theme_init(t).await; }
     if let Some(n) = &args.theme_starter { return run_theme_starter(n); }
+    if args.list_brands { return run_list_brands(&args); }
     if args.list_themes { return run_list_themes(&args).await; }
     if let Ok(dir) = home() {
         let _ = crate::plugins::startup(&dir);
@@ -260,6 +294,7 @@ pub async fn run() -> Result<()> {
     if let Some(name) = args.quarantine_show.as_deref() { return crate::services::print_quarantine_show(name); }
     if let Some(name) = args.quarantine_restore.as_deref() { return crate::services::quarantine_restore(name); }
     if let Some(name) = args.quarantine_delete.as_deref() { return crate::services::quarantine_delete(name); }
+    if let Some(t) = &args.brand { check_brand(t)?; }
     if let Some(t) = &args.theme { check_theme(t).await?; }
     if tui {
         return crate::tui::run(args).await;

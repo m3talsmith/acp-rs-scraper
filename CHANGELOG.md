@@ -6,23 +6,29 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [3.52.0] - 2026-10-22
+## [3.53.0] - 2026-10-22
 
 ### Added
 
 - **Combined views.** Mixed is the default and keeps today's list order. Grouped adds a Red Star section. View › Combine remembers the choice in `[ui] combine`. View › Source cycles All and Red Star (`view.source`, default `ctrl-]` in `keymap/default.toml`) and remembers it in `[ui] source`. Bookmarks, site search, and edit history stay on every source. With only Red Star, mixed looks like the list this version already had.
 
-## [3.51.0] - 2026-10-22
+## [3.52.0] - 2026-10-22
 
 ### Added
 
 - **Plugin packages.** An external plugin is `<name>-<os>-<arch>-<version>.tar.gz` in `~/.acp/plugins/`. The app does not download one. `package.toml` has `[meta]` and `[install]`, and every binary and library has a sha256. A failed check is logged as a potential security threat and the archive moves to `~/.acp/quarantined/plugins/`. A rustc or core-version mismatch is refused and is not quarantined. `--doctor` is the only place that prints that pin. `--quarantine`, `--quarantine-show`, `--quarantine-restore`, and `--quarantine-delete` list, read, restore, and delete. Restore runs the same check. Preferences › Services and `plugins.reload` (default `ctrl-p` in the keymap, remappable; Ctrl-Space stays the palette) call one loader. A changed package is checked again. A failed check waits until nothing is inside the library, unloads it, and quarantines it. A version mismatch keeps the copy already loaded.
 
-## [3.50.0] - 2026-10-22
+## [3.51.0] - 2026-10-22
 
 ### Added
 
 - **Red Star is a service.** `crates/acp_red_star_service_redstar` registers through the plugin registrar in `acp_red_star_node_core::service`. The UI offers a capability when that service implements it. Notification is on the set. Live and feeds are not. Vote, subscribe, delete, and repost stay implemented and gated, with the same confirm-then-stop flow. Red Star is on when `~/.acp/services/redstar.toml` is missing. `--services`, `--service-enable`, `--service-disable`, and `--service-set` read and write the non-secret file. A secret field is refused and the value is not stored or printed. Secrets that are set go in `source_secrets` in the encrypted database, and a backup snapshot drops those rows. The scrape, login, and write modules stay in the root crate, so existing commands behave as they did.
+
+## [3.35.0] - 2026-10-22
+
+### Added
+
+- **Brands.** The logo, the title, and the motto follow a brand, the same way colours follow a theme. The built-in `default` brand is still ACP Red Star: the red-star logo, the word ACP, the title, and "The future belongs to the working class". The built-in `plain` brand is the title Red Star, a star, and no motto (`acp-red-star --brand plain`). `--brand NAME` selects one for this run. `[ui] brand` in `~/.acp/preferences.toml` keeps it. The header switch `«name» ▾` opens the picker; moving the highlight previews it and Esc puts the old brand back. The brand editor edits the title, motto, word, and logo (Ctrl-S save, Ctrl-R revert, Ctrl-N save as new, Ctrl-D duplicate, Ctrl-X delete, Ctrl-C close). User brands are `~/.acp/brands/<name>.toml`. A logo is built-in, inline text, or a file inside that folder; a path that leaves the folder is refused. A brand is independent of the theme. `--help`, `--version`, the terminal title, and HTML export headers use the title. Credits and the other surprises keep their own text.
 
 ## [3.34.0] - 2026-10-21
 
