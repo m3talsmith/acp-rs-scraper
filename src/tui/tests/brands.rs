@@ -3,7 +3,8 @@
 use super::*;
 use crate::brands::{self, LogoKind};
 use crate::tui::input::on_key;
-use crate::tui::modals::{BrandChoice, Modal, ModalResult};
+use crate::tui::commands::CommandId;
+use crate::tui::modals::{help_for, help_text, AboutModal, BrandChoice, Modal, ModalResult};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use ratatui::{Terminal, backend::TestBackend};
 use std::time::Instant;
@@ -106,6 +107,58 @@ fn the_editor_saves_a_new_brand_and_reverts() {
     key(&mut a, KeyCode::Char('r'), KeyModifiers::CONTROL);
     assert_eq!(a.brand.title, a.brand_editor.as_ref().unwrap().saved.title);
     let _ = BrandChoice::None;
+}
+
+#[test]
+fn a_neutral_brand_hides_the_party_wording() {
+    let plain = brands::builtin_plain();
+    let help = help_for(&plain).join("\n");
+    assert!(help.contains("Red Star is a local client"), "{help}");
+    assert!(!help.contains("ACP Red Star"), "{help}");
+    assert!(!help.contains("ACP platform"), "{help}");
+    assert!(!help.contains("Sync with acp.us"), "{help}");
+    assert!(!help.contains(crate::branding::SLOGAN), "{help}");
+    let acp = help_text().join("\n");
+    assert!(acp.contains("ACP Red Star is a local client"), "{acp}");
+    assert!(acp.contains("ACP platform"), "{acp}");
+    assert!(acp.contains("Sync with acp.us"), "{acp}");
+
+    let mut a = app();
+    a.menu.menu.apply_brand(&plain);
+    assert!(a.menu.menu.get(CommandId::Bookmarks).opts.iter().all(|o| o.label != "Sync with acp.us"));
+    assert!(a.menu.menu.get(CommandId::About).opts.iter().all(|o| !o.label.contains("ACP")));
+    a.menu.menu.apply_brand(&brands::builtin_default());
+    assert!(a.menu.menu.get(CommandId::Bookmarks).opts.iter().any(|o| o.label == "Sync with acp.us"));
+    assert!(a.menu.menu.get(CommandId::About).opts.iter().any(|o| o.label == "ACP platform"));
+
+    brands::hold_installed(&plain, || {
+        let body = AboutModal::section(0).body_lines().join("\n");
+        assert!(body.contains("Red Star"), "{body}");
+        assert!(!body.contains("ACP platform"), "{body}");
+        assert!(!body.contains("ACP Red Star"), "{body}");
+    });
+    brands::hold_installed(&brands::builtin_default(), || {
+        let body = AboutModal::section(2).body_lines().join("\n");
+        assert!(body.contains("3 ACP platform"), "{body}");
+        assert!(body.contains("https://acp.us/program"), "{body}");
+    });
+}
+
+#[test]
+fn the_picker_row_uses_that_brands_title() {
+    let dir = home("rows");
+    let mut a = app();
+    a.brands_dir = Some(dir.join(".acp/brands"));
+    a.open_brand_picker();
+    let s = render(&mut a, 100, 30);
+    assert!(s.contains("default") && s.contains("ACP Red Star"), "{s}");
+    assert!(s.contains("plain") && s.contains("Red Star"), "{s}");
+    let Some(Modal::BrandPicker(p)) = &a.modal else { panic!("picker") };
+    let default = p.entries.iter().find(|e| e.name == "default").unwrap();
+    let plain = p.entries.iter().find(|e| e.name == "plain").unwrap();
+    assert_eq!(default.title, brands::builtin_default().title);
+    assert_eq!(plain.title, "Red Star");
+    assert!(!plain.title.contains("ACP"));
 }
 
 #[test]

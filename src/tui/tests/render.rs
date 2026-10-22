@@ -197,9 +197,11 @@ fn modals_render_over_dimmed_layout() {
     let mut a = app();
     key(&mut a, KeyCode::Char('?'));
     let s = render(&mut a, 100, 30);
-    assert!(s.contains("Help") && s.contains("not the master key"));
+    assert!(s.contains("Help") && s.contains("Terminal UI keys"), "{s}");
+    assert!(!s.contains("not the master key"), "{s}");
     let Some(Modal::Help(help)) = &a.modal else { panic!("help modal"); };
-    assert!(help.lines.iter().any(|l| l.contains("Terminal UI keys")));
+    assert_eq!(help.scroll, 0);
+    assert!(help.lines.iter().any(|l| l == "[[recovery]]"));
     key(&mut a, KeyCode::Esc);
     assert!(a.modal.is_none());
     on_key(&mut a, KeyEvent::new(KeyCode::Char('S'), KeyModifiers::SHIFT));

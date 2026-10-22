@@ -383,7 +383,7 @@ pub const TUI_KEYBINDINGS: &[(&str, &str)] = &[
     ("b", "Bookmark / unbookmark the open or highlighted post (or click its ☆/★)"),
     ("p", "Post menu. Subscribe, delete, bookmark, edit, and repost ask first. A reply edit keeps a leading quote. A top-level edit and a quote repost send validate then save once. Unsubscribe and clearing a site bookmark are not sent. The site does not allow a plain repost. View reposts and view edits still read"),
     ("+ / -", "Ask before an upvote or a downvote. Cancel is the default. A confirm sends the vote once"),
-    ("s", "In a thread: cycle reply order newest → oldest → top"),
+    ("s", "In a thread: cycle stored replies newest → oldest → top. This does not connect"),
     ("n", "New post. Cancel is the default. A confirmed post uploads the site copy, then sends the text"),
     ("Compose · Attach", "Type a path. Tab completes a real segment. Enter adds the file. Backspace on an empty line removes the last file. Images, videos, and PDFs upload on Publish"),
     ("Compose · site files", "More than 4 images, videos, or PDFs: check which go to Red Star. Audio and other files stay local. Space toggles. Enter confirms. ? site-attachments"),

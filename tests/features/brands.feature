@@ -34,6 +34,16 @@ Feature: Brands
     When I run "--help"
     Then stdout contains "ACP Red Star"
 
+  Scenario: The theme editor preview uses the selected brand and the sample nicks
+    When I open the theme editor preview on the brand "plain"
+    Then the theme preview contains "Red Star"
+    And the theme preview contains "★"
+    And the theme preview contains "@sample"
+    And the theme preview contains "@reader"
+    And the theme preview does not contain "ACP Red Star"
+    And the theme preview does not contain "The future belongs to the working class"
+    And the theme preview does not contain "comrade"
+
   Scenario: --brand plain still opens the terminal UI
     When I run "--brand plain"
     Then it fails

@@ -56,14 +56,49 @@ scripts/stage.sh %{buildroot} target/release/%{name} %{_prefix}
 %{_datadir}/fish/vendor_completions.d/acprs.fish
 
 %changelog
+
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.41.0-1
-- Package 3.41.0. A reply edit keeps a leading quote (3.35.15). A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent (3.36.0 through 3.41.0).
+- Package 3.41.0. A reply edit keeps a leading quote (3.35.16). A vote, a site bookmark, a subscribe, a delete, a top-level post edit, and a quote repost are sent (3.36.0 through 3.41.0).
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.14-1
+- Package 3.35.14. A pending recovery phrase is asked in the terminal UI. Not now is the default.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.13-1
+- Package 3.35.13. A second basket export leaves the earlier file and writes a new name.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.12-1
+- Package 3.35.12. Research add file shows ~ or a relative path.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.11-1
+- Package 3.35.11. HTML export renders Markdown. Raw HTML in a post is escaped.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.10-1
+- Package 3.35.10. Help search finds the layout topic.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.9-1
+- Package 3.35.9. Question mark opens the key list. The recovery phrase is its own Help topic.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.8-1
+- Package 3.35.8. A neutral brand leaves out the ACP wording. The ACP brand keeps it.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.7-1
+- Package 3.35.7. Thread sort reorders stored replies and does not open login.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.6-1
+- Package 3.35.6. Help search keeps j and k.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.5-1
+- Package 3.35.5. The theme editor preview uses the brand on screen and the sample nicks.
+
+* Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.4-1
+- Package 3.35.4. Theme editor samples use ordinary preview text. Explore stops after 12 seconds with no reply.
 
 * Thu Oct 22 2026 m3talsmith <m3talsmith@gmail.com> - 3.35.0-1
 - Package 3.35.0. The logo, title, and motto are a brand. --brand plain is a neutral title and a star, with no motto.
 
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.34.0-1
 - Package 3.34.0. Drafts and the outbox. A queued text post or reply uses the same confirm rules as a direct publish.
+
 * Wed Oct 21 2026 m3talsmith <m3talsmith@gmail.com> - 3.33.0-1
 - Package 3.33.0. A reply edit sends validate, then save, once. The site does not support changing attachments on an edit.
 
