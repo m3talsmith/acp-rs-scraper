@@ -30,6 +30,8 @@ pub enum ConfirmAction {
     Repost(String),
     /// Send one outbox row. The id is the `Q-` id.
     SendOutbox(String),
+    /// Create the recovery phrase. The event loop leaves the screen first.
+    CreatePhrase,
 }
 
 /// Question with buttons; `strict` also requires typing `yes`.

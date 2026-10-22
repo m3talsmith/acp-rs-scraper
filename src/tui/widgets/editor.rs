@@ -226,7 +226,7 @@ pub fn draw_samples(f: &mut Frame, t: &Theme) {
     let i = b.inner(r);
     f.render_widget(b, r);
     let lines = vec![
-        Line::from(vec![Span::styled("Nick ", t.label(true)), Span::styled("[comrade     ]", t.field()), Span::raw(" "), Span::styled("Format", t.label(false))]),
+        Line::from(vec![Span::styled("Nick ", t.label(true)), Span::styled("[sample      ]", t.field()), Span::raw(" "), Span::styled("Format", t.label(false))]),
         Line::from(vec![Span::styled(" Post ", t.post_tag()), Span::raw(" "), Span::styled(" Reply ", t.reply_tag()), Span::raw(" "), Span::styled("link", t.link())]),
         Line::from(vec![Span::styled("(post deleted)", t.gone()), Span::raw(" "), Span::styled("`--nick`", t.code())]),
         Line::from(vec![Span::styled("text behind a modal", t.dimmed())]),

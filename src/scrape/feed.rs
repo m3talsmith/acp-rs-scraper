@@ -75,7 +75,7 @@ pub async fn fetch_feed(
 
     if !at_end && cursor.is_some() && !hit_limit(items.len()) && !stopped_incremental {
         let page = parse_lv(&final_url, &html)?;
-        let mut lv = Lv::connect(&page, jar).await?;
+        let mut lv = Lv::connect_bounded(&page, jar, explore_reply_timeout(&final_url)).await?;
         let (stop, extra) = page_rest(&mut lv, &mut items, cursor, limit, known, allow_incremental).await?;
         stopped_incremental = stop;
         pages += extra;

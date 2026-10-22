@@ -36,6 +36,10 @@ struct E2e {
     env: Vec<(String, String)>,
     /// Theme downloads go here instead of the mock (e.g. a closed port: offline).
     theme_url: Option<String>,
+    /// Text of the last theme-editor frame.
+    preview: String,
+    /// Text captured from an in-process terminal UI check.
+    screen: String,
 }
 
 impl E2e {
@@ -44,7 +48,7 @@ impl E2e {
             std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()));
         std::fs::create_dir_all(home.join(".acp")).unwrap();
         std::fs::write(home.join(".acp/preferences.toml"), "email = \"alice@example.test\"\n").unwrap();
-        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None }
+        E2e { mock: None, home, last: Run::default(), code: CODE.into(), counters_before: (0, 0), menu: None, env: Vec::new(), theme_url: None, preview: String::new(), screen: String::new() }
     }
     fn mock(&self) -> &Mock { self.mock.as_ref().expect("mock site not started") }
     fn db(&self) -> PathBuf { self.home.join(".acp/ai/data/rs.database") }
@@ -103,6 +107,9 @@ async fn bad_plugin(w: &mut E2e, name: String) {
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join(name), b"this is not a gzipped tar").unwrap();
 }
+
+#[given("the explore feed hangs")]
+async fn explore_hangs(w: &mut E2e) { w.mock().inner.lock().unwrap().explore_hang = true; }
 
 #[given(expr = "I will enter the code {string}")]
 async fn will_enter(w: &mut E2e, code: String) { w.code = code; }
@@ -170,6 +177,237 @@ async fn tui_sync(w: &mut E2e, nicks: String) {
     let sel: Vec<String> = nicks.split(',').map(String::from).collect();
     let argv = w.menu().sync_argv(&sel).unwrap();
     w.run_argv(&argv[1..]).await;
+}
+
+#[when(expr = "I open the theme editor preview on the brand {string}")]
+async fn theme_preview(w: &mut E2e, name: String) {
+    use clap::Parser;
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
+    app.brand = brand;
+    app.brand_name = name;
+    let dir = w.home.join(".acp/themes");
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("default.toml"), include_str!("../themes/default.toml")).unwrap();
+    app.themes_dir = Some(dir);
+    assert!(app.use_theme("default", false), "the sample theme loads");
+    app.open_theme_editor();
+    assert!(app.theme_editor.is_some(), "the theme editor opens");
+    w.preview = acp_red_star::tui::widgets::screen_text(&mut app, 140, 40);
+}
+
+#[then(expr = "the theme preview contains {string}")]
+async fn preview_has(w: &mut E2e, s: String) {
+    assert!(w.preview.contains(&s), "theme preview lacks {s:?}:\n{}", w.preview);
+}
+
+#[then(expr = "the theme preview does not contain {string}")]
+async fn preview_lacks(w: &mut E2e, s: String) {
+    assert!(!w.preview.contains(&s), "theme preview has {s:?}:\n{}", w.preview);
+}
+
+#[when("I open Help at the start")]
+async fn help_at_start(w: &mut E2e) {
+    let help = acp_red_star::tui::modals::HelpModal::new();
+    w.screen = help.lines.iter().take(24).cloned().collect::<Vec<_>>().join("\n");
+}
+
+#[when(expr = "I open the Help topic {string}")]
+async fn help_topic(w: &mut E2e, topic: String) {
+    let help = acp_red_star::tui::modals::HelpModal::topic(&topic);
+    w.screen = help.lines.iter().skip(help.scroll).take(16).cloned().collect::<Vec<_>>().join("\n");
+}
+
+#[when("I prepare a pending recovery phrase")]
+async fn pending_recovery(w: &mut E2e) {
+    use clap::Parser;
+    let home = w.home.join("phrase-home");
+    std::fs::create_dir_all(home.join(".acp")).unwrap();
+    std::fs::write(home.join(".acp/recovery-next"), b"pending\n").unwrap();
+    let offer = acp_red_star::crypto::cmd::tui_recovery_offer(&home).unwrap();
+    assert_eq!(offer, acp_red_star::crypto::cmd::RecoveryOffer::Ask);
+    assert!(home.join(".acp/recovery-next").is_file());
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    app.offer_recovery(offer, &home);
+    let Some(acp_red_star::tui::modals::Modal::Confirm(c)) = &app.modal else { panic!("{:?}", app.modal) };
+    let asked = format!("{}\n{}\nfocus {}", c.lines.join("\n"), c.buttons.join(" | "), c.focus);
+    app.close_modal(acp_red_star::tui::modals::ModalResult::ClosedCancelled);
+    assert!(!home.join(".acp/recovery-next").is_file(), "Not now clears the reminder");
+    let topic = match &app.modal {
+        Some(acp_red_star::tui::modals::Modal::Help(h)) => h.lines.get(h.scroll).cloned().unwrap_or_default(),
+        other => format!("{other:?}"),
+    };
+    w.screen = format!("{asked}\n{topic}");
+}
+
+#[when("I export a basket HTML file twice")]
+async fn basket_twice(w: &mut E2e) {
+    use clap::Parser;
+    let dir = w.home.join("exports");
+    std::fs::create_dir_all(&dir).unwrap();
+    let out = dir.join("basket.html");
+    let post = acp_red_star::scrape::Post {
+        post_id: "p1".into(), parent_post_id: String::new(), in_reply_to_id: String::new(),
+        nick: "sample".into(), title: "Notes".into(), content: "hello basket".into(),
+        posted_at: "2026-10-15T00:00:00Z".into(), media: Vec::new(), truncated: false,
+        body_json: String::new(), score: None,
+    };
+    let args = acp_red_star::cli::Args::parse_from([
+        "acp-red-star", "--post-ids", "p1", "--format", "html", "--output", out.to_str().unwrap(),
+    ]);
+    static LOCK: std::sync::LazyLock<std::sync::Mutex<()>> = std::sync::LazyLock::new(|| std::sync::Mutex::new(()));
+    let _guard = LOCK.lock().unwrap();
+    let (tx, rx) = std::sync::mpsc::channel();
+    acp_red_star::logging::set_log_sink(Some(tx));
+    acp_red_star::export::export(&args, "basket", "chosen", &[post.clone()], &[], &[], &[], &dir).unwrap();
+    let first = std::fs::read(&out).unwrap();
+    acp_red_star::export::export(&args, "basket", "chosen", &[post], &[], &[], &[], &dir).unwrap();
+    acp_red_star::logging::set_log_sink(None);
+    let mut log = String::new();
+    while let Ok(line) = rx.try_recv() { log.push_str(&line); log.push('\n'); }
+    assert_eq!(std::fs::read(&out).unwrap(), first, "the first basket file stays");
+    w.screen = log;
+}
+
+#[when("I add a research file under the home directory")]
+async fn research_file_label(w: &mut E2e) {
+    use clap::Parser;
+    let home = std::env::var("HOME").unwrap_or_else(|_| "/home/ubuntu".into());
+    let abs = format!("{home}/docs/notes.txt");
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    app.menu.menu.set_text(acp_red_star::tui::commands::CommandId::Research, "file", &abs);
+    app.act(acp_red_star::tui::commands::Action::AddFileToResearch);
+    w.screen = match app.modal {
+        Some(acp_red_star::tui::modals::Modal::Research(m)) => m.what.iter().map(|(l, _)| l.clone()).collect::<Vec<_>>().join("\n"),
+        other => format!("{other:?}"),
+    };
+    let _ = home;
+}
+
+#[when("I render an HTML export of a Markdown post")]
+async fn html_markdown(w: &mut E2e) {
+    let doc = serde_json::json!({
+        "nick": "@sample",
+        "posts": [{
+            "post_id": "M1",
+            "parent_post_id": "",
+            "nick": "sample",
+            "content": "# Hello\n\n```\ncode\n```\n\n| A | B |\n|---|---|\n| 1 | 2 |\n",
+            "children": []
+        }]
+    });
+    let page = acp_red_star::export::html::build_html(&doc);
+    w.screen = page.split_once("<body>").map(|(_, b)| b.to_string()).unwrap_or(page);
+}
+
+#[when(expr = "I search Help for {string}")]
+async fn search_help(w: &mut E2e, query: String) {
+    use acp_red_star::tui::modals::ModalState;
+    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut help = acp_red_star::tui::modals::HelpModal::new();
+    for c in query.chars() {
+        help.on_key(KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE));
+    }
+    w.screen = help.view_lines().join("\n");
+}
+
+#[then(expr = "the Help text contains {string}")]
+async fn help_has(w: &mut E2e, s: String) {
+    assert!(w.screen.contains(&s), "Help lacks {s:?}:\n{}", w.screen);
+}
+
+#[then(expr = "the Help text does not contain {string}")]
+async fn help_lacks(w: &mut E2e, s: String) {
+    assert!(!w.screen.contains(&s), "Help has {s:?}:\n{}", w.screen);
+}
+
+#[when("I sort an open thread while logged out")]
+async fn sort_logged_out(w: &mut E2e) {
+    use clap::Parser;
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    let nick = app.nicks.iter().position(|n| n.nick == "sample").expect("sample nick");
+    app.select_only(nick);
+    let post = app.view().posts.iter().position(|p| p.post_id == "SAMPLE001").expect("sample thread");
+    app.open_post(post);
+    app.cycle_thread_sort();
+    let modal = format!("{:?}", app.modal);
+    let effects = format!("{:?}", app.effects);
+    w.screen = format!("{modal}\n{effects}\n{}", app.status.back().cloned().unwrap_or_default());
+}
+
+#[when(expr = "I open Help on the brand {string}")]
+async fn help_on_brand(w: &mut E2e, name: String) {
+    let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
+    w.screen = acp_red_star::tui::modals::help_for(&brand).join("\n");
+}
+
+#[then(expr = "the screen contains {string}")]
+async fn screen_has(w: &mut E2e, s: String) {
+    assert!(w.screen.contains(&s), "screen lacks {s:?}:\n{}", w.screen);
+}
+
+#[then(expr = "the screen does not contain {string}")]
+async fn screen_lacks(w: &mut E2e, s: String) {
+    assert!(!w.screen.contains(&s), "screen has {s:?}:\n{}", w.screen);
+}
+
+#[when(expr = "I open About on the brand {string}")]
+async fn about_on_brand(w: &mut E2e, name: String) {
+    let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
+    w.screen = acp_red_star::brands::hold_installed(&brand, || {
+        acp_red_star::tui::modals::AboutModal::section(0).body_lines().join("\n")
+    });
+}
+
+#[when(expr = "I open Bookmarks on the brand {string}")]
+async fn bookmarks_on_brand(w: &mut E2e, name: String) {
+    use clap::Parser;
+    let brand = acp_red_star::brands::builtin(&name).unwrap_or_else(|| panic!("no built-in brand {name}"));
+    let args = acp_red_star::cli::Args::parse_from(["acp-red-star"]);
+    let mut app = acp_red_star::tui::state::App::new(
+        Box::new(acp_red_star::tui::sample::sample_store()),
+        &args,
+        acp_red_star::tui::theme::Theme::reset(),
+        false,
+    );
+    app.brand = brand.clone();
+    app.brand_name = name;
+    app.menu.menu.apply_brand(&brand);
+    let i = app.menu.menu.items.iter().position(|c| c.id == acp_red_star::tui::commands::CommandId::Bookmarks).unwrap();
+    app.open_menu(i);
+    w.screen = acp_red_star::tui::widgets::screen_text(&mut app, 120, 36);
+}
+
+#[then("sorting stays on this machine")]
+async fn sort_stays(w: &mut E2e) {
+    assert!(w.screen.contains("None"), "a modal opened:\n{}", w.screen);
+    assert!(w.screen.contains("[]"), "a job was queued:\n{}", w.screen);
+    assert!(w.screen.contains("stored"), "status did not say the sort is stored:\n{}", w.screen);
+    assert!(!w.screen.contains("Login"), "login opened:\n{}", w.screen);
 }
 
 #[then(expr = "stdout does not contain {string}")]

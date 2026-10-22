@@ -32,27 +32,36 @@ impl AboutModal {
     pub fn page() -> Self { Self::section(0) }
     /// The same modal, focused on `section` (0, 1, or 2).
     pub fn section(section: u8) -> Self {
-        Self { credits: false, section: section.min(2), taps: 0, last_tap: None, scroll: 0 }
+        let max = if crate::brands::current().shows_acp() { 2 } else { 1 };
+        Self { credits: false, section: section.min(max), taps: 0, last_tap: None, scroll: 0 }
     }
     /// The hidden credits, already open.
     pub fn credits() -> Self {
         Self { credits: true, section: 0, taps: 0, last_tap: None, scroll: 0 }
     }
-    /// Lines for the open page. The public page is exactly three sections.
+    /// Whether the open brand has the platform section.
+    pub fn shows_platform() -> bool { crate::brands::current().shows_acp() }
+    /// Lines for the open page. A neutral brand has two sections.
     pub fn body_lines(&self) -> Vec<String> {
         if self.credits { return crate::eggs::credits_lines(); }
         let brand = crate::brands::current();
+        let tabs = if brand.shows_acp() {
+            "1 Credits    2 Why this is necessary    3 ACP platform"
+        } else {
+            "1 Credits    2 Why this is necessary"
+        };
         let mut lines = vec![
             brand.title.clone(),
             format!("v{}", env!("CARGO_PKG_VERSION")),
             String::new(),
-            "1 Credits    2 Why this is necessary    3 ACP platform".into(),
+            tabs.into(),
             String::new(),
         ];
         match self.section {
             0 => lines.extend(public_credits()),
             1 => lines.extend(why_lines(&brand.title)),
-            _ => lines.extend(platform_lines()),
+            _ if brand.shows_acp() => lines.extend(platform_lines()),
+            _ => lines.extend(why_lines(&brand.title)),
         }
         lines.push(String::new());
         lines.push("★".into());
@@ -120,9 +129,14 @@ impl ModalState for AboutModal {
             KeyCode::Enter => Some(ModalResult::ClosedSubmitted),
             KeyCode::Char('1') if !self.credits => { self.section = 0; self.scroll = 0; None }
             KeyCode::Char('2') if !self.credits => { self.section = 1; self.scroll = 0; None }
-            KeyCode::Char('3') if !self.credits => { self.section = 2; self.scroll = 0; None }
+            KeyCode::Char('3') if !self.credits && Self::shows_platform() => { self.section = 2; self.scroll = 0; None }
             KeyCode::Left if !self.credits => { self.section = self.section.saturating_sub(1); self.scroll = 0; None }
-            KeyCode::Right if !self.credits => { self.section = (self.section + 1).min(2); self.scroll = 0; None }
+            KeyCode::Right if !self.credits => {
+                let max = if Self::shows_platform() { 2 } else { 1 };
+                self.section = (self.section + 1).min(max);
+                self.scroll = 0;
+                None
+            }
             KeyCode::Up | KeyCode::Char('k') => { self.scroll = self.scroll.saturating_sub(1); None }
             KeyCode::Down | KeyCode::Char('j') => { self.scroll = self.scroll.saturating_add(1); None }
             KeyCode::PageUp => { self.scroll = self.scroll.saturating_sub(15); None }

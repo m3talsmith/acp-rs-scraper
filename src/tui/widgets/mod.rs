@@ -20,6 +20,17 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use std::time::Instant;
 
+/// The text of one frame. A scenario reads the theme editor's preview from this.
+pub fn screen_text(app: &mut App, width: u16, height: u16) -> String {
+    let mut term = ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).expect("test backend");
+    term.draw(|f| draw(f, app, Instant::now())).expect("draw");
+    let buf = term.backend().buffer().clone();
+    (0..height)
+        .map(|y| (0..width).map(|x| buf[(x, y)].symbol().to_string()).collect::<String>())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
 /// Draw the whole screen.
 pub fn draw(f: &mut Frame, app: &mut App, now: Instant) {
     app.refresh_job_modal_at(now);
