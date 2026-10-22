@@ -11,6 +11,7 @@ pub mod access;
 pub mod assets;
 pub mod cli;
 pub mod members;
+pub mod gate;
 pub mod service;
 pub mod site;
 pub mod template;
@@ -241,6 +242,28 @@ const SCHEMA: &str = "CREATE TABLE IF NOT EXISTS organizations (
             used_at TEXT,
             nonce TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS org_access_requests (
+            id TEXT PRIMARY KEY,
+            org_id INTEGER NOT NULL,
+            kind TEXT NOT NULL CHECK (kind IN ('register','login')),
+            browser_session TEXT NOT NULL,
+            code TEXT NOT NULL UNIQUE,
+            nonce TEXT NOT NULL,
+            expires_at INTEGER NOT NULL,
+            used_at TEXT,
+            identity_pub TEXT,
+            csrf_token TEXT NOT NULL,
+            fingerprint TEXT NOT NULL DEFAULT '',
+            payload TEXT NOT NULL DEFAULT '',
+            created_at INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS org_sessions (
+            id TEXT PRIMARY KEY,
+            org_id INTEGER NOT NULL,
+            identity_pub TEXT NOT NULL,
+            browser_session TEXT NOT NULL,
+            expires_at INTEGER NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS org_write_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             org_id INTEGER NOT NULL,
@@ -258,6 +281,7 @@ pub fn org_conn(db: &Path) -> Result<Connection> {
     c.execute_batch("PRAGMA foreign_keys = ON;")?;
     c.execute_batch(SCHEMA)?;
     ensure_asset_columns(&c)?;
+    ensure_access_payload(&c)?;
     Ok(c)
 }
 
@@ -276,6 +300,22 @@ fn ensure_asset_columns(c: &Connection) -> Result<()> {
     }
     if !names.iter().any(|n| n == "mime") {
         c.execute("ALTER TABLE org_assets ADD COLUMN mime TEXT NOT NULL DEFAULT ''", [])?;
+    }
+    Ok(())
+}
+
+fn ensure_access_payload(c: &Connection) -> Result<()> {
+    if !has_table(c, "org_access_requests") {
+        return Ok(());
+    }
+    let mut names = Vec::new();
+    let mut st = c.prepare("PRAGMA table_info(org_access_requests)")?;
+    let rows = st.query_map([], |r| r.get::<_, String>(1))?;
+    for name in rows {
+        names.push(name?);
+    }
+    if !names.iter().any(|n| n == "payload") {
+        c.execute("ALTER TABLE org_access_requests ADD COLUMN payload TEXT NOT NULL DEFAULT ''", [])?;
     }
     Ok(())
 }

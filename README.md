@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.47.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.48.0** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,9 +23,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI Help topic `recovery`. `?` opens the key list.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.47.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.48.0`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.47.0** adds custom organization roles between Viewer and Owner. The register default and the invite default are separate, and neither can be Owner. Removing a member asks first, and the last Owner stays. Archiving a post is an update, not a delete. **3.46.0** adds organization members. An invite holds public keys only, and a matching fingerprint adds the member. A mismatch, an expired invite, and a second finish add nobody. The peer transport for that invite is 3.49.0. **3.45.0** publishes an organization as a loopback service. It is not a built-in. A gated caller gets an empty page, and remote posts stay off until they are allowed. The peer transport is 3.49.0. **3.44.0** exports an organization website and serves it on 127.0.0.1. Private rows and a gated organization's posts stay out of the folder. Replication of that site onto another node is 3.49.0. **3.43.0** stores an organization file. It starts private, mode 0600. Making it public asks first. Removing it archives the row and keeps the bytes. **3.42.0** adds an organization template. The default asks for Cinzel and Lora, then a generic serif, and does not ship those fonts. The title and the motto come from the brand. Organizations › Template shows the source and a live preview side by side. **3.41.0** prints a public JSON snapshot with `--org-snapshot`. A private organization contributes no name and no posts. A public organization that is still gated contributes its name and nothing else. An archived row is left out. Switching the default for new posts does not rewrite posts already stored. **3.40.1** lets a public organization that is not gated accept a write from any client. No identity stores the author as anonymous. A signed identity is a verified author. A gated organization rejects both. **3.40.0** adds a local organization as a source. Create, edit, delete, and post stay on this machine. A new organization is gated and private, registration starts Closed, and the creator is the Owner beside the User and Viewer roles. The slug is the author. Making it public asks first, and Cancel is the default. Library › Organizations opens the same commands. **3.39.2** drops the word beside the header logo, so the bar reads logo, then title. A space stays before `‹red-star›`. **3.39.1** opens a menu category on the row under the bar. The bar stays visible. **3.39.0** restyles the built-in `red-star` theme to the Rebel Hold teal-to-blue watercolor. The halberd and the word RED STAR run from teal to blue. The motto stays "Research starts here." **3.38.1** shows the Red Star brand's title as "Red Star". **3.38.0** draws the Red Star header mark as the star-blade halberd, with the word RED STAR in the theme's accent colours. **3.37.0** sets the built-in Red Star motto to "Research starts here." **3.36.0** puts the logo, the title, and the motto on the theme. Shift-F5 shows the editor and a live preview side by side; the preview follows branding and colours. **3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file. **3.35.14** asks about a pending recovery phrase in the terminal UI. Not now is the default.
+**3.48.0** adds gated access. A non-member of a public gated organization sees the landing page only. Open registration activates a member, and Closed leaves them pending. A session cookie holds an id, not a key. A member export asks first and is not the open site. **3.47.0** adds custom organization roles between Viewer and Owner. The register default and the invite default are separate, and neither can be Owner. Removing a member asks first, and the last Owner stays. Archiving a post is an update, not a delete. **3.46.0** adds organization members. An invite holds public keys only, and a matching fingerprint adds the member. A mismatch, an expired invite, and a second finish add nobody. The peer transport for that invite is 3.49.0. **3.45.0** publishes an organization as a loopback service. It is not a built-in. A gated caller gets an empty page, and remote posts stay off until they are allowed. The peer transport is 3.49.0. **3.44.0** exports an organization website and serves it on 127.0.0.1. Private rows and a gated organization's posts stay out of the folder. Replication of that site onto another node is 3.49.0. **3.43.0** stores an organization file. It starts private, mode 0600. Making it public asks first. Removing it archives the row and keeps the bytes. **3.42.0** adds an organization template. The default asks for Cinzel and Lora, then a generic serif, and does not ship those fonts. The title and the motto come from the brand. Organizations › Template shows the source and a live preview side by side. **3.41.0** prints a public JSON snapshot with `--org-snapshot`. A private organization contributes no name and no posts. A public organization that is still gated contributes its name and nothing else. An archived row is left out. Switching the default for new posts does not rewrite posts already stored. **3.40.1** lets a public organization that is not gated accept a write from any client. No identity stores the author as anonymous. A signed identity is a verified author. A gated organization rejects both. **3.40.0** adds a local organization as a source. Create, edit, delete, and post stay on this machine. A new organization is gated and private, registration starts Closed, and the creator is the Owner beside the User and Viewer roles. The slug is the author. Making it public asks first, and Cancel is the default. Library › Organizations opens the same commands. **3.39.2** drops the word beside the header logo, so the bar reads logo, then title. A space stays before `‹red-star›`. **3.39.1** opens a menu category on the row under the bar. The bar stays visible. **3.39.0** restyles the built-in `red-star` theme to the Rebel Hold teal-to-blue watercolor. The halberd and the word RED STAR run from teal to blue. The motto stays "Research starts here." **3.38.1** shows the Red Star brand's title as "Red Star". **3.38.0** draws the Red Star header mark as the star-blade halberd, with the word RED STAR in the theme's accent colours. **3.37.0** sets the built-in Red Star motto to "Research starts here." **3.36.0** puts the logo, the title, and the motto on the theme. Shift-F5 shows the editor and a live preview side by side; the preview follows branding and colours. **3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file. **3.35.14** asks about a pending recovery phrase in the terminal UI. Not now is the default.
 
 **3.35.0** makes the logo, the title, and the motto a brand. The built-in default is still ACP Red Star. `acp-red-star --brand plain` is the title Red Star, a star, and no motto, for a demo that should not show ACP. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps that choice. A file in `~/.acp/brands/` overrides a built-in. The theme stays a separate choice.
 
@@ -65,7 +65,9 @@ Uninstall with `scripts/uninstall.sh` (add `--no-purge` to keep `~/.acp`). See [
 ## Usage
 
 ```text
-ACP Red Star. Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database, download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
+ACP Red Star. Run with no flags (or --tui) for the terminal UI: browse every nick and post in the local database, open post details and the posts they link, search, and start scans, exports and
+imports from a menu bar. With flags it runs headless: log in to https://acp.us/rs as Firefox, scrape posts (and optionally mentions + profiles) for one or more nicks into a local SQLite database,
+download attachments, and export JSON/HTML — or work entirely offline with --search / --export / --import.
 
 Usage: acp-red-star [OPTIONS]
 
@@ -127,25 +129,32 @@ Reading:
 
 Writing:
       --new-post <TITLE>
-          New post. The body is `--body` or `--body-file`. A confirmed post uploads the site copy, then sends validate and save once. `--dry-run` prints the frames and the upload plan and does not connect
+          New post. The body is `--body` or `--body-file`. A confirmed post uploads the site copy, then sends validate and save once. `--dry-run` prints the frames and the upload plan and does not
+          connect
 
       --reply <THREAD>
-          Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. A confirmed reply uploads the site copy, then sends the captured validate and save frames. Same confirm and dry-run rules as `--new-post`
+          Reply in a thread (`/rs/post/THREAD`). `--in-reply-to` pre-fills a comment reference. A confirmed reply uploads the site copy, then sends the captured validate and save frames. Same confirm
+          and dry-run rules as `--new-post`
 
       --repost <POST>
-          Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. The terminal asks `Repost? [y/N]`. `--dry-run` prints the route and does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list
+          Repost a post. The route in the plan is `/rs/post/new?repost=POST`. The form has not been captured, so it is not built. The terminal asks `Repost? [y/N]`. `--dry-run` prints the route and
+          does not connect. A confirmed repost does not send. This is not `--reposts`, which only reads the list
 
       --edit <POST>
-          Edit a reply (`/rs/post/ID/edit`). Needs `--body` or `--body-file`. A confirmed edit sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The hour is one hour after `--posted-at` (unix seconds); without it the hour is not checked. `--dry-run` prints the frames and does not connect. A top-level post edit is not sent. The site does not support changing attachments on an edit
+          Edit a reply (`/rs/post/ID/edit`). Needs `--body` or `--body-file`. A confirmed edit sends validate, then save, once. The terminal asks `Edit? [y/N]`, then `Type yes`. The hour is one hour
+          after `--posted-at` (unix seconds); without it the hour is not checked. `--dry-run` prints the frames and does not connect. A top-level post edit is not sent. The site does not support
+          changing attachments on an edit
 
       --posted-at <UNIX>
           With `--edit`. Unix seconds of the post's `posted_at`. Used only for the one-hour window
 
       --delete <POST>
-          Delete a post. The terminal asks `Delete? [y/N]`, then `Type yes`. `--yes` confirms both. `--dry-run` prints the documented hook and does not connect. A confirmed delete does not send: the live frame has not been captured
+          Delete a post. The terminal asks `Delete? [y/N]`, then `Type yes`. `--yes` confirms both. `--dry-run` prints the documented hook and does not connect. A confirmed delete does not send: the
+          live frame has not been captured
 
       --subscribe <THREAD>
-          Subscribe to a thread. STATE is `1` (subscribe) or `0` (clear). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed subscribe does not send: the live frame has not been captured
+          Subscribe to a thread. STATE is `1` (subscribe) or `0` (clear). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed subscribe does not send: the live
+          frame has not been captured
 
       --subscribe-state <STATE>
           With `--subscribe`. `1` or `0`
@@ -153,7 +162,8 @@ Writing:
           [possible values: 1, 0]
 
       --vote <POST>
-          Vote on a post. STATE is `1` (upvote), `0` (clear), or `-1` (downvote). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed vote does not send: the live frame has not been captured
+          Vote on a post. STATE is `1` (upvote), `0` (clear), or `-1` (downvote). The default is `1`. `--dry-run` prints the documented hook and does not connect. A confirmed vote does not send: the
+          live frame has not been captured
 
       --vote-state <STATE>
           With `--vote`. `1`, `0`, or `-1`
@@ -179,10 +189,14 @@ Writing:
           Allow writes after the site's script URL changes from the one stored in `site_state`
 
       --attachment <PATH>
-          Local file for `--new-post` or `--reply`. Repeat for more than one. Every file stays on the local copy, including audio and documents. Red Star takes up to 4 images, videos, or PDFs on the site copy. Audio and other documents stay local and are named, not dropped. `--dry-run` prints the allow_upload plan and does not connect. A confirmed publish uploads that site copy, then sends the text. See --site-attachments
+          Local file for `--new-post` or `--reply`. Repeat for more than one. Every file stays on the local copy, including audio and documents. Red Star takes up to 4 images, videos, or PDFs on the
+          site copy. Audio and other documents stay local and are named, not dropped. `--dry-run` prints the allow_upload plan and does not connect. A confirmed publish uploads that site copy, then
+          sends the text. See --site-attachments
 
       --site-attachments <LIST>
-          Which `--attachment` files go to Red Star. LIST is 1-based indexes, comma-separated, for example 1,3,5,6. At most 4, and each index has to be an image, a video, or a PDF. Naming an audio file or another type is an error that names that file. Omit it and the first 4 images, videos, or PDFs are the site copy; other types are skipped. A notice names files left off when there are more than 4
+          Which `--attachment` files go to Red Star. LIST is 1-based indexes, comma-separated, for example 1,3,5,6. At most 4, and each index has to be an image, a video, or a PDF. Naming an audio
+          file or another type is an error that names that file. Omit it and the first 4 images, videos, or PDFs are the site copy; other types are skipped. A notice names files left off when there
+          are more than 4
 
       --draft-save
           Save a draft in the encrypted database. Needs `--body` or `--body-file`. The same `--draft-id` writes another version. Nothing is sent
@@ -209,7 +223,8 @@ Writing:
           Queue a draft or a keep-local post. ID is the local id from `--draft-save`, not the `Q-` outbox id. Nothing is sent
 
       --outbox-send <ID>
-          Send one queued text post or reply. The terminal asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same frames as a direct publish and does not connect. An item older than 24 hours asks again. A row left in `sending` is read back before another try. Votes and the other gated writes are not sent from the queue
+          Send one queued text post or reply. The terminal asks `Send from the outbox? [y/N]`. `--yes` confirms. `--dry-run` prints the same frames as a direct publish and does not connect. An item
+          older than 24 hours asks again. A row left in `sending` is read back before another try. Votes and the other gated writes are not sent from the queue
 
       --outbox-cancel <ID>
           Mark a queued, failed, or draft outbox row cancelled. A row that is `sending` stays until a read-back. A sent row stays sent
@@ -228,7 +243,8 @@ Interface:
           Use this theme (a file in ~/.acp/themes, without .toml) in the terminal UI for this run; ui.theme in preferences.toml sets it for good
 
       --brand <NAME>
-          Use this brand (a built-in, or a file in ~/.acp/brands, without .toml) for this run. plain is a neutral title and star with no motto. ui.brand in preferences.toml sets it for good. Branding is part of a theme; --brand still selects the logo, title, and motto, and saving a theme writes them into the theme file
+          Use this brand (a built-in, or a file in ~/.acp/brands, without .toml) for this run. plain is a neutral title and star with no motto. ui.brand in preferences.toml sets it for good. Branding
+          is part of a theme; --brand still selects the logo, title, and motto, and saving a theme writes them into the theme file
 
       --list-brands
           List built-in brands and the files in ~/.acp/brands (● marks the one in use; broken files say why) and exit
@@ -237,19 +253,22 @@ Interface:
           Print the rustc pin and the acp_rs_plugin version, then exit. Plugin authors read the pin only here
 
       --plugins-reload
-          Unload installed packages, then load every archive in ~/.acp/plugins that passes the sha256 gate. An ABI or plugin-crate mismatch is refused and the archive stays. A bad archive is quarantined and is not opened
+          Unload installed packages, then load every archive in ~/.acp/plugins that passes the sha256 gate. An ABI or plugin-crate mismatch is refused and the archive stays. A bad archive is
+          quarantined and is not opened
 
       --list-themes
           List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit
 
       --theme-init [<NAME>]
-          Download a theme from the acp-red-star repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster, plattenbau, rs, acp), or all. Never replaces an existing file
+          Download a theme from the acp-red-star repo into ~/.acp/themes and exit: NAME (default: default), one of the shipped themes (default, soviet, constructivist, cuba, red-star, chinese-poster,
+          plattenbau, rs, acp), or all. Never replaces an existing file
 
       --theme-starter <NAME>
           Write the minimal starter theme (plain terminal colours, no download) as ~/.acp/themes/NAME.toml and exit. Never replaces an existing file
 
       --color <WHEN>
-          Colour output. auto follows NO_COLOR (a non-empty value turns colours off). always forces colours on, even when NO_COLOR is set. never turns colours off. Omitted: [ui] color in preferences.toml, or auto
+          Colour output. auto follows NO_COLOR (a non-empty value turns colours off). always forces colours on, even when NO_COLOR is set. never turns colours off. Omitted: [ui] color in
+          preferences.toml, or auto
 
 Scraping:
       --scrape
@@ -265,21 +284,26 @@ Scraping:
           Skip the mentions crawl
 
       --said-by
-          Only what the nick said: their own top-level posts AND their replies/comments (Posts + "Posts and replies" feeds). Exports list the posts first, then replies, each marked as Post/Reply. Skips other people's replies in the nick's threads and the mentions crawl; a thread page is read only to recover a blank body of the nick's own post
+          Only what the nick said: their own top-level posts AND their replies/comments (Posts + "Posts and replies" feeds). Exports list the posts first, then replies, each marked as Post/Reply.
+          Skips other people's replies in the nick's threads and the mentions crawl; a thread page is read only to recover a blank body of the nick's own post
 
       --refetch-truncated
-          Complete bodies stored shortened: re-read the thread page (the full text "show more" opens) of every stored row not marked complete — rows saved from a truncated feed item, and rows stored before 1.26.0 — for the given nicks (or every nick when none is given; then nothing else is scraped). New scrapes complete truncated items on their own
+          Complete bodies stored shortened: re-read the thread page (the full text "show more" opens) of every stored row not marked complete — rows saved from a truncated feed item, and rows stored
+          before 1.26.0 — for the given nicks (or every nick when none is given; then nothing else is scraped). New scrapes complete truncated items on their own
 
       --limit <N>
-          How many profile items to keep from each nick. With --order newest (the default) this is the start of the feed: the newest posts, or the top of --profile-feed top. With --order oldest this is the end of that feed. Omit it to scrape the whole profile. Replies in those threads are still fetched unless --said-by. --crawl-limit still only bounds the mentions scan
+          How many profile items to keep from each nick. With --order newest (the default) this is the start of the feed: the newest posts, or the top of --profile-feed top. With --order oldest this
+          is the end of that feed. Omit it to scrape the whole profile. Replies in those threads are still fetched unless --said-by. --crawl-limit still only bounds the mentions scan
 
       --profile-feed <FEED>
-          Which profile feed a nick scrape reads. newest (default) is /rs/@nick plus Posts and replies (?replies=1). top is the profile Top feed (/rs/@nick/top?t=all) only. Other Top periods were not captured for profiles. This is not --latest / --trending, which still choose the mentions crawl
+          Which profile feed a nick scrape reads. newest (default) is /rs/@nick plus Posts and replies (?replies=1). top is the profile Top feed (/rs/@nick/top?t=all) only. Other Top periods were not
+          captured for profiles. This is not --latest / --trending, which still choose the mentions crawl
           
           [default: newest]
 
       --order <ORDER>
-          Which end of that profile feed --limit keeps. newest (default) keeps the start of the site's list. oldest keeps the end, so a limited scrape reads the whole feed first. On newest that is the oldest posts. On top that is the end of the Top ranking. The site has no oldest-first profile URL. The terminal UI uses this same window for each list and for a search
+          Which end of that profile feed --limit keeps. newest (default) keeps the start of the site's list. oldest keeps the end, so a limited scrape reads the whole feed first. On newest that is the
+          oldest posts. On top that is the end of the Top ranking. The site has no oldest-first profile URL. The terminal UI uses this same window for each list and for a search
           
           [default: newest]
 
@@ -289,7 +313,8 @@ Scraping:
           [default: 500]
 
       --scrape-all
-          Scrape every reachable read-only page of the Red Star site. `acprs --scrape-all` is this flag. The frontier is stored in the encrypted database, so a stopped run resumes. The next finished run is incremental unless `--full`. Sync with this flag runs that incremental update and then the rules
+          Scrape every reachable read-only page of the Red Star site. `acprs --scrape-all` is this flag. The frontier is stored in the encrypted database, so a stopped run resumes. The next finished
+          run is incremental unless `--full`. Sync with this flag runs that incremental update and then the rules
 
       --scrape-budget <SECS>
           Stop `--scrape-all` after this many seconds and keep the frontier for the next run
@@ -372,7 +397,8 @@ Bookmarks:
 
 Sync:
       --sync
-          Log in and bring the database up to date with the site: sync bookmarks (unless --no-bookmarks), then an incremental scrape of --nick/--nicks if given. Writes no export unless --output is set; never prompts for nicks
+          Log in and bring the database up to date with the site: sync bookmarks (unless --no-bookmarks), then an incremental scrape of --nick/--nicks if given. Writes no export unless --output is
+          set; never prompts for nicks
 
       --no-bookmarks
           With --sync: skip the bookmark sync
@@ -464,6 +490,84 @@ Organizations:
 
       --org-browse <SLUG>
           Read the public page of an added organization service
+
+      --org-identity
+          Print this install's membership fingerprint. The seed stays sealed
+
+      --org-invite <SLUG>
+          Write an invite for an organization. Needs `--role` and `--org-invite-out` or `--org-invite-serve`
+
+      --role <NAME>
+          Role a new member receives. Never Owner
+
+      --org-invite-out <PATH>
+          Where `--org-invite` writes the invite file
+
+      --org-invite-accept <PATH>
+          Answer an invite file. The typed `--org-fingerprint` has to match
+
+      --org-invite-reply <PATH>
+          Where `--org-invite-accept` writes the answer
+
+      --org-fingerprint <CODE>
+          The fingerprint typed from the other screen
+
+      --org-invite-finish <PATH>
+          Add the member from an answered invite. The typed `--org-fingerprint` has to match
+
+      --org-invite-serve [<ADDR>]
+          Exchange one invite on `127.0.0.1`. Any other address is refused before bind
+
+      --org-role-create <SLUG> <NAME>
+          Create a custom role between Viewer and Owner
+
+      --rank <N>
+          Rank for `--org-role-create`. Custom ranks are 1 through 999
+
+      --permissions <LIST>
+          Comma-separated permissions for `--org-role-create`
+
+      --org-role-assign <SLUG> <MEMBER> <ROLE>
+          Give a member a role. The last Owner stays
+
+      --org-member-remove <SLUG> <MEMBER>
+          Remove a member. Their posts stay. Asks first. The last Owner stays
+
+      --org-default-register-role <SLUG> <ROLE>
+          Role handed out by registration. Never Owner. Independent of the invite default
+
+      --org-default-invite-role <SLUG> <ROLE>
+          Role handed out by an invitation. Never Owner. Independent of the register default
+
+      --org-archive <POST>
+          Archive a post. The row stays. This is an update, not a delete. Asks first
+
+      --org-gate <SLUG>
+          Hide public rows from non-members. Asks first. A new organization is already gated
+
+      --org-ungate <SLUG>
+          Let non-members see public rows. Asks first
+
+      --org-registration <SLUG> <MODE>
+          `closed` or `open`. Closed is the default. Open activates a registration immediately
+
+      --org-registrations <SLUG>
+          List pending registrations
+
+      --org-registration-approve <SLUG> <MEMBER>
+          Approve a pending registration. The actor needs invite
+
+      --org-registration-reject <SLUG> <MEMBER>
+          Reject a pending registration. The actor needs invite
+
+      --org-login <URL>
+          Sign a login nonce from an organization service. No browser
+
+      --org-open-code <CODE>
+          Open a register or login code. Prints the name, origin, and fingerprint, then asks
+
+      --org-member-export
+          With `--org-export`, write the rows a member would see. Asks first. Not the open site
 
       --org-post <SLUG>
           Offline: store a post in an organization. The org is the author. Private unless `--org-post-visibility` says otherwise
@@ -582,7 +686,8 @@ Debug:
 
 Identity:
       --identity-init
-          Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id. The phrase is shown on this terminal. An encrypted copy is kept so --show-phrase can show it again. Needs a terminal
+          Create the master secret: a 24-word phrase, a mandatory password, and a pinned acp-id. The phrase is shown on this terminal. An encrypted copy is kept so --show-phrase can show it again.
+          Needs a terminal
 
       --acp-id
           Print the pinned acp-id
@@ -633,11 +738,14 @@ Identity:
 
 The password that opens the database is not the master key. There is no password reset. If the password is lost, the database cannot be opened, even when you still have the recovery phrase.
 
-The master key is a 24-word recovery phrase (BIP-39). This program mixes that phrase with the password using Argon2id. A new computer needs both before it can open an encrypted backup, which is a .acpbackup file. The password is not written into the phrase.
+The master key is a 24-word recovery phrase (BIP-39). This program mixes that phrase with the password using Argon2id. A new computer needs both before it can open an encrypted backup, which is a
+.acpbackup file. The password is not written into the phrase.
 
-Split the phrase into 5 shares. Any 3 of those 5 shares rebuild the phrase. One share or two shares do nothing. The password is not written into the shares. Keep the shares in different places, and do not keep them with the password.
+Split the phrase into 5 shares. Any 3 of those 5 shares rebuild the phrase. One share or two shares do nothing. The password is not written into the shares. Keep the shares in different places, and do
+not keep them with the password.
 
-Write the 24 words on paper, and write each share on its own paper. Do not email them, do not put them in a screenshot, and do not put them in the same note as the password. This computer can keep an encrypted copy at ~/.acp/recovery.seal so the words can be shown again here. That file still needs the password. It does not open a backup on a new computer, and it does not replace the paper copy.
+Write the 24 words on paper, and write each share on its own paper. Do not email them, do not put them in a screenshot, and do not put them in the same note as the password. This computer can keep an
+encrypted copy at ~/.acp/recovery.seal so the words can be shown again here. That file still needs the password. It does not open a backup on a new computer, and it does not replace the paper copy.
 
 Create the phrase when you can write it down:
 
@@ -653,7 +761,8 @@ Show the words again on this computer:
 
     acp-red-star --show-phrase
 
-It asks for the password. It does not read the password from the environment. It warns you that the words will be on the screen and may stay in scrollback, and it can clear the terminal afterward. A phrase created before this copy was saved cannot be rebuilt from the password. Use the paper copy, or 3 shares with --shares-print.
+It asks for the password. It does not read the password from the environment. It warns you that the words will be on the screen and may stay in scrollback, and it can clear the terminal afterward. A
+phrase created before this copy was saved cannot be rebuilt from the password. Use the paper copy, or 3 shares with --shares-print.
 
 Check a written copy of the shares:
 
@@ -744,7 +853,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺                                                      |  then the title,
-| 🬬🬏🬞🬝🬬🬏🬞🬝  Red Star  v3.47.0 ‹red-star› ▾                    |  space before the marker,
+| 🬬🬏🬞🬝🬬🬏🬞🬝  Red Star  v3.48.0 ‹red-star› ▾                    |  space before the marker,
 |  🬊🬩🬭🬭🬚🬆                                                      |  running job| View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar| Nicks (390)  | @hazaldin  223 posts  · detail 2/8            || @feistyD 369 | ╔═ Reply @hazaldin · 2026-10-16 … ══════════╗ |  the post you opened|▌@hazaldin 223| ║ ╔═ Post @Deco1099 · 2026-10-15 … ═══════╗ ║ |  a linked post, nested| …            | ║ ║ …                                      ║ ║ |
 |              | ╚═╩════════════════════════════════════════╝ |
 |              |  Reply @hazaldin · 2026-10-16  Tell Jackson…  |  the list, slid up

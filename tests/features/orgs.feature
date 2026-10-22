@@ -351,3 +351,75 @@ Feature: Organizations
     Then it succeeds
     And stdout contains "archived: yes"
     And stdout contains "Notes"
+
+  Scenario: Gating asks first and a member export is not the open site
+    When I run "--org-create hold"
+    Then it succeeds
+    When I run "--org-post hold --org-title Secret --body hidden-body"
+    Then it succeeds
+    When I run "--org-show hold"
+    Then it succeeds
+    And stdout contains "gated: yes"
+    And stdout contains "registration: closed"
+    And stdout contains "hidden-body"
+    When I run "--org-snapshot hold"
+    Then it succeeds
+    And stdout does not contain "hidden-body"
+    When I run "--org-ungate hold --dry-run"
+    Then it succeeds
+    And stdout contains "would start seeing"
+    And stdout contains "dry-run: nothing was written"
+    When I run "--org-show hold"
+    Then it succeeds
+    And stdout contains "gated: yes"
+    When I run "--org-ungate hold"
+    Then it fails
+    And stderr contains "refused: stdin is not a terminal"
+    When I run "--org-ungate hold --yes"
+    Then it succeeds
+    And stdout contains "gated: no"
+    When I run "--org-show hold"
+    Then it succeeds
+    And stdout contains "gated: no"
+    When I run "--org-snapshot hold"
+    Then it succeeds
+    And stdout does not contain "hidden-body"
+    When I run "--org-gate hold --yes"
+    Then it succeeds
+    And stdout contains "gated: yes"
+    When I run "--org-registration hold open"
+    Then it succeeds
+    And stdout contains "registration: open"
+    When I run "--org-show hold"
+    Then it succeeds
+    And stdout contains "registration: open"
+    And stdout contains "gated: yes"
+    When I run "--org-registrations hold"
+    Then it succeeds
+    And stdout contains "No pending registrations"
+    When I run "--org-edit hold --org-visibility public --org-default-visibility public --yes"
+    Then it succeeds
+    When I run "--org-post hold --org-title Visible --body member-body --org-post-visibility public --yes"
+    Then it succeeds
+    When I run "--org-snapshot hold"
+    Then it succeeds
+    And stdout does not contain "member-body"
+    And stdout does not contain "Visible"
+    When I run "--org-export hold $HOME/member --org-member-export --dry-run"
+    Then it succeeds
+    And stdout contains "member content"
+    And stdout contains "must not be published"
+    And stdout contains "index.html"
+    And stdout contains "dry-run: nothing was written"
+    And the file "$HOME/member/index.html" does not exist
+    When I run "--org-export hold $HOME/open --dry-run"
+    Then it succeeds
+    And stdout contains "would export the public site"
+    And stdout contains "dry-run: nothing was written"
+    And stdout does not contain "member content"
+    And the file "$HOME/open/index.html" does not exist
+    When I run "--org-export hold $HOME/open --yes"
+    Then it succeeds
+    And the file "$HOME/open/index.html" exists
+    And the file "$HOME/open/index.html" does not contain "member-body"
+    And the file "$HOME/open/index.html" does not contain "Visible"

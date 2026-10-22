@@ -60,15 +60,20 @@ pub struct SiteFile {
 
 /// Build the public site. A private organization contributes no names and no posts.
 pub fn build(c: &Connection, db: &Path, slug: &str) -> Result<Site> {
+    build_for(c, db, slug, false)
+}
+
+/// Build the site. `member` includes the rows a member would see. Private rows stay out.
+pub fn build_for(c: &Connection, db: &Path, slug: &str, member: bool) -> Result<Site> {
     let org = get_org(c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
     let posts = list_posts(c, org.id)?;
     let assets = super::access::list_assets(c, org.id)?;
-    let omitted = posts.iter().filter(|p| !public_row(&org, p, false)).count()
-        + assets.iter().filter(|a| !super::access::asset_public(&org, a, false)).count();
+    let omitted = posts.iter().filter(|p| !public_row(&org, p, member)).count()
+        + assets.iter().filter(|a| !super::access::asset_public(&org, a, member)).count();
     if org.visibility != Visibility::Public {
         return Ok(empty(slug, omitted, "this organization has no public pages"));
     }
-    if org.gated {
+    if org.gated && !member {
         let index = format!(
             "<!DOCTYPE html><html><head><meta charset=\"utf-8\"><title>{}</title></head><body><h1>{}</h1><p>Register and login in the Red Star app.</p></body></html>\n",
             escape(&org.name),
@@ -89,7 +94,7 @@ pub fn build(c: &Connection, db: &Path, slug: &str) -> Result<Site> {
     let mut site_posts = Vec::new();
     let mut feed_posts = Vec::new();
     for post in &posts {
-        if !public_row(&org, post, false) {
+        if !public_row(&org, post, member) {
             continue;
         }
         site_posts.push(SitePost {
@@ -106,7 +111,7 @@ pub fn build(c: &Connection, db: &Path, slug: &str) -> Result<Site> {
     }
     let mut files = Vec::new();
     for asset in &assets {
-        if !super::access::asset_public(&org, asset, false) {
+        if !super::access::asset_public(&org, asset, member) {
             continue;
         }
         let bytes = absolute_path(db, asset).and_then(|p| std::fs::read(p).ok()).unwrap_or_default();

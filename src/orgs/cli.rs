@@ -49,6 +49,15 @@ pub fn cli_requested(args: &Args) -> bool {
         || !args.org_default_register_role.is_empty()
         || !args.org_default_invite_role.is_empty()
         || args.org_archive.is_some()
+        || args.org_gate.is_some()
+        || args.org_ungate.is_some()
+        || !args.org_registration.is_empty()
+        || args.org_registrations.is_some()
+        || !args.org_registration_approve.is_empty()
+        || !args.org_registration_reject.is_empty()
+        || args.org_login.is_some()
+        || args.org_open_code.is_some()
+        || args.org_member_export
         || args.org_post.is_some()
         || args.org_name.is_some()
         || args.org_description.is_some()
@@ -188,6 +197,30 @@ pub fn run_cli(args: &Args) -> Result<()> {
     if let Some(id) = &args.org_archive {
         return archive_post_cli(args, &db, id);
     }
+    if let Some(slug) = &args.org_gate {
+        return set_gate(args, &db, slug, true);
+    }
+    if let Some(slug) = &args.org_ungate {
+        return set_gate(args, &db, slug, false);
+    }
+    if args.org_registration.len() == 2 {
+        return set_registration_cli(args, &db);
+    }
+    if let Some(slug) = &args.org_registrations {
+        return list_registrations(&db, slug);
+    }
+    if args.org_registration_approve.len() == 2 {
+        return registration_decision(args, &db, true);
+    }
+    if args.org_registration_reject.len() == 2 {
+        return registration_decision(args, &db, false);
+    }
+    if let Some(url) = &args.org_login {
+        return login_remote(args, &db, url);
+    }
+    if let Some(code) = &args.org_open_code {
+        return open_code(args, &db, code);
+    }
     if let Some(slug) = &args.org_post {
         return post(args, &db, slug);
     }
@@ -291,6 +324,186 @@ fn archive_post_cli(args: &Args, db: &Path, id: &str) -> Result<()> {
     println!("kind: {}", record.kind);
     println!("not a delete");
     Ok(())
+}
+
+fn set_gate(args: &Args, db: &Path, slug: &str, gated: bool) -> Result<()> {
+    let preview = crate::orgs::gate::gate_preview(gated);
+    let verb = if gated { "gate" } else { "ungate" };
+    if args.dry_run {
+        println!("would {verb} {slug}");
+        println!("{preview}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    println!("{preview}");
+    let prompt = if gated { "Hide public rows from non-members? [y/N] " } else { "Let non-members see public rows? [y/N] " };
+    if !confirm(args, prompt)? {
+        println!("cancelled");
+        return Ok(());
+    }
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    crate::orgs::access::require(&c, org.id, &actor, "manage_access")?;
+    crate::orgs::access::set_gated(&c, org.id, gated)?;
+    println!("gated: {}", if gated { "yes" } else { "no" });
+    Ok(())
+}
+
+fn set_registration_cli(args: &Args, db: &Path) -> Result<()> {
+    let slug = &args.org_registration[0];
+    let mode = crate::orgs::Registration::parse(&args.org_registration[1])?;
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    crate::orgs::access::require(&c, org.id, &actor, "manage_access")?;
+    crate::orgs::access::set_registration(&c, org.id, mode)?;
+    println!("registration: {}", mode.as_str());
+    Ok(())
+}
+
+fn list_registrations(db: &Path, slug: &str) -> Result<()> {
+    let c = org_conn(db)?;
+    let rows = crate::orgs::gate::pending(&c, slug)?;
+    if rows.is_empty() {
+        println!("No pending registrations");
+        return Ok(());
+    }
+    for (identity, fingerprint) in rows {
+        println!("{identity}  fingerprint: {fingerprint}");
+    }
+    Ok(())
+}
+
+fn registration_decision(args: &Args, db: &Path, approve: bool) -> Result<()> {
+    let (slug, member) = if approve {
+        (&args.org_registration_approve[0], &args.org_registration_approve[1])
+    } else {
+        (&args.org_registration_reject[0], &args.org_registration_reject[1])
+    };
+    let actor = crate::orgs::access::local_identity_pub(db)?;
+    let c = org_conn(db)?;
+    let org = get_org(&c, slug)?.ok_or_else(|| anyhow!("no organization {slug:?}"))?;
+    if approve {
+        let updated = crate::orgs::access::approve_registration(&c, org.id, &actor, member)?;
+        println!("{}  {}  {}", updated.identity_pub, updated.role, updated.status.as_str());
+    } else {
+        crate::orgs::access::reject_registration(&c, org.id, &actor, member)?;
+        println!("rejected {member}");
+    }
+    Ok(())
+}
+
+fn open_code(args: &Args, db: &Path, code: &str) -> Result<()> {
+    let c = org_conn(db)?;
+    let view = crate::orgs::gate::describe_code(&c, code)?;
+    let service = crate::orgs::gate::service_identity(db, &view.slug)?;
+    println!("name: {}", view.name);
+    println!("origin: this machine");
+    println!("fingerprint: {}", service.fingerprint());
+    if args.dry_run {
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    if !confirm(args, "Send this reply? [y/N] ")? {
+        println!("cancelled");
+        return Ok(());
+    }
+    let me = crate::orgs::access::local_identity(db)?;
+    if view.kind == "register" {
+        let invite = view.invite.ok_or_else(|| anyhow!("registration has no invite"))?;
+        let typed = crate::orgs::members::shown_fingerprint(&me, &invite)?;
+        let (answered, _) = crate::orgs::members::accept_invite(&invite, &me, &typed)?;
+        let member = crate::orgs::gate::complete_register(&c, &service, &answered, &typed, &view.browser, &view.csrf)?;
+        println!("{}  {}  {}", member.identity_pub, member.role, member.status.as_str());
+    } else {
+        let signature = me.sign(&crate::orgs::gate::login_message(&view.nonce, &view.slug, code));
+        let session = crate::orgs::gate::complete_login(&c, &view.slug, code, &view.browser, &view.csrf, &crate::orgs::access::pub_hex(&me), &signature)?;
+        println!("session: {session}");
+    }
+    Ok(())
+}
+
+fn login_remote(args: &Args, db: &Path, url: &str) -> Result<()> {
+    let addr = loopback_http(url)?;
+    if args.dry_run {
+        println!("would sign a login nonce at {url}");
+        println!("dry-run: nothing was written");
+        return Ok(());
+    }
+    let began = http_exchange(addr, "POST", "/v1/login", "", "")?;
+    let fields = json_object(&began)?;
+    let code = json_str(&fields, "code")?;
+    let nonce = json_str(&fields, "nonce")?;
+    let csrf = json_str(&fields, "csrf")?;
+    let slug = json_str(&fields, "slug")?;
+    let cookie = set_cookie(&began)?;
+    let me = crate::orgs::access::local_identity(db)?;
+    let signature = data_encoding::HEXLOWER.encode(&me.sign(&crate::orgs::gate::login_message(&nonce, &slug, &code)));
+    let body = serde_json::json!({
+        "code": code,
+        "csrf": csrf,
+        "identity": crate::orgs::access::pub_hex(&me),
+        "signature": signature,
+    })
+    .to_string();
+    let done = http_exchange(addr, "POST", "/v1/login/finish", &format!("Cookie: {cookie}\r\n"), &body)?;
+    let session = json_str(&json_object(&done)?, "session")?;
+    println!("session: {session}");
+    Ok(())
+}
+
+fn loopback_http(raw: &str) -> Result<std::net::SocketAddr> {
+    let rest = raw.strip_prefix("http://").ok_or_else(|| anyhow!("organization login uses http://127.0.0.1"))?;
+    let hostport = rest.split('/').next().unwrap_or(rest);
+    let addr: std::net::SocketAddr = hostport.parse().with_context(|| format!("parsing {raw}"))?;
+    crate::orgs::members::require_loopback(addr)?;
+    Ok(addr)
+}
+
+fn http_exchange(addr: std::net::SocketAddr, method: &str, path: &str, extra: &str, body: &str) -> Result<String> {
+    let mut sock = std::net::TcpStream::connect(addr).with_context(|| format!("connecting to {addr}"))?;
+    let req = format!("{method} {path} HTTP/1.0\r\nHost: 127.0.0.1\r\n{extra}Content-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+    std::io::Write::write_all(&mut sock, req.as_bytes())?;
+    let mut out = String::new();
+    std::io::Read::read_to_string(&mut sock, &mut out)?;
+    if !out.contains("200") {
+        bail!("{}", out.split("\r\n\r\n").nth(1).unwrap_or(out.trim()));
+    }
+    Ok(out)
+}
+
+fn json_object(raw: &str) -> Result<serde_json::Value> {
+    let body = raw.split("\r\n\r\n").nth(1).unwrap_or(raw);
+    Ok(serde_json::from_str(body)?)
+}
+
+fn json_str(v: &serde_json::Value, key: &str) -> Result<String> {
+    v.get(key).and_then(|s| s.as_str()).map(str::to_string).ok_or_else(|| anyhow!("login response has no {key}"))
+}
+
+fn set_cookie(raw: &str) -> Result<String> {
+    let line = raw.lines().find(|l| l.to_ascii_lowercase().starts_with("set-cookie:")).ok_or_else(|| anyhow!("login response has no cookie"))?;
+    let value = line.split(':').nth(1).unwrap_or("").split(';').next().unwrap_or("").trim();
+    if !value.starts_with("acp_org=") {
+        bail!("login cookie is not a session id");
+    }
+    Ok(value.to_string())
+}
+
+fn site_names(site: &crate::orgs::site::Site) -> Vec<String> {
+    let mut names = vec!["index.html".into(), "feed.json".into()];
+    for post in &site.posts {
+        names.push(format!("posts/{}.html", post.id));
+        names.push(format!("posts/{}.md", post.id));
+    }
+    for file in &site.files {
+        names.push(format!("downloads/{}.html", file.id));
+        if !file.bytes.is_empty() {
+            names.push(format!("downloads/{}", file.id));
+        }
+    }
+    names
 }
 
 fn show_identity(db: &Path) -> Result<()> {
@@ -623,19 +836,38 @@ fn remove_asset(args: &Args, db: &Path, id: &str) -> Result<()> {
 fn export_site(args: &Args, db: &Path) -> Result<()> {
     let slug = &args.org_export[0];
     let dir = PathBuf::from(&args.org_export[1]);
-    let preview = format!("would export the public site for {slug} to {}", dir.display());
+    let member = args.org_member_export;
+    let preview = if member {
+        format!(
+            "would export the member site for {slug} to {}\nThis folder is member content and must not be published as the open site.",
+            dir.display()
+        )
+    } else {
+        format!("would export the public site for {slug} to {}", dir.display())
+    };
     if args.dry_run {
         println!("{preview}");
+        if member {
+            let c = org_conn(db)?;
+            let site = crate::orgs::site::build_for(&c, db, slug, true)?;
+            for name in site_names(&site) {
+                println!("{name}");
+            }
+        }
         println!("dry-run: nothing was written");
         return Ok(());
     }
-    if !confirm(args, "Write the public site? [y/N] ")? {
+    if member {
+        println!("This folder is member content and must not be published as the open site.");
+    }
+    let prompt = if member { "Write member content? [y/N] " } else { "Write the public site? [y/N] " };
+    if !confirm(args, prompt)? {
         println!("{preview}");
         println!("cancelled");
         return Ok(());
     }
     let c = org_conn(db)?;
-    let site = crate::orgs::site::build(&c, db, slug)?;
+    let site = if member { crate::orgs::site::build_for(&c, db, slug, true)? } else { crate::orgs::site::build(&c, db, slug)? };
     crate::orgs::site::write(&site, &dir)?;
     println!("exported {slug} to {}", dir.display());
     println!("{}", site.note);

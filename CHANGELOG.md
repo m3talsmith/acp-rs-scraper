@@ -19,6 +19,12 @@ and the project uses [Semantic Versioning](https://semver.org/).
 
 - **Fetching, login, and publishing.** Those commands are not in this binary. Search, export, import, bookmarks, drafts, themes, and brands stay.
 
+## [3.48.0] - 2026-10-22
+
+### Added
+
+- **Gated access.** `--org-gate` and `--org-ungate` print what a non-member would start or stop seeing, then ask. Cancel is the default. `--dry-run` writes nothing. `--org-registration` is Closed or Open. Closed leaves a new member pending. Open activates them. `--org-registrations` lists the pending fingerprint. `--org-open-code` prints the org name, the origin, and the fingerprint before it sends. `--org-login` signs a nonce on `127.0.0.1`. The session cookie holds an id, not a key. `--org-export --org-member-export` asks first and is not the open site. A gated public export without that flag is the landing page only.
+
 ## [3.47.0] - 2026-10-22
 
 ### Added

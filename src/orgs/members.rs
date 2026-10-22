@@ -210,8 +210,8 @@ pub fn accept_invite(invite: &InviteFile, invitee: &NodeSecret, typed: &str) -> 
     Ok((answered, ex))
 }
 
-/// Finish an answered invite. The member is added only when the code matches.
-pub fn finish_invite(c: &Connection, invite: &InviteFile, inviter: &NodeSecret, typed: &str) -> Result<Exchange> {
+/// Check the answer. Does not add a member and does not mark the invite used.
+pub fn verify_answer(invite: &InviteFile, inviter: &NodeSecret, typed: &str) -> Result<Exchange> {
     open_invite(invite)?;
     let invitee_ed = invite.invitee_ed25519.as_deref().ok_or_else(|| anyhow!("invite has no reply"))?;
     let invitee_x = invite.invitee_x25519.as_deref().ok_or_else(|| anyhow!("invite has no reply"))?;
@@ -224,6 +224,13 @@ pub fn finish_invite(c: &Connection, invite: &InviteFile, inviter: &NodeSecret, 
     if !code_matches(&ex.fingerprint, typed) {
         bail!("fingerprint does not match");
     }
+    Ok(ex)
+}
+
+/// Finish an answered invite. The member is added only when the code matches.
+pub fn finish_invite(c: &Connection, invite: &InviteFile, inviter: &NodeSecret, typed: &str) -> Result<Exchange> {
+    let ex = verify_answer(invite, inviter, typed)?;
+    let invitee_ed = invite.invitee_ed25519.as_deref().ok_or_else(|| anyhow!("invite has no reply"))?;
     let org = get_org(c, &invite.slug)?.ok_or_else(|| anyhow!("no organization {}", invite.slug))?;
     let row: Option<Option<String>> = c
         .query_row("SELECT used_at FROM org_invites WHERE id = ?1 AND org_id = ?2", params![invite.id, org.id], |r| r.get(0))

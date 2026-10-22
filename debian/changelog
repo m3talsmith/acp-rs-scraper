@@ -1,3 +1,9 @@
+acp-red-star (3.48.0) unstable; urgency=medium
+
+  * Package 3.48.0. Gated access keeps a non-member on the landing page. A member export asks first.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 23:58:00 +0000
+
 acp-red-star (3.47.0) unstable; urgency=medium
 
   * Package 3.47.0. Custom organization roles sit between Viewer and Owner. The last Owner stays.

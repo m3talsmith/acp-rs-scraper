@@ -237,6 +237,8 @@ pub enum Action {
     OrgMembers,
     /// Library › Organizations › Roles. Built-ins, custom roles, and the two defaults.
     OrgRoles,
+    /// Library › Organizations › Access. The gate, Open versus Closed, and pending registrations.
+    OrgAccess,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -486,6 +488,7 @@ fn organizations_item() -> MenuCommand {
         opt("assets", "Assets", "--org-asset-list", false, button(Action::OrgAssets)),
         opt("members", "Members", "--org-members", false, button(Action::OrgMembers)),
         opt("roles", "Roles", "--org-roles", false, button(Action::OrgRoles)),
+        opt("access", "Access", "--org-registrations", false, button(Action::OrgAccess)),
     ])
 }
 
@@ -670,6 +673,7 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Organizations, "assets") => Some("org-assets"),
         (CommandId::Organizations, "members") => Some("org-members"),
         (CommandId::Organizations, "roles") => Some("org-roles"),
+        (CommandId::Organizations, "access") => Some("org-access"),
         (CommandId::Organizations, _) => Some("orgs"),
         (CommandId::View, "nested" | "stack" | "pane" | "carousel_inf" | "carousel" | "grid") => Some("layout"),
         (CommandId::View, "notifications") => Some("notifications"),

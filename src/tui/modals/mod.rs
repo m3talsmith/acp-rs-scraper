@@ -20,6 +20,7 @@ pub mod template;
 pub mod assets;
 pub mod members;
 pub mod roles;
+pub mod access;
 
 use crossterm::event::KeyEvent;
 
@@ -42,6 +43,7 @@ pub use template::*;
 pub use assets::*;
 pub use members::*;
 pub use roles::*;
+pub use access::*;
 
 /// How a modal closed.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -118,6 +120,8 @@ pub enum Modal {
     Members(MembersModal),
     /// Organizations › Roles. Built-ins, custom roles, and the two defaults.
     Roles(RolesModal),
+    /// Organizations › Access. The gate, Open versus Closed, and pending registrations.
+    Access(AccessModal),
 }
 
 impl Modal {
@@ -138,6 +142,7 @@ impl Modal {
             Modal::Assets(m) => m,
             Modal::Members(m) => m,
             Modal::Roles(m) => m,
+            Modal::Access(m) => m,
         }
     }
 }

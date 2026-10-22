@@ -139,7 +139,11 @@ pub fn job_source(kind: JobKind, cmd: &str) -> String {
     if has("--top") { return "Site Top".into(); }
     if has("--sync") || has("--sync-bookmarks") { return "Sync".into(); }
     if has("--research") || has("--research-add") || has("--research-create") { return "Research".into(); }
-    if has("--org-list") || has("--org-create") || has("--org-edit") || has("--org-delete") || has("--org-show") || has("--org-post") {
+    if has("--org-list") || has("--org-create") || has("--org-edit") || has("--org-delete") || has("--org-show") || has("--org-post")
+        || has("--org-gate") || has("--org-ungate") || has("--org-registration") || has("--org-registrations")
+        || has("--org-registration-approve") || has("--org-registration-reject") || has("--org-login") || has("--org-open-code")
+        || has("--org-member-export")
+    {
         return "Organizations".into();
     }
     if has("--bookmark") || has("--unbookmark") { return "Bookmarks".into(); }

@@ -611,6 +611,15 @@ An organization is a local source. It does not need a service. A new organizatio
 | `--org-default-register-role SLUG ROLE` | Role for registration. Never Owner. Independent of the invite default. |
 | `--org-default-invite-role SLUG ROLE` | Role for an invitation. Never Owner. |
 | `--org-archive POST` | Archive a post. The row stays. The record is an update, not a delete. Asks first. |
+| `--org-gate SLUG` | Hide public rows from non-members. A new organization is already gated. Asks first. `--dry-run` writes nothing. |
+| `--org-ungate SLUG` | Let non-members see public rows of a public organization. Asks first. `--dry-run` writes nothing. |
+| `--org-registration SLUG closed\|open` | Closed leaves a registration pending. Open activates it. Closed is the default. |
+| `--org-registrations SLUG` | List pending registrations and the fingerprint an approver compares. |
+| `--org-registration-approve SLUG MEMBER` | Approve a pending registration. The actor needs invite. |
+| `--org-registration-reject SLUG MEMBER` | Reject a pending registration. The actor needs invite. |
+| `--org-login URL` | Sign a login nonce from `http://127.0.0.1`. No browser. Any other address is refused. |
+| `--org-open-code CODE` | Print the org name, the origin, and the fingerprint, then ask before sending. |
+| `--org-member-export` | With `--org-export`. Write the rows a member would see. Asks first. That folder is not the open site. |
 | `--org-post SLUG` | Store a post. Requires `--org-title`. The body is `--body` or `--body-file`. `--org-post-visibility` overrides the org default for this post only. |
 | `--org-visibility private\|public` | With create or edit. |
 | `--org-default-visibility private\|public` | With create or edit. |

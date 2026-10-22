@@ -466,6 +466,18 @@ pub fn approve_registration(c: &Connection, org_id: i64, actor: &str, identity: 
     member_of(c, org_id, &identity)?.ok_or_else(|| anyhow!("member disappeared"))
 }
 
+/// Reject a pending registration. The actor needs `invite`. The person is not a member.
+pub fn reject_registration(c: &Connection, org_id: i64, actor: &str, identity: &str) -> Result<()> {
+    require(c, org_id, actor, "invite")?;
+    let identity = check_pub(identity)?;
+    let member = member_of(c, org_id, &identity)?.ok_or_else(|| anyhow!("no registration {identity}"))?;
+    if member.status != MemberStatus::Pending {
+        bail!("registration is not pending");
+    }
+    c.execute("DELETE FROM org_members WHERE org_id = ?1 AND identity_pub = ?2", params![org_id, identity])?;
+    Ok(())
+}
+
 fn owner_count(c: &Connection, org_id: i64) -> Result<i64> {
     Ok(members(c, org_id)?.iter().filter(|m| is_owner(&m.role) && m.status == MemberStatus::Active).count() as i64)
 }
