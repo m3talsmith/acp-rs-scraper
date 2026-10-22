@@ -1,12 +1,12 @@
 # Plan: Organizations
 
-Status: **plan, 2026-10-22.** Nothing in this document is implemented yet. The plan is on the organizations draft, ahead of the implementation commits. Gated access (3.48.0) is part of this plan. The implementation commits follow, one minor at a time.
+Status: **plan, 2026-10-22.** Michael's final defaults are in this document and replace the earlier ones. A new org is gated and private. Registration is Closed. The built-in roles are Owner, User, and Viewer. Plan commits do not bump the version. Implementation commits follow, one minor at a time.
 
 Base: `main` at `274a9e01` (crate `3.39.0`). This plan does not bump the version. `AGENTS.md` bumps a version for a feature or a fix, not for a plan.
 
 An organization is a local content source. It does not need the ACP Red Star service package, and it does not talk to acp.us. Its public face is a website: a template, pages, a feed, and downloads. Another Red Star install can add that website as a service. Private content stays on the machine that owns it.
 
-A public org can also be gated. Public versus private still decides which rows exist for members. Gating decides whether a non-member may see any of those rows. Register and login run in the Red Star app, against the org's service. The browser never holds a private key.
+A new org is gated and private. Public versus private still decides which rows members can see. Gating decides whether a non-member gets anything at all. Register and login run in the Red Star app, against the org's service. The browser never holds a private key.
 
 The core stays white-label. The built-in Red Star theme can still supply the default look. A `plain` theme, or any other theme, can replace it. Federation, replication, and the network transport are stubs. They get no version.
 
@@ -14,12 +14,12 @@ The core stays white-label. The built-in Red Star theme can still supply the def
 
 - A person can create an organization on this machine and post in it with no service installed.
 - The org is a source. Its posts show up wherever source content shows up, with the org as the author.
-- Visibility is private unless someone deliberately makes it public. The same rule covers the org, each post, and each asset.
+- A new org is private and gated. Both stay that way until someone changes them. The same private default covers each post and each asset.
 - A public org, rendered through its template, is a static site: index, post pages, asset and download pages, and a feed. Any node can export that site to a folder or serve it.
 - A public org can publish itself as a service. Another install adds it and browses it like any other source. Posting into it is allowed only when the org says so and the caller's role allows it.
 - Members are Red Star users with their own identity keys. Invites are an authenticated Diffie-Hellman exchange. Roles decide what a member can change.
-- The person who creates an org is its owner. The org starts with that one owner. The last owner cannot be removed.
-- A public org can require membership before any content is shown. Non-members then get a landing page with register and login, and no posts, titles, or asset names. A private org stays closed.
+- The person who creates an org is its Owner. The org starts with that one Owner, plus the built-in User and Viewer roles. The last Owner cannot be removed.
+- A gated org requires membership before content is shown. Non-members then get a landing page with register and login, and no posts, titles, or asset names. A private org stays closed. A public org that is not gated is the exception in section 9.
 - The key exchange and the login signature run in the Red Star app, talking to the org service. Private keys stay in the app.
 - Private material never appears in a public render, a serve response, an export, or the service endpoint.
 
@@ -29,11 +29,12 @@ What the owner sees in the terminal UI and in `--org-show` is the local copy, in
 
 Create, edit, and delete from the command line and from the terminal UI.
 
-- The creator's identity is added as a member with the built-in owner role at the moment the org is created. That lands with members (3.46.0), because that is when an identity key exists. Orgs created by the earlier minor are backfilled: the first time 3.46.0 opens the database, any org with no members gets the local identity as its owner.
-- An org has a slug (the source id) and a display name. The slug is the author nick on posts.
+- Creating an org generates the local identity if this install does not have one yet, then adds that identity as a member with the built-in Owner role. Owner, User, and Viewer are inserted in the same write. The org cannot be saved without them. Invite transport still arrives with members (3.46.0). The owner row does not wait for that.
+- An org has a slug (the source id) and a display name. The slug is the source nick. Each post also stores the author's identity key.
 - Description is optional.
 - Visibility is `private` or `public`. The default is `private`.
-- `gated` is off by default. Turning it on is a separate step, in 3.48.0, and it does not by itself make the org public. Section 10.
+- `gated` is on by default. Turning it off is a live exposure. It does not by itself make the org public. Section 10.
+- Registration is `closed` or `open`. Closed is the default. Closed means a new registration waits for approval. Open means it becomes a member immediately. Section 10.
 - Each org has a default for new posts, also `private` until switched.
 - Delete removes the org, its posts, its assets, its templates, its invites, and its memberships. It asks first. Cancel is the default.
 
@@ -47,10 +48,11 @@ Posts are rows in the local database, not files beside it. The org slug is the s
 - Switching the org default to `public` does not rewrite posts already stored. It only applies to posts created after the switch. A person can still mark one new post private.
 - Readability for anyone who is not looking at the owner's local screens goes through one function, `readable_by_others(org, item, viewer)`. The viewer is anonymous or a member. `--export`, the site folder, `serve`, and the service endpoint call it. They do not grow their own filters.
   - The function is false when the org is private, when the item is private, or when the org is gated and the viewer is not a member.
-  - It is true when the org is public, the item is public, and either the org is not gated or the viewer is a member.
-  - A public org that is not gated is readable by anyone, except posts and assets that are themselves private.
+  - It is true when the org is public, the item is public, the item is not archived, and either the org is not gated or the viewer is a member.
+  - An archived post or asset is never readable on these paths, whatever its old visibility was.
+  - A public org that is not gated is readable by anyone, except posts and assets that are themselves private or archived. What a non-member may write there is the assumption in section 9.
   - A public org that is gated is not readable by a non-member. That person gets the landing page in section 10 and nothing else: no bodies, no titles, no asset names. A member sees the same public posts and public assets an ungated public org would show. Private rows stay hidden from that member on these paths.
-  - A private org is never readable. A post marked public inside a private org stays hidden. Gating does not open it. Membership does not open it on the website, on `serve`, in an export, or on the service.
+  - A private org is never readable. A post marked public inside a private org stays hidden. The gated flag does not open it. Membership does not open it on the website, on `serve`, in an export, or on the service. A new org is both private and gated, so both switches are closed.
 - The owner's nick bar, search, and `--org-show` include private posts. They are labeled private. Those screens do not call `readable_by_others`. They are the local copy.
 
 ## 4. Members and identity
@@ -77,52 +79,44 @@ Website registration (section 10) is this same exchange. The peer is the organiz
 
 ## 5. Roles and permissions
 
-An org can create custom roles and assign them. A permission is one of:
+There is no admin, editor, member, or read-only role. Every org is created with three built-in roles, and only those three:
 
-| Permission | What it allows |
-| --- | --- |
-| `post` | Create a post |
-| `edit_own` | Edit a post this member authored |
-| `edit_any` | Edit any post in the org |
-| `delete_own` | Delete a post this member authored |
-| `delete_any` | Delete any post in the org |
-| `post_visibility` | Change a post's visibility |
-| `org_visibility` | Change the org's visibility, its default post visibility, its name, and its description |
-| `assets` | Add, remove, and change the visibility of assets |
-| `templates` | Edit templates and the theme values the template uses |
-| `publish` | Publish or withdraw the org as a service, and allow or refuse remote posts |
-| `invite` | Create an invite, and approve or reject a registration that is waiting |
-| `remove_members` | Remove a member who is not the last owner |
-| `manage_roles` | Create, edit, and delete custom roles, and assign a role |
-| `manage_access` | Set or clear `gated`, choose open registration or approval required, and set the default role a new registration receives |
+| Role | Place | What it can do |
+| --- | --- | --- |
+| Owner | Always the top | Every org feature, including the ones added later. The creator is an Owner. |
+| User | Between Viewer and Owner | Post, reply, and add attachments to posts and replies. |
+| Viewer | Always the bottom | View posts and replies. No writes. |
 
-Built-in roles, shipped with every org:
+The permission set is a list of names stored as text, not a closed enum in the database. User starts as `post`, `reply`, `attach`. Viewer starts as `view`. Owner is the set of every permission this build knows, so a later permission arrives with Owner and does not need a new role. A permission this build does not know yet is kept on a custom role and does nothing until the code learns the name.
 
-| Role | Permissions |
-| --- | --- |
-| owner | All of the above, including `manage_access`, and the only role that may assign `owner` |
-| admin | All except assigning `owner`, so an admin has `manage_access`. An admin cannot change an owner's role or remove an owner |
-| editor | `post`, `edit_own`, `edit_any`, `delete_own`, `assets`, `templates` |
-| member | `post`, `edit_own`, `delete_own` |
-| read-only | None of the write permissions. This is the default role for a person who registers through the website |
+Other permissions the build already names: `edit_own`, `edit_any`, `archive_own`, `archive_any`, `post_visibility`, `org_visibility`, `assets`, `templates`, `publish`, `invite`, `remove_members`, `manage_roles`, `manage_access`. `invite` is the approve/invite permission: create an invite, and approve or reject a Closed registration. Owner always has it. `archive_any` and `remove_members` are Owner-only in the built-in set. A custom role can be given them only by an Owner.
 
-`manage_access` arrives with gated access (3.48.0). The earlier minors do not have the flag.
+Custom roles sit strictly between Viewer and Owner. They cannot be placed at Viewer's rank or at Owner's rank, and they cannot be named Owner, User, or Viewer. The person who saves a custom role can include only permissions they hold.
 
-The default registration role cannot be `owner`. The person who sets it must hold every permission on the chosen role. That is the same escalation rule as assigning a role. The shipped default is `read-only`.
+Nobody can grant a role at or above their own rank unless they are an Owner. A User cannot assign User or Owner. A custom role cannot assign itself or anything above it. An Owner can assign Owner. These are still refused:
 
-Custom roles hold a subset of those permissions. The person saving the role can include only permissions they hold. Assigning a role requires `manage_roles` and every permission on that role. Nobody can grant themselves a permission they do not already have.
+- Removing the last Owner.
+- Changing the last Owner's role to anything else.
+- Deleting the built-in Owner, User, or Viewer role.
+- Choosing Owner as the role a new member receives.
 
-There is always at least one owner. These are refused:
+A new member, from registration or from an invitation, gets the lowest role, which is Viewer, until the org changes that. The org has two settings, and they are not the same field: the role handed out by registration, and the role handed out by an invitation. Either one can be any role except Owner. Changing one does not change the other.
 
-- Removing the last owner.
-- Changing the last owner's role to anything else.
-- Deleting the built-in `owner` role.
+Deleting the org is a separate confirmed action. It is Owner-only. It is not a way to sneak past the last-Owner check by removing the member row first.
 
-Deleting the org is a separate confirmed action. It is owner-only. It is not a way to sneak past the last-owner check by removing the member row first.
+Every org action checks the actor, including a post that arrives through the service endpoint. A remote caller is the identity that signed the request. The service being published does not widen the role.
 
-Every org action checks the actor, including a post that arrives through the service endpoint. A remote caller is the identity that signed the request. If that key is not a member, or the role lacks the permission, the call is refused. The service being published does not widen the role.
+### Owner removal is an archive
 
-The creator-is-owner rule is the same check in reverse: `create` inserts the local identity as `owner` before it returns. A new org cannot exist with zero owners.
+When an Owner removes another user's post or asset, the row stays in the database and on the network. It is not deleted.
+
+- It becomes archived and private.
+- Custody moves to the organization Owner. The original author stays on the row.
+- The row records who archived it and when.
+- A replication message for that change is an update, not a delete. The transport is the stub in section 11. It gets no version.
+- After that, the row is absent from every public render, serve response, export, feed, and service response. The owner's local screens can still show it, labeled archived.
+
+Removing a member does not delete their posts. Those posts stay attributed to the original author until an Owner archives them.
 
 ## 6. Templates and the theme editor
 
@@ -176,15 +170,15 @@ Another install adds it with `--org-add URL`. That install then browses the org 
 
 When the org is public and gated, an anonymous caller gets readiness `gated` and an empty page. No titles, no asset names, no bodies. The same caller, after the login in section 10, is a member and then receives the public rows their role allows. Readiness `gated` here is the plugin's existing availability value. It is not the changelog marker `prepared, gated:`, and it is not a version. A private org stays unreadable on this path whether or not the flag is set. The service does not widen the role and does not skip the gate.
 
+**Assumption, for Michael to confirm.** A public org that is not gated lets a non-member use the service features view, post, reply, and attach. They still cannot do the Owner-only actions: remove a user, or archive a post or asset that belongs to someone else. A non-member who writes authenticates with the same app-to-service challenge-response as a member, so the post stores a verifiable author. Non-member writes are rate-limited (10 per identity per org per minute, unless section 16 changes that). A private org, and a gated org, do not offer this path.
+
 Publishing, withdrawing, and turning remote posts on are live writes. The preview lists the public posts and public assets that would be exposed, names the capabilities, and asks. Cancel is the default. `--dry-run` prints the manifest and does not write it and does not listen. `--yes` confirms.
 
 The in-process adapter implements the existing `Service`, `Reader`, and `Post` traits. It is not registered as a built-in at startup. This binary still ships with no built-in site service. The adapter is loaded only after a person adds the manifest.
 
 ## 10. Gated access
 
-Gated access is its own minor, 3.48.0. It sits on top of the website, the service, members, and roles. The flag does nothing useful until those exist, so it is not folded into an earlier minor.
-
-`gated` is off by default. A role with `manage_access` can set it or clear it. Turning it on, or turning it off, prints what a non-member would start or stop seeing, then asks. Cancel is the default. `--dry-run` prints that and writes nothing. `--yes` confirms. Without a terminal, and without `--yes`, the change is refused.
+Gated access is its own minor for the website and the service cookie, 3.48.0. The flag itself is on from the moment the org is created (3.40.0). A role with `manage_access` can clear it or set it again. Turning it off, or turning it back on, prints what a non-member would start or stop seeing, then asks. Cancel is the default. `--dry-run` prints that and writes nothing. `--yes` confirms. Without a terminal, and without `--yes`, the change is refused.
 
 Two switches, and they do not collapse into one:
 
@@ -205,7 +199,7 @@ The browser does not run Diffie-Hellman, does not call WebCrypto, and does not i
 2. The request is bound to the browser session that created it. That session is an HttpOnly, SameSite=Strict cookie, Secure when the page was served over HTTPS. A code presented from any other browser session is refused. Completing it does not log that other session in.
 3. The person opens the code in their Red Star app (the link, or paste). The app shows the org name and the service origin and waits for a yes before it talks. Cancel is the default.
 4. The app then runs the authenticated exchange from section 4 directly with the org-as-service endpoint. Each side's X25519 public value is signed by that side's Ed25519 identity. HKDF-SHA256 derives the transcript key. Both sides show the fingerprint. The app will not finish until the person types a fingerprint that matches. The service shows the same fingerprint on the org's local screens.
-5. The service creates the member. The org chooses open registration or approval required. The default is approval required, so the new row is `pending` and has no access yet. Approval goes to a role with `invite`, and the approver sees the fingerprint before they accept. Open registration activates the member as soon as the fingerprint matches. The role on that row is the org's default registration role, which starts as `read-only`.
+5. The service creates the member. The org's registration mode is Open or Closed. Closed is the default, so the new row is `pending` and has no access yet. Approval goes to a role with `invite`. Owner always has that permission. The approver sees the fingerprint before they accept. Open registration activates the member as soon as the fingerprint matches. The role on that row is the org's registration default, which starts as Viewer. An invitation uses the invitation default, which also starts as Viewer and can be a different role. Neither default can be Owner.
 6. The waiting browser page polls `serve` and updates when the exchange completes: registered, or pending approval. The poll is accepted only with the cookie from step 2. The page never receives a private key, a seed, a shared secret, or the HKDF output.
 
 The service side of the exchange uses a dedicated org service identity (Ed25519 and X25519), generated the first time the org is published, sealed like a user identity (section 12). The public key is in the manifest. The app shows that key's fingerprint as the org it is joining. Using the owner's personal key for this is an open question (section 16).
@@ -222,7 +216,7 @@ The website shows a single-use login request, bound to that browser session the 
 
 `serve` then sets a short-lived session cookie: HttpOnly, SameSite=Strict, Secure when the page is HTTPS. The plan uses 8 hours (section 16). Logout clears it. After expiry the cookie is rejected and the person is anonymous again. No secret is stored in the browser beyond that cookie. The cookie's value is an id. The server stores the session.
 
-From then on, every path uses the member's role (section 5). A read-only member can read public rows and cannot post.
+From then on, every path uses the member's role (section 5). A Viewer can read public rows and cannot post.
 
 The terminal UI and the command line log in to an org service with the same challenge-response and no browser step: the app asks the service for a nonce, signs it, and keeps the resulting session for that process. The org-as-service path accepts that same proof. A caller with no valid session is anonymous.
 
@@ -243,14 +237,14 @@ Every node that has the public bundle can serve it in the formats section 8 list
 
 These are stubs. They are not features. They get no version. The first release that has a place to mention them records them under Added as `prepared, gated: …`:
 
-- Federation and replication of org content between nodes.
+- Federation and replication of org content between nodes. An Owner archive is replicated as an update of the archived, private, and custody columns, not as a delete.
 - The decentralized transport for invites and for the service endpoint. Files and localhost are the transports that actually run.
 
 No packet is sent to acp.us. Tests use a throwaway `HOME` and, where two installs are required, two throwaway homes.
 
 ## 12. Security and privacy
 
-- `readable_by_others` is the only public filter. Render, serve, export, and the service call it. Tests cover every combination: private org, public org with a private post, public org whose default is public, private assets, and a gated public org seen by a non-member and by a member.
+- `readable_by_others` is the only public filter. Render, serve, export, and the service call it. Archived rows fail it. Tests cover every combination: a new org that is gated and private, a private org, a public org with a private post, a public org whose default is public, private assets, a gated public org seen by a non-member and by a member, and an archived row after an Owner removal.
 - The browser never holds a private key. Registration and login codes are single-use, expiring, and bound to the browser session that created them. A different session cannot finish them.
 - Session cookies are HttpOnly and SameSite=Strict, and Secure when the page is HTTPS. Logout and expiry both end the session.
 - Registration and login endpoints are rate-limited and require a same-origin CSRF token.
@@ -269,32 +263,39 @@ Tables, created on first use in the encrypted database. Names can still move if 
 organizations
   id, slug unique, name, description,
   visibility,            -- private | public, default private
-  gated,                 -- 0 by default; 3.48.0
-  registration,          -- approval | open, default approval; 3.48.0
-  default_member_role,   -- built-in read-only until changed; 3.48.0
+  gated,                 -- 1 by default
+  registration,          -- closed | open, default closed
+  default_register_role, -- Viewer until changed; never Owner
+  default_invite_role,   -- Viewer until changed; never Owner; independent of register
   default_post_visibility,
   allow_remote_post,     -- 0 by default
   published,             -- 0 by default
   created_at, updated_at
 
 org_posts
-  id, org_id, author_identity,
+  id, org_id, author_identity, parent_id,
   title, body,
   visibility,            -- default copies the org default at insert time
+  custodian_identity,    -- author until an Owner archives it, then the org Owner
+  archived,              -- 0 by default
+  archived_by, archived_at,
   created_at, updated_at
 
 org_assets
-  id, org_id, name, mime, visibility, path, created_at
+  id, org_id, author_identity, name, mime, visibility, path,
+  custodian_identity, archived, archived_by, archived_at,
+  created_at
 
 org_templates
   id, org_id, name, html, updated_at
 
 org_roles
-  id, org_id, name, permissions, builtin
+  id, org_id, name, permissions, builtin,
+  rank                   -- Viewer 0, User 500, Owner 1000; custom ranks are 1..999
 
 org_members
   org_id, identity_pub, role_id,
-  status,                -- active | pending; invites are active, open registration is active, approval starts pending
+  status,                -- active | pending; Open registration is active, Closed starts pending
   added_at
 
 org_invites
@@ -331,6 +332,8 @@ Orgs and posts (3.40.0):
 - `--org-visibility private|public`
 - `--org-default-visibility private|public`
 - `--org-post-visibility private|public` on a new post
+- `--org-roles SLUG` (Owner, User, and Viewer exist as soon as the org does)
+- `--org-members SLUG` (the creator is the Owner)
 
 Privacy (3.41.0) uses those same flags and adds the public export check that later minors reuse. The four visibility cases are tested here, against a public JSON snapshot, before HTML exists.
 
@@ -372,16 +375,17 @@ Members (3.46.0):
 
 Roles (3.47.0):
 
-- `--org-roles SLUG`
-- `--org-role-create SLUG NAME --permissions LIST`
+- `--org-role-create SLUG NAME --rank N --permissions LIST`
 - `--org-role-assign SLUG MEMBER ROLE`
 - `--org-member-remove SLUG MEMBER`
+- `--org-default-register-role SLUG ROLE`
+- `--org-default-invite-role SLUG ROLE`
+- `--org-archive POST` archives another user's post. It does not delete it.
 
 Gated access (3.48.0):
 
-- `--org-gate SLUG` and `--org-ungate SLUG`
-- `--org-registration SLUG approval|open`
-- `--org-default-role SLUG ROLE`
+- `--org-gate SLUG` and `--org-ungate SLUG` (a new org is already gated)
+- `--org-registration SLUG closed|open`
 - `--org-registrations SLUG` lists pending rows
 - `--org-registration-approve SLUG MEMBER` and `--org-registration-reject SLUG MEMBER`
 - `--org-login URL` signs the service nonce from this install, with no browser
@@ -395,8 +399,8 @@ Terminal UI. All of it is styled with ratatui-lipgloss. Each screen has a toolti
 - Organizations › Template. Source and live preview, side by side. The preview uses the theme on screen.
 - Organizations › Assets.
 - Organizations › Members. Roster, invite, accept, and the fingerprint prompt.
-- Organizations › Roles. Built-in roles, custom roles, assignments. The last owner is marked and cannot be cleared from this screen.
-- Organizations › Access. The gated flag, open versus approval, the default registration role, and the pending list. Approving a pending member shows the fingerprint. Opening a code shows the org name and origin before the yes.
+- Organizations › Roles. Owner, User, and Viewer, then custom roles between Viewer and Owner. The last Owner is marked and cannot be cleared from this screen. Register default and invite default are two fields.
+- Organizations › Access. The gated flag (on for a new org), Open versus Closed, and the pending list. Approving a pending member shows the fingerprint. Opening a code shows the org name and origin before the yes.
 - A confirm modal, Cancel focused, for making something public, publishing, deleting, removing a member, gating or ungating, and a member-only export.
 
 Help topics: `orgs`, `org-posts`, `org-templates`, `org-assets`, `org-serve`, `org-service`, `org-members`, `org-roles`, `org-access`.
@@ -411,7 +415,9 @@ Organizations and posts:
 - Edit the name and description.
 - Post into the org and read it back from `--org-show`, with the org as the author.
 - Delete asks, and `--dry-run` deletes nothing.
-- A new org and a new post are private unless a flag says otherwise.
+- A new org is private and gated unless a flag says otherwise. A new post is private.
+- `--org-roles` on that org lists Owner, User, and Viewer.
+- `--org-members` lists the creator as Owner.
 
 Privacy:
 
@@ -460,27 +466,27 @@ Members and invites:
 
 Roles:
 
-- The five built-in roles exist on a new org.
-- A member cannot grant a permission they do not hold.
-- A member cannot assign themselves `owner`.
-- Removing the last owner is refused.
-- Changing the last owner's role is refused.
-- An editor can edit any post and cannot publish the org.
-- A read-only member cannot post.
-- The service path enforces the same matrix.
+- A new org has Owner, User, and Viewer, and no other built-in role.
+- The creator is the only Owner.
+- A new member gets Viewer until the org changes the default. The registration default and the invitation default can be set to different roles. Owner is refused for both.
+- A custom role must sit strictly between Viewer and Owner.
+- A User cannot assign User or Owner. An Owner can assign Owner. The last Owner cannot be removed or given another role.
+- A Viewer cannot post. A User can post, reply, and attach, and cannot archive another user's post or remove a member.
 
 Gated access. Two throwaway homes. One home owns the org and runs `serve` plus the org service on `127.0.0.1`. The other home is the Red Star app. The browser is the test client calling `serve`. Nothing contacts acp.us.
 
 - A non-member is blocked on the site, on an asset URL, on a download, on the feed, on `serve`, and on the service. The response has no post titles and no asset names.
 - Toggling `gated` off makes the public rows readable again. Toggling it on hides them. `--dry-run` changes nothing. A non-terminal refuses the toggle without `--yes`.
 - A private org stays empty on those paths when `gated` is on and when it is off.
-- Open registration: the app and the service complete the exchange, the fingerprint matches, and the new member is active with the read-only role.
-- Approval required, the default: the same exchange leaves the member pending, and a role without `invite` cannot approve them. After approval the member can read.
+- Open registration: the app and the service complete the exchange, the fingerprint matches, and the new member is active with the registration default (Viewer until changed).
+- Closed registration, the default: the same exchange leaves the member pending. A role without `invite` cannot approve them. After approval the member can read.
+- A public org that is not gated accepts a non-member post when the caller signs the service nonce with their identity key. The stored author is that key. The same caller cannot remove a member and cannot archive someone else's post. The eleventh write inside a minute is refused.
+- An Owner archive leaves the row in the database, marks it archived and private, sets custody to the Owner, and keeps the original author. A public snapshot, a serve body, an export, a feed, and a service response do not contain it. The replication record is an update, not a delete.
 - A replayed registration code is refused. An expired code is refused. A code polled or finished from a different browser session is refused.
 - Login: the app signs the nonce, the browser session that created the code receives the cookie, and a later read succeeds.
 - A replayed or expired login nonce is refused. A signature from the wrong key is refused. No session is issued.
 - After the session expires, the same cookie is anonymous again.
-- A read-only session can read a public post and cannot post.
+- A Viewer session can read a public post and cannot post.
 - The landing page and the service JSON from these scenarios do not contain a seed, a private key, or the HKDF output.
 - `--org-export` of a gated org contains the landing page only. `--org-member-export --dry-run` writes nothing.
 
@@ -493,15 +499,15 @@ Stacked draft pull requests, each based on the one above it, the first based on 
 | Version | Pull request | What a person can do |
 | --- | --- | --- |
 | none | this plan | Read the plan |
-| 3.40.0 | orgs and posts | Create, edit, and delete orgs and posts. See the org as a source. Defaults are private |
-| 3.41.0 | privacy | Public snapshot refuses every private combination. The per-org default can be switched |
+| 3.40.0 | orgs and posts | Create, edit, and delete orgs and posts. A new org is gated and private. Owner, User, and Viewer exist, and the creator is Owner |
+| 3.41.0 | privacy | Public snapshot refuses every private combination, including archived rows. The per-org default can be switched |
 | 3.42.0 | templates | Edit a template with a live preview. The default asks for Cinzel and Lora and stays white-label |
-| 3.43.0 | assets | Add media, keep it private, and use public assets in the template |
-| 3.44.0 | website | Export a static site and serve it on localhost. Public rows only |
+| 3.43.0 | assets | Add media, keep it private, and use public assets in the template. Owner removal archives an asset |
+| 3.44.0 | website | Export a static site and serve it on localhost. Public rows only. An archive is an update on the stub replication log |
 | 3.45.0 | service | Publish a manifest and endpoint. Another install adds it. Remote posts follow the role |
-| 3.46.0 | members | Identity keys, invites, fingerprints. The creator is the owner |
-| 3.47.0 | roles | Built-in and custom roles. Last-owner protection. No escalation |
-| 3.48.0 | gated access | Membership required on a public org. Register and login in the app, against the service. The browser holds a session cookie and no key |
+| 3.46.0 | members | Identity keys, invites, fingerprints. Create already recorded the Owner |
+| 3.47.0 | roles | Custom roles between Viewer and Owner. Separate register and invite defaults. Last-owner protection. No escalation |
+| 3.48.0 | gated access | Open versus Closed registration. Public and not gated: a non-member with an identity key can view, post, reply, and attach, and cannot do Owner-only actions. The browser holds a session cookie and no key |
 
 Stubs, with no version of their own, recorded as `prepared, gated:` on the release that first has somewhere to put the sentence (3.44.0 for replication, 3.46.0 for invite transport):
 
@@ -519,10 +525,10 @@ Plugin crate version stays where `main` left it. These minors are the root crate
 5. Markdown. The site writes `.md` files next to HTML and JSON. Say if `--format md` should become a third export format in the core.
 6. Whole-database `--export`. The plan leaves org posts out of a nick dump unless the export is `--org-export` or the selected source is that org, and even then only public rows are written. Say if a full dump should include public org posts automatically.
 7. Default serve port. The plan binds `127.0.0.1` and will pick a fixed port in the serve minor so tests can find it. Say if you already have a port reserved.
-8. Remote posts. A member with `post` who posts through the service creates a post at the org's default visibility. A private result is stored and is not served. Say if remote posts should be forced public, since they arrived on the public endpoint.
-9. Admin and owners. An admin cannot change an owner. Say if two owners should be able to demote each other as long as one owner remains.
+8. Remote posts on a gated org. A member who posts through the service creates a post at the org's default visibility. A private result is stored and is not served. Say if those posts should be forced public. The public ungated non-member path is the assumption in section 9, not this question.
+9. Two Owners. An Owner may change another Owner's role when one Owner remains. Say if that should be refused and only a new Owner added, never a demotion.
 10. Fonts. Cinzel and Lora are named in CSS and not vendored. Say if the default template should ship the font files.
 11. Registration and login codes last 10 minutes. The session cookie lasts 8 hours. Say if you want different lifetimes.
 12. The landing page shows the org's display name plus register and login, and nothing else. Say if the name should be hidden too.
 13. The service signs the registration exchange with a dedicated org key, created when the org is first published. Say if that signature should be the owner's personal identity key instead.
-14. Rate limit. The plan refuses a browser session after 10 registration attempts and 10 login attempts in a minute, and the org after 30 of each in a minute. Say if you want different numbers.
+14. Rate limit. The plan refuses a browser session after 10 registration attempts and 10 login attempts in a minute, and the org after 30 of each in a minute. A public ungated org also refuses the 11th non-member write from one identity in a minute. Say if you want different numbers.
