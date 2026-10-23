@@ -231,6 +231,7 @@ impl SqliteStore {
     }
     fn query(&self, where_: &str, order: &str, p: &[&dyn rusqlite::ToSql]) -> Result<Vec<Post>> {
         let Some(c) = self.conn()? else { return Ok(Vec::new()) };
+        if !crate::maintenance::table_exists(&c, "posts")? { return Ok(Vec::new()); }
         let mut st = c.prepare(&format!("SELECT {} FROM posts WHERE {where_} ORDER BY {order}", Self::cols(&c)))?;
         let v = st.query_map(p, row)?.collect::<rusqlite::Result<Vec<_>>>()?;
         Ok(v)
@@ -249,17 +250,31 @@ impl Store for SqliteStore {
         if nicks.is_empty() { return Ok(Vec::new()); }
         let want: Vec<String> = nicks.iter().map(|n| n.to_lowercase()).collect();
         let j = serde_json::to_string(&want)?;
-        self.query("lower(nick) IN (SELECT value FROM json_each(?1))", "posted_at DESC", &[&j])
+        let mut rows = self.query("lower(nick) IN (SELECT value FROM json_each(?1))", "posted_at DESC", &[&j])?;
+        if let Some(c) = self.conn()? {
+            rows.extend(crate::orgs::stored_posts(&c, crate::orgs::Audience::Owner)?.into_iter().filter(|p| want.iter().any(|n| n == &p.nick.to_lowercase())));
+            rows.sort_by(|a, b| b.posted_at.cmp(&a.posted_at));
+        }
+        Ok(rows)
     }
     fn search(&self, f: &SearchFilter) -> Result<Vec<Post>> {
         let kw = f.keyword.trim();
         let like = format!("%{}%", kw.replace('\\', "\\\\").replace('%', "\\%").replace('_', "\\_"));
         let pre = if kw.is_empty() { "1".to_string() } else { "(title LIKE ?1 ESCAPE '\\' OR content LIKE ?1 ESCAPE '\\')".into() };
-        let rows = if kw.is_empty() { self.query("1", "posted_at DESC", &[])? } else { self.query(&pre, "posted_at DESC", &[&like])? };
+        let mut rows = if kw.is_empty() { self.query("1", "posted_at DESC", &[])? } else { self.query(&pre, "posted_at DESC", &[&like])? };
+        if let Some(c) = self.conn()? {
+            rows.extend(crate::orgs::stored_posts(&c, crate::orgs::Audience::Owner)?);
+            rows.sort_by(|a, b| b.posted_at.cmp(&a.posted_at));
+        }
         Ok(rows.into_iter().filter(|p| f.matches(p)).collect())
     }
     fn post(&self, id: &str) -> Result<Option<Post>> {
-        Ok(self.query("post_id = ?1", "id", &[&id])?.into_iter().next())
+        if let Some(p) = self.query("post_id = ?1", "id", &[&id])?.into_iter().next() {
+            return Ok(Some(p));
+        }
+        if !id.starts_with("orgp-") { return Ok(None); }
+        let Some(c) = self.conn()? else { return Ok(None) };
+        crate::orgs::stored_post(&c, id)
     }
     fn replies(&self, id: &str) -> Result<Vec<Post>> {
         let Some(c) = self.conn()? else { return Ok(Vec::new()) };

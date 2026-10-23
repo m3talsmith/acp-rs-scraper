@@ -121,6 +121,7 @@ pub fn job_label(kind: JobKind) -> &'static str {
         JobKind::Sync => "Sync",
         JobKind::Research => "Research",
         JobKind::Read => "Read",
+        JobKind::Org => "Organization",
     }
 }
 
@@ -138,6 +139,9 @@ pub fn job_source(kind: JobKind, cmd: &str) -> String {
     if has("--top") { return "Site Top".into(); }
     if has("--sync") || has("--sync-bookmarks") { return "Sync".into(); }
     if has("--research") || has("--research-add") || has("--research-create") { return "Research".into(); }
+    if has("--org-list") || has("--org-create") || has("--org-edit") || has("--org-delete") || has("--org-show") || has("--org-post") {
+        return "Organizations".into();
+    }
     if has("--bookmark") || has("--unbookmark") { return "Bookmarks".into(); }
     if has("--export") { return "Export".into(); }
     if has("--import") { return "Import".into(); }

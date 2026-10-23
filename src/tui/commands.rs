@@ -38,7 +38,7 @@ pub enum CommandId {
     Search,
     /// New post, Reply, and Quote.
     Compose,
-    /// Export, Import, Basket, List, and Maintain.
+    /// Export, Import, Basket, List, Maintain, and Organizations.
     Library,
     /// People, nodes, and rooms. A stub until the network node.
     Discover,
@@ -52,6 +52,8 @@ pub enum CommandId {
     List,
     /// Remove nicks / clear everything.
     Maintain,
+    /// Local organizations. Tucked under Library.
+    Organizations,
     /// Login / logout. The bar label is Account.
     Session,
     /// Bookmarks: show, toggle, sync.
@@ -215,6 +217,18 @@ pub enum Action {
     ToggleNicks,
     /// Collapse or open the action history bar.
     ToggleActions,
+    /// Library › Organizations › List.
+    OrgList,
+    /// Library › Organizations › Create.
+    OrgCreate,
+    /// Library › Organizations › Show.
+    OrgShow,
+    /// Library › Organizations › Save.
+    OrgSave,
+    /// Library › Organizations › Delete. Asks first. Cancel is the default.
+    OrgDelete,
+    /// Library › Organizations › Post.
+    OrgPost,
 }
 
 /// What a research add takes from (one `--research-add` source).
@@ -438,6 +452,28 @@ fn library_item() -> MenuCommand {
         opt("basket", "Basket", "", false, button(Action::OpenMenu(Basket))),
         opt("list", "List", "", false, button(Action::OpenMenu(List))),
         opt("maintain", "Maintain", "", false, button(Action::OpenMenu(Maintain))),
+        opt("orgs", "Organizations", "", false, button(Action::OpenMenu(Organizations))),
+    ])
+}
+
+const ORG_VIS: &[&str] = &["Leave", "Private", "Public"];
+
+fn organizations_item() -> MenuCommand {
+    tucked(CommandId::Organizations, "Organizations", 'z', vec![
+        opt("slug", "Slug", "--org-create / --org-show", true, text("")),
+        opt("name", "Name", "--org-name", false, text("")),
+        opt("description", "Description", "--org-description", false, text("")),
+        opt("visibility", "Visibility", "--org-visibility", false, choice(ORG_VIS)),
+        opt("default_visibility", "Default post visibility", "--org-default-visibility", false, choice(ORG_VIS)),
+        opt("title", "Post title", "--org-title", false, text("")),
+        opt("body", "Post body", "--body", false, text("")),
+        opt("post_visibility", "Post visibility", "--org-post-visibility", false, choice(ORG_VIS)),
+        opt("list", "List", "--org-list", false, button(Action::OrgList)),
+        opt("create", "Create", "--org-create", false, button(Action::OrgCreate)),
+        opt("show", "Show", "--org-show", false, button(Action::OrgShow)),
+        opt("save", "Save", "--org-edit", false, button(Action::OrgSave)),
+        opt("delete", "Delete", "--org-delete", false, button(Action::OrgDelete)),
+        opt("post", "Post", "--org-post", false, button(Action::OrgPost)),
     ])
 }
 
@@ -592,6 +628,7 @@ pub fn command_topic(id: CommandId) -> &'static str {
         CommandId::Import => "import",
         CommandId::List => "list",
         CommandId::Maintain => "maintain",
+        CommandId::Organizations => "orgs",
         CommandId::Session => "account",
         CommandId::Bookmarks => "bookmark",
         CommandId::Research => "research",
@@ -617,6 +654,7 @@ pub fn option_topic(id: CommandId, key: &str) -> Option<&'static str> {
         (CommandId::Session, "logout") => Some("account"),
         (CommandId::Search, "site") | (CommandId::Search, "run") | (CommandId::Search, "clear") => Some("search"),
         (CommandId::Discover, _) => Some("discover"),
+        (CommandId::Organizations, _) => Some("orgs"),
         (CommandId::View, "nested" | "stack" | "pane" | "carousel_inf" | "carousel" | "grid") => Some("layout"),
         (CommandId::View, "notifications") => Some("notifications"),
         (CommandId::Scrape, "whole_site") | (CommandId::Scrape, "budget") | (CommandId::Sync, "whole_site") => Some("whole-site"),
@@ -655,6 +693,7 @@ impl Menu {
             basket_item(),
             list_item(),
             maintain_item(),
+            organizations_item(),
         ];
         let mut menu = Menu { items };
         menu.fill_help_topics();
@@ -1019,6 +1058,102 @@ impl Menu {
             limit,
             ..SearchFilter::default()
         })
+    }
+
+    fn org_slug(&self) -> std::result::Result<String, String> {
+        let slug = self.text(CommandId::Organizations, "slug");
+        if slug.is_empty() { return Err("type a slug".into()); }
+        Ok(slug)
+    }
+
+    fn org_vis_flag(choice: &str) -> Option<&'static str> {
+        match choice {
+            "Private" => Some("private"),
+            "Public" => Some("public"),
+            _ => None,
+        }
+    }
+
+    fn org_push_vis(v: &mut Vec<String>, flag: &str, choice: &str) {
+        if let Some(value) = Self::org_vis_flag(choice) {
+            v.push(flag.into());
+            v.push(value.into());
+        }
+    }
+
+    /// argv for Organizations › List.
+    pub fn org_list_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--org-list".into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Organizations › Show.
+    pub fn org_show_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--org-show".into(), self.org_slug()?];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Organizations › Create. `confirm` adds `--yes` after the modal.
+    pub fn org_create_argv(&self, confirm: bool) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Organizations as O;
+        let mut v = vec![ARGV0.to_string(), "--org-create".into(), self.org_slug()?];
+        let name = self.text(O, "name");
+        if !name.is_empty() { v.extend(["--org-name".into(), name]); }
+        let description = self.text(O, "description");
+        if !description.is_empty() { v.extend(["--org-description".into(), description]); }
+        Self::org_push_vis(&mut v, "--org-visibility", self.choice(O, "visibility"));
+        Self::org_push_vis(&mut v, "--org-default-visibility", self.choice(O, "default_visibility"));
+        if confirm { v.push("--yes".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Organizations › Save.
+    pub fn org_edit_argv(&self, confirm: bool) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Organizations as O;
+        let mut v = vec![ARGV0.to_string(), "--org-edit".into(), self.org_slug()?];
+        let name = self.text(O, "name");
+        let description = self.text(O, "description");
+        let has_text = !name.is_empty() || !description.is_empty();
+        if !name.is_empty() { v.extend(["--org-name".into(), name]); }
+        if !description.is_empty() { v.extend(["--org-description".into(), description]); }
+        let before = v.len();
+        Self::org_push_vis(&mut v, "--org-visibility", self.choice(O, "visibility"));
+        Self::org_push_vis(&mut v, "--org-default-visibility", self.choice(O, "default_visibility"));
+        if v.len() == before && !has_text {
+            return Err("Save needs a name, a description, or a visibility".into());
+        }
+        if confirm { v.push("--yes".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Organizations › Delete. The TUI confirms first, then passes `--yes`.
+    pub fn org_delete_argv(&self) -> std::result::Result<Vec<String>, String> {
+        let mut v = vec![ARGV0.to_string(), "--org-delete".into(), self.org_slug()?, "--yes".into()];
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// argv for Organizations › Post.
+    pub fn org_post_argv(&self, confirm: bool) -> std::result::Result<Vec<String>, String> {
+        use CommandId::Organizations as O;
+        let title = self.text(O, "title");
+        if title.is_empty() { return Err("Post needs a title".into()); }
+        let mut v = vec![ARGV0.to_string(), "--org-post".into(), self.org_slug()?, "--org-title".into(), title];
+        let body = self.text(O, "body");
+        if !body.is_empty() { v.extend(["--body".into(), body]); }
+        Self::org_push_vis(&mut v, "--org-post-visibility", self.choice(O, "post_visibility"));
+        if confirm { v.push("--yes".into()); }
+        v.extend(self.debug_args());
+        validate(v)
+    }
+
+    /// True when this visibility choice would expose content.
+    pub fn org_choice_public(&self, key: &str) -> bool {
+        self.choice(CommandId::Organizations, key) == "Public"
     }
 }
 

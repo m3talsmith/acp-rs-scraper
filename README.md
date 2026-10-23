@@ -1,6 +1,6 @@
 ![ACP Red Star: archive, search and share Red Star posts from acp.us/rs](assets/banner-red-star.jpg)
 
-**Current version: 3.39.2** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
+**Current version: 3.40.1** · [Changelog](CHANGELOG.md) · License: GPL-3.0-or-later · MSRV: Rust 1.88 (`rust-toolchain.toml`; rustc 1.85 fails with E0658)
 
 # acp-red-star
 
@@ -23,9 +23,9 @@ Rust 2024 terminal app and CLI. Run it with no flags for a terminal UI that brow
 - **After encryption.** That password is not the master key. The master key is a 24-word recovery phrase. When encryption finishes on a terminal, the app explains the phrase, the 5 shares (any 3 rebuild it), and how to restore, and it offers to create the phrase then. Show it again later with `acp-red-star --show-phrase` (it asks for the password and can clear the terminal). The same text is in `--help` and in the terminal UI Help topic `recovery`. `?` opens the key list.
 - **Roll back.** Before `--encrypt-db` succeeds, install a 2.x binary and keep using the plaintext file. If the command fails, that file is left in place. After it succeeds, put the copy you saved back over `rs.database`, remove `rs.database.bootstrap`, and run 2.x. `--restore` reads a `*.acpbackup` only in 3.0.0.
 
-The header of the terminal UI shows `v3.39.2`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
+The header of the terminal UI shows `v3.40.1`. Details are in [CHANGELOG.md](CHANGELOG.md) and [docs/USAGE.md](docs/USAGE.md).
 
-**3.39.2** drops the word beside the header logo, so the bar reads logo, then title. A space stays before `‹red-star›`. **3.39.1** opens a menu category on the row under the bar. The bar stays visible. **3.39.0** restyles the built-in `red-star` theme to the Rebel Hold teal-to-blue watercolor. The halberd and the word RED STAR run from teal to blue. The motto stays "Research starts here." **3.38.1** shows the Red Star brand's title as "Red Star". **3.38.0** draws the Red Star header mark as the star-blade halberd, with the word RED STAR in the theme's accent colours. **3.37.0** sets the built-in Red Star motto to "Research starts here." **3.36.0** puts the logo, the title, and the motto on the theme. Shift-F5 shows the editor and a live preview side by side; the preview follows branding and colours. **3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file. **3.35.14** asks about a pending recovery phrase in the terminal UI. Not now is the default.
+**3.40.1** lets a public organization that is not gated accept a write from any client. No identity stores the author as anonymous. A signed identity is a verified author. A gated organization rejects both. **3.40.0** adds a local organization as a source. Create, edit, delete, and post stay on this machine. A new organization is gated and private, registration starts Closed, and the creator is the Owner beside the User and Viewer roles. The slug is the author. Making it public asks first, and Cancel is the default. Library › Organizations opens the same commands. **3.39.2** drops the word beside the header logo, so the bar reads logo, then title. A space stays before `‹red-star›`. **3.39.1** opens a menu category on the row under the bar. The bar stays visible. **3.39.0** restyles the built-in `red-star` theme to the Rebel Hold teal-to-blue watercolor. The halberd and the word RED STAR run from teal to blue. The motto stays "Research starts here." **3.38.1** shows the Red Star brand's title as "Red Star". **3.38.0** draws the Red Star header mark as the star-blade halberd, with the word RED STAR in the theme's accent colours. **3.37.0** sets the built-in Red Star motto to "Research starts here." **3.36.0** puts the logo, the title, and the motto on the theme. Shift-F5 shows the editor and a live preview side by side; the preview follows branding and colours. **3.35.2** stops Explore after 12 seconds when a LiveView reply never comes, and stores nothing. **3.35.3** collapses the nick bar from ‹, the cells beside it, or the bar's right edge. **3.35.4** uses ordinary names and text in the theme editor's sample preview. **3.35.5** draws that preview with the brand that is on screen, so a neutral brand does not show the ACP header. **3.35.6** lets Help search keep j and k. **3.35.7** sorts a thread's stored replies without opening login. **3.35.8** lets a neutral brand leave out the ACP wording. The ACP brand keeps it, including the sample posts in the theme preview. **3.35.9** opens `?` on the key list. The recovery phrase is the Help topic `recovery`. **3.35.10** finds a layout topic when Help is searched for layout. **3.35.11** renders Markdown in an HTML export. **3.35.12** shows a research file as `~/…` or a relative path. **3.35.13** leaves an earlier basket export in place and writes a new file. **3.35.14** asks about a pending recovery phrase in the terminal UI. Not now is the default.
 
 **3.35.0** makes the logo, the title, and the motto a brand. The built-in default is still ACP Red Star. `acp-red-star --brand plain` is the title Red Star, a star, and no motto, for a demo that should not show ACP. `[ui] brand = "plain"` in `~/.acp/preferences.toml` keeps that choice. A file in `~/.acp/brands/` overrides a built-in. The theme stays a separate choice.
 
@@ -49,7 +49,7 @@ The header of the terminal UI shows `v3.39.2`. Details are in [CHANGELOG.md](CHA
 
 ## Install
 
-Source install uses `scripts/install.sh`. Every install builds from source. You need Rust 1.88 or newer (`rust-toolchain.toml` pins 1.88.0). rustc 1.85 cannot build this crate: edition 2024 is old enough, but a dependency uses let-chains and fails with `E0658`. The installer offers rustup if Rust is missing or too old. Binaries and alphas, once a release publishes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. This page links that index. An asset URL is added only after the file is published. An alpha, and separate server and relay installs, wait until writes and replies with attachments work and the decentralized network work is done. The server and the relay also stay options inside the app ([plan](architecture/PLAN-3.0-CLIENT.md)).
+Source install uses `scripts/install.sh`. Every install builds from source. You need Rust 1.88 or newer (`rust-toolchain.toml` pins 1.88.0). rustc 1.85 cannot build this crate: edition 2024 is old enough, but a dependency uses let-chains and fails with `E0658`. The installer offers rustup if Rust is missing or too old. Binaries and alphas, once a release publishes them, are on the [GitHub Releases](https://github.com/m3talsmith/acp-rs-scraper/releases) page. This page links that index. An asset URL is added only after the file is published. An alpha, and separate server and relay installs, wait until writes and replies with attachments work and the decentralized network work is done. The server and the relay also stay options inside the app ([plan](architecture/PLAN-3.0-CLIENT.md)). Organizations, a local source and a website, including gated membership, are planned in [architecture/PLAN-ORGANIZATIONS.md](architecture/PLAN-ORGANIZATIONS.md).
 
 ```sh
 git clone https://github.com/m3talsmith/acp-rs-scraper.git
@@ -161,7 +161,7 @@ Writing:
           [possible values: 1, 0, -1]
 
       --body <MARKDOWN>
-          Markdown body for `--new-post`, `--reply`, or `--edit`
+          Markdown body for `--new-post`, `--reply`, `--edit`, or `--org-post`
 
       --body-file <PATH>
           Read the Markdown body from a file
@@ -377,6 +377,49 @@ Sync:
       --no-bookmarks
           With --sync: skip the bookmark sync
 
+Organizations:
+      --org-list
+          Offline: list organizations. The slug is the source nick
+
+      --org-create <SLUG>
+          Offline: create an organization. It starts gated and private. The creator is the Owner. The slug is the author nick on its posts
+
+      --org-name <TEXT>
+          Display name for `--org-create` or `--org-edit`. Defaults to the slug on create
+
+      --org-description <TEXT>
+          Description for `--org-create` or `--org-edit`
+
+      --org-edit <SLUG>
+          Offline: change an organization's name, description, visibility, or default post visibility
+
+      --org-delete <SLUG>
+          Offline: delete an organization and its posts. Asks first. Cancel is the default
+
+      --org-show <SLUG>
+          Offline: show an organization, including private posts. This is the owner's copy, not a public page
+
+      --org-roles <SLUG>
+          Offline: list the roles. A new organization has Owner, User, and Viewer
+
+      --org-members <SLUG>
+          Offline: list members. The creator is an active Owner
+
+      --org-post <SLUG>
+          Offline: store a post in an organization. The org is the author. Private unless `--org-post-visibility` says otherwise
+
+      --org-title <TEXT>
+          Title for `--org-post`
+
+      --org-visibility <private|public>
+          `private` or `public` for `--org-create` or `--org-edit`. Public asks first. Cancel is the default
+
+      --org-default-visibility <private|public>
+          Default visibility for posts created after this. Does not rewrite posts already stored. Public asks first
+
+      --org-post-visibility <private|public>
+          Visibility of this `--org-post` only. Omit it and the org's default is copied. Public asks first
+
 Research:
       --research-list
           Offline: list research projects (name, items, created, description); --format json for JSON
@@ -588,6 +631,8 @@ Examples:
   acp-red-star --export all.json
   acp-red-star --export strike.tar.gz --search strike --compress --tar-gz --name strike
   acp-red-star --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
+  acp-red-star --org-create hold --org-name "Rebel Hold"
+  acp-red-star --org-post hold --org-title Notes --body "local only"
   acp-red-star --research-create strike --research-description "1877 and after"
   acp-red-star --research-add strike --post-ids A1B2C3D4 --note "key source"
   acp-red-star --research-add strike --url https://example.org/article
@@ -639,7 +684,7 @@ headless scrape is now `--scrape`.
 +--------------------------------------------------------------+
 |  🬵🬍🬂🬂🬌🬱                                                      |  header (4 rows): logo,
 | 🬻🬀🬭🬷🬲🬭🬁🬺                                                      |  then the title,
-| 🬬🬏🬞🬝🬬🬏🬞🬝  Red Star  v3.39.2 ‹red-star› ▾                    |  space before the marker,
+| 🬬🬏🬞🬝🬬🬏🬞🬝  Red Star  v3.40.1 ‹red-star› ▾                    |  space before the marker,
 |  🬊🬩🬭🬭🬚🬆                                                      |  running job
 | View │ Search │ … │ About │ Quit    Scrape ▶ Start Scanning |  menu bar
 | Nicks (390)  | @hazaldin  223 posts  · detail 2/8            |

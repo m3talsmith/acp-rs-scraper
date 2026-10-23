@@ -164,7 +164,7 @@ fn bar_categories_pin_scrape_and_tuck_library_children() {
     let labels: Vec<_> = m.bar_indices().iter().map(|&i| m.items[i].label).collect();
     assert_eq!(labels, ["View", "Search", "Compose", "Library", "Bookmarks", "Research", "Sync", "Discover", "Account", "Debug", "Help", "About", "Quit", "Scrape"]);
     let tucked: Vec<_> = m.items.iter().filter(|c| !c.on_bar).map(|c| c.id).collect();
-    assert_eq!(tucked, [Export, Import, Basket, List, Maintain]);
+    assert_eq!(tucked, [Export, Import, Basket, List, Maintain, Organizations]);
     assert!(m.get(Scrape).pin_right);
     assert_eq!(m.bar_by_hint('x'), None);
     assert_eq!(m.bar_by_hint('S').map(|i| m.items[i].id), Some(Scrape));
@@ -234,4 +234,31 @@ fn tab_completes_an_export_path() {
 #[test]
 fn shell_line_quotes() {
     assert_eq!(shell_line(&["a".into(), "b c".into(), "it's".into()]), "a 'b c' 'it'\\''s'");
+}
+
+#[test]
+fn organization_commands_stay_headless_and_delete_asks() {
+    use crate::tui::jobs::JobKind;
+    use crate::tui::modals::Modal;
+    use crate::tui::state::Effect;
+    assert!(!parse_with_mode(["x", "--org-list"]).unwrap().1);
+    let mut created = app();
+    created.menu.menu.set_text(CommandId::Organizations, "slug", "hold");
+    created.act(Action::OrgCreate);
+    assert!(created.modal.is_none());
+    let Some(Effect::RunSideJob(JobKind::Org, argv)) = created.effects.last() else { panic!("{:?}", created.effects) };
+    assert!(argv.iter().any(|s| s == "--org-create"));
+    assert!(!argv.iter().any(|s| s == "--yes"));
+    let mut exposed = app();
+    exposed.menu.menu.set_text(CommandId::Organizations, "slug", "hold");
+    exposed.menu.menu.set_choice(CommandId::Organizations, "visibility", "Public");
+    exposed.act(Action::OrgCreate);
+    let Some(Modal::Confirm(c)) = &exposed.modal else { panic!("{:?}", exposed.modal) };
+    assert_eq!(c.focus, 1, "Cancel is the default");
+    let mut deleted = app();
+    deleted.menu.menu.set_text(CommandId::Organizations, "slug", "hold");
+    deleted.act(Action::OrgDelete);
+    let Some(Modal::Confirm(c)) = &deleted.modal else { panic!("{:?}", deleted.modal) };
+    assert_eq!(c.focus, 1);
+    assert!(c.buttons.last().is_some_and(|b| b == "Cancel"));
 }

@@ -108,6 +108,7 @@ pub fn list_nicks_conn(c: &Connection) -> Result<Vec<NickInfo>> {
             e.scraped_at = sa;
         }
     }
+    crate::orgs::merge_nicks(c, &mut map)?;
     let mut v: Vec<_> = map.into_values().collect();
     v.sort_by_key(|a| a.nick.to_lowercase());
     Ok(v)

@@ -40,6 +40,8 @@ Examples:
   acp-red-star --export all.json
   acp-red-star --export strike.tar.gz --search strike --compress --tar-gz --name strike
   acp-red-star --export picked.html --format html --post-ids A1B2C3D4,E5F6G7H8
+  acp-red-star --org-create hold --org-name \"Rebel Hold\"
+  acp-red-star --org-post hold --org-title Notes --body \"local only\"
   acp-red-star --research-create strike --research-description \"1877 and after\"
   acp-red-star --research-add strike --post-ids A1B2C3D4 --note \"key source\"
   acp-red-star --research-add strike --url https://example.org/article
@@ -110,17 +112,24 @@ acp-red-star --backup-schedule weekly --keep 4 --dest ~/backups
 #[command(group(clap::ArgGroup::new("mode").multiple(false)))]
 #[command(group(clap::ArgGroup::new("maint").args(["remove_nick", "clear_all"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("research").args(["research_list", "research_create", "research_add", "research_show", "research_export"]).multiple(false)))]
+#[command(group(clap::ArgGroup::new("orgs").args(["org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_post"]).multiple(false).conflicts_with_all([
+    "nick", "nicks", "search", "export", "import", "post_ids", "scrape", "scrape_all", "list_nicks",
+    "remove_nick", "clear_all", "research_list", "research_create", "research_add", "research_show", "research_export",
+    "sync", "new_post", "reply", "bookmark", "logout",
+])))]
 #[command(group(clap::ArgGroup::new("rules").args(["rules_list", "rules_show", "rules_enable", "rules_disable", "rules_clone", "rules_delete", "rules_priority", "rules_import", "rules_export", "rules_preview", "rules_watch", "rules_saved", "rules_replies"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("share_action").args(["shares_print", "shares_verify"]).multiple(false)))]
-#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "outbox_send"]).multiple(true)))]
+#[command(group(clap::ArgGroup::new("confirmable").args(["remove_nick", "clear_all", "new_post", "reply", "vote", "subscribe", "delete", "edit", "repost", "outbox_send", "org_create", "org_edit", "org_delete", "org_post"]).multiple(true)))]
 #[command(group(clap::ArgGroup::new("outbox").args(["draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false)))]
 #[command(group(clap::ArgGroup::new("writing").args(["new_post", "reply", "capture_reply", "vote", "subscribe", "delete", "edit", "repost", "draft_save", "draft_list", "outbox_list", "outbox_queue", "outbox_send", "outbox_cancel"]).multiple(false).conflicts_with_all([
     "remove_nick", "clear_all", "scrape", "scrape_all", "nick", "nicks", "logout", "sync", "sync_bookmarks",
+    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_post",
 ])))]
 #[command(group(clap::ArgGroup::new("reading").args(["top", "eb", "explore", "explore_latest", "site_search", "tag", "sort_thread", "reposts", "edits"]).multiple(false).conflicts_with("writing").conflicts_with_all([
     "nick", "nicks", "scrape", "scrape_all", "latest", "trending", "search", "export", "import", "sync", "sync_bookmarks",
     "list_nicks", "remove_nick", "clear_all", "bookmark", "unbookmark", "list_bookmarks", "refetch_truncated",
     "logout", "post_ids", "research_list", "research_create", "research_add", "research_show", "research_export",
+    "org_list", "org_create", "org_edit", "org_delete", "org_show", "org_roles", "org_members", "org_post",
 ])))]
 /// Command-line arguments (see `--help`).
 pub struct Args {
@@ -200,7 +209,7 @@ pub struct Args {
     /// With `--vote`. `1`, `0`, or `-1`.
     #[arg(long, value_name = "STATE", requires = "vote", value_parser = ["1", "0", "-1"], help_heading = "Writing")]
     pub vote_state: Option<String>,
-    /// Markdown body for `--new-post`, `--reply`, or `--edit`.
+    /// Markdown body for `--new-post`, `--reply`, `--edit`, or `--org-post`.
     #[arg(long, value_name = "MARKDOWN", help_heading = "Writing")]
     pub body: Option<String>,
     /// Read the Markdown body from a file.
@@ -413,6 +422,48 @@ pub struct Args {
     /// With --sync: skip the bookmark sync.
     #[arg(long, help_heading = "Sync", requires = "sync")]
     pub no_bookmarks: bool,
+    /// Offline: list organizations. The slug is the source nick.
+    #[arg(long, help_heading = "Organizations")]
+    pub org_list: bool,
+    /// Offline: create an organization. It starts gated and private. The creator is the Owner. The slug is the author nick on its posts.
+    #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
+    pub org_create: Option<String>,
+    /// Display name for `--org-create` or `--org-edit`. Defaults to the slug on create.
+    #[arg(long, value_name = "TEXT", help_heading = "Organizations")]
+    pub org_name: Option<String>,
+    /// Description for `--org-create` or `--org-edit`.
+    #[arg(long, value_name = "TEXT", help_heading = "Organizations")]
+    pub org_description: Option<String>,
+    /// Offline: change an organization's name, description, visibility, or default post visibility.
+    #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
+    pub org_edit: Option<String>,
+    /// Offline: delete an organization and its posts. Asks first. Cancel is the default.
+    #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
+    pub org_delete: Option<String>,
+    /// Offline: show an organization, including private posts. This is the owner's copy, not a public page.
+    #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
+    pub org_show: Option<String>,
+    /// Offline: list the roles. A new organization has Owner, User, and Viewer.
+    #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
+    pub org_roles: Option<String>,
+    /// Offline: list members. The creator is an active Owner.
+    #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
+    pub org_members: Option<String>,
+    /// Offline: store a post in an organization. The org is the author. Private unless `--org-post-visibility` says otherwise.
+    #[arg(long, value_name = "SLUG", help_heading = "Organizations")]
+    pub org_post: Option<String>,
+    /// Title for `--org-post`.
+    #[arg(long, value_name = "TEXT", help_heading = "Organizations")]
+    pub org_title: Option<String>,
+    /// `private` or `public` for `--org-create` or `--org-edit`. Public asks first. Cancel is the default.
+    #[arg(long, value_name = "private|public", help_heading = "Organizations")]
+    pub org_visibility: Option<String>,
+    /// Default visibility for posts created after this. Does not rewrite posts already stored. Public asks first.
+    #[arg(long, value_name = "private|public", help_heading = "Organizations")]
+    pub org_default_visibility: Option<String>,
+    /// Visibility of this `--org-post` only. Omit it and the org's default is copied. Public asks first.
+    #[arg(long, value_name = "private|public", help_heading = "Organizations")]
+    pub org_post_visibility: Option<String>,
     /// Offline: list research projects (name, items, created, description); --format json for JSON.
     #[arg(long, help_heading = "Research", conflicts_with_all = ["nick", "nicks", "search", "export", "import", "post_ids"])]
     pub research_list: bool,

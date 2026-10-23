@@ -103,9 +103,10 @@ The workspace members are `acp-red-star` (repository root, the terminal client a
   | View | Nested / Stack / Stack + content pane / Carousel (infinite) / Carousel (fixed) / Grid; Order; Nick order; Nick limit; Colour; ◂ Previous post / Next post ▸ (TUI only) |
   | Sync | `--sync` `--nicks` (field, else selection) `--no-mentions` `--no-bookmarks`; Whole site is `acprs --sync --scrape-all` (incremental, then rules); on a timer when Auto sync is ticked; Rules… (`--rules-list`) |
   | Research | `--research-add NAME` with `--post-ids` / `--search [--nicks]` / `--file` / `--url`, `--note`, `--research-description`; `--research-create`; Show = the project's items; Export project = `--research-export NAME --export PATH --format [--compress --tar-gz]` |
+  | Organizations | `--org-list`, `--org-create`, `--org-show`, `--org-edit`, `--org-delete`, `--org-post`. Public choices and Delete ask first; Cancel is the default |
   | Debug | `-v` / `--debug` / `--enable-logging` added to every job |
 
-  The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, then Help, About, and Quit, with Scrape immediately left of Start Scanning. Library opens Export, Import, Basket, List, and Maintain. Bookmarks is its own menu: Show, Bookmark current, and Sync with acp.us. Account is Log in and Log out. Search keeps local and site search. Search › History re-runs a past query, Clear history deletes those rows and the action branches, and History kept is blank by default, which keeps every search. A number there is an optional cap. Sync keeps the local copy up to date (site sync, auto-sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is its own minor and is not part of 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
+  The bar is View, Search, Compose, Library, Bookmarks, Research, Sync, Discover, Account, and Debug, then Help, About, and Quit, with Scrape immediately left of Start Scanning. Library opens Export, Import, Basket, List, Maintain, and Organizations. Bookmarks is its own menu: Show, Bookmark current, and Sync with acp.us. Account is Log in and Log out. Search keeps local and site search. Search › History re-runs a past query, Clear history deletes those rows and the action branches, and History kept is blank by default, which keeps every search. A number there is an optional cap. Sync keeps the local copy up to date (site sync, auto-sync, and later peer replication). Discover finds people, nodes, and rooms, and stays a separate menu. That layout is its own minor and is not part of 3.5.0. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.2.
 
   Hover a button, menu item, or icon (the star, the basket, the research ◈, and the rest) and a short explanation appears, including its key when it has one, as in `Bookmark (b)`. The next line is `? {topic}` and opens the Help topic for that action. Bookmark, the basket, and research do not open the same page. See [architecture/PLAN-3.0-CLIENT.md](../architecture/PLAN-3.0-CLIENT.md) §4.3.
 
@@ -569,6 +570,26 @@ with `state` `"1"` or `"0"`, which is what the current page sends.
 | `--research-show NAME` | List a project's items (`--format json` for the export's `research` section). |
 | `--research-export NAME` | With `--export FILE`: the project's posts (with attachments) plus a `research` section in JSON / HTML; `--compress --tar-gz` bundles the files and snapshots. |
 
+### Organizations (offline)
+
+An organization is a local source. It does not need a service. A new organization is gated and private, and registration starts Closed. Creating it adds Owner, User, and Viewer. The creator is the active Owner. The slug is the author nick. Making the organization, its default for new posts, or one post public asks first. Cancel is the default. Gating stays on until a later command changes it. `--dry-run` prints the change and writes nothing. `--yes` confirms when stdin is not a terminal. `--org-show` and the nick bar include private rows. That is the owner's copy, not a public page.
+
+| Flag | What it does |
+|---|---|
+| `--org-list` | List organizations. |
+| `--org-create SLUG` | Create one. `--org-name` and `--org-description` are optional. The name defaults to the slug. |
+| `--org-edit SLUG` | Change the name, description, `--org-visibility`, or `--org-default-visibility`. The default does not rewrite posts already stored. |
+| `--org-delete SLUG` | Delete the organization and its posts. Asks first. |
+| `--org-show SLUG` | Show the organization and every post, including private ones. |
+| `--org-roles SLUG` | List roles. A new organization has Owner, User, and Viewer. |
+| `--org-members SLUG` | List members. The creator is an active Owner. |
+| `--org-post SLUG` | Store a post. Requires `--org-title`. The body is `--body` or `--body-file`. `--org-post-visibility` overrides the org default for this post only. |
+| `--org-visibility private\|public` | With create or edit. |
+| `--org-default-visibility private\|public` | With create or edit. |
+| `--org-post-visibility private\|public` | With `--org-post`. |
+
+Library › Organizations builds the same flags. Delete, and any Public choice, ask in the terminal UI first. Cancel is focused.
+
 ### Sync
 
 | Flag | What it does |
@@ -791,6 +812,49 @@ CREATE TABLE bookmarks (          -- 2.1.0; created on first use
   remote INTEGER NOT NULL DEFAULT 0,   -- the site has it too
   deleted INTEGER NOT NULL DEFAULT 0   -- removed locally, still to be removed on the site
 );
+CREATE TABLE organizations (      -- 3.40.0; created on first organization write
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  slug TEXT NOT NULL UNIQUE COLLATE NOCASE,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  visibility TEXT NOT NULL DEFAULT 'private',
+  default_post_visibility TEXT NOT NULL DEFAULT 'private',
+  gated INTEGER NOT NULL DEFAULT 1,
+  registration TEXT NOT NULL DEFAULT 'closed',
+  default_register_role TEXT NOT NULL DEFAULT 'Viewer',
+  default_invite_role TEXT NOT NULL DEFAULT 'Viewer',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE org_posts (          -- the organization slug is the author nick
+  id TEXT PRIMARY KEY,            -- orgp- plus 16 hex characters
+  org_id INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  visibility TEXT NOT NULL,
+  author_identity TEXT NOT NULL,  -- a public key, or anonymous when the client did not sign
+  custodian_identity TEXT NOT NULL,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE TABLE org_roles (          -- Owner, User, and Viewer are created with the org
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  org_id INTEGER NOT NULL,
+  name TEXT NOT NULL,
+  permissions TEXT NOT NULL,
+  builtin INTEGER NOT NULL DEFAULT 0,
+  rank INTEGER NOT NULL
+);
+CREATE TABLE org_members (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  org_id INTEGER NOT NULL,
+  identity_pub TEXT NOT NULL,
+  role_id INTEGER NOT NULL,
+  status TEXT NOT NULL,           -- active or pending
+  added_at TEXT NOT NULL
+);
+
 CREATE TABLE profiles (           -- upserted on every scrape
   nick TEXT PRIMARY KEY,
   user_id TEXT, display_name TEXT, bio TEXT,

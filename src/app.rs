@@ -305,6 +305,9 @@ pub async fn run() -> Result<()> {
     if crate::rules::cli_requested(&args) {
         return crate::rules::run_cli(&args);
     }
+    if crate::orgs::cli::cli_requested(&args) {
+        return crate::orgs::cli::run_cli(&args);
+    }
     if args.research_list || args.research_create.is_some() || args.research_add.is_some() || args.research_show.is_some() || args.research_export.is_some() {
         return run_research(&args).await;
     }
