@@ -164,7 +164,7 @@ fn bar_categories_pin_scrape_and_tuck_library_children() {
     let labels: Vec<_> = m.bar_indices().iter().map(|&i| m.items[i].label).collect();
     assert_eq!(labels, ["View", "Search", "Compose", "Library", "Bookmarks", "Research", "Sync", "Discover", "Account", "Debug", "Help", "About", "Quit", "Scrape"]);
     let tucked: Vec<_> = m.items.iter().filter(|c| !c.on_bar).map(|c| c.id).collect();
-    assert_eq!(tucked, [Export, Import, Basket, List, Maintain]);
+    assert_eq!(tucked, [Export, Import, Basket, List, Maintain, Feeds]);
     assert!(m.get(Scrape).pin_right);
     assert_eq!(m.bar_by_hint('x'), None);
     assert_eq!(m.bar_by_hint('S').map(|i| m.items[i].id), Some(Scrape));

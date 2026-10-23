@@ -435,6 +435,7 @@ These are grouped the same way as `--help`. `-h`/`--help` prints help and `-V`/`
 | `--plugins-reload` | Unload installed packages, then load every archive in `~/.acp/plugins` that passes the sha256 gate. An ABI or plugin-crate mismatch is refused and the archive stays. A bad archive is quarantined and is not opened. |
 | `--services` | List linked services. `redstar` is reserved and on when `~/.acp/services/redstar.toml` is missing. Secret values are not printed. |
 | `--x-read` | Prepared read of one X handle. Does not connect. Nothing is fetched. |
+| `--youtube-read` | Prepared read of one YouTube channel or video. Does not connect and does not spawn yt-dlp. Nothing is fetched. |
 
 ### Mode
 

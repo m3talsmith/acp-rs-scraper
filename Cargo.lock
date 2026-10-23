@@ -4,10 +4,11 @@ version = 4
 
 [[package]]
 name = "acp-red-star"
-version = "3.54.0"
+version = "3.55.0"
 dependencies = [
  "acp_red_star_node_core",
  "acp_red_star_service_x",
+ "acp_red_star_service_youtube",
  "acp_rs_fixture",
  "acp_rs_fixture_mismatch",
  "acp_rs_fixture_next",
@@ -87,6 +88,13 @@ dependencies = [
 [[package]]
 name = "acp_red_star_service_x"
 version = "3.54.0"
+dependencies = [
+ "acp_rs_plugin",
+]
+
+[[package]]
+name = "acp_red_star_service_youtube"
+version = "3.55.0"
 dependencies = [
  "acp_rs_plugin",
 ]

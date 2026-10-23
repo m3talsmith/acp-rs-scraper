@@ -1,3 +1,9 @@
+acp-red-star (3.55.0) unstable; urgency=medium
+
+  * Package 3.55.0. The YouTube service is prepared and gated. Nothing is fetched and yt-dlp is not spawned.
+
+ -- m3talsmith <m3talsmith@gmail.com>  Thu, 22 Oct 2026 13:20:00 +0000
+
 acp-red-star (3.54.0) unstable; urgency=medium
 
   * Package 3.54.0. The X service is prepared and gated. Nothing is fetched.

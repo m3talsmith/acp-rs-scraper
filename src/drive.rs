@@ -280,10 +280,10 @@ mod tests {
     }
 
     #[test]
-    fn linked_x_keeps_reads_gated() {
+    fn linked_x_and_youtube_keep_reads_gated() {
         let reg = crate::service::Registry::builtins();
         let ids: Vec<_> = reg.services().iter().map(|service| service.id()).collect();
-        assert_eq!(ids, ["x"]);
+        assert_eq!(ids, ["x", "youtube"]);
         let on = acp_rs_plugin::RuntimeCtx::ready();
         for service in reg.services() {
             assert_ne!(service.id(), "redstar");

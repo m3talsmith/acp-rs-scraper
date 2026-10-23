@@ -371,6 +371,9 @@ pub struct Args {
     /// Prepared read of one X handle. Does not connect. Nothing is fetched.
     #[arg(long, value_name = "HANDLE", exclusive = true, help_heading = "Services")]
     pub x_read: Option<String>,
+    /// Prepared read of one YouTube channel or video. Does not connect and does not spawn yt-dlp. Nothing is fetched.
+    #[arg(long, value_name = "TARGET", exclusive = true, help_heading = "Services")]
+    pub youtube_read: Option<String>,
     /// List the themes in ~/.acp/themes (● marks the one in use; broken files say why) and exit.
     #[arg(long, help_heading = "Interface")]
     pub list_themes: bool,
