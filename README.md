@@ -2,7 +2,7 @@
 
 ![Red Star Banner](./assets/redstar-banner.png)
 
-Red Star is a researched focused application first; decentralized social network platform second.
+Red Star is a research focused application first; decentralized social network platform second.
 
 ## Development
 
