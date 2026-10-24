@@ -1,0 +1,14 @@
+[package]
+name = "redstar"
+version = "0.1.0"
+edition = "2024"
+repository = "https://github.com/m3talsmith/redstar"
+license = "GPL-3.0-or-later"
+authors = ["m3talsmith <m3talsmith@gmail.com>"]
+description = "A research focused social network"
+
+[dependencies]
+
+[lib]
+name = "redstar"
+path = "src/lib.rs"
